@@ -1,0 +1,62 @@
+name: Validar Base de Conocimiento
+
+on:
+  pull_request:
+    branches: [main, master, develop]
+    paths:
+      - "docs/**"
+      - "AGENTS.md"
+      - "CONTRIBUTING.md"
+
+jobs:
+  validar-kb-cambios:
+    name: Validar KB (bloqueante en cambios actuales)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias
+        run: |
+          pip install pyyaml
+          npm install -g markdownlint-cli
+
+      - name: Pipeline de validacion KB (comando unico)
+        run: python docs/00-meta/scripts/validar_pipeline_kb.py --solo-cambios --base-ref origin/${{ github.base_ref }} --check-indices-clean
+
+  validar-kb-legacy:
+    name: Validar KB legado (informativo)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias
+        run: pip install pyyaml
+
+      - name: Reportar deuda legacy (no bloqueante)
+        run: |
+          set +e
+          python docs/00-meta/scripts/validar_kb.py --validar
+          status=$?
+          if [ $status -ne 0 ]; then
+            echo "::warning::Se detectaron incumplimientos en documentación legacy. Job informativo: no bloquea el PR."
+          else
+            echo "Sin deuda legacy en validación estricta."
+          fi
+          exit 0
+

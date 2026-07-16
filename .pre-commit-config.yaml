@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: validar-pipeline-kb
+        name: "KB: Validacion completa (validar + indices + markdownlint)"
+        entry: python docs/00-meta/scripts/validar_pipeline_kb.py --check-indices-clean
+        language: system
+        pass_filenames: false
+        files: ^(docs/|AGENTS\.md|CONTRIBUTING\.md|README\.md|\.github/copilot-instructions\.md)

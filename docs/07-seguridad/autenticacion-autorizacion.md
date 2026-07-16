@@ -12,9 +12,10 @@ actualizado_en: "2026-06-30"
 
 ## Decision de producto (MVP y fases)
 
-1. MVP: login principal con Google (OAuth 2.0 + OpenID Connect).
-2. Fase futura: Passkeys (WebAuthn/FIDO2) como opcion adicional de bajo esfuerzo para el usuario.
-3. Durante MVP se recomienda un acceso de baja friccion y sin gestion manual de password local cuando sea viable.
+1. MVP: login principal con Google (OAuth 2.0 + OpenID Connect) como proveedor de identidad de menor friccion.
+2. El modelo debe permitir incorporar otros proveedores sociales compatibles con OIDC/OAuth 2.0 si el negocio lo requiere.
+3. Fase futura: Passkeys (WebAuthn/FIDO2) como opcion adicional de bajo esfuerzo para el usuario.
+4. Durante MVP no se exige password local al usuario final Antonio.
 
 ## Modelo de autenticacion
 
@@ -40,8 +41,7 @@ sequenceDiagram
     Cliente->>API: Request + Authorization: Bearer {access_token}
     API->>API: Validar JWT (firma + expiración)
     API-->>Cliente: Response
-```
-
+```http
 **Renovación**: usar `refresh_token` para obtener nuevo `access_token` sin re-login.
 
 ## Trazabilidad obligatoria del embudo de login
@@ -96,13 +96,16 @@ Los servicios internos se autentican con **API Keys** o **tokens de servicio**:
 
 Todos los endpoints deben devolver:
 
+<<<<<<< HEAD
 ```text
+=======
+```http
+>>>>>>> 859b99ae24fe754f5abc65d81c06959bf3a1d646
 Strict-Transport-Security: max-age=31536000; includeSubDomains
 X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 Content-Security-Policy: default-src 'self'
-```
-
+```http
 ---
 
 ## Sesiones y cookies

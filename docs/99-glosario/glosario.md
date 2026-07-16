@@ -19,12 +19,28 @@
 
 ## Términos del dominio
 
+### PaymentTransaction / Transacción de pago
+
+Registro de un intento de pago en el sistema. Tiene un ciclo de vida desde `pendiente`
+hasta `capturada`, `fallida` o `cancelada`.
+
+**No confundir con**: `Pedido` (que pertenece al módulo sales-api), `Factura` (módulo billing).
+
+---
+
+### PSP (Payment Service Provider)
+
+Proveedor externo que procesa los pagos (Stripe, Redsys, PayPal).
+El sistema soporta múltiples PSPs via el patrón Adapter.
+
+---
+
 ### Épica
 
 Conjunto de historias de usuario que comparten un objetivo de negocio común.
 En la KB, cada épica tiene su propia carpeta en `docs/09-desarrollos/epicas/`.
 
-**Referencia de tickets**: campo `tickets` en el frontmatter.
+**Referencia de tickets**: bloque `tickets.*` en el frontmatter.
 
 ---
 
@@ -66,6 +82,6 @@ Ver `../08-procesos/definition-of-done.md`.
 | Término a evitar | Usar en su lugar | Motivo |
 |-----------------|-----------------|--------|
 | "cobro" | "captura" | Ambiguo: puede referirse a autorización o a captura |
-| "servicio externo" | "proveedor externo" | Termino informal que conviene unificar |
-| "procesar" | "validar" o "completar" | Ambiguo en que fase del ciclo de vida |
+| "pasarela" | "PSP" | Término técnico informal |
+| "procesar pago" | "autorizar" o "capturar" | Ambiguo en qué fase del ciclo de vida |
 | "ticket" | "historia" o "épica" | Dentro del contexto de la KB para evitar confusión con tickets de soporte |

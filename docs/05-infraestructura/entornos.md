@@ -1,7 +1,7 @@
 ﻿---
 bloque: 05-infraestructura
 documento: entornos
-actualizado_en: ""
+actualizado_en: "2026-07-13"
 ---
 
 # Entornos
@@ -13,8 +13,8 @@ actualizado_en: ""
 | Entorno | Propósito | Rama | URL | Deploy |
 |---------|-----------|------|-----|--------|
 | **development** | Desarrollo local | cualquier rama | `localhost` | manual |
-| **staging** | QA y validación pre-release | `main` / `release/*` | TODO | automático |
-| **production** | Usuarios reales | `main` (tags) | TODO | manual con aprobación |
+| **staging** | QA y validación pre-release | `develop` | TODO | automático |
+| **production** | Usuarios reales | `main` (solo merges desde `develop`) | TODO | manual con aprobación |
 
 ---
 
@@ -41,7 +41,7 @@ Nunca commitear el `.env` real.
 
 **Acceso**: TODO (VPN / IP allowlist / autenticación)
 
-**Deploy**: automático al mergear a `main`. Ver pipeline en `ci-cd.md`.
+**Deploy**: automático al mergear a `develop`. Ver pipeline en `ci-cd.md`.
 
 **Base de datos**: copia anonimizada de producción, renovada TODO (diariamente / semanalmente).
 

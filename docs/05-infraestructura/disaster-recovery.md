@@ -14,7 +14,7 @@ actualizado_en: ""
 |---------|----------------------------------|----------------------------------|
 | API principal | 1 hora | 15 minutos |
 | Base de datos | 4 horas | 5 minutos |
-| Servicio o módulo crítico | 30 minutos | 0 (sin pérdida) |
+| Módulo de Payments | 30 minutos | 0 (sin pérdida) |
 
 ---
 
@@ -63,4 +63,3 @@ actualizado_en: ""
 
 Los procedimientos de DR se prueban **TODO** (trimestralmente / semestralmente).
 El resultado se documenta en `../../05-infraestructura/runbooks/`.
-Si se necesita un procedimiento nuevo, crear el runbook desde `../00-meta/plantillas/runbook.md` antes de operarlo.

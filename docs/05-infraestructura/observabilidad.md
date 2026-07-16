@@ -37,12 +37,12 @@ actualizado_en: "2026-06-30"
 | Tasa de abandono login | <= 15% | Rolling 7 dias |
 | Tiempo medio de login exitoso | <= 45s | Rolling 7 dias |
 
-### Servicio o módulo crítico (ejemplo)
+### Módulo de Payments
 
 | SLI | SLO | Ventana de medición |
 |-----|-----|---------------------|
 | Disponibilidad | 99.95% | Rolling 30 días |
-| Latencia P99 de la operación crítica | < 2s | Rolling 7 días |
+| Latencia P99 pago | < 2s | Rolling 7 días |
 
 ---
 
@@ -53,7 +53,7 @@ actualizado_en: "2026-06-30"
 | `HighErrorRate` | Tasa 5xx > 1% durante 5min | 🔴 crítica | PagerDuty | TODO |
 | `HighLatency` | P95 > 500ms durante 10min | 🟡 warning | Slack | TODO |
 | `ServiceDown` | Health check falla > 1min | 🔴 crítica | PagerDuty | TODO |
-| `CriticalFlowFailureSpike` | Tasa de fallo del flujo crítico > 5% | 🔴 crítica | PagerDuty | TODO |
+| `PaymentFailureSpike` | Tasa de fallo de pagos > 5% | 🔴 crítica | PagerDuty | TODO |
 | `LoginAbandonmentSpike` | Abandono login > 25% durante 30min | 🟠 alta | Slack + on-call | TODO |
 | `LoginSuccessDrop` | Conversion login < 70% durante 30min | 🟠 alta | Slack + on-call | TODO |
 
@@ -64,7 +64,7 @@ actualizado_en: "2026-06-30"
 | Dashboard | URL | Audiencia |
 |-----------|-----|-----------|
 | Overview del sistema | TODO | Todos |
-| Servicio o módulo crítico | TODO | Equipo owner |
+| Payments | TODO | Equipo de pagos |
 | Infraestructura | TODO | DevOps / SRE |
 | Autenticacion | TODO | Producto + Ingenieria |
 
@@ -103,7 +103,7 @@ Todo log de producción debe incluir:
 {
   "timestamp": "2025-06-01T10:00:00.000Z",
   "level": "info",
-  "service": "core-service",
+  "service": "payment-service",
   "trace_id": "uuid",
   "span_id": "uuid",
   "message": "Descripción",

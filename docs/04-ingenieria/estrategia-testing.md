@@ -1,7 +1,7 @@
 ﻿---
 bloque: 04-ingenieria
 documento: estrategia-testing
-actualizado_en: ""
+actualizado_en: "2026-07-14"
 ---
 
 # Estrategia de Testing
@@ -13,11 +13,11 @@ actualizado_en: ""
 ```text
         /\
        /  \
-      / E2E \          <- Pocos, lentos, cobertura de flujos críticos
+      / E2E \          ← Pocos, lentos, cobertura de flujos críticos
      /--------\
-    / Integration \    <- Tests de integración entre capas
+    / Integration \    ← Tests de integración entre capas
    /--------------\
-  /   Unit Tests   \   <- Muchos, rápidos, cobertura de lógica de dominio
+  /   Unit Tests   \   ← Muchos, rápidos, cobertura de lógica de dominio
  /------------------\
 ```
 
@@ -28,14 +28,14 @@ actualizado_en: ""
 | Nivel | Qué testea | Cobertura mínima | Velocidad |
 |-------|-----------|-----------------|-----------|
 | **Unitario** | Lógica de dominio, use cases en aislamiento | 80% de la capa de dominio | < 1s por test |
-| **Integracion** | Interacción entre capas (API -> DB, API -> proveedor externo) | Flujos principales | < 10s por test |
+| **Integración** | Interacción entre capas (API → DB, API → PSP) | Flujos principales | < 10s por test |
 | **E2E** | Flujos completos desde el cliente | Flujos críticos de negocio | < 60s por test |
 
 ---
 
 ## Convenciones de naming de tests
 
-```text
+```javascript
 describe('{ClaseOFunción}', () => {
   describe('{método o escenario}', () => {
     it('debería {comportamiento esperado} cuando {condición}', () => { ... })
@@ -45,8 +45,8 @@ describe('{ClaseOFunción}', () => {
 
 Ejemplo:
 
-```text
-describe('DomainEntity', () => {
+```javascript
+describe('PaymentTransaction', () => {
   describe('refund()', () => {
     it('debería lanzar error cuando el estado no es capturada', () => { ... })
     it('debería lanzar error cuando el importe supera el original', () => { ... })

@@ -25,10 +25,10 @@ actualizado_en: ""
 | Elemento | ConvenciÃ³n | Ejemplo |
 |----------|-----------|---------|
 | Variables y funciones | camelCase | `getUserById` |
-| Clases e interfaces | PascalCase | `DomainEntity` |
+| Clases e interfaces | PascalCase | `PaymentTransaction` |
 | Constantes | SCREAMING_SNAKE_CASE | `MAX_RETRY_ATTEMPTS` |
-| Archivos | kebab-case | `domain-entity.service.ts` |
-| Tablas de DB | snake_case plural | `domain_entities` |
+| Archivos | kebab-case | `payment-transaction.service.ts` |
+| Tablas de DB | snake_case plural | `payment_transactions` |
 
 ---
 
@@ -47,13 +47,12 @@ actualizado_en: ""
 
 ```text
 src/
-â”œâ”€â”€ {modulo}/
-â”‚   â”œâ”€â”€ domain/           # Entidades, value objects, reglas
-â”‚   â”œâ”€â”€ application/      # Casos de uso, comandos, queries
-â”‚   â”œâ”€â”€ infrastructure/   # Adaptadores, repositorios, migraciones
-â”‚   â””â”€â”€ interfaces/       # Controllers, DTOs, mappers
-```
-
+├── {modulo}/
+│   ├── domain/           # Entidades, value objects, reglas
+│   ├── application/      # Casos de uso, comandos, queries
+│   ├── infrastructure/   # Adaptadores, repositorios, migraciones
+│   └── interfaces/       # Controllers, DTOs, mappers
+```text
 ---
 
 ## Manejo de errores

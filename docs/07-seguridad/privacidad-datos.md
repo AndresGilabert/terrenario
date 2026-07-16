@@ -58,6 +58,16 @@ actualizado_en: "2026-06-30"
 | **Datos de comportamiento** | Logs de uso, historial | Minimizacion, pseudonimizacion y/o anonimizacion segun finalidad |
 | **Datos públicos** | IDs, referencias | Sin restricciones especiales |
 
+## Reglas especificas para autenticacion social
+
+Cuando se use un proveedor externo de identidad (por ejemplo Google):
+
+1. Solo se recogeran los datos estrictamente necesarios para crear y mantener la cuenta.
+2. Se documentara el origen de los datos y la base juridica del tratamiento.
+3. Los tokens y credenciales del proveedor no se almacenaran en claro en logs, URLs ni mensajes de error.
+4. Si el proveedor entrega atributos adicionales no necesarios, se descartaran por defecto.
+5. Cualquier ampliacion a otros proveedores debera revisarse antes de activarse para confirmar cumplimiento RGPD + LOPDGDD.
+
 ---
 
 ## Principios GDPR aplicados
@@ -91,7 +101,7 @@ Si no existe base juridica valida, el tratamiento queda prohibido.
 |-------------|-----------|------------------|
 | Datos de cuenta activa | Duración de la cuenta | — |
 | Datos de cuenta cancelada | 24 meses tras cancelación | Anonimización / borrado |
-| Logs de transacciones criticas | 5 anos (si existe obligacion legal aplicable al caso) | Archivado seguro |
+| Logs de transacciones de pago | 5 años (si existe obligacion legal aplicable al caso) | Archivado seguro |
 | Logs de acceso / auditoría | 12 meses | Borrado |
 | Datos de comportamiento | 6 meses | Anonimización |
 
@@ -129,7 +139,7 @@ Plazo de referencia operativo para respuesta a derechos: 1 mes (prorrogable en c
 
 - No loguear PII en logs de aplicación o errores
 - No incluir PII en URLs (query params o paths)
-- No almacenar credenciales sensibles en claro; usar tokenizacion o vault del proveedor correspondiente
+- No almacenar datos de tarjeta — usar tokens del PSP (Stripe token / vault)
 - No enviar PII en mensajes de error devueltos al cliente
 - No incluir PII en los tests (usar datos sintéticos)
 

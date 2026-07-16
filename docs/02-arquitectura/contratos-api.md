@@ -32,13 +32,13 @@ actualizado_en: ""
 ### REST
 
 - Versionado en la URL: `/api/v1/...`
-- Recursos en plural y kebab-case: `/domain-entities`
+- Recursos en plural y kebab-case: `/payment-transactions`
 - Respuestas de error: siempre JSON con `{ "error": { "code": "", "message": "" } }`
 - Paginación: `?page=1&limit=20` con respuesta `{ "data": [], "meta": { "total": 0 } }`
 
 ### Eventos (mensajería asíncrona)
 
-- Naming de eventos: `{dominio}.{entidad}.{accion}` -> ej: `core.entity.created`
+- Naming de eventos: `{dominio}.{entidad}.{acción}` → ej: `payments.transaction.created`
 - Payload: siempre incluir `id`, `timestamp`, `version`, `data`
 - Ver eventos por módulo en `../03-modulos/{modulo}/eventos.md`
 

@@ -1,7 +1,7 @@
 ﻿---
 bloque: 08-procesos
 documento: proceso-release
-actualizado_en: ""
+actualizado_en: "2026-07-13"
 ---
 
 # Proceso de Release
@@ -29,10 +29,11 @@ flowchart LR
     dev["Desarrollo en\nfeature branches"] --> develop["Merge a develop"]
     develop --> staging["Deploy automático\na Staging"]
     staging --> qa["QA + smoke tests"]
-    qa --> main["Promoción a main"]
+    qa --> pr["PR revisado develop → main"]
+    pr --> approval["Revisión\nmanual"]
+    approval --> main["Merge a main"]
     main --> tag["Tag semántico\ngit tag v2.1.0"]
-    tag --> approval["Aprobación\nmanual"]
-    approval --> prod["Deploy a\nProducción"]
+    tag --> prod["Deploy a\nProducción"]
     prod --> verify["Verificación\npost-deploy"]
 ```
 
@@ -53,18 +54,17 @@ flowchart LR
 ## Procedimiento de release
 
 ```bash
-# 1. Asegurarse de que develop contiene el conjunto validado
+# 1. Asegurarse de estar en develop y actualizado
 git checkout develop && git pull
 
-# 2. Promover develop a main
-git checkout main && git pull
-git merge --ff-only develop
+# 2. Crear el PR revisado desde develop hacia main
 
-# 3. Crear el tag
+# 3. Hacer el merge a main solo si develop ya está validado
+
+# 4. Tras el merge a main, crear el tag de release
 git tag -a v2.1.0 -m "Release v2.1.0 — [descripción breve]"
 
-# 4. Push de main y del tag (activa el pipeline de producción)
-git push origin main
+# 5. Push del tag (activa el pipeline de producción)
 git push origin v2.1.0
 ```
 
@@ -75,7 +75,7 @@ git push origin v2.1.0
 Si los smoke tests de producción fallan tras el deploy:
 
 1. El pipeline hace rollback automático al deployment anterior
-2. Si el rollback automático falla: usar un runbook real de `../05-infraestructura/runbooks/` o crear el procedimiento desde `../00-meta/plantillas/runbook.md`
+2. Si el rollback automático falla: usar el runbook `../05-infraestructura/runbooks/`
 3. Notificar en `#incidents` con severidad apropiada
 
 ---
@@ -85,11 +85,10 @@ Si los smoke tests de producción fallan tras el deploy:
 Para bugs críticos en producción que no pueden esperar al próximo release:
 
 ```text
-main → hotfix/PROJ-XXX--descripcion → main → tag v2.1.1
-                           └──────→ back-merge a develop
+main → hotfix/PROJ-XXX--descripcion → develop → main → tag v2.1.1
 ```
 
-El hotfix sigue el mismo proceso de PR, pero la aprobación externa solo será obligatoria si el equipo la exige explícitamente.
+El hotfix sigue el mismo proceso de PR y aprobación, pero con prioridad máxima.
 
 ---
 

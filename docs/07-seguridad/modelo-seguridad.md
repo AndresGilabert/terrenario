@@ -62,7 +62,7 @@ Regla de aplicacion:
 
 | Tipo de secreto | Dónde se almacena | Rotación |
 |----------------|-------------------|---------|
-| API Keys de proveedores externos | TODO (Secrets Manager) | Cada 90 dias |
+| API Keys de PSPs | TODO (Secrets Manager) | Cada 90 días |
 | Credenciales de DB | TODO (Secrets Manager) | Cada 90 días |
 | JWT signing keys | TODO | Cada 30 días |
 | Webhook secrets | TODO (Secrets Manager) | En caso de compromiso |

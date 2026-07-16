@@ -48,7 +48,7 @@ erDiagram
 
 | Convención | Descripción |
 |-----------|-------------|
-| Naming de tablas | snake_case, plural (ej: `domain_entities`) |
+| Naming de tablas | snake_case, plural (ej: `payment_transactions`) |
 | Primary keys | UUID v4 por defecto |
 | Timestamps | `creado_en`, `actualizado_en` en todas las tablas |
 | Soft deletes | Campo `eliminado_en` nullable (si aplica) |

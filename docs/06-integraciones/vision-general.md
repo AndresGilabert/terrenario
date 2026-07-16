@@ -11,8 +11,6 @@ actualizado_en: ""
 >
 > Las integraciones específicas de un módulo también se documentan en
 > `../03-modulos/{modulo}/integraciones.md`.
-> Esta plantilla no incluye integraciones reales del proyecto.
-> Crea la primera integración real usando las plantillas de `../00-meta/plantillas/` y actualiza este documento.
 
 ---
 
@@ -20,9 +18,10 @@ actualizado_en: ""
 
 ```mermaid
 flowchart LR
-    sistema["Nuestro Sistema"] -->|"TODO"| externo_a["Sistema Externo A"]
-    sistema -->|"TODO"| externo_b["Sistema Externo B"]
-    sistema -->|"TODO"| externo_c["Sistema Externo C"]
+    sistema["Nuestro Sistema"] -->|"pagos"| stripe["Stripe (PSP)"]
+    sistema -->|"tickets soporte"| zendesk["Zendesk"]
+    sistema -->|"emails"| sendgrid["SendGrid"]
+    sistema -->|"TODO"| otro["Otro sistema"]
 ```
 
 ---
@@ -31,6 +30,7 @@ flowchart LR
 
 | Sistema | Propósito | Módulo owner | Estado | Ruta |
 |---------|-----------|-------------|--------|------|
+| `stripe` | Procesamiento de pagos | payments | activo | [stripe/](./stripe/especificacion.md) |
 | _(añadir integraciones)_ | | | | |
 
 ---
@@ -39,7 +39,7 @@ flowchart LR
 
 > Antes de añadir una nueva integración externa:
 >
-> 1. Crear su documentación en esta carpeta usando `../00-meta/plantillas/integracion-especificacion.md` y `../00-meta/plantillas/integracion-gestion-errores.md`
+> 1. Crear su documentación en esta carpeta (ver plantillas en `../00-meta/plantillas/`)
 > 2. Actualizar este documento con la nueva integración
 > 3. Verificar que cumple `../07-seguridad/modelo-seguridad.md`
 > 4. Documentar el manejo de errores y el plan de fallback

@@ -1,7 +1,7 @@
 ﻿---
 bloque: 05-infraestructura
 documento: ci-cd
-actualizado_en: ""
+actualizado_en: "2026-07-13"
 ---
 
 # Pipeline de CI/CD
@@ -18,7 +18,7 @@ flowchart LR
         tests_unit --> tests_int[Tests integración]
         tests_int --> kb_val[Validación KB]
     end
-    CI --> MERGE[Merge a main]
+    CI --> MERGE[Merge a develop]
     MERGE --> CD_STG
     subgraph CD_STG["CD — Deploy a Staging"]
         build_stg[Build imagen] --> deploy_stg[Deploy staging]
@@ -49,7 +49,7 @@ flowchart LR
 
 ### CD — Staging
 
-Trigger: merge a `main`
+Trigger: merge a `develop`
 
 1. Build de imagen Docker con tag del commit SHA
 2. Push a registry
@@ -58,13 +58,14 @@ Trigger: merge a `main`
 
 ### CD — Producción
 
-Trigger: tag semántico `v*.*.*` en `main`
+Trigger: PR aprobado de `develop` a `main`
 
-1. Aprobación manual requerida (TODO: quién)
-2. Build de imagen con tag de release
-3. Deploy a producción con canary / blue-green (TODO)
-4. Smoke tests
-5. Rollback automático si los smoke tests fallan
+1. Revisión manual requerida (puede ser auto-revisión si no hay otro revisor disponible)
+2. Merge de `develop` a `main`
+3. Build de imagen con tag de release
+4. Deploy a producción con canary / blue-green (TODO)
+5. Smoke tests
+6. Rollback automático si los smoke tests fallan
 
 ---
 

@@ -1,7 +1,7 @@
 ﻿---
 bloque: 01-producto
 documento: definicion-requisitos-usuario
-actualizado_en: "2026-07-16"
+actualizado_en: "2026-07-18"
 ---
 
 # Definición de requisitos de usuario
@@ -114,7 +114,7 @@ El usuario debe poder registrar cosechas con:
 - litros de aceite cuando aplique
 - rendimiento
 - destino
-- coste o balance si se quiere conservar el dato histórico del libro
+- coste manual operativo (sin modelo de balance en MVP)
 
 ### RU-04 - Registrar trabajos del día
 
@@ -125,7 +125,7 @@ El usuario debe poder registrar actividades con:
 - trabajador o responsable
 - tarea
 - horas
-- importe o coste calculado
+- coste manual editable
 
 ### RU-05 - Usar un catálogo de tareas
 
@@ -319,7 +319,7 @@ Requisitos del bloque:
 - Mostrar un gráfico de kilos por terreno ordenado de mayor a menor, con los terrenos visibles en la temporada seleccionada.
 - Mostrar un gráfico de rendimiento ponderado por terreno para comparar explotaciones dentro de la misma temporada.
 - Mostrar un gráfico de litros de aceite por árbol y terreno cuando exista dato suficiente para el cálculo.
-- Mantener la taxonomía de destino compatible con la hoja actual y con la captura, incluyendo la categoría sin destino cuando proceda.
+- Mantener la taxonomia de destino compatible con la hoja actual y con la captura, usando canon `desconocido` (alias visual permitido: "Sin destino") cuando proceda.
 - Mostrar el dato de kg por árbol solo cuando el terreno tenga número de olivos informado; en caso contrario, excluirlo del cálculo agregado y señalar dato incompleto.
 - Permitir que la tabla de detalle y los gráficos respondan al mismo contexto de filtros para que el usuario pueda cruzar resumen, detalle y evolución sin cambiar de pantalla.
 
@@ -345,7 +345,7 @@ Requisitos del bloque:
 ## Gaps a resolver en la siguiente iteración de requisitos
 
 1. Decidir si `TREBALLADORS` se modela como entidad formal o como texto libre con autocompletado.
-2. Formalizar si `importe` del diario es editable o siempre calculado.
+2. Definir regla de sugerencia de coste por tarifa_hora sin romper el principio de coste manual obligatorio por registro.
 3. Definir el modelo exacto de `balance` en producción.
 4. Formalizar si `molturación €/Kg` es un dato de entrada, un cálculo o un dato histórico heredado.
 5. Definir si el filtro por propietario es un filtro funcional del dashboard o solo un atributo de consulta interna.
@@ -365,7 +365,7 @@ Requisitos del bloque:
 | HU-01 | Gestionar terrenos | Antonio | Puede crear, editar y consultar terrenos con propietario, alias, referencia catastral y número de olivos. |
 | HU-02 | Definir temporadas | Antonio | Puede registrar temporadas con fechas de inicio y fin para filtrar datos y comparar histórico. |
 | HU-03 | Registrar cosechas | Antonio | Puede registrar producción por terreno, fecha, producto, kilos, litros, rendimiento y destino. |
-| HU-04 | Registrar trabajos diarios | Antonio / responsable | Puede registrar tareas por día con terreno, trabajador, horas e importe o coste calculado. |
+| HU-04 | Registrar trabajos diarios | Antonio / responsable | Puede registrar tareas por dia con terreno, trabajador, horas y coste manual editable. |
 | HU-05 | Consultar dashboard base | Antonio | Puede ver resumen de temporada, kg por destino, kg por terreno y evolución de rendimiento. |
 
 ### Prioridad P1 - Consistencia y reutilización de datos
@@ -392,7 +392,7 @@ Requisitos del bloque:
 
 | ID | Historia | Usuario | Resultado esperado |
 |----|----------|---------|-------------------|
-| HU-16 | Normalizar categorías de destino | Antonio | La app permite clasificar destinos con una taxonomía clara, incluyendo "Sin destino", aceite, venta y aceite personal. |
+| HU-16 | Normalizar categorias de destino | Antonio | La app permite clasificar destinos con taxonomia fija: `venta_aceituna`, `aceite_para_venta`, `aceite_personal` y `desconocido` (alias UI: "Sin destino"). |
 | HU-17 | Definir balance y molturación | Antonio | La app conserva o calcula campos heredados del Sheet como balance y molturación €/kg cuando aplique. |
 
 ---
@@ -422,18 +422,18 @@ En esta etapa solo se mantienen como referencias provisionales de validación, p
 - **RU-14: Captura offline permitida con sincronización diferida**
   - Los usuarios pueden registrar actividades/cosechas sin conexión.
   - Los registros se sincronizan automáticamente al recuperar cobertura.
-  - Estado: MVP
+  - Estado: Backlog post-MVP
 
 - **RU-15: Edición limitada en modo offline**
   - En offline solo se pueden crear nuevos registros.
   - Solo se pueden editar registros aún no sincronizados.
   - Registros ya sincronizados son de solo lectura en offline.
-  - Estado: MVP
+  - Estado: Backlog post-MVP
 
 - **RU-16: Estrategia híbrida de reintento y cola de errores**
   - La app intenta resincronizar automáticamente registros con error.
   - Si persiste el error, el registro pasa a cola visible para que Antonio revise y corrija.
-  - Estado: MVP
+  - Estado: Backlog post-MVP
 
 ### Autenticación y acceso
 
@@ -467,7 +467,7 @@ En esta etapa solo se mantienen como referencias provisionales de validación, p
   - Estado: MVP
 
 - **RU-22: Borrado lógico de registros sincronizados**
-  - Se permite borrar registros ya sincronizados (cosechas, actividades, compras).
+  - Se permite borrar registros ya guardados en sistema (cosechas, actividades, compras).
   - El impacto en KPIs se refleja en el siguiente refresco del dashboard.
   - Estado: MVP
 
@@ -489,19 +489,19 @@ En esta etapa solo se mantienen como referencias provisionales de validación, p
   - La compra solo define precio unitario para cálculos futuros.
   - Estado: MVP
 
-- **RU-26: Coste de aplicación calculado desde última compra**
-  - En el registro de trabajo se informa la cantidad aplicada aproximada del producto.
-  - El coste se calcula: cantidad aplicada × precio unitario (de la última compra del producto).
+- **RU-26: Coste manual obligatorio en registro operativo**
+  - En el registro de trabajo se informa el coste manual total.
+  - No se realiza cálculo automático de coste en MVP.
   - Estado: MVP
 
-- **RU-27: Coste a 0 si falta precio de compra**
-  - Si no existe ninguna compra previa del producto, se permite guardar el registro con coste 0.
-  - Se marca para avisar al usuario sin perder tiempo técnico registrando.
+- **RU-27: Compras con trazabilidad sin recálculo de costes**
+  - Las compras se registran para trazabilidad operativa (producto, cantidad, coste total).
+  - Registrar una compra no recalcula costes históricos de actividades ya guardadas.
   - Estado: MVP
 
-- **RU-28: Sin recálculo retroactivo de costes históricos**
-  - Cuando se registra una nueva compra con precio, NO se recalculan costes históricos que quedaron a 0.
-  - Esto evita "bailes de datos" que generen desconfianza.
+- **RU-28: Regla de consistencia de costes históricos**
+  - Los costes históricos permanecen como fueron registrados manualmente.
+  - Se evita modificación automática posterior para mantener confianza en el dato.
   - Estado: MVP
 
 ### Gestión de trabajadores
@@ -606,7 +606,7 @@ En esta etapa solo se mantienen como referencias provisionales de validación, p
 ### Catálogos y taxonomías
 
 - **RU-47: Catálogo fijo de destinos**
-  - Las categorías de destino (aceite, venta, aceite personal, sin destino) se mantienen como catálogo fijo.
+  - Las categorías de destino (`venta_aceituna`, `aceite_para_venta`, `aceite_personal`, `desconocido`) se mantienen como catálogo fijo.
   - No se permite renombrar o crear nuevas categorías en MVP.
   - Estado: MVP
 
@@ -623,8 +623,8 @@ En esta etapa solo se mantienen como referencias provisionales de validación, p
 
 Los requisitos RU-14 a RU-47 impactan principalmente en:
 
-1. **Modelo de datos**: Agregar campos de metadatos (última edición, estado de sincronización, etc.).
-2. **Sincronización**: Implementar cola de cambios local, reintento con backoff, registro de errores.
+1. **Modelo de datos**: Agregar campos de metadatos (última edición y trazabilidad operativa).
+2. **Sincronización (post-MVP)**: Definir cola de cambios local, reintento con backoff y registro de errores para fases posteriores.
 3. **Autenticación**: Confirmar sesión requerida en toda operación.
 4. **Validación**: Alerta de duplicados sin bloqueo, campos obligatorios en alta.
 5. **Dashboard**: Filtrado siempre por una sola campaña, recálculo periódico no real-time.

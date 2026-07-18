@@ -4,14 +4,13 @@ documento: modelo-de-datos
 actualizado_en: "2026-07-17"
 ---
 
-# Modelo de Datos Global — Terrenario MVP
+# Modelo de Datos Global - Terrenario MVP
 
-> Este documento describe las entidades y relaciones del modelo de datos compartido.
-> El modelo de datos específico de cada módulo está en `../03-modulos/{modulo}/modelo-datos.md`.
+> Modelo de datos canonico para MVP online-first, alineado con ADR-0001..ADR-0006 y acuerdos de sesion.
 
 ---
 
-## Diagrama entidad-relación
+## Diagrama entidad-relacion
 
 ```mermaid
 erDiagram
@@ -21,6 +20,7 @@ erDiagram
         string nombre
         string email
         timestamp creado_en
+        timestamp actualizado_en
         boolean activo
     }
 
@@ -32,20 +32,21 @@ erDiagram
         timestamp actualizado_en
     }
 
-    TRABAJO_USUARIO_WORKSPACE {
+    USUARIO_WORKSPACE {
         uuid id PK
         uuid workspace_id FK
         uuid usuario_id FK
-        boolean en_curso
+        string rol
+        boolean activo
         timestamp unido_en
     }
 
     TRABAJADOR {
         uuid id PK
         uuid workspace_id FK
+        uuid cuenta_usuario_id FK
         string nombre
         boolean activo
-        uuid cuenta_usuario_id FK
         decimal tarifa_hora
         timestamp creado_en
         timestamp actualizado_en
@@ -59,8 +60,8 @@ erDiagram
         string tipo_propiedad
         string propietario
         string referencia_catastral
-        float latitud
-        float longitud
+        decimal latitud
+        decimal longitud
         integer num_arboles
         jsonb metadatos_suelo
         timestamp creado_en
@@ -71,41 +72,49 @@ erDiagram
         uuid id PK
         uuid workspace_id FK
         string nombre
-        fecha inicio
-        fecha fin
+        date inicio
+        date fin
         boolean esta_cerrada
+        string cultivo_activo
         timestamp creado_en
         timestamp actualizado_en
     }
 
-    Cosecha {
-        uuid idPK
+    COSECHA {
+        uuid id PK
         uuid workspace_id FK
         uuid terreno_id FK
         uuid temporada_id FK
-        uuid trabajo_id FK
+        date fecha
         string producto
-        decimal peso_bruto_kg
-        decimal rendimiento_pct -- null si no aplica (almendra, etc.)
-        decimal litros_obtenidos -- null si se calcula desde rendimiento
+        decimal kgs
+        decimal rendimiento
+        decimal litros
         string destino
-        timestamp creado_en
-        timestamp actualizado_en
+        uuid created_by FK
+        timestamp created_at
+        uuid updated_by FK
+        timestamp updated_at
+        bigint version
+        timestamp eliminado_en
     }
 
     ACTIVIDAD {
         uuid id PK
         uuid workspace_id FK
-        uuid trabajo_id FK
         uuid terreno_id FK
         uuid temporada_id FK
-        uuid responsable_id FK
-        fecha fecha_regstro
-        decimal horas_dedicadas -- puede ser 0
+        uuid trabajador_id FK
+        date fecha
+        decimal horas
         string tarea
-        decimal coste_total_manual
-        timestamp creado_en
-        timestamp actualizado_en
+        decimal coste_manual
+        uuid created_by FK
+        timestamp created_at
+        uuid updated_by FK
+        timestamp updated_at
+        bigint version
+        timestamp eliminado_en
     }
 
     COMPRA {
@@ -114,211 +123,114 @@ erDiagram
         string producto
         decimal cantidad_total
         decimal coste_total
-        decimal precio_unitario -- calculado auto
-        fecha fecha_compra
-        timestamp creado_en
-        timestamp actualizado_en
+        decimal precio_unitario
+        date fecha_compra
+        uuid created_by FK
+        timestamp created_at
+        uuid updated_by FK
+        timestamp updated_at
+        bigint version
+        timestamp eliminado_en
     }
-    
-    TRABAJO_CONSUMO {
-        work_id PK
+
+    CONSUMO_COMPRA {
+        uuid id PK
+        uuid workspace_id FK
         uuid compra_id FK
         uuid terreno_id FK
         decimal cantidad_consumida
         timestamp creado_en
     }
 
-    USUARIO ||--o{ TRABAJO_USUARIO_WORKSPACE : "pertenece a"
-    WORKSPACE ||--o{ TRABAJO_USUARIO_WORKSPACE : "tiene miembros"
-    WORKSPACE ||--o{ TRABAJADOR : "mantiene"
-    WORKSPACE ||--o{ TERRENO : "contiene"
-    WORKSPACE ||--o{ TEMPORADA : "define"
-    WORKSPACE ||--o{ Cosecha : "registra"
-    WORKSPACE ||--o{ ACTIVIDAD : "recopila"
-    WORKSPACE ||--o{ COMPRA : "contiene"
-    USUARIO ||--o| TRABAJO : "tiene cuenta vinculada"
-    TERRENO ||--o{ Cosecha : "produce"
-    TERRENO ||--o{ ACTIVIDAD : "recibe"
-    TERMINO ||--o{ TRABAJO_CONSUMO : "recibe consumo de"
-
+    USUARIO ||--o{ USUARIO_WORKSPACE : participa_en
+    WORKSPACE ||--o{ USUARIO_WORKSPACE : tiene_miembros
+    WORKSPACE ||--o{ TRABAJADOR : mantiene
+    WORKSPACE ||--o{ TERRENO : contiene
+    WORKSPACE ||--o{ TEMPORADA : define
+    WORKSPACE ||--o{ COSECHA : registra
+    WORKSPACE ||--o{ ACTIVIDAD : registra
+    WORKSPACE ||--o{ COMPRA : registra
+    WORKSPACE ||--o{ CONSUMO_COMPRA : registra
+    TERRENO ||--o{ COSECHA : produce
+    TERRENO ||--o{ ACTIVIDAD : recibe
+    TERRENO ||--o{ CONSUMO_COMPRA : consume
+    TEMPORADA ||--o{ COSECHA : agrupa
+    TEMPORADA ||--o{ ACTIVIDAD : agrupa
+    TRABAJADOR ||--o{ ACTIVIDAD : ejecuta
+    COMPRA ||--o{ CONSUMO_COMPRA : reparte
 ```
 
 ---
 
-## Entidades principales
-
-### USUARIO
-
-**Tabla**: `usuarios`
-**Módulo owner**: Auth
-
-| Campo | Tipo | Obligatorio | Descripción |
-|-------|------|------------|-------------|
-| `id` | UUID | Sí | Identificador único |
-| `google_sub` | string | Sí | Sub del token Google OIDC (identificador externo único) |
-| `nombre` | string | Sí | Nombre completo extraído de Google |
-| `email` | string | Sí | Email obtenido de Google (no editable por el usuario en MVP) |
-| `creado_en` | timestamp | Sí | Fecha de alta |
-| `activo` | boolean | Sí | Permite baja/anonimización sin afectar datos históricos — cumple RGPD/LOPDGDD |
-
-### WORKSPACE
-
-**Tabla**: `workspaces`
-
-| Campo | Tipo | Obligatorio | Descripción |
-|-------|------|------------|-------------|
-| `id` | UUID | Sí | Identificador único |
-| `owner_id` | UUID (FK → usuarios.id) | Sí | Propietario del Workspace; solo uno por Workspace |
-| `nombre` | string | Sí | Nombre descriptivo de la explotación (ej: "Explotación García") |
-| `creado_en` | timestamp | Sí | Fecha de creación |
-| `actualizado_en` | timestamp | Sí | Última actualización |
-
-### TRABAJO_USUARIO_WORKSPACE (pertenencia)
-
-**Tabla**: `usuarios_workspaces`
-
-| Campo | Tipo | Obligatorio | Descripción |
-|-------|------|------------|-------------|
-| `id` | UUID | Sí | Identificador único |
-| `workspace_id` | UUID (FK → workspaces.id) | Sí | Al que pertenece |
-| `usuario_id` | UUID (FK → usuarios.id) | Sí | Miembro |
-| `en_curso` | boolean | Sí | True hasta que el usuario acepte la invitación explícitamente |
-| `unido_en` | timestamp | Sí | Fecha de aceptación |
+## Entidades y reglas clave
 
 ### TRABAJADOR
 
-**Tabla**: `trabajadores`
-
-| Campo | Tipo | Obligatorio | Descripción |
-|-------|------|------------|-------------|
-| `id` | UUID | Sí | Identificador único |
-| `workspace_id` | UUID (FK → workspaces.id) | Sí | Workspace propietario |
-| `nombre` | string | Sí | Nombre completo visible en los registros de actividad |
-| `activo` | boolean | Sí | False no se borra, solo se oculta de selectores para trabajo nuevo |
-| `cuenta_usuario_id` | UUID (FK → usuarios.id) o null | No | Si el trabajador tiene cuenta propia vinculada |
-| `tarifa_hora` | decimal(10,2) | No | Tarifa por defecto solo relevante si tiene cuenta (para calculo automatico de coste) |
-| `creado_en` | timestamp | Sí | Fecha de creación del trabajador |
-| `actualizado_en` | timestamp | Sí | Última modificación |
-
-### TERRENO
-
-**Tabla**: `terrenos`
-
-| Campo | Tipo | Obligatorio | Descripción |
-|-------|------|------------|-------------|
-| `id` | UUID | Sí | Identificador único |
-| `workspace_id` | UUID (FK → workspaces.id) | Sí | Workspace propietario |
-| `nombre` | string | Sí | Nombre descriptivo del terreno |
-| `alias` | string | No | Alias corto para visualización rápida |
-| `tipo_propiedad` | enum | Sí | `'propietario_proyecto'`, `'cedido_inquilinato'`, `'usufructo'` o similar |
-| `propietario` | string | Necesario | Nombre del propietario real (campo informativo) |
-| `referencia_catastral` | string | No | Identificador catastral si existe |
-| `latitud` | decimal(10,7) | No | Latitud WGS84 |
-| `longitud` | decimal(10,7) | No | Longitud WGS84 |
-| `num_arboles` | integer | No | Número de árboles. Clave para KPI kg/arbol del dashboard |
-| `metadatos_suelo` | JSONB | No | Metadatos adicionales libres (textura, riego, cultivo principal, etc.) |
-| `creado_en` | actualizado_en | timestamp Sí | Filled automáticamente por infraestructura |
-| `actualizado_en` | timestamp | Sí | Última modificación |
-
-### TEMPORADA
-
-**Tabla**: `temporadas`
-
-| Campo | Tipo | Obligatorio | Descripción |
-|-------|------|------------|-------------|
-| `id` | UUID | Sí | Identificador único |
-| `workspace_id` | UUID (FK → workspaces.id) | Sí | Workspace propietario. Las temporadas se crean por Workspace, no globalmente |
-| `nombre` | string | Sí | Etiqueta descriptiva (ej: "Cosecha 2026-2027") |
-| `inicio` | date | Necesario | Fecha de inicio del periodo |
-| `fin` | date | No | Fecha de fin opcional si no se sabe aÃºn |
-| `esta_cerrada` | boolean | Sí | Cierre administrativo: NO bloquea edición de registros, solo marca el estado visualmente |
-| `cultivo_activo` | string | No | Nombre del cultivo principal de la campaña (ej: "oliva", "almendra") |
-| `creado_en` timestamp |Sí | Fecha de creación |
-| `actualizado_en` | timestamp | Sí | Última modificación |
+| Campo | Tipo | Obligatorio | Descripcion |
+|-------|------|-------------|-------------|
+| `cuenta_usuario_id` | UUID (nullable) | No | Permite vincular un trabajador a una cuenta del sistema cuando exista |
+| `tarifa_hora` | decimal(10,2) | No | Valor de referencia para sugerencia de coste; no sustituye `coste_manual` en actividad |
 
 ### COSECHA
 
-**Tabla**: `cosechas`
+| Campo | Tipo | Obligatorio | Descripcion |
+|-------|------|-------------|-------------|
+| `kgs` | decimal(10,2) | Si | Obligatorio en todo registro de cosecha |
+| `rendimiento` | decimal(10,4) | No | Opcional. Si viene informado, `litros` no debe enviarse |
+| `litros` | decimal(10,2) | No | Opcional. Si viene informado, `rendimiento` no debe enviarse |
+| `destino` | enum | Si | Catalogo fijo: `venta_aceituna`, `aceite_para_venta`, `aceite_personal`, `desconocido` |
+| `version` | bigint | Si | Control de concurrencia optimista para `If-Match` |
 
-| Campo | Tipo | Obligatorio | Descripción |
-|-------|------|------------|-------------|
-| `id` | UUID | Sí | Identificador único |
-| `workspace_id` | UUID (FK → workspaces.id) | Sí | Workspace propietario. Todos los datos operativos de cosecha son exclusivos por workspace |
-| `terreno_id` | UUID (FK terrains.id) | Sí | Tereno donde se recolectó |
-| `temporada_id` | UUID (FK temporada.id) | Necesario | Temporada a la que pertense el registro (obligatorio) |
-| `producto` | string | Sí | Nombre del producto/colecta |
-| `peso_bruto_kg` | decimal(10,2) | Sí | Peso bruto recibido siempre obligatorio. Base para calcular rendimiento y litros |
-| `rendimiento_pct` | decimal(4,3) | No | (L/100kg o kg aceite/100kg). Se calcula si se conoce litros_obtenidos primero |
-| `litros_obtenidos` | decimal(10,2) | Necesario | Litros de aceite obtenidos. Se calcula si rendimiento_pct está disponible. Acepto al menos uno obligatorio |
-| `destino` | enum | Necesario | Uno fijo: `'aceite_personal'`, `'venta_aceituna'`, `'aceite_venta'`, `'sin_destino'`. Fijo en MVP, no configurable por usuario |
-| `creado_en` | timestamp | Sí | Fecha de creación |
-| `actualizado_en` | actualizado_por_lastedit` | timestamp | Última modificación y autor (usuario logueado) |
+### ACTIVIDAD
 
-### ACTIVIDAD / TRABAJO DIARIO
-
-**Tabla**: `actividades`
-
-| Campo | Tipo | Obligatorio | Descripción |
-|-------|------|------------|-------------|
-| `id` | UUID | Sí | Identificador único |
-| `workspace_id` | UUID (FK → workspaces.id) | Sí | Workspace propietario |
-| `terreno_id` | UUID (FK terrains.id) | Necesario | Tereno exacto donde se ejecutó la tarea |
-| `temporada_id` | UUID (FK temporada.id) | Necesario | Temporada vinculada obligatoriamente |
-| `responsable_id` | UUID (FK → trabajadores.id) | Sí | Trabajador asignado a la actividad |
-| `fecha_registro` | date | Sí | Fecha del trabajo |
-| `horas_dedicadas` | decimal(5,2) | Sí | Puede ser 0 (anotación rápida) pero se debe registrar. Sin límite máximo |
-| `tarea` | string | Necesario | Descripción de la tarea ejecutada — en futuras versiones seleccionada desde catálogo maestro |
-| `coste_total_manual` | decimal(10,2) | Necesario | Coste total manual obligatorio para trabajadores sin tarifa configurada. El usuario puede sobreescrir cualquier importe. Si el trabajador tiene cuenta con tarifa, se muestra por defecto `horas * tarifa_per` permite editarlo si desea|
-| `creado_en` | timestamp | Sí | Fecha de creación |
-| `actualizado_por_ultima_edicion` | string (FK a usuarios.id / nullable) | No | Indica quién último modificó el registro (útil para trazabilidad de trabajo cruzado medianoche) |
+| Campo | Tipo | Obligatorio | Descripcion |
+|-------|------|-------------|-------------|
+| `horas` | decimal(5,2) | Si | Debe ser `> 0` en MVP |
+| `coste_manual` | decimal(10,2) | Si | Obligatorio en MVP. Se permite sugerir valor por tarifa y editar manualmente |
+| `version` | bigint | Si | Control de concurrencia optimista para `If-Match` |
 
 ### COMPRA
 
-**Tabla**: `compras`
+| Campo | Tipo | Obligatorio | Descripcion |
+|-------|------|-------------|-------------|
+| `cantidad_total` | decimal(10,2) | Si | Cantidad total comprada |
+| `coste_total` | decimal(10,2) | Si | Coste total pagado |
+| `precio_unitario` | decimal(10,4) | Si | Derivado de `coste_total / cantidad_total` y persistido para trazabilidad |
 
-| Campo | Tipo | Obligatorio | Descripción |
-|-------|------|------------|-------------|
-| `id` | UUID | Sí | Identificador único |
-| `workspace_id` | UUID (FK → workspaces.id) | Necesario | Workspace propietario |
-| `producto` | string | Sí | Producto/materia comprado |
-| `cantidad_total` | decimal(10,2) | Sí | Cantidad total adquirida en la compra |
-| `coste_total` | decimal(10,2) | Sí | Coste total pagado al proveedor |
-| `precio_unitario` | decimal(10,4) | Calculable auto | Derivado directamente de `coste_total / cantidad_total` (redondeada a4 decimales) |
-| `fecha_compra` | date | Sí | Fecha real de la compra al proveedor/tienda |
-| `creado_en` | timestamp | Necesario | Fecha de entrada en sistema |
-| `actualizado_en` | timestamp | Necesario | Última modificación |
+### CONSUMO_COMPRA
 
-### TRABAJO_CONSUMO (vinculación compra → terrenos)
-
-**Tabla**: `trabajos_consumo`
-
-| Campo | Tipo | Obligatorio | Descripción |
-|-------|------|------------|-------------|
-| `id` | UUID | Sí | Identificador único |
-| `compra_id` | UUID (FK → compras.id) | Necesario | Compra de la que se imputa el consumo |
-| `terreno_id` | UUID( terrains.id) | Necesario | Terreno donde se consumió el material |
-| `cantidad_consumida` | decimal(10,2) | Sí | Cantidad aplicada a ese terreno (el total nunca tiene porque ser igual al compra.total, los excedentes desaparecen sin rastro) |
-| `creado_en` | timestamp | Necesario | Fecha de asignación del consumo |
+| Campo | Tipo | Obligatorio | Descripcion |
+|-------|------|-------------|-------------|
+| `cantidad_consumida` | decimal(10,2) | Si | Cantidad imputada al terreno |
 
 ---
 
-## Convenciones de base de datos aplicadas
+## Convenciones de persistencia (MVP)
 
-| Convención | Descripción |
-|-----------|-------------|
-| Naming de tablas | snake_case, plural (ej: `trabajadores`, `cosechas`) |
-| Primary keys | UUID v4 por defecto |
-| Timestamps | `creado_en`, `actualizado_en` en todas las tablas |
-| Soft deletes | Campo `eliminado_en` nullable (se usa activo/inactivo para trabajadores); NO se implementa soft delete para otras entidades en MVP |
-| Todos los registros operativos tienen `workspace_id` FK | Esto garantiza aislamiento completo entre WorkSpaces y permite el selector de contexto en la UI |
+| Convencion | Aplicacion |
+|-----------|------------|
+| Motor de base de datos | PostgreSQL |
+| ORM y migraciones | EF Core code-first |
+| Claves primarias | UUID |
+| Trazabilidad minima | `created_by`, `created_at`, `updated_by`, `updated_at` |
+| Concurrencia | `version` por registro operativo + `If-Match` |
+| Borrado en entidades operativas | Logico mediante `eliminado_en` |
+| Aislamiento multi-tenant | `workspace_id` obligatorio en entidades operativas |
 
-## Decisiones de diseño relevantes
+---
 
-1. **trabajadores cuenta_usuario_id nullable:** un trabajador puede existir sin cuenta propia. Si Antonio crea a "Juan" como trabajador externo, `cuenta_usuario_id` será null. Si Carlos (con cuenta) ayuda, su fila de Trabajador tendrá `cuenta_usuario_id` apuntando a su Usuario → permitiendo la futura vinculación.
-2. **coste_total_manual vs calculo:** el campo `coste_total_manual` es siempre obligatorio en ACTIVIDAD. Cuando el trabajador tiene cuenta con tarifa configurada, se rellena automáticamente (`horas * tarifa_hora = coste_calculado`) pero permite edición manual. Cuando no lo tiene (trabajador externo), Antonio completa el campo manualmente al crear el registro.
-3. **pendiente de compra en aplicación:** la lógica de `precio_unitario` en compras permite calcular coste proporcional si se aplica a un trabajo concreto (cantidad_aplicada × precio_unitario). Si no existe ninguna compra previa del producto, los registros asociados quedan a coste 0 y son visibles, permitiendo completarlos después. No hay recálculo retroactivo de costes historiccs cuando llega la compra.
+## Reglas de consistencia funcional
 
-## Migraciones
+1. El MVP opera 100% online. No existe esquema local de sincronizacion diferida.
+2. El destino canonico no clasificado es `desconocido` (la UI puede mostrar alias "Sin destino").
+3. Actividad siempre exige `coste_manual`; no se acepta modo solo calculado.
+4. Cosecha exige `kgs` y acepta exactamente uno de `rendimiento` o `litros`.
+5. El cierre de temporada no bloquea edicion de registros operativos.
 
-> Las migraciones se gestionan con **Alembic (Python SQLAlchemy ORM)**.
-> Ver proceso en `../05-infraestructura/ci-cd.md`.
+---
+
+## Evolucion post-MVP prevista
+
+1. Introducir outbox/sync para escenarios offline con cola de errores.
+2. Evaluar capa hibrida EF Core + Dapper en consultas analiticas de dashboard.
+3. Endurecer estrategia de backup y restauracion con pruebas periodicas.

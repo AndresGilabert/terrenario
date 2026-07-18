@@ -23,7 +23,7 @@ actualizado_en: "2026-06-30"
 |------|--------------------|-----------------|---------|-------------------|
 | 1 | Entra al dashboard | Vista unica con scroll vertical y 4 widgets | 😊 | Ninguno |
 | 2 | Revisa resumen de temporada | Produccion total, litros de aceite, rendimiento medio, kg/arbol | 😊 | Puede aparecer aviso de dato incompleto |
-| 3 | Revisa kg por destino | Distribucion por venta de aceituna, aceite para venta, autoconsumo y sin destino | 😐 | Categoria sin destino requiere accion posterior de calidad de dato |
+| 3 | Revisa kg por destino | Distribucion por venta de aceituna, aceite para venta, autoconsumo y desconocido (alias visual: Sin destino) | 😐 | Categoria desconocido requiere accion posterior de calidad de dato |
 | 4 | Revisa kg por terreno | Barras verticales ordenadas por kg descendente | 😊 | Scroll horizontal si hay muchos terrenos |
 | 5 | Revisa evolucion de rendimiento | Serie de temporada y promedio historico disponible | 😐 | Si no hay historico previo, mensaje contextual |
 | 6 | Pulsa recarga manual si lo necesita | Datos actualizados manteniendo filtros activos | 😊 | Dependencia de calidad de conectividad |
@@ -47,7 +47,7 @@ actualizado_en: "2026-06-30"
 |------|--------------------|-----------------|---------|-------------------|
 | 1 | Selecciona terreno y temporada | Formulario de cosecha contextual | 😊 | Ninguno |
 | 2 | Introduce unidad principal de cosecha | Validacion de unidad unica por registro | 😐 | Error si mezcla unidades |
-| 3 | Introduce destino (o deja sin destino) | Confirmacion de categoria de destino | 😐 | Si queda sin destino, pierde detalle comercial |
+| 3 | Introduce destino (o deja desconocido) | Confirmacion de categoria de destino | 😐 | Si queda en desconocido, pierde detalle comercial |
 | 4 | Introduce datos de rendimiento | Puede informar L/100kg, kg/100kg o kg+litros para calculo | 😐 | Requiere comprender equivalencias |
 | 5 | Guarda y vuelve al dashboard | El dato impacta en resumen y graficos tras recarga | 😊 | No hay refresco automatico continuo |
 
@@ -82,5 +82,5 @@ actualizado_en: "2026-06-30"
 |-------|-------------|---------------------------|----------------|
 | KPI kg/arbol incompleto | Faltan arboles en uno o mas terrenos | Ve aviso de "dato incompleto" y valor parcial | Excluir terrenos sin arboles del calculo global y mostrar aviso |
 | Sin historico previo | No hay temporadas anteriores registradas | No ve comparativa con temporada anterior | Mostrar mensaje "sin historico previo" |
-| Datos sin destino | Parte de cosecha queda en "Sin destino" | Grafico de destinos menos accionable | Mostrar categoria explicita para forzar limpieza de datos |
+| Datos sin destino | Parte de cosecha queda en `desconocido` (alias UI: "Sin destino") | Grafico de destinos menos accionable | Mostrar categoria explicita para forzar limpieza de datos |
 | Abandono en login | El usuario ve login pero no completa autenticacion | No llega a convertirse en usuario activo | Trazabilidad del embudo y mejoras UX sobre pasos con mayor caida |

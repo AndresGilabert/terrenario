@@ -1,13 +1,13 @@
 ﻿---
 id: "ADR-0001"
-titulo: "Ejemplo: Usar PostgreSQL como base de datos principal"
+titulo: "Usar PostgreSQL como base de datos relacional del MVP"
 estado: aceptada
-fecha: "2025-01-15"
-decisores: ["@techlead", "@arquitecto"]
-etiquetas: ["base-de-datos", "infraestructura"]
+fecha: "2026-07-17"
+decisores: ["@po", "@tech-lead"]
+etiquetas: ["base-de-datos", "persistencia", "mvp"]
 ---
 
-# ADR-0001 — Usar PostgreSQL como base de datos principal
+# ADR-0001 - Usar PostgreSQL como base de datos relacional del MVP
 
 ## Estado
 
@@ -15,14 +15,23 @@ etiquetas: ["base-de-datos", "infraestructura"]
 
 ## Contexto
 
-El sistema necesita una base de datos relacional para almacenar los datos transaccionales
-del negocio. Se evaluaron varias opciones teniendo en cuenta la experiencia del equipo,
-los requisitos de consistencia ACID y el coste operativo.
+Durante la revisión técnica del MVP se acordó no heredar decisiones de plantilla sin validación explícita del proyecto.
+
+Para Terrenario MVP se requiere:
+
+1. Integridad transaccional fuerte para datos operativos.
+2. Consultas agregadas fiables para KPIs del dashboard.
+3. Encaje con backend .NET 10 en arquitectura monolito modular online-first.
 
 ## Decisión
 
-Usamos **PostgreSQL 15** como base de datos principal para todos los servicios que
-requieran persistencia de datos transaccionales.
+Se adopta **PostgreSQL 15** como base de datos relacional principal del MVP.
+
+Alcance:
+
+1. Persistencia transaccional de entidades de negocio.
+2. Aislamiento por `workspace_id` en tablas operativas.
+3. Soporte para crecimiento post-MVP sin cambio de motor.
 
 ## Alternativas consideradas
 
@@ -31,28 +40,28 @@ requieran persistencia de datos transaccionales.
 **Pros**: ACID completo, extensiones maduras (UUID, JSONB, full-text search), excelente soporte cloud, equipo con experiencia.
 **Contras**: Escalado horizontal más complejo que NoSQL.
 
-### Opción B: MySQL / MariaDB
+### Opción B: SQL Server
 
-**Pros**: Muy extendido, soporte amplio.
-**Contras**: Características más limitadas que PostgreSQL (JSONB, CTEs recursivos), menos atractivo para el equipo.
+**Pros**: Integración nativa con ecosistema .NET y tooling maduro.
+**Contras**: Coste de licencia/operación potencialmente superior según entorno.
 
-### Opción C: MongoDB
+### Opción C: MariaDB / MySQL
 
-**Pros**: Escalado horizontal sencillo, flexible para datos no estructurados.
-**Contras**: Sin transacciones ACID en versiones antiguas, nuestro dominio es inherentemente relacional.
+**Pros**: Hosting amplio y coste competitivo.
+**Contras**: Menor flexibilidad para analítica relacional avanzada frente a PostgreSQL.
 
 ## Consecuencias
 
 ### Positivas
 
 - Soporte completo de ACID y transacciones complejas
-- JSONB para campos semi-estructurados sin sacrificar consistencia
-- Excelente integración con los ORMs del stack actual
+- Buen encaje con EF Core en backend .NET 10
+- Capacidad analítica sólida para consultas KPI
 
 ### Negativas / Trade-offs
 
-- El escalado horizontal requiere soluciones adicionales (pgBouncer, read replicas)
+- El escalado horizontal requiere diseño adicional (réplicas, particionado, tuning)
 
 ### Neutrales
 
-- El equipo debe mantenerse actualizado con las versiones LTS de PostgreSQL
+- El equipo debe mantener disciplina de migraciones y versionado de esquema

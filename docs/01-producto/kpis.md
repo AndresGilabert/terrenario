@@ -15,7 +15,7 @@ actualizado_en: "2026-06-30"
 | KPI | Descripción | Valor actual | Objetivo | Frecuencia de revisión |
 |-----|-------------|-------------|---------|----------------------|
 | Terrenos con informacion completa de temporada | % de terrenos activos con datos minimos para calculo de KPIs globales (produccion + arboles) | Pendiente de baseline | >= 90% en temporada | Mensual |
-| Registros de cosecha con destino informado | % de registros de cosecha con destino distinto de "Sin destino" | Pendiente de baseline | >= 80% en temporada | Mensual |
+| Registros de cosecha con destino informado | % de registros de cosecha con destino distinto de `desconocido` (alias UI: "Sin destino") | Pendiente de baseline | >= 80% en temporada | Mensual |
 | Tiempo de consulta operativa | Tiempo estimado para revisar el estado de temporada en dashboard | Pendiente de baseline | <= 2 minutos | Mensual |
 
 ## KPIs de producto

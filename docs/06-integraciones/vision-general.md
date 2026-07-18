@@ -1,7 +1,7 @@
 ﻿---
 bloque: 06-integraciones
 documento: vision-general
-actualizado_en: ""
+actualizado_en: "2026-07-18"
 ---
 
 # Integraciones Externas — Visión General
@@ -18,10 +18,7 @@ actualizado_en: ""
 
 ```mermaid
 flowchart LR
-    sistema["Nuestro Sistema"] -->|"pagos"| stripe["Stripe (PSP)"]
-    sistema -->|"tickets soporte"| zendesk["Zendesk"]
-    sistema -->|"emails"| sendgrid["SendGrid"]
-    sistema -->|"TODO"| otro["Otro sistema"]
+    sistema["Terrenario MVP"] -->|"OIDC login"| google["Google OIDC"]
 ```
 
 ---
@@ -30,8 +27,7 @@ flowchart LR
 
 | Sistema | Propósito | Módulo owner | Estado | Ruta |
 |---------|-----------|-------------|--------|------|
-| `stripe` | Procesamiento de pagos | payments | activo | [stripe/](./stripe/especificacion.md) |
-| _(añadir integraciones)_ | | | | |
+| `google-oidc` | Autenticación social de acceso | seguridad | activo | `../07-seguridad/autenticacion-autorizacion.md` |
 
 ---
 
@@ -50,4 +46,4 @@ flowchart LR
 
 | Integración | Si falla | Impacto | Fallback |
 |------------|---------|---------|---------|
-| TODO | | | |
+| Google OIDC | No se puede completar login | Bloquea acceso de usuarios no autenticados | Mostrar error controlado, reintento y canal de soporte; trazar evento `login_google_error` |

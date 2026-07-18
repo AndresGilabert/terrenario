@@ -139,7 +139,7 @@ Plazo de referencia operativo para respuesta a derechos: 1 mes (prorrogable en c
 
 - No loguear PII en logs de aplicación o errores
 - No incluir PII en URLs (query params o paths)
-- No almacenar datos de tarjeta — usar tokens del PSP (Stripe token / vault)
+- No almacenar datos financieros sensibles en claro; usar tokenización cuando aplique
 - No enviar PII en mensajes de error devueltos al cliente
 - No incluir PII en los tests (usar datos sintéticos)
 

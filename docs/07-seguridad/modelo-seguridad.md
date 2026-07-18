@@ -1,7 +1,7 @@
 ﻿---
 bloque: 07-seguridad
 documento: modelo-seguridad
-actualizado_en: "2026-06-30"
+actualizado_en: "2026-07-18"
 ---
 
 # Modelo de Seguridad
@@ -62,12 +62,17 @@ Regla de aplicacion:
 
 | Tipo de secreto | Dónde se almacena | Rotación |
 |----------------|-------------------|---------|
-| API Keys de PSPs | TODO (Secrets Manager) | Cada 90 días |
-| Credenciales de DB | TODO (Secrets Manager) | Cada 90 días |
-| JWT signing keys | TODO | Cada 30 días |
-| Webhook secrets | TODO (Secrets Manager) | En caso de compromiso |
+| API Keys de integraciones externas | Secret Manager del proveedor (`dev` y `prod`) | Cada 90 días |
+| Credenciales de DB | Secret Manager del proveedor (`dev` y `prod`) | Cada 90 días |
+| JWT signing keys | Secret Manager del proveedor (`dev` y `prod`) | Cada 30 días |
+| Webhook secrets | Secret Manager del proveedor (`dev` y `prod`) | En caso de compromiso |
 
 **NUNCA en**: código fuente, variables de CI/CD visibles, logs, documentación.
+
+## Trazabilidad KB
+
+1. Entornos y despliegue: `../05-infraestructura/entornos.md`
+2. Autenticación y autorización: `autenticacion-autorizacion.md`
 
 ---
 
@@ -87,4 +92,4 @@ Regla de aplicacion:
 
 Ver proceso completo en `politica-vulnerabilidades.md`.
 
-Contacto de seguridad: TODO (<security@empresa.com> / canal privado)
+Contacto de seguridad (temporal): @tech-lead (canal privado interno de seguridad)

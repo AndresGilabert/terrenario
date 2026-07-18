@@ -1,7 +1,7 @@
 ﻿---
 bloque: 01-producto
 documento: reglas-de-negocio
-actualizado_en: "2026-06-30"
+actualizado_en: "2026-07-17"
 ---
 
 # Reglas de Negocio Globales
@@ -46,23 +46,23 @@ No se permite registrar actividad sin responsable y tiempo dedicado.
 
 ---
 
-### RN-003 — Coste calculado y no editable manualmente
+### RN-003 — Coste manual obligatorio en MVP
 
 **Estado**: activa
 **Fuente**: producto
 **Módulos afectados**: actividades, compras-consumo
 
-El sistema calcula costes en base a compras y mano de obra. No se introduce importe final manual en el registro operativo.
+En MVP el coste operativo se registra manualmente y no se recalcula automáticamente.
 
 ---
 
-### RN-004 — Cosecha con unidad unica por registro
+### RN-004 — Regla de campos de cosecha en MVP
 
 **Estado**: activa
 **Fuente**: producto
 **Módulos afectados**: produccion
 
-Cada registro de cosecha usa una unica unidad principal (kg o litros o plantas), sin mezcla de unidades en el mismo registro.
+Cada registro de cosecha requiere `kgs` obligatorio. Los campos `rendimiento` y `litros` son opcionales, pero no pueden coexistir en el mismo registro.
 
 ---
 
@@ -143,13 +143,13 @@ El grafico de kg por terreno se renderiza en barras verticales. El orden es fijo
 
 ---
 
-### RN-012 — Categoria Sin destino valida
+### RN-012 — Categoria de destino no clasificado
 
 **Estado**: activa
 **Fuente**: producto
 **Módulos afectados**: produccion, dashboard
 
-La categoria "Sin destino" forma parte de la visualizacion de kg por destino y no se considera error de carga.
+La categoria canónica es `desconocido` y forma parte de la visualización de kg por destino. La UI puede mostrar el alias legible "Sin destino".
 
 ---
 

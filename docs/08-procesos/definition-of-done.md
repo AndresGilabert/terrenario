@@ -1,7 +1,7 @@
 ﻿---
 bloque: 08-procesos
 documento: definition-of-done
-actualizado_en: "2026-06-30"
+actualizado_en: "2026-07-13"
 ---
 
 # Definition of Done (DoD)
@@ -29,7 +29,7 @@ actualizado_en: "2026-06-30"
 
 ### Revisión
 
-- [ ] Al menos 1 aprobación en el PR
+- [ ] El PR ha sido revisado por el autor o por un revisor disponible
 - [ ] Todos los comentarios `[bloqueante]` resueltos
 - [ ] El CI pasa completamente (linting + tests + validación KB)
 

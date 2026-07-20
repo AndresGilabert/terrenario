@@ -1,7 +1,7 @@
 ﻿---
 bloque: 05-infraestructura
 documento: disaster-recovery
-actualizado_en: ""
+actualizado_en: "2026-07-18"
 ---
 
 # Disaster Recovery
@@ -10,27 +10,27 @@ actualizado_en: ""
 
 ## Objetivos de recuperación
 
-| Servicio | RTO (tiempo máx. de recuperación) | RPO (pérdida de datos aceptable) |
-|---------|----------------------------------|----------------------------------|
-| API principal | 1 hora | 15 minutos |
-| Base de datos | 4 horas | 5 minutos |
-| Servicio o módulo crítico | 30 minutos | 0 (sin pérdida) |
+| Servicio | RTO objetivo | RPO objetivo |
+|---------|--------------|--------------|
+| API principal | <= 1 hora | <= 24 horas en fase C; <= 7 días en fase A con backup semanal |
+| Base de datos | <= 4 horas | Según política de backup de fase |
 
 ---
 
 ## Estrategia de backup
 
-| Dato | Frecuencia | Retención | Almacenamiento |
-|------|-----------|-----------|---------------|
-| Base de datos completa | Diaria | 30 días | TODO |
-| WAL / binlog (incremental) | Cada 5 minutos | 7 días | TODO |
-| Archivos estáticos | En cada cambio | 90 días | TODO |
+| Fase | Backup | Retención | Notas |
+|------|--------|-----------|-------|
+| C (actual) | Snapshot puntual/manual | Sin política fija | Riesgo aceptado por coste mínimo |
+| A | Snapshot automático semanal | 2 semanas | Política mínima acordada |
+| B | Snapshot diario | 7 días | Complementado con snapshot semanal |
+| B | Snapshot semanal | 8 semanas | Soporte a recuperación de incidente tardío |
 
 ---
 
 ## Procedimiento de recuperación
 
-### Escenario 1: Fallo de instancia de aplicación
+### Escenario 1: fallo de instancia de aplicación
 
 1. El load balancer detecta la instancia caída y deja de enviarle tráfico
 2. El autoscaling lanza una nueva instancia automáticamente
@@ -38,12 +38,12 @@ actualizado_en: ""
 
 **Tiempo estimado**: < 5 minutos (automático)
 
-### Escenario 2: Corrupción o pérdida de base de datos
+### Escenario 2: corrupción o pérdida de base de datos
 
 1. Notificar al equipo y activar el protocolo de incidente
 2. Identificar el punto de restauración más reciente viable
-3. Restaurar el backup: `TODO: comando de restauración`
-4. Aplicar los WAL incrementales hasta el RPO
+3. Restaurar el último snapshot válido
+4. Validar integridad lógica mínima de entidades operativas
 5. Ejecutar smoke tests de integridad de datos
 6. Reconectar la aplicación a la DB restaurada
 
@@ -53,14 +53,18 @@ actualizado_en: ""
 
 ## Contactos durante un DR
 
-| Rol | Persona | Teléfono |
-|-----|---------|---------|
-| TODO | | |
+En fase actual (equipo de 1 persona) el responsable técnico/fundador asume activación y cierre de DR.
 
 ---
 
 ## Tests de DR
 
-Los procedimientos de DR se prueban **TODO** (trimestralmente / semestralmente).
-El resultado se documenta en `../../05-infraestructura/runbooks/`.
-Si se necesita un procedimiento nuevo, crear el runbook desde `../00-meta/plantillas/runbook.md` antes de operarlo.
+1. Fase A: prueba manual de restore trimestral en `dev` con checklist mínima y evidencia de resultado.
+2. Fase B: se mantiene restore trimestral manual en `dev`.
+3. Registrar resultado en `../05-infraestructura/runbooks/`.
+
+## Trazabilidad KB
+
+1. Política de entornos y fase activa: `entornos.md`
+2. Reglas de release y rollback: `../08-procesos/proceso-release.md`
+3. Seguridad y secretos: `../07-seguridad/modelo-seguridad.md`

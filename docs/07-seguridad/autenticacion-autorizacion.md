@@ -1,7 +1,7 @@
 ﻿---
 bloque: 07-seguridad
 documento: autenticacion-autorizacion
-actualizado_en: "2026-06-30"
+actualizado_en: "2026-07-18"
 ---
 
 # Autenticación y Autorización
@@ -10,11 +10,12 @@ actualizado_en: "2026-06-30"
 
 ## Autenticación
 
-## Decision de producto (MVP y fases)
+## Decisión de producto (MVP y fases)
 
-1. MVP: login principal con Google (OAuth 2.0 + OpenID Connect).
-2. Fase futura: Passkeys (WebAuthn/FIDO2) como opcion adicional de bajo esfuerzo para el usuario.
-3. Durante MVP se recomienda un acceso de baja friccion y sin gestion manual de password local cuando sea viable.
+1. MVP: login principal con Google (OAuth 2.0 + OpenID Connect) como proveedor de identidad de menor friccion.
+2. El modelo debe permitir incorporar otros proveedores sociales compatibles con OIDC/OAuth 2.0 si el negocio lo requiere.
+3. Fase futura: Passkeys (WebAuthn/FIDO2) como opcion adicional de bajo esfuerzo para el usuario.
+4. Durante MVP no se exige password local al usuario final Antonio.
 
 ## Modelo de autenticacion
 
@@ -75,10 +76,15 @@ Regla de privacidad:
 
 | Rol | Descripción | Permisos principales |
 |-----|-------------|---------------------|
-| `admin` | Administrador total | TODO |
-| `operator` | Operador de negocio | TODO |
-| `readonly` | Solo lectura | TODO |
-| `service` | Servicio interno (M2M) | TODO |
+| `workspace_owner` | Usuario creador del Workspace | Lectura/escritura completa en su Workspace |
+| `workspace_member` | Miembro invitado y aceptado del Workspace | Lectura/escritura completa en su Workspace |
+| `service` | Servicio interno (M2M) | Solo operaciones técnicas explícitamente autorizadas |
+
+Regla MVP:
+
+1. No existen permisos granulares por recurso en esta fase.
+2. El control obligatorio es pertenencia al Workspace activo.
+3. Cualquier operación fuera del Workspace devuelve `AUTH_WORKSPACE_FORBIDDEN`.
 
 ---
 
@@ -87,7 +93,7 @@ Regla de privacidad:
 Los servicios internos se autentican con **API Keys** o **tokens de servicio**:
 
 - Las API Keys de servicio se almacenan en el gestor de secretos
-- Se rotan cada TODO (30/90 días)
+- Se rotan cada 90 días
 - Nunca se usan API Keys de usuarios reales para comunicación entre servicios
 
 ---
@@ -96,7 +102,7 @@ Los servicios internos se autentican con **API Keys** o **tokens de servicio**:
 
 Todos los endpoints deben devolver:
 
-```text
+```http
 Strict-Transport-Security: max-age=31536000; includeSubDomains
 X-Content-Type-Options: nosniff
 X-Frame-Options: DENY

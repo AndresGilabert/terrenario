@@ -1,37 +1,24 @@
 ﻿---
 bloque: 01-producto
 documento: kpis
-actualizado_en: "2026-07-16"
+actualizado_en: "2026-06-30"
 ---
 
 # KPIs y Métricas del Producto
 
-> Plantilla de ejemplo: este archivo es una guia base y DEBE reemplazarse con KPIs reales del proyecto.
-> Sustituye nombres, definiciones, objetivos, umbrales y frecuencias con datos del dominio real.
-> Los KPIs se revisan en la reunion de revision de sprint / mensualmente.
-
-## Instrucciones de uso (plantilla)
-
-1. Reemplaza todas las filas de ejemplo por KPIs reales del proyecto.
-2. Define baseline inicial y fuente de datos verificable para cada KPI.
-3. Elimina o adapta secciones que no apliquen al producto.
-4. Evita dejar terminos genericos como "flujo principal" sin especificar.
+> Los KPIs se revisan en la reunión de revisión de sprint / mensualmente.
 
 ---
 
 ## KPIs de negocio
 
-> Ejemplos de referencia. Reemplazar por KPIs de negocio reales.
-
 | KPI | Descripción | Valor actual | Objetivo | Frecuencia de revisión |
 |-----|-------------|-------------|---------|----------------------|
-| Registros completos | % de registros con campos minimos obligatorios completos | Pendiente de baseline | >= 90% | Mensual |
-| Trazabilidad operativa | % de operaciones con responsable y timestamp | Pendiente de baseline | >= 95% | Mensual |
-| Tiempo de consulta operativa | Tiempo para revisar el estado operativo en dashboard | Pendiente de baseline | <= 2 minutos | Mensual |
+| Terrenos con informacion completa de temporada | % de terrenos activos con datos minimos para calculo de KPIs globales (produccion + arboles) | Pendiente de baseline | >= 90% en temporada | Mensual |
+| Registros de cosecha con destino informado | % de registros de cosecha con destino distinto de `desconocido` (alias UI: "Sin destino") | Pendiente de baseline | >= 80% en temporada | Mensual |
+| Tiempo de consulta operativa | Tiempo estimado para revisar el estado de temporada en dashboard | Pendiente de baseline | <= 2 minutos | Mensual |
 
 ## KPIs de producto
-
-> Ejemplos de referencia. Reemplazar por KPIs de adopcion y uso reales.
 
 | KPI | Descripción | Valor actual | Objetivo | Frecuencia de revisión |
 |-----|-------------|-------------|---------|----------------------|
@@ -44,8 +31,6 @@ actualizado_en: "2026-07-16"
 
 ## KPIs técnicos / de calidad
 
-> Ejemplos de referencia. Ajustar objetivos y umbrales a los SLO/SLA reales del proyecto.
-
 | KPI | Descripción | Valor actual | Objetivo | Umbral de alerta |
 |-----|-------------|-------------|---------|-----------------|
 | Disponibilidad (uptime) | % uptime del sistema | — | 99.9% | < 99.5% |
@@ -55,25 +40,23 @@ actualizado_en: "2026-07-16"
 
 ## Dashboard y fuentes de datos
 
-> Ejemplos de referencia. Deben alinearse con los eventos y tablas reales de tu sistema.
-
 | Métrica | Fuente | Dashboard |
 |---------|--------|-----------|
-| Volumen total | Registros del flujo principal por periodo | Resumen operativo |
-| Tasa de exito | Operaciones completadas / operaciones iniciadas | Resumen operativo |
-| Tiempo medio por flujo | Eventos de inicio/fin por proceso | Evolucion temporal |
-| Distribucion por categoria | Registros categorizados | Grafico de categorias |
-| Distribucion por entidad | Agregacion por entidad principal | Grafico de barras |
-| Historico del indicador principal | Serie temporal por periodo | Evolucion temporal |
+| Produccion total (kg) | Registros de cosecha por temporada | Resumen de temporada |
+| Litros de aceite total | Registros de molienda / conversion de rendimiento | Resumen de temporada |
+| Rendimiento promedio (L/100kg) | Registros de rendimiento por cosecha | Resumen + Evolucion |
+| Kg por arbol | Produccion por terreno + numero de arboles por terreno | Resumen de temporada |
+| Kg por destino | Registros de cosecha con categoria destino | Grafico de destinos |
+| Kg por terreno | Agregacion de cosecha por terreno | Grafico de barras |
+| Historico de rendimiento | Serie temporal por temporada | Evolucion de rendimiento |
 | Conversion login | Eventos de embudo de autenticacion | Dashboard de autenticacion |
 | Abandono login | Eventos de embudo de autenticacion | Dashboard de autenticacion |
 
 ## Alertas activas
 
 > Ver configuración completa en `../05-infraestructura/observabilidad.md`
-> Ejemplos de referencia. Sustituir por alertas reales operadas por el equipo.
 
 | Alerta | Condición | Canal de notificación |
 |--------|-----------|----------------------|
-| Dato incompleto para KPI principal | Existen registros activos sin datos base requeridos | Banner informativo en widget de resumen |
-| Sin historico previo | No hay periodos anteriores para comparativa | Mensaje contextual en widget de evolucion |
+| Dato incompleto para kg/arbol | Existen terrenos activos sin numero de arboles en temporada | Banner informativo en widget de resumen |
+| Sin historico previo | No hay temporadas anteriores para comparativa | Mensaje contextual en widget de evolucion |

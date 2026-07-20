@@ -1,83 +1,83 @@
 ﻿---
 bloque: 04-ingenieria
 documento: estandares-codigo
-actualizado_en: ""
+actualizado_en: "2026-07-18"
 ---
 
-# EstÃ¡ndares de CÃ³digo
+# Estándares de Código
 
-> Estas convenciones son obligatorias para todo el cÃ³digo del proyecto.
-> Los agentes de IA deben leer este documento antes de generar cÃ³digo.
+> Estas convenciones son obligatorias para todo el código del proyecto.
+> Los agentes de IA deben leer este documento antes de generar código.
 
 ---
 
 ## Principios generales
 
-1. **Legibilidad sobre brevedad**: el cÃ³digo se lee mÃ¡s veces de las que se escribe
+1. **Legibilidad sobre brevedad**: el código se lee más veces de las que se escribe
 2. **Nombres descriptivos**: variables, funciones y clases deben revelar su intenciÃ³n
-3. **Funciones pequeÃ±as**: una funciÃ³n, una responsabilidad
-4. **Sin comentarios de "quÃ©"**: el cÃ³digo debe ser autoexplicativo; los comentarios explican el "por quÃ©"
+3. **Funciones pequeñas**: una función, una responsabilidad
+4. **Sin comentarios de "qué"**: el código debe ser autoexplicativo; los comentarios explican el "por qué"
 
 ---
 
 ## Convenciones de naming
 
-| Elemento | ConvenciÃ³n | Ejemplo |
+| Elemento | Convención | Ejemplo |
 |----------|-----------|---------|
-| Variables y funciones | camelCase | `getUserById` |
-| Clases e interfaces | PascalCase | `DomainEntity` |
+| Variables y funciones | camelCase | `getTerrenoById` |
+| Clases e interfaces | PascalCase | `RegistroCosecha` |
 | Constantes | SCREAMING_SNAKE_CASE | `MAX_RETRY_ATTEMPTS` |
-| Archivos | kebab-case | `domain-entity.service.ts` |
-| Tablas de DB | snake_case plural | `domain_entities` |
+| Archivos | kebab-case | `registro-cosecha.service.cs` |
+| Tablas de DB | snake_case plural | `registros_cosecha` |
 
 ---
 
 ## Linting y formateo
 
-| Herramienta | PropÃ³sito | ConfiguraciÃ³n |
+| Herramienta | Propósito | Configuración |
 |------------|-----------|--------------|
-| TODO (ESLint / Pylint / etc.) | Linting | `.eslintrc` / `pyproject.toml` |
-| TODO (Prettier / Black / etc.) | Formateo automÃ¡tico | `.prettierrc` |
+| Roslyn Analyzers | Linting/analizador estático .NET | `.editorconfig` + reglas del proyecto |
+| dotnet format | Formateo automático | `.editorconfig` |
 
 **El CI falla si hay errores de linting o formateo.**
 
 ---
 
-## Estructura de un mÃ³dulo / servicio
+## Estructura de un módulo / servicio
 
 ```text
 src/
-â”œâ”€â”€ {modulo}/
-â”‚   â”œâ”€â”€ domain/           # Entidades, value objects, reglas
-â”‚   â”œâ”€â”€ application/      # Casos de uso, comandos, queries
-â”‚   â”œâ”€â”€ infrastructure/   # Adaptadores, repositorios, migraciones
-â”‚   â””â”€â”€ interfaces/       # Controllers, DTOs, mappers
+├── {modulo}/
+│   ├── domain/           # Entidades, value objects, reglas
+│   ├── application/      # Casos de uso, comandos, queries
+│   ├── infrastructure/   # Adaptadores, repositorios, migraciones
+│   └── interfaces/       # Controllers, DTOs, mappers
 ```
 
 ---
 
 ## Manejo de errores
 
-- Usar errores tipados, nunca `throw new Error("mensaje genÃ©rico")`
+- Usar errores tipados, nunca `throw new Exception("mensaje genérico")` sin clasificar
 - Nunca capturar y silenciar excepciones
 - Los errores de dominio se propagan como excepciones de dominio
-- Los errores de infraestructura se loguean y se transforman en errores de aplicaciÃ³n
+- Los errores de infraestructura se loguean y se transforman en errores de aplicación
 
 ---
 
-## Seguridad en el cÃ³digo
+## Seguridad en el código
 
 - **Nunca** incluir credenciales, tokens o secrets en el cÃ³digo o en los tests
-- Validar todas las entradas en los lÃ­mites del sistema (controllers / API handlers)
-- Usar consultas parametrizadas â€” **nunca** concatenar SQL
+- Validar todas las entradas en los límites del sistema (controllers / API handlers)
+- Usar consultas parametrizadas; **nunca** concatenar SQL
 - Ver modelo de seguridad completo en `../07-seguridad/modelo-seguridad.md`
 
 ---
 
 ## Code smells a evitar
 
-- NÃºmeros mÃ¡gicos sin nombre de constante
-- Clases con mÃ¡s de 300 lÃ­neas
-- Funciones con mÃ¡s de 3 parÃ¡metros (usar objetos)
-- Condicionales anidados de mÃ¡s de 2 niveles
-- LÃ³gica de negocio en controllers o repositorios
+- Números mágicos sin nombre de constante
+- Clases con más de 300 líneas
+- Funciones con más de 3 parámetros (usar objetos)
+- Condicionales anidados de más de 2 niveles
+- Lógica de negocio en controllers o repositorios

@@ -1,7 +1,7 @@
 ﻿---
 bloque: 04-ingenieria
 documento: flujo-git
-actualizado_en: "2026-06-25"
+actualizado_en: "2026-07-13"
 ---
 
 # Flujo de Git
@@ -10,32 +10,23 @@ actualizado_en: "2026-06-25"
 
 ## Estrategia de branching
 
-Usamos un flujo con **`main` + `develop`**:
+Usamos una variante de **Git Flow** con `develop` como rama de integración:
 
 ```text
-main          ← código en producción, solo releases validadas
-develop       ← rama de integración, validación conjunta antes de release
-        └── feature/{ID}--{descripcion}              ← desarrollo de features
-        └── bugfix/{ID}--{descripcion}               ← corrección de bugs no urgentes
-        └── spike/{ID}--{descripcion}                ← investigación técnica
-        └── chore/{ID}--{descripcion}                ← tareas de mantenimiento
-        └── hotfix/{ID}--{descripcion}               ← fixes urgentes con retorno posterior a develop
-```
-
-Objetivo de cada rama:
-
-- `main`: refleja únicamente código listo para producción.
-- `develop`: concentra la validación integrada del conjunto de cambios antes de promoverlos a `main`.
-- ramas de trabajo: nacen desde `develop` y vuelven a `develop`, salvo hotfixes urgentes.
-
+main          ← código en producción, solo recibe merges desde `develop`
+        └── develop   ← rama de integración y preproducción
+  └── feature/{TICKET_ID}--{nombre-feature}   ← desarrollo de features
+  └── bugfix/{TICKET_ID}--{nombre-bug}         ← corrección de bugs
+  └── spike/{TICKET_ID}--{descripcion}         ← investigación técnica
+  └── chore/{TICKET_ID}--{descripcion}         ← tareas de mantenimiento
+```text
 ---
 
 ## Nomenclatura de ramas
 
 ```text
 {tipo}/{TICKET_ID}--{descripcion-en-kebab-case}
-```
-
+```text
 Ejemplos:
 
 - `feature/RF-E04-001--implementacion-dummy-provider-client`
@@ -61,13 +52,14 @@ Ejemplos:
         ↓
 [Aprobación] → estado: aprobado  ← el ticket está listo para desarrollo (DoR)
         ↓
-[Dev crea rama desde develop + tech-design.md] → estado: en-progreso
+[Dev crea rama + tech-design.md] → estado: en-progreso
         ↓
-[Merge a develop + validación integrada] → estado: en-testing
+[QA / Testing] → estado: en-testing
         ↓
-[Promoción de develop a main + release] → estado: completado  ← DoD cumplido
-```
-
+[Merge a develop] → estado: completado  ← DoD cumplido
+        ↓
+[PR develop → main + release] → estado: completado en producción
+```text
 > **Regla fundamental**: sin `spec.md` con estado `aprobado` en `docs/09-desarrollos/epicas/`, el desarrollo no comienza.
 
 ---
@@ -82,8 +74,7 @@ Seguimos **Conventional Commits**:
 [cuerpo opcional — explica el QUÉ y el POR QUÉ, no el CÓMO]
 
 [pie opcional — referencias a tickets]
-```
-
+```text
 **Tipos válidos:**
 
 | Tipo | Cuándo |
@@ -104,21 +95,19 @@ El handler ahora resuelve el cliente de proveedor via factory
 en lugar de instanciarlo directamente.
 
 Closes RF-E04-004
-```
-
+```text
 ---
 
 ## Alta documental previa obligatoria
 
-Antes de crear rama de trabajo, el desarrollo debe tener alta documental en `09-desarrollos`.
+Antes de crear rama de trabajo, el ticket debe tener alta documental en `09-desarrollos`.
 
 Condiciones mínimas:
 
-1. Carpeta épica y carpeta historia creadas con slug derivado automáticamente del título del desarrollo o de la fuente externa, si existe.
+1. Carpeta épica y carpeta historia creadas con slug derivado automáticamente del título del ticket fuente.
 2. `spec.md` de épica y `spec.md` de historia creados desde plantilla oficial.
-3. Si existe ticket externo, la sección de trazabilidad correspondiente está completa.
-4. Naming y rutas dentro de los límites definidos en `docs/00-meta/convenciones.md`.
-5. Validación KB en verde.
+3. Bloque `tickets.*` informado cuando exista ticket fuente.
+4. Validación KB en verde.
 
 > **Regla de bloqueo**: si la alta documental no cumple estos puntos, no se inicia rama de desarrollo.
 
@@ -126,40 +115,32 @@ Condiciones mínimas:
 
 ## Proceso de Pull Request
 
-1. Las ramas `feature/`, `bugfix/`, `spike/` y `chore/` parten siempre de `develop`.
+1. La rama parte siempre de `develop`.
 2. El nombre del PR incluye el ID del ticket: `[RF-E04-001] Implementación DummyProviderClient`.
 3. El PR debe tener `spec.md` en estado `aprobado` antes de crear la rama.
-4. El `tech-design.md` debe estar completo antes de solicitar revisión o merge.
-5. El PR hacia `develop` debe pasar completamente el CI (tests + validación de KB).
-6. La aprobación de otro developer es **opcional** y depende del tamaño del equipo y del modelo de trabajo.
-7. En proyectos con un único developer, no debe exigirse aprobación externa para poder mergear.
-8. La promoción de `develop` a `main` se hace mediante PR o merge controlado tras validación integrada satisfactoria.
-9. Hacer **squash merge** cuando ayude a mantener el historial limpio.
+4. El `tech-design.md` debe estar completo antes de solicitar revisión.
+5. Si no hay otro developer disponible, el propio autor puede hacer la auto-revisión del PR; Copilot puede usarse como revisor complementario.
+6. El CI debe pasar completamente (tests + validación de KB).
+7. Hacer **squash merge** a `develop` para mantener el historial limpio.
 
-Flujo recomendado de PR:
+## Promoción a producción
 
-1. `feature/*` → `develop`
-2. validación conjunta en `develop`
-3. `develop` → `main`
+1. Solo se puede abrir PR de `develop` hacia `main`.
+2. Ese PR requiere revisión manual; puede ser auto-revisión si no hay otro revisor disponible.
+3. El merge a `main` se usa únicamente para promover el estado ya validado en `develop`.
+4. El despliegue a producción se dispara desde `main` tras esa promoción.
 
 ---
 
 ## Protecciones de ramas
 
-`main` está protegida:
+`develop` y `main` están protegidas:
 
 - Push directo prohibido.
-- Requiere integración previa validada desde `develop`.
+- Requiere PR con revisión.
 - Requiere CI en verde.
 - No se puede reescribir el historial.
 
-`develop` también debería estar protegida:
+Protección adicional de `main`:
 
-- Push directo desaconsejado salvo en proyectos unipersonales si el equipo así lo decide.
-- Requiere CI en verde antes de mergear.
-- Debe ser la base de validación integrada del sprint o lote de cambios.
-
-Regla sobre aprobaciones:
-
-- Si hay varios developers, puede exigirse revisión por pares.
-- Si el proyecto es unipersonal, la aprobación de terceros no debe ser obligatoria.
+- Solo acepta PRs originados desde `develop`.

@@ -1,7 +1,7 @@
 ﻿---
 bloque: 06-integraciones
 documento: vision-general
-actualizado_en: ""
+actualizado_en: "2026-07-18"
 ---
 
 # Integraciones Externas — Visión General
@@ -11,8 +11,6 @@ actualizado_en: ""
 >
 > Las integraciones específicas de un módulo también se documentan en
 > `../03-modulos/{modulo}/integraciones.md`.
-> Esta plantilla no incluye integraciones reales del proyecto.
-> Crea la primera integración real usando las plantillas de `../00-meta/plantillas/` y actualiza este documento.
 
 ---
 
@@ -20,9 +18,7 @@ actualizado_en: ""
 
 ```mermaid
 flowchart LR
-    sistema["Nuestro Sistema"] -->|"TODO"| externo_a["Sistema Externo A"]
-    sistema -->|"TODO"| externo_b["Sistema Externo B"]
-    sistema -->|"TODO"| externo_c["Sistema Externo C"]
+    sistema["Terrenario MVP"] -->|"OIDC login"| google["Google OIDC"]
 ```
 
 ---
@@ -31,7 +27,7 @@ flowchart LR
 
 | Sistema | Propósito | Módulo owner | Estado | Ruta |
 |---------|-----------|-------------|--------|------|
-| _(añadir integraciones)_ | | | | |
+| `google-oidc` | Autenticación social de acceso | seguridad | activo | `../07-seguridad/autenticacion-autorizacion.md` |
 
 ---
 
@@ -39,7 +35,7 @@ flowchart LR
 
 > Antes de añadir una nueva integración externa:
 >
-> 1. Crear su documentación en esta carpeta usando `../00-meta/plantillas/integracion-especificacion.md` y `../00-meta/plantillas/integracion-gestion-errores.md`
+> 1. Crear su documentación en esta carpeta (ver plantillas en `../00-meta/plantillas/`)
 > 2. Actualizar este documento con la nueva integración
 > 3. Verificar que cumple `../07-seguridad/modelo-seguridad.md`
 > 4. Documentar el manejo de errores y el plan de fallback
@@ -50,4 +46,4 @@ flowchart LR
 
 | Integración | Si falla | Impacto | Fallback |
 |------------|---------|---------|---------|
-| TODO | | | |
+| Google OIDC | No se puede completar login | Bloquea acceso de usuarios no autenticados | Mostrar error controlado, reintento y canal de soporte; trazar evento `login_google_error` |

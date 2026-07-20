@@ -181,7 +181,7 @@ Validaciones clave:
 | Resumen temporada | `GET /api/v1/dashboard/resumen` | `temporada_id?`, `terrenos_ids?[]` | `200 { kg_total, litros_total, rendimiento_medio, kg_por_arbol, incompleto }` |
 | Kg por destino | `GET /api/v1/dashboard/kg-por-destino` | `temporada_id?`, `terrenos_ids?[]` | `200 { data:[{ destino, kg }] }` |
 | Kg por terreno | `GET /api/v1/dashboard/kg-por-terreno` | `temporada_id?` | `200 { data:[{ terreno_id, terreno_nombre, kg }] }` |
-| Evolución rendimiento | `GET /api/v1/dashboard/evolucion-rendimiento` | `temporada_id?`, `granularidad?=mes|semana` | `200 { data:[{ periodo, rendimiento }] }` |
+| Evolución rendimiento | `GET /api/v1/dashboard/evolucion-rendimiento` | `temporada_id?`, `granularidad?=mes\|semana` | `200 { data:[{ periodo, rendimiento }] }` |
 
 Reglas de filtro por defecto:
 
@@ -204,14 +204,14 @@ Los endpoints de sincronización se definirán en una versión posterior cuando 
 
 ```json
 {
-	"fecha": "2026-10-05",
-	"terreno_id": "uuid",
-	"temporada_id": "uuid",
-	"producto": "aceituna_olivar",
-	"kgs": 1200.5,
-	"destino": "aceite_para_venta",
-	"rendimiento": 18.5,
-	"litros": null
+  "fecha": "2026-10-05",
+  "terreno_id": "uuid",
+  "temporada_id": "uuid",
+  "producto": "aceituna_olivar",
+  "kgs": 1200.5,
+  "destino": "aceite_para_venta",
+  "rendimiento": 18.5,
+  "litros": null
 }
 ```
 
@@ -221,14 +221,14 @@ Regla: `rendimiento` y `litros` son opcionales, pero no se permite informar ambo
 
 ```json
 {
-	"fecha": "2026-09-20",
-	"terreno_id": "uuid",
-	"temporada_id": "uuid",
-	"trabajador_id": "uuid",
-	"tarea_texto": "Poda de mantenimiento",
-	"horas": 4.5,
-	"coste_manual": 70.0,
-	"descripcion": "Poda de mantenimiento"
+  "fecha": "2026-09-20",
+  "terreno_id": "uuid",
+  "temporada_id": "uuid",
+  "trabajador_id": "uuid",
+  "tarea_texto": "Poda de mantenimiento",
+  "horas": 4.5,
+  "coste_manual": 70.0,
+  "descripcion": "Poda de mantenimiento"
 }
 ```
 

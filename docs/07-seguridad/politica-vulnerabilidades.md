@@ -28,6 +28,7 @@ actualizado_en: "2026-07-14"
 ```text
 Detección → Triaje → Confirmación → Parcheo → Verificación → Comunicación
 ```
+
 1. **Detección**: reporte externo, scanner automático o incidente
 2. **Triaje**: evaluar severidad (CVSS), impacto y superficie afectada
 3. **Confirmación**: reproducir la vulnerabilidad en entorno controlado

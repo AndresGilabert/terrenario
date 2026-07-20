@@ -45,7 +45,7 @@ actualizado_en: "2026-07-18"
 
 ## Estructura de un módulo / servicio
 
-```
+```text
 src/
 ├── {modulo}/
 │   ├── domain/           # Entidades, value objects, reglas
@@ -53,6 +53,7 @@ src/
 │   ├── infrastructure/   # Adaptadores, repositorios, migraciones
 │   └── interfaces/       # Controllers, DTOs, mappers
 ```
+
 ---
 
 ## Manejo de errores

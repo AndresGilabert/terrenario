@@ -108,6 +108,7 @@ X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 Content-Security-Policy: default-src 'self'
 ```
+
 ---
 
 ## Sesiones y cookies

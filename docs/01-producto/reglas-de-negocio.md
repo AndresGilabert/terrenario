@@ -1,7 +1,7 @@
 ﻿---
 bloque: 01-producto
 documento: reglas-de-negocio
-actualizado_en: "2026-07-17"
+actualizado_en: "2026-07-20"
 ---
 
 # Reglas de Negocio Globales
@@ -238,6 +238,176 @@ Passkeys se documentan como evolucion posterior al MVP y no bloquean la salida i
 Toda sesion que alcance pantalla de login debe ser trazable hasta exito o abandono para medir conversion del embudo y detectar barreras de acceso.
 
 La trazabilidad debe cumplir privacidad por diseno y no registrar PII sensible en claro.
+
+---
+
+### RN-021 — Temporada operativa obligatoria con autoseleccion
+
+**Estado**: activa
+**Fuente**: producto
+**Módulos afectados**: temporadas, actividades, produccion, compras-consumo
+
+Toda actividad, cosecha y compra del MVP debe quedar asociada a una temporada. La UI autoselecciona la temporada activa del Workspace para minimizar friccion.
+
+---
+
+### RN-022 — Una sola temporada activa por Workspace
+
+**Estado**: activa
+**Fuente**: producto
+**Módulos afectados**: temporadas, dashboard
+
+En MVP solo puede existir una temporada activa por Workspace.
+
+---
+
+### RN-023 — Fecha fuera de rango permitida con aviso
+
+**Estado**: activa
+**Fuente**: producto
+**Módulos afectados**: temporadas, actividades, produccion, compras-consumo
+
+Si la fecha de un registro queda fuera del rango de la temporada asociada, el sistema permite guardar el registro pero debe mostrar un aviso no bloqueante.
+
+---
+
+### RN-024 — Temporada cerrada informativa
+
+**Estado**: activa
+**Fuente**: producto
+**Módulos afectados**: temporadas, actividades, produccion, compras-consumo
+
+El estado `cerrada` de una temporada es informativo en MVP y no bloquea nuevas altas ni ediciones.
+
+---
+
+### RN-025 — Tarea obligatoria en actividad
+
+**Estado**: activa
+**Fuente**: producto
+**Módulos afectados**: actividades
+
+Toda actividad del MVP debe incluir una tarea. La tarea puede seleccionarse desde el catálogo del Workspace o introducirse en texto libre.
+
+---
+
+### RN-026 — Catalogo de tareas por Workspace con aprendizaje local
+
+**Estado**: activa
+**Fuente**: producto
+**Módulos afectados**: actividades, tareas
+
+Cada Workspace mantiene su propio catálogo de tareas. El catálogo arranca vacío, es editable por miembros del Workspace y el sistema puede ofrecer guardar una tarea libre para reutilizarla después.
+
+---
+
+### RN-027 — Miembros del Workspace expuestos como trabajadores
+
+**Estado**: activa
+**Fuente**: producto
+**Módulos afectados**: trabajadores, actividades, workspaces
+
+Todo miembro de un Workspace aparece automáticamente como trabajador seleccionable en actividades. El sistema también permite trabajadores sin cuenta vinculada.
+
+---
+
+### RN-028 — Alta mínima de terreno en MVP
+
+**Estado**: activa
+**Fuente**: producto
+**Módulos afectados**: terrenos, dashboard
+
+El alta mínima de terreno exige `nombre` y `tipo_propiedad`. El resto de campos, incluido `num_arboles`, es opcional en MVP.
+
+---
+
+### RN-029 — Produccion MVP limitada al nucleo operativo
+
+**Estado**: activa
+**Fuente**: producto
+**Módulos afectados**: produccion
+
+La producción MVP se limita a `producto`, `kgs`, `destino` y uno entre `rendimiento` o `litros`. Quedan fuera de alcance precio, molturación y balance.
+
+---
+
+### RN-030 — Producto de cosecha obligatorio y catalogado
+
+**Estado**: activa
+**Fuente**: producto
+**Módulos afectados**: produccion
+
+Toda cosecha del MVP debe informar un `producto` obligatorio procedente de un catálogo global fijo no editable por usuarios.
+
+---
+
+### RN-031 — Compras con material libre y sugerencias desde historico
+
+**Estado**: activa
+**Fuente**: producto
+**Módulos afectados**: compras-consumo
+
+En compras, el producto o material se registra como texto libre. La UI puede sugerir valores desde el histórico del Workspace para acelerar la captura.
+
+---
+
+### RN-032 — Consumo sin compra previa y sin recalculo historico
+
+**Estado**: activa
+**Fuente**: producto
+**Módulos afectados**: compras-consumo
+
+Se permite registrar consumo operativo aunque no exista compra previa, asignando coste 0 con aviso. Si la compra se registra después, el sistema no recalcula los costes históricos ya guardados.
+
+---
+
+### RN-033 — Diario cronologico unificado como vista principal
+
+**Estado**: activa
+**Fuente**: producto
+**Módulos afectados**: actividades, produccion, compras-consumo, dashboard
+
+La vista principal del MVP es un diario cronológico unificado que mezcla actividades, cosechas y compras/consumos por fecha.
+
+---
+
+### RN-034 — Permisos planos por Workspace en MVP
+
+**Estado**: activa
+**Fuente**: producto
+**Módulos afectados**: workspaces, autenticacion, autorizacion
+
+En MVP todos los miembros del Workspace pueden operar y administrar registros, maestros, temporadas e invitaciones. Los permisos granulares se dejan para fases posteriores.
+
+---
+
+### RN-035 — Invitaciones por email y por enlace
+
+**Estado**: activa
+**Fuente**: producto
+**Módulos afectados**: workspaces, autenticacion
+
+El flujo multiusuario del MVP debe soportar invitaciones a Workspace por email y por enlace compartible.
+
+---
+
+### RN-036 — Google como unico proveedor real del MVP
+
+**Estado**: activa
+**Fuente**: producto
+**Módulos afectados**: autenticacion
+
+El MVP sale con Google OIDC como único proveedor real de autenticación. Otros proveedores se consideran evolución posterior.
+
+---
+
+### RN-037 — Borrado fisico con confirmacion explicita
+
+**Estado**: activa
+**Fuente**: producto
+**Módulos afectados**: actividades, produccion, compras-consumo
+
+El MVP permite borrado físico de registros operativos, pero la UI debe exigir confirmación explícita antes de ejecutar la acción.
 
 ## Reglas obsoletas
 

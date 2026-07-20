@@ -1,7 +1,7 @@
 ﻿---
 bloque: 01-producto
 documento: definicion-requisitos-usuario
-actualizado_en: "2026-07-18"
+actualizado_en: "2026-07-20"
 ---
 
 # Definición de requisitos de usuario
@@ -46,6 +46,14 @@ La hoja actual no es solo un dashboard de consulta. Ya funciona como una base op
 
 Por tanto, la app debe igualar al menos este núcleo funcional antes de añadir capacidades nuevas.
 
+El cierre funcional previo al roadmap fija además estas decisiones del MVP:
+
+- La vista principal es un diario cronológico unificado de actividades, cosechas y compras/consumos.
+- La temporada es obligatoria en registros operativos, se autoselecciona la activa y solo puede haber una activa por Workspace.
+- La producción MVP se limita al núcleo operativo: `producto`, `kgs`, `destino` y uno entre `rendimiento` o `litros`.
+- El catálogo de tareas es propio de cada Workspace, arranca vacío y admite texto libre con opción de guardado posterior.
+- El MVP sale con Google OIDC como único proveedor real de identidad y sin importación desde la hoja actual.
+
 ---
 
 ## Matriz de cobertura de producto a requisitos
@@ -70,7 +78,7 @@ Por tanto, la app debe igualar al menos este núcleo funcional antes de añadir 
 | [user-journeys](user-journeys.md) | Revisar temporada | RU-06, RU-07, HU-05 | Cubierto |
 | [user-journeys](user-journeys.md) | Registrar cosecha | RU-03, HU-03, RN-004, RN-013, RN-014 | Cubierto |
 | [user-journeys](user-journeys.md) | Acceso sin contraseña | RU-08, RT-01, RN-018, RN-020 | Cubierto |
-| [reglas-de-negocio](reglas-de-negocio.md) | Reglas globales | Toda la sección RN-001..RN-020 está referenciada por dominios y journeys | Cubierto |
+| [reglas-de-negocio](reglas-de-negocio.md) | Reglas globales | Toda la sección RN-001..RN-037 está referenciada por dominios y journeys | Cubierto |
 
 ---
 
@@ -78,12 +86,12 @@ Por tanto, la app debe igualar al menos este núcleo funcional antes de añadir 
 
 | Hoja | Qué representa hoy | Capacidad mínima que la app debe cubrir | Gap respecto a la KB actual |
 |------|--------------------|------------------------------------------|-----------------------------|
-| `PRODUCCIO` | Registro de cosechas y rendimiento por fecha, terreno, producto, kilos, litros, destino, molturación y balance | Alta y consulta de cosechas por terreno y temporada, con unidad principal única, destino, rendimiento y cálculos derivados | Falta especificar con más detalle el modelo de producción para cubrir litros, molturación, precio y balance |
-| `DIARI` | Diario de trabajos por fecha, terreno, trabajador, tarea, horas e importe | Alta de actividades/recursos con terreno, responsable, tarea, horas y coste | Falta definir catálogo de tareas y si el importe es calculado o editable en cada caso |
-| `TASQUES` | Catálogo de tareas reutilizables | Catálogo maestro de tareas seleccionables al registrar actividades | No está definido como entidad funcional explícita en la KB |
-| `TERRENYS` | Maestro de parcelas con propietario, alias, referencia catastral, URL, coordenadas y número de olivos | Maestro de terrenos con identificación, ubicación y nº de olivos para KPIs | Falta concretar qué campos son obligatorios, cuáles opcionales y cómo se validan |
-| `TEMPORADES` | Maestro de temporadas con rango de fechas y precio estimado de aceite | Gestión de temporadas como eje de filtrado, histórico y comparativas | Falta bajar la temporada a requisito funcional formal |
-| `TREBALLADORS` | Maestro de personas trabajadoras | Maestro de responsables / trabajadores para actividades y trazabilidad | La KB solo define responsable como texto; falta decidir si se modela como maestro o se mantiene libre |
+| `PRODUCCIO` | Registro de cosechas y rendimiento por fecha, terreno, producto, kilos, litros, destino, molturación y balance | Alta y consulta de cosechas por terreno y temporada, con unidad principal única, destino, rendimiento y cálculos derivados | Cerrado: MVP limitado a `producto` obligatorio de catálogo global, `kgs`, `destino` y uno entre `rendimiento` o `litros`; quedan fuera precio, molturación y balance |
+| `DIARI` | Diario de trabajos por fecha, terreno, trabajador, tarea, horas e importe | Alta de actividades/recursos con terreno, responsable, tarea, horas y coste | Cerrado: tarea obligatoria, catálogo por Workspace con texto libre permitido y coste siempre manual/editable |
+| `TASQUES` | Catálogo de tareas reutilizables | Catálogo maestro de tareas seleccionables al registrar actividades | Cerrado: entidad funcional explícita del MVP, editable por Workspace y con opción de guardar tareas libres |
+| `TERRENYS` | Maestro de parcelas con propietario, alias, referencia catastral, URL, coordenadas y número de olivos | Maestro de terrenos con identificación, ubicación y nº de olivos para KPIs | Cerrado: alta mínima con `nombre` y `tipo_propiedad`; resto opcional e informativo |
+| `TEMPORADES` | Maestro de temporadas con rango de fechas y precio estimado de aceite | Gestión de temporadas como eje de filtrado, histórico y comparativas | Cerrado: temporada obligatoria en registros, autoselección de activa, una activa por Workspace y aviso cuando la fecha quede fuera de rango |
+| `TREBALLADORS` | Maestro de personas trabajadoras | Maestro de responsables / trabajadores para actividades y trazabilidad | Cerrado: los miembros del Workspace aparecen automáticamente como trabajadores seleccionables y siguen existiendo trabajadores sin cuenta |
 
 ---
 
@@ -91,17 +99,27 @@ Por tanto, la app debe igualar al menos este núcleo funcional antes de añadir 
 
 ### RU-01 - Registrar terrenos
 
-El usuario debe poder crear y consultar terrenos con al menos:
+El usuario debe poder crear y consultar terrenos con alta mínima de `nombre` y `tipo_propiedad`.
+
+Datos opcionales del MVP:
 
 - propietario
 - alias o nombre corto
 - referencia catastral o identificador único
-- ubicación o coordenadas si existen
+- ubicación o coordenadas
 - número de olivos
 
 ### RU-02 - Registrar temporadas
 
 El usuario debe poder definir temporadas con rango de fechas y usarlas como filtro de consulta y análisis.
+
+Reglas derivadas:
+
+- Solo puede existir una temporada activa por Workspace.
+- Toda actividad, cosecha y compra debe quedar asociada a una temporada.
+- La app autoselecciona la temporada activa al crear registros operativos.
+- Si la fecha cae fuera del rango de la temporada elegida, el sistema permite guardar pero muestra aviso.
+- El estado `cerrada` es informativo en MVP y no bloquea altas ni ediciones.
 
 ### RU-03 - Registrar cosechas
 
@@ -109,12 +127,17 @@ El usuario debe poder registrar cosechas con:
 
 - fecha
 - terreno
-- producto
+- producto obligatorio
 - kilos
-- litros de aceite cuando aplique
-- rendimiento
 - destino
-- coste manual operativo (sin modelo de balance en MVP)
+- uno entre litros de aceite o rendimiento
+- temporada
+
+Reglas derivadas:
+
+- El `producto` se selecciona desde un catálogo global fijo no editable por usuarios.
+- `destino = desconocido` es válido para no bloquear el registro operativo.
+- El alcance MVP no incluye precio, molturación ni balance.
 
 ### RU-04 - Registrar trabajos del día
 
@@ -127,13 +150,29 @@ El usuario debe poder registrar actividades con:
 - horas
 - coste manual editable
 
+Reglas derivadas:
+
+- La tarea es obligatoria en MVP.
+- La tarea puede venir del catálogo del Workspace o introducirse en texto libre.
+- Si la tarea se introduce en texto libre, la UI puede ofrecer guardarla en el catálogo del Workspace.
+- Los miembros del Workspace aparecen automáticamente como trabajadores seleccionables.
+- La tarifa horaria, si existe, solo actúa como referencia; el coste sigue siendo manual/editable.
+
 ### RU-05 - Usar un catálogo de tareas
 
 El usuario debe poder seleccionar tareas desde un catálogo reutilizable para evitar introducir nombres inconsistentes.
 
+Reglas derivadas:
+
+- El catálogo es editable por Workspace.
+- El catálogo arranca vacío en MVP.
+- Las tareas con histórico asociado pueden inactivarse, pero no eliminarse.
+
 ### RU-06 - Consultar el histórico
 
 El usuario debe poder filtrar y consultar por terreno, temporada, tarea y trabajador para reproducir la lógica actual de la hoja y del PowerBI.
+
+La experiencia principal de consulta operativa es un diario cronológico unificado.
 
 ### RU-07 - Calcular indicadores del dashboard
 
@@ -155,9 +194,10 @@ Requisitos derivados:
 
 - No exigir contraseña local en el MVP.
 - Priorizar un flujo apto para usuarios con baja familiaridad técnica.
-- Permitir autenticación con Google como camino principal.
+- Limitar el MVP a Google como único proveedor real de autenticación.
 - Mantener abierta la posibilidad de incorporar otros proveedores sociales compatibles con OIDC/OAuth 2.0 si el negocio lo necesita.
 - Minimizar pasos, campos y pantallas en el alta y el acceso.
+- Permitir invitaciones a Workspace por email y por enlace compartible.
 
 ### RU-09 - Cumplir la normativa europea de protección de datos
 
@@ -178,8 +218,11 @@ El usuario debe poder registrar compras de materiales y asignar su consumo aprox
 Requisitos derivados:
 
 - Registrar producto o material comprado, cantidad total y coste total.
+- Mantener el producto/material como texto libre con sugerencias basadas en histórico.
 - Asignar consumos aproximados por terreno cuando el material se utilice en varios lugares.
-- Calcular la parte proporcional del coste si la compra se vincula a un consumo concreto.
+- Registrar cantidad aproximada consumida y coste proporcional por terreno.
+- Permitir registrar consumo operativo aunque la compra aún no exista, dejando coste 0 con aviso.
+- Si la compra se registra después, no recalcular costes históricos ya guardados.
 - No exigir stock tracking ni saldo acumulado en el MVP.
 - Mantener trazabilidad suficiente para entender qué se compró, dónde se consumió y cuánto costó.
 
@@ -250,29 +293,36 @@ Requisitos del bloque:
 ### Terrenos
 
 - Crear, editar y listar terrenos.
-- Guardar propietario, alias y referencia catastral.
-- Soportar coordenadas o enlace externo de ubicación.
-- Guardar número de olivos para KPIs.
+- Exigir `nombre` y `tipo_propiedad` en el alta.
+- Guardar propietario, alias y referencia catastral como datos opcionales.
+- Soportar coordenadas o enlace externo de ubicación como datos informativos.
+- Guardar número de olivos como dato opcional para KPIs.
 
 ### Temporadas
 
 - Definir temporadas con fechas de inicio y fin.
 - Usarlas como base de filtrado del dashboard y de los registros.
+- Mantener una única temporada activa por Workspace.
+- Asociar obligatoriamente toda actividad, cosecha y compra a una temporada.
+- Permitir fechas fuera de rango con aviso no bloqueante.
 
 ### Producción
 
 - Registrar cosechas por terreno y fecha.
+- Exigir producto, `kgs`, destino y temporada.
 - Manejar una unidad principal por cosecha.
-- Calcular rendimiento.
-- Guardar destino.
-- Soportar litros de aceite y molturación cuando aplique.
-- Mantener un campo de balance si el negocio sigue usando esa lógica.
+- Aceptar uno entre `rendimiento` o `litros`.
+- Guardar destino, incluyendo `desconocido`.
+- Usar un catálogo global fijo de productos de cosecha.
+- Excluir de MVP molturación, precio y balance.
 
 ### Compras y consumo
 
 - Registrar compras de materiales y consumos aproximados por terreno.
 - Mantener trazabilidad del material comprado y usado.
+- Usar producto/material en texto libre con sugerencias desde histórico.
 - Calcular reparto proporcional del coste cuando proceda.
+- Permitir coste 0 cuando no exista compra previa.
 - Evitar un modelo de stock complejo en el MVP.
 
 ### Datos colaborativos
@@ -289,17 +339,22 @@ Requisitos del bloque:
 
 - Evolucionar hacia control de acceso granular cuando haya varios usuarios reales.
 - Aplicar roles y permisos por terreno o grupo de terrenos.
+- Mantener en MVP permisos planos por Workspace, también para maestros e invitaciones.
+- Permitir invitaciones por email y por enlace.
 
 ### Diario / actividades
 
 - Registrar tareas por día y terreno.
 - Relacionar trabajador y horas.
-- Capturar importes o calcularlos según reglas.
+- Hacer obligatoria la tarea, desde catálogo o texto libre.
+- Mantener el coste siempre manual/editable.
+- Exponer un diario cronológico unificado como vista principal.
 
 ### Trabajadores
 
 - Disponer de un maestro de personas para evitar inconsistencias al registrar actividades.
 - Mantener nombres reutilizables para el diario.
+- Crear automáticamente trabajador seleccionable para cada miembro del Workspace.
 
 ### Dashboard
 
@@ -310,6 +365,8 @@ Requisitos del bloque:
 - Indicadores con datos incompletos cuando falte información de base.
 
 ### Dashboard Power BI actual
+
+> Referencia del estado analítico actual. Esta sección no amplía por sí misma el alcance obligatorio del MVP cuando contradice o supera las decisiones ya cerradas arriba.
 
 - Permitir filtrar el dashboard por temporada y propietario, manteniendo la navegación de análisis centrada en una sola vista.
 - Mostrar un bloque superior de resumen con los indicadores principales de la temporada seleccionada: kg totales, kg por árbol, rendimiento medio y litros de aceite.
@@ -342,15 +399,16 @@ Requisitos del bloque:
 
 ---
 
-## Gaps a resolver en la siguiente iteración de requisitos
+## Estado del cierre funcional previo al roadmap
 
-1. Decidir si `TREBALLADORS` se modela como entidad formal o como texto libre con autocompletado.
-2. Definir regla de sugerencia de coste por tarifa_hora sin romper el principio de coste manual obligatorio por registro.
-3. Definir el modelo exacto de `balance` en producción.
-4. Formalizar si `molturación €/Kg` es un dato de entrada, un cálculo o un dato histórico heredado.
-5. Definir si el filtro por propietario es un filtro funcional del dashboard o solo un atributo de consulta interna.
-6. Formalizar cómo se importan o migran datos desde la hoja actual.
-7. Decidir qué datos son obligatorios y cuáles opcionales en creación/edición.
+No quedan decisiones funcionales bloqueantes para pasar al diseño del roadmap del MVP.
+
+Quedan como evoluciones posteriores al MVP, no como gaps de definición:
+
+1. Importación o migración desde la hoja actual.
+2. Balance, molturación y precio en producción.
+3. Permisos granulares por usuario, rol o terreno.
+4. Analítica predictiva, datos colaborativos y offline.
 
 ---
 
@@ -382,18 +440,17 @@ Requisitos del bloque:
 |----|----------|---------|-------------------|
 | HU-09 | Calcular métricas derivadas | Antonio | La app calcula producción total, litros de aceite, kg por terreno, kg por árbol y rendimiento medio. |
 | HU-10 | Gestionar datos incompletos | Antonio | La app muestra avisos y valores parciales cuando faltan datos base como número de olivos. |
-| HU-11 | Importar o migrar desde el Sheet | Antonio | Los datos existentes pueden trasladarse a la app sin pérdida de información operativa. |
-| HU-12 | Ver detalle tabular del dashboard | Antonio | Puede consultar una tabla de registros con fecha, terreno, kg, rendimiento, euros por kilo y litros de aceite. |
-| HU-13 | Filtrar por propietario | Antonio | Puede acotar la lectura del dashboard por propietario sin salir de la misma vista. |
-| HU-14 | Comparar rendimiento ponderado | Antonio | Puede ver el rendimiento ponderado por terreno para comparar explotaciones dentro de la temporada. |
-| HU-15 | Ver litros por árbol | Antonio | Puede consultar litros de aceite por árbol y terreno cuando exista información suficiente. |
+| HU-11 | Ver detalle tabular del dashboard | Antonio | Puede consultar una tabla de registros con fecha, terreno, kg, rendimiento, euros por kilo y litros de aceite como evolución posterior al dashboard MVP base. |
+| HU-12 | Filtrar por propietario | Antonio | Puede acotar la lectura del dashboard por propietario sin salir de la misma vista como mejora posterior al MVP base. |
+| HU-13 | Comparar rendimiento ponderado | Antonio | Puede ver el rendimiento ponderado por terreno para comparar explotaciones dentro de la temporada. |
+| HU-14 | Ver litros por árbol | Antonio | Puede consultar litros de aceite por árbol y terreno cuando exista información suficiente. |
 
 ### Prioridad P3 - Evolución futura
 
 | ID | Historia | Usuario | Resultado esperado |
 |----|----------|---------|-------------------|
-| HU-16 | Normalizar categorias de destino | Antonio | La app permite clasificar destinos con taxonomia fija: `venta_aceituna`, `aceite_para_venta`, `aceite_personal` y `desconocido` (alias UI: "Sin destino"). |
-| HU-17 | Definir balance y molturación | Antonio | La app conserva o calcula campos heredados del Sheet como balance y molturación €/kg cuando aplique. |
+| HU-15 | Importar o migrar desde el Sheet | Antonio | Los datos existentes pueden trasladarse a la app sin pérdida de información operativa. |
+| HU-16 | Definir balance y molturación | Antonio | La app conserva o calcula campos heredados del Sheet como balance y molturación €/kg cuando aplique. |
 
 ---
 
@@ -408,8 +465,8 @@ Convertir esta matriz en historias de usuario, empezando por:
 
 ## Regla de cierre
 
-Los criterios de aceptación detallados no deben considerarse cerrados hasta que termine esta fase de definición de requisitos de usuario.
-En esta etapa solo se mantienen como referencias provisionales de validación, para no congelar demasiado pronto el alcance de las futuras historias.
+Las decisiones funcionales base del MVP ya se consideran cerradas para poder diseñar el roadmap.
+Los criterios de aceptación detallados se cerrarán al bajar estas decisiones a épicas e historias.
 
 ---
 

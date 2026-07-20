@@ -15,10 +15,17 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/).
 - Migración documentada de plantilla `v1.0.0 -> v1.1.0`
 - Script `sync_template_core.py` para planificar y aplicar sincronización del núcleo de plantilla
 - Plantilla específica para notas de release (`release-notes.md`)
+- Estructura real de `docs/09-desarrollos/epicas/` con seis épicas MVP alineadas con el roadmap aprobado
+- Historias iniciales de la épica `MVP-001` para dejar definido el Hito A del MVP
+- Historias iniciales de la épica `MVP-002` para dejar definido el Hito B del MVP
+- Historias iniciales de la épica `MVP-003` para dejar definido el Hito C del MVP
+- Historias iniciales de la épica `MVP-004` para dejar definido el Hito D del MVP
+- Historias iniciales de las épicas `MVP-005` y `MVP-006` para cerrar la salida controlada y la operación medible del MVP
 
 ### Cambiado
 
 - Actualizada documentacion de producto para reflejar definicion funcional confirmada del dashboard MVP (alcance, reglas, journeys y KPIs iniciales).
+- Actualizada la KB para cerrar decisiones funcionales del MVP y convertir el roadmap en una propuesta por bloques ejecutables con dependencias explícitas.
 - Definido marco de cumplimiento obligatorio de proteccion de datos (RGPD + LOPDGDD), con clasificacion de obligatorio vs condicionado vs recomendado y criterios de enforcement en DoR/DoD.
 - Definida estrategia de autenticacion para MVP (Google Login), Passkeys en fase futura y trazabilidad obligatoria del embudo de login para detectar abandono.
 - Marcado `docs/03-modulos/modulo-ejemplo/` como módulo de ejemplo no vinculante y excluido del contexto funcional real del proyecto.

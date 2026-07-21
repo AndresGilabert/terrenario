@@ -26,6 +26,13 @@ DOCS_ROOT = SCRIPTS_DIR.parent.parent  # docs/
 REPO_ROOT = DOCS_ROOT.parent
 VALIDADOR = SCRIPTS_DIR / "validar_kb.py"
 MARKDOWN_CONFIG = DOCS_ROOT / "00-meta" / ".markdownlint.json"
+MARKDOWNLINT_TARGETS = [
+    "docs/**/*.md",
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "README.md",
+    ".github/copilot-instructions.md",
+]
 
 
 def run_command(cmd: list[str], description: str) -> int:
@@ -134,7 +141,7 @@ def main() -> int:
             return 1
 
         status = run_command(
-            [markdownlint_bin, "**/*.md", "-c", str(MARKDOWN_CONFIG)],
+            [markdownlint_bin, *MARKDOWNLINT_TARGETS, "-c", str(MARKDOWN_CONFIG)],
             "Linting markdown",
         )
         if status != 0:

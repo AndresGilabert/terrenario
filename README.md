@@ -1,210 +1,315 @@
-﻿# IA_KB_Template
+# Terrenario — Tu tierra, bajo control
 
-> Estructura de base de conocimiento reutilizable para agentes de IA, desarrolladores y jefes de producto.
-> Diseñada para vivir dentro del repositorio del proyecto bajo `docs/`.
+Plataforma de gestión agrícola para el agricultor moderno. Gestiona terrenos, cosechas y tareas diarias desde un único workspace.
 
-## Licenciamiento
-
-Este repositorio se publica con licencia propietaria (All rights reserved).
-
-- Consulta `LICENSE` para los términos completos.
-- La visibilidad pública del repositorio no concede derechos de uso, copia, modificación o distribución.
-- No se aceptan contribuciones externas por el momento.
+> Para contexto de producto y arquitectura: [`docs/01-producto/vision-y-objetivos.md`](./docs/01-producto/vision-y-objetivos.md)  
+> Para agentes de IA y reglas de la KB: [`AGENTS.md`](./AGENTS.md)
 
 ---
 
-## Quick Start — 5 minutos
+## Requisitos previos
 
-### 1. Copia la estructura a tu proyecto
+| Herramienta | Versión mínima | Notas |
+|-------------|---------------|-------|
+| [.NET SDK](https://dotnet.microsoft.com/download) | 9.0 | `dotnet --version` |
+| [Node.js](https://nodejs.org/) | 20 LTS | `node --version` |
+| [PostgreSQL](https://www.postgresql.org/download/) | 15 | Local o Docker |
+| [Git](https://git-scm.com/) | 2.x | - |
+| Cuenta Google Cloud | — | Para OAuth 2.0 |
 
-**PowerShell (Windows):**
+---
 
+## 1. Clonar el repositorio
+
+```bash
+git clone https://github.com/AndresGilabert/terrenario.git
+cd terrenario
+git checkout develop
+```
+
+---
+
+## 2. Configurar Google OAuth 2.0
+
+El flujo de autenticación requiere un proyecto en Google Cloud con una aplicación OAuth 2.0 configurada.
+
+### 2.1 Crear la aplicación en Google Cloud Console
+
+1. Entra en [Google Cloud Console](https://console.cloud.google.com/).
+2. Crea un proyecto o selecciona uno existente.
+3. Ve a **APIs y servicios → Credenciales → Crear credenciales → ID de cliente OAuth 2.0**.
+4. Tipo de aplicación: **Aplicación web**.
+5. Configura los **Orígenes de JavaScript autorizados**:
+   ```
+   http://localhost:5173
+   ```
+6. Configura los **URIs de redireccionamiento autorizados**:
+   ```
+   http://localhost:5173/auth/callback
+   ```
+7. Guarda. Obtendrás un **Client ID** y un **Client Secret** — los necesitarás en los pasos siguientes.
+
+---
+
+## 3. Generar par de claves RSA (para JWT RS256)
+
+El backend firma los tokens JWT con RSA-256. Genera un par de claves en local:
+
+**macOS / Linux:**
+```bash
+# Clave privada (2048 bits)
+openssl genrsa -out jwt_private.pem 2048
+
+# Clave pública
+openssl rsa -in jwt_private.pem -pubout -out jwt_public.pem
+
+# Ver el contenido (lo necesitarás en el siguiente paso)
+cat jwt_private.pem
+cat jwt_public.pem
+```
+
+**Windows (PowerShell):**
 ```powershell
-# Desde la raíz de tu repositorio
-git clone https://github.com/tu-org/IA_DOC_Template .kb-template
-Copy-Item -Recurse .kb-template/docs ./docs
-Copy-Item .kb-template/AGENTS.md ./AGENTS.md
-Copy-Item .kb-template/CONTRIBUTING.md ./CONTRIBUTING.md
-Copy-Item .kb-template/.pre-commit-config.yaml ./.pre-commit-config.yaml
-Copy-Item -Recurse .kb-template/.github ./.github
-Remove-Item -Recurse -Force .kb-template
+# Requiere OpenSSL instalado (incluido en Git for Windows)
+$env:Path += ";C:\Program Files\Git\usr\bin"
+
+openssl genrsa -out jwt_private.pem 2048
+openssl rsa -in jwt_private.pem -pubout -out jwt_public.pem
+
+Get-Content jwt_private.pem
+Get-Content jwt_public.pem
 ```
 
-**bash / macOS / Linux:**
+> ⚠️ **No commitas estos archivos.** Son secretos de desarrollo local. El `.gitignore` ya excluye `*.pem`.
 
-```bash
-# Desde la raíz de tu repositorio
-git clone https://github.com/tu-org/IA_DOC_Template .kb-template
-cp -r .kb-template/docs ./docs
-cp .kb-template/AGENTS.md ./AGENTS.md
-cp .kb-template/CONTRIBUTING.md ./CONTRIBUTING.md
-cp .kb-template/.pre-commit-config.yaml ./.pre-commit-config.yaml
-cp -r .kb-template/.github ./.github
-rm -rf .kb-template
+---
+
+## 4. Configurar el backend
+
+### 4.1 Base de datos PostgreSQL
+
+Crea la base de datos de desarrollo:
+
+```sql
+-- Conéctate a tu instancia PostgreSQL
+CREATE DATABASE terrenario_dev;
 ```
 
-### 2. Instala las dependencias de validación
-
+Con Docker (alternativa rápida):
 ```bash
-pip install pyyaml
-npm install -g markdownlint-cli   # opcional, para linting de markdown
+docker run --name terrenario-pg \
+  -e POSTGRES_DB=terrenario_dev \
+  -e POSTGRES_PASSWORD=postgres \
+  -p 5432:5432 \
+  -d postgres:15
 ```
 
-### 3. Instala los pre-commit hooks (recomendado)
+### 4.2 Secretos del backend (User Secrets)
+
+Usa el sistema de secretos de .NET para **no poner credenciales en archivos de configuración**:
 
 ```bash
-pip install pre-commit
-pre-commit install
+cd src/backend/Terrenario.Api
+
+# Inicializar (si no existe ya un UserSecretsId)
+dotnet user-secrets init
+
+# Cadena de conexión PostgreSQL
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" \
+  "Host=localhost;Database=terrenario_dev;Username=postgres;Password=postgres"
+
+# Google OAuth 2.0
+dotnet user-secrets set "Auth:Google:ClientId"     "TU_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+dotnet user-secrets set "Auth:Google:ClientSecret" "TU_GOOGLE_CLIENT_SECRET"
+
+# JWT RSA — pega el contenido completo del PEM incluyendo cabecera/pie
+dotnet user-secrets set "Auth:Jwt:PrivateKeyPem" "$(cat ../../../jwt_private.pem)"
+dotnet user-secrets set "Auth:Jwt:PublicKeyPem"  "$(cat ../../../jwt_public.pem)"
 ```
 
-### 4. Declara el estado de plantilla
+**Windows (PowerShell):**
+```powershell
+cd src\backend\Terrenario.Api
 
-Después de copiar la estructura, revisa y conserva `docs/00-meta/template-state.md`.
-Ese archivo declara:
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" `
+  "Host=localhost;Database=terrenario_dev;Username=postgres;Password=postgres"
 
-- qué versión de la plantilla usa el proyecto
-- qué archivos forman el núcleo sincronizable
-- cuándo se revisó por última vez la alineación con la plantilla
+dotnet user-secrets set "Auth:Google:ClientId"     "TU_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+dotnet user-secrets set "Auth:Google:ClientSecret" "TU_GOOGLE_CLIENT_SECRET"
 
-### 5. Adapta los archivos de contexto del proyecto
-
-| Archivo | Qué rellenar primero |
-|---------|---------------------|
-| `docs/01-producto/vision-y-objetivos.md` | Visión, misión, objetivo del producto |
-| `docs/01-producto/stakeholders.md` | Equipo y roles |
-| `docs/02-arquitectura/vision-general.md` | Diagrama C4 del sistema |
-| `docs/03-modulos/_vision-general.md` | Mapa de módulos / dominios |
-| `AGENTS.md` | Ajustar el mapa de navegación a tu proyecto |
-
-### 6. Documenta tu primer desarrollo
-
-```bash
-# Crea la carpeta de la épica
-mkdir -p docs/09-desarrollos/epicas/PROJ-001--nombre-epica
-
-# Copia la plantilla
-cp docs/09-desarrollos/_plantilla/epica-spec.md \
-   docs/09-desarrollos/epicas/PROJ-001--nombre-epica/spec.md
-
-# Crea la primera historia dentro de la épica
-mkdir -p docs/09-desarrollos/epicas/PROJ-001--nombre-epica/PROJ-010--primera-historia
-cp docs/09-desarrollos/_plantilla/feature-spec.md \
-   docs/09-desarrollos/epicas/PROJ-001--nombre-epica/PROJ-010--primera-historia/spec.md
+dotnet user-secrets set "Auth:Jwt:PrivateKeyPem" (Get-Content ..\..\..\jwt_private.pem -Raw)
+dotnet user-secrets set "Auth:Jwt:PublicKeyPem"  (Get-Content ..\..\..\jwt_public.pem -Raw)
 ```
 
-### 7. Valida y genera índices
+> Los secretos se almacenan en `%APPDATA%\Microsoft\UserSecrets\` (Windows) o `~/.microsoft/usersecrets/` (macOS/Linux) y **nunca se commitean**.
+
+### 4.3 Verificar la configuración
 
 ```bash
-python docs/00-meta/scripts/validar_kb.py --validar
-python docs/00-meta/scripts/validar_kb.py --generar-indices
+dotnet user-secrets list
 ```
 
-Opción rápida (comando único recomendado):
+Debes ver las 5 claves configuradas.
+
+---
+
+## 5. Configurar el frontend
 
 ```bash
-python docs/00-meta/scripts/validar_pipeline_kb.py --check-indices-clean
+cd src/frontend/terrenario-web
+
+# Crear el archivo de entorno local a partir del ejemplo
+cp .env.example .env
+```
+
+Edita `.env` y rellena los valores:
+
+```dotenv
+# URL del backend (puerto del perfil "http" en launchSettings.json)
+VITE_API_BASE_URL=http://localhost:5127
+
+# El mismo Client ID de Google que configuraste en el backend
+VITE_GOOGLE_CLIENT_ID=TU_GOOGLE_CLIENT_ID.apps.googleusercontent.com
 ```
 
 ---
 
-## Modelo de actualización de plantilla
+## 6. Arrancar los servicios
 
-Esta plantilla **no se sincroniza automáticamente** una vez copiada al proyecto.
-
-El modelo soportado es:
-
-1. **Versionado de plantilla**: el proyecto declara la versión adoptada en `docs/00-meta/template-state.md`.
-2. **Núcleo sincronizable**: solo ciertos archivos deben alinearse con nuevas versiones de la plantilla.
-3. **Migración guiada**: cada cambio de versión relevante debe acompañarse de instrucciones de migración.
-
-### Núcleo sincronizable
-
-El núcleo sincronizable recomendado incluye:
-
-- `AGENTS.md`
-- `CONTRIBUTING.md`
-- `.github/copilot-instructions.md`
-- `.pre-commit-config.yaml`
-- `docs/00-meta/convenciones.md`
-- `docs/00-meta/scripts/validar_kb.py`
-- `docs/00-meta/scripts/README.md`
-- `docs/00-meta/plantillas/`
-
-### Contenido local del proyecto
-
-No debe sobrescribirse automáticamente al actualizar la plantilla:
-
-- `docs/01-producto/`
-- `docs/02-arquitectura/`
-- `docs/03-modulos/`
-- `docs/05-infraestructura/`
-- `docs/06-integraciones/`
-- `docs/09-desarrollos/`
-- `docs/10-releases/`
-- `docs/99-glosario/`
-
-### Cómo actualizar un proyecto que ya usa la plantilla
-
-1. Revisar `docs/00-meta/changelog.md` en la versión nueva.
-2. Leer `docs/00-meta/upgrade-template.md`.
-3. Aplicar la migración correspondiente desde `docs/00-meta/migraciones/`.
-4. Sincronizar solo el núcleo.
-5. Ejecutar `python docs/00-meta/scripts/validar_kb.py --validar`.
-6. Actualizar `template_version` y `template_last_reviewed` en `docs/00-meta/template-state.md`.
-
-Si quieres apoyo operativo para el paso 4:
+### 6.1 Backend
 
 ```bash
-# Ver plan de sincronización del núcleo
-python docs/00-meta/scripts/sync_template_core.py --source ../IA_DOC_Template --plan
+cd src/backend/Terrenario.Api
+dotnet run
+```
 
-# Aplicar sincronización del núcleo
-python docs/00-meta/scripts/sync_template_core.py --source ../IA_DOC_Template --apply
+Al arrancar en modo Development, el backend:
+- Aplica la migración de base de datos automáticamente (crea las tablas `usuarios` y `refresh_tokens`)
+- Expone la API en `http://localhost:5127`
+- Expone OpenAPI en `http://localhost:5127/openapi/v1.json`
+
+Verificar que funciona:
+```bash
+curl http://localhost:5127/api/v1/auth/me
+# Espera: 401 Unauthorized (correcto — no hay token)
+```
+
+### 6.2 Frontend
+
+```bash
+cd src/frontend/terrenario-web
+npm install
+npm run dev
+```
+
+Accede a `http://localhost:5173` — verás la landing page de Terrenario.
+
+---
+
+## 7. Validación funcional de MVP-101
+
+Con ambos servicios corriendo, puedes validar el flujo completo de autenticación:
+
+### Flujo normal
+1. Ve a `http://localhost:5173`
+2. Haz clic en **Empezar gratis con Google** o **Ingresar**
+3. En la pantalla de login, haz clic en **Continuar con Google**
+4. Autoriza el acceso en la pantalla de Google (usará tu cuenta real)
+5. Serás redirigido a `http://localhost:5173/app` con el mensaje de bienvenida
+
+### Flujo de cierre de sesión
+6. Haz clic en **Cerrar sesión**
+7. Serás redirigido a la landing page
+8. Al intentar acceder a `http://localhost:5173/app` directamente, serás redirigido a `/login`
+
+### Verificar el access token (DevTools)
+- Abre DevTools → Application → Session Storage → `http://localhost:5173`
+- Verás la clave `terrenario_at` con el JWT
+- En `https://jwt.io` puedes decodificarlo y verificar `sub`, `iss`, `aud`, `exp`
+
+### Verificar el refresh token (DevTools)
+- DevTools → Application → Cookies → `http://localhost:5127`
+- Verás la cookie `refresh_token` con las flags `HttpOnly` y `SameSite=Strict`
+
+### Endpoint `/me` con token
+```bash
+# Copia el access_token de la Session Storage
+curl -H "Authorization: Bearer TU_ACCESS_TOKEN" \
+  http://localhost:5127/api/v1/auth/me
+# Respuesta: {"id":"...","display_name":"Tu Nombre"}
 ```
 
 ---
 
-## Estructura de la KB
+## 8. Ejecutar los tests
 
-```text
-docs/
-├── 00-meta/          Gobernanza, plantillas, convenciones, script de validación
-├── 01-producto/      Visión, stakeholders, roadmap, KPIs, personas
-├── 02-arquitectura/  C4 Model, ADRs, modelo de datos, contratos API
-├── 03-modulos/       Bounded Contexts (DDD): un subdirectorio por módulo
-├── 04-ingenieria/    Estándares de código, Git, testing, code review
-├── 05-infraestructura/ Entornos, CI/CD, observabilidad, runbooks
-├── 06-integraciones/ Sistemas externos: un subdirectorio por integración
-├── 07-seguridad/     Modelo de seguridad, autenticación, privacidad (OWASP)
-├── 08-procesos/      DoR, DoD, gestión de incidentes, proceso de release
-├── 09-desarrollos/   Épicas e historias activas (bloque dinámico)
-├── 10-releases/      Changelog por versión semántica
-└── 99-glosario/      Lenguaje ubicuo del dominio (DDD)
+```bash
+cd src/backend
+dotnet test
+# Resultado esperado: 12/12 tests pasando
 ```
 
 ---
 
-## Para agentes de IA
+## 9. Estructura del proyecto
 
-Lee `AGENTS.md` en la raíz del repositorio. Contiene:
-
-- Mapa de navegación rápida por tipo de pregunta
-- Reglas obligatorias antes de generar código o documentación
-- Instrucciones por rol (agente de desarrollo, producto, documentación)
+```
+terrenario/
+├── docs/                    Base de conocimiento (KB)
+│   ├── 00-meta/             Convenciones, plantillas, scripts
+│   ├── 01-producto/         Visión, stakeholders, roadmap
+│   ├── 02-arquitectura/     C4, ADRs, contratos API
+│   ├── 04-ingenieria/       Estándares, Git flow, testing
+│   ├── 05-infraestructura/  Entornos, CI/CD
+│   ├── 07-seguridad/        Modelo de seguridad, autenticación
+│   └── 09-desarrollos/      Épicas e historias activas
+├── src/
+│   ├── backend/
+│   │   ├── Terrenario.Api/          API .NET 9 (ASP.NET Core)
+│   │   └── Terrenario.Api.Tests/    Tests unitarios (xUnit)
+│   └── frontend/
+│       └── terrenario-web/          React 19 + TypeScript + Vite
+└── prototype/               Prototipos de diseño (referencia)
+```
 
 ---
 
-## Documentación de uso
+## 10. Solución de problemas frecuentes
 
-| Audiencia | Documento |
-|-----------|----------|
-| Agentes de IA | [`AGENTS.md`](./AGENTS.md) |
-| Desarrolladores | [`CONTRIBUTING.md`](./CONTRIBUTING.md) |
-| Product Managers | [`docs/00-meta/guia-pm.md`](./docs/00-meta/guia-pm.md) |
-| Nuevos miembros | [`docs/04-ingenieria/onboarding.md`](./docs/04-ingenieria/onboarding.md) |
-| Convenciones y naming | [`docs/00-meta/convenciones.md`](./docs/00-meta/convenciones.md) |
-| Script de validación | [`docs/00-meta/scripts/validar_kb.py`](./docs/00-meta/scripts/validar_kb.py) |
-| Script de sincronización | [`docs/00-meta/scripts/sync_template_core.py`](./docs/00-meta/scripts/sync_template_core.py) |
-| Plantilla de release | [`docs/00-meta/plantillas/release-notes.md`](./docs/00-meta/plantillas/release-notes.md) |
-| Estado de plantilla | [`docs/00-meta/template-state.md`](./docs/00-meta/template-state.md) |
-| Guía de upgrade | [`docs/00-meta/upgrade-template.md`](./docs/00-meta/upgrade-template.md) |
+### Error: "REPLACE_IN_SECRETS" al arrancar el backend
+Los User Secrets no están configurados. Repasa el **paso 4.2**.
+
+### Error: "redirect_uri_mismatch" en Google
+La URL de callback no coincide con lo configurado en Google Cloud Console. Verifica que `http://localhost:5173/auth/callback` está en los **URIs de redireccionamiento autorizados**.
+
+### Error: "Error establishing a database connection"
+PostgreSQL no está corriendo o la cadena de conexión es incorrecta. Verifica con `psql -h localhost -U postgres -d terrenario_dev`.
+
+### Error al aplicar la migración: "role does not exist"
+El usuario de PostgreSQL configurado no existe. Ajusta el `Username` y `Password` en los User Secrets para usar un usuario que exista en tu instancia.
+
+### El frontend no puede llamar al backend (error CORS / Network)
+Verifica que `VITE_API_BASE_URL` en `.env` apunta al puerto correcto (`5127`) y que el backend está corriendo.
+
+### Error TypeScript en el frontend
+```bash
+cd src/frontend/terrenario-web
+npx tsc --noEmit
+```
+
+---
+
+## Documentación adicional
+
+| Recurso | Ruta |
+|---------|------|
+| Agentes de IA / Copilot | [`AGENTS.md`](./AGENTS.md) |
+| Flujo de Git | [`docs/04-ingenieria/flujo-git.md`](./docs/04-ingenieria/flujo-git.md) |
+| Estándares de código | [`docs/04-ingenieria/estandares-codigo.md`](./docs/04-ingenieria/estandares-codigo.md) |
+| Arquitectura del sistema | [`docs/02-arquitectura/vision-general.md`](./docs/02-arquitectura/vision-general.md) |
+| Modelo de seguridad | [`docs/07-seguridad/modelo-seguridad.md`](./docs/07-seguridad/modelo-seguridad.md) |
+| Autenticación / OIDC | [`docs/07-seguridad/autenticacion-autorizacion.md`](./docs/07-seguridad/autenticacion-autorizacion.md) |
+| Setup detallado de entorno | [`docs/05-infraestructura/desarrollo-local.md`](./docs/05-infraestructura/desarrollo-local.md) |
+| Historia MVP-101 (spec) | [`docs/09-desarrollos/epicas/MVP-001--identidad-y-contexto-seguro/MVP-101--google-oidc-y-sesion-base/spec.md`](./docs/09-desarrollos/epicas/MVP-001--identidad-y-contexto-seguro/MVP-101--google-oidc-y-sesion-base/spec.md) |
+| Tech design MVP-101 | [`docs/09-desarrollos/epicas/MVP-001--identidad-y-contexto-seguro/MVP-101--google-oidc-y-sesion-base/tech-design.md`](./docs/09-desarrollos/epicas/MVP-001--identidad-y-contexto-seguro/MVP-101--google-oidc-y-sesion-base/tech-design.md) |
+

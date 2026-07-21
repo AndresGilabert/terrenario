@@ -19,7 +19,7 @@ ai_context:
   etiquetas: ["mvp", "produccion", "analytics-basica"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # EPICA MVP-004 — Producción y dashboard MVP
@@ -71,6 +71,31 @@ Permitir registrar cosechas consistentes y mostrar un dashboard operativo útil 
 - `MVP-403` — Dashboard MVP: resumen y kg por destino.
 - `MVP-404` — Dashboard MVP: kg por terreno y evolución de rendimiento.
 - `MVP-405` — Filtros, persistencia de contexto y manejo de datos incompletos.
+
+## Vinculacion con prototipo (fuente visual)
+
+Regla de precedencia para todas las historias de esta epica:
+
+- La fuente de verdad funcional y de requisitos es la KB.
+- El prototipo solo aporta referencia visual, estructura de pantallas y flujos UX.
+- Si hay contradiccion, prevalece la KB.
+
+Referencia base del prototipo:
+
+- [prototype/terrenario-mvp/src/components/CosechasView.tsx](../../../../prototype/terrenario-mvp/src/components/CosechasView.tsx)
+- [prototype/terrenario-mvp/src/components/CosechaModal.tsx](../../../../prototype/terrenario-mvp/src/components/CosechaModal.tsx)
+- [prototype/terrenario-mvp/src/components/DashboardView.tsx](../../../../prototype/terrenario-mvp/src/components/DashboardView.tsx)
+- [prototype/reports/mvp-prototype-coverage.md](../../../../prototype/reports/mvp-prototype-coverage.md)
+
+Matriz historia -> pantallas/componentes:
+
+| Historia | Referencias de prototipo | Cobertura |
+|---|---|---|
+| MVP-401 | [prototype/terrenario-mvp/src/components/CosechasView.tsx](../../../../prototype/terrenario-mvp/src/components/CosechasView.tsx), [prototype/terrenario-mvp/src/components/CosechaModal.tsx](../../../../prototype/terrenario-mvp/src/components/CosechaModal.tsx) | Parcial: registro/listado de cosechas disponibles |
+| MVP-402 | [prototype/terrenario-mvp/src/components/CosechaModal.tsx](../../../../prototype/terrenario-mvp/src/components/CosechaModal.tsx) | Parcial: destino visible y opciones basicas; regla XOR rendimiento/litros y catalogos cerrados MVP no implementados |
+| MVP-403 | [prototype/terrenario-mvp/src/components/DashboardView.tsx](../../../../prototype/terrenario-mvp/src/components/DashboardView.tsx) | Parcial: resumen y distribucion por destino disponibles |
+| MVP-404 | [prototype/terrenario-mvp/src/components/DashboardView.tsx](../../../../prototype/terrenario-mvp/src/components/DashboardView.tsx) | Parcial: produccion por terreno y evolucion disponibles |
+| MVP-405 | [prototype/terrenario-mvp/src/components/DashboardView.tsx](../../../../prototype/terrenario-mvp/src/components/DashboardView.tsx), [prototype/terrenario-mvp/src/components/TerrenosView.tsx](../../../../prototype/terrenario-mvp/src/components/TerrenosView.tsx) | Parcial: filtro visual disponible; persistencia tras recarga y reglas completas de dato incompleto pendientes |
 
 ## Notas y decisiones
 

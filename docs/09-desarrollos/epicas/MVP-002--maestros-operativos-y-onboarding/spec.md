@@ -19,7 +19,7 @@ ai_context:
   etiquetas: ["mvp", "masters", "onboarding"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # EPICA MVP-002 — Maestros operativos y onboarding
@@ -70,6 +70,30 @@ Dejar cada Workspace preparado para empezar a registrar actividad real en pocos 
 - `MVP-203` — Maestro de temporadas y regla de única activa.
 - `MVP-204` — Maestro de trabajadores y exposición automática de miembros.
 - `MVP-205` — Catálogo de tareas por Workspace.
+
+## Vinculacion con prototipo (fuente visual)
+
+Regla de precedencia para todas las historias de esta epica:
+
+- La fuente de verdad funcional y de requisitos es la KB.
+- El prototipo solo aporta referencia visual, estructura de pantallas y flujos UX.
+- Si hay contradiccion, prevalece la KB.
+
+Referencia base del prototipo:
+
+- [prototype/terrenario-mvp/src/components/OnboardingStep1.tsx](../../../../prototype/terrenario-mvp/src/components/OnboardingStep1.tsx)
+- [prototype/terrenario-mvp/src/components/OnboardingStep2.tsx](../../../../prototype/terrenario-mvp/src/components/OnboardingStep2.tsx)
+- [prototype/reports/mvp-prototype-coverage.md](../../../../prototype/reports/mvp-prototype-coverage.md)
+
+Matriz historia -> pantallas/componentes:
+
+| Historia | Referencias de prototipo | Cobertura |
+|---|---|---|
+| MVP-201 | [prototype/terrenario-mvp/src/components/OnboardingStep1.tsx](../../../../prototype/terrenario-mvp/src/components/OnboardingStep1.tsx), [prototype/terrenario-mvp/src/components/OnboardingStep2.tsx](../../../../prototype/terrenario-mvp/src/components/OnboardingStep2.tsx) | Parcial: alta visual de Workspace/temporada disponible |
+| MVP-202 | [prototype/terrenario-mvp/src/components/TerrenosView.tsx](../../../../prototype/terrenario-mvp/src/components/TerrenosView.tsx), [prototype/terrenario-mvp/src/components/TerrenoModal.tsx](../../../../prototype/terrenario-mvp/src/components/TerrenoModal.tsx), [prototype/terrenario-mvp/src/components/TerrenoDetailModal.tsx](../../../../prototype/terrenario-mvp/src/components/TerrenoDetailModal.tsx) | Parcial: CRUD visual de terrenos disponible |
+| MVP-203 | [prototype/terrenario-mvp/src/components/TemporadasView.tsx](../../../../prototype/terrenario-mvp/src/components/TemporadasView.tsx) | Parcial: gestion y activacion visual de temporada; reglas completas de validacion/rango pendientes |
+| MVP-204 | [prototype/terrenario-mvp/src/components/TrabajadoresView.tsx](../../../../prototype/terrenario-mvp/src/components/TrabajadoresView.tsx), [prototype/terrenario-mvp/src/components/ActivityModal.tsx](../../../../prototype/terrenario-mvp/src/components/ActivityModal.tsx) | Parcial: maestro de trabajadores y seleccion en actividad disponibles |
+| MVP-205 | [prototype/terrenario-mvp/src/components/ActivityModal.tsx](../../../../prototype/terrenario-mvp/src/components/ActivityModal.tsx) | No cubierto funcionalmente: no existe catalogo de tareas por Workspace ni inactivacion |
 
 ## Notas y decisiones
 

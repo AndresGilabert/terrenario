@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "workspace", "membership"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # MVP-104 — Membresía y selector de Workspace activo
@@ -70,7 +70,19 @@ Permitir que el usuario vea sus Workspaces disponibles, cambie el Workspace acti
 
 ## Maquetas y referencias visuales
 
-- Referencia funcional: requisito de selector visible en `vision-y-objetivos.md`.
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/components/Sidebar.tsx](../../../../../prototype/terrenario-mvp/src/components/Sidebar.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/components/TopNavbar.tsx](../../../../../prototype/terrenario-mvp/src/components/TopNavbar.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/App.tsx](../../../../../prototype/terrenario-mvp/src/App.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| Sidebar | RN-034 | parcial | Selector visual de workspace sin alternancia multi-workspace real |
+| TopNavbar | RN-034 | parcial | Muestra contexto activo de workspace/temporada |
 
 ## Notas y decisiones
 

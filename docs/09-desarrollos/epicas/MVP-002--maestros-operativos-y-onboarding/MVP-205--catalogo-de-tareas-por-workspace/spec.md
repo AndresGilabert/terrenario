@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "masters", "tareas"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # MVP-205 — Catálogo de tareas por Workspace
@@ -69,7 +69,18 @@ Permitir que cada Workspace mantenga su propio catálogo de tareas reutilizables
 
 ## Maquetas y referencias visuales
 
-- Referencia funcional: RU-05 y RN-026.
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/components/ActivityModal.tsx](../../../../../prototype/terrenario-mvp/src/components/ActivityModal.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/components/DiarioView.tsx](../../../../../prototype/terrenario-mvp/src/components/DiarioView.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| ActivityModal | RN-025 | parcial | Entrada de actividad y titulo disponibles |
+| Catalogo tareas workspace | RN-026 | falta | No existe pantalla/catalogo de tareas reutilizable |
 
 ## Notas y decisiones
 

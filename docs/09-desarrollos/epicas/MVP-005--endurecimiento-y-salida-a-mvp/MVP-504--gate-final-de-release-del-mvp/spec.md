@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "release", "readiness"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # MVP-504 — Gate final de release del MVP
@@ -63,7 +63,18 @@ Definir y ejecutar el gate final que permite considerar el MVP listo para salida
 
 ## Maquetas y referencias visuales
 
-- Referencia funcional: `definition-of-done.md` y `proceso-release.md`.
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/App.tsx](../../../../../prototype/terrenario-mvp/src/App.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| README run local | docs/08-procesos/proceso-release.md | parcial | Arranque local documentado |
+| Navegacion MVP | docs/08-procesos/definition-of-done.md | parcial | Base para gate visual, faltan gates formales |
 
 ## Notas y decisiones
 

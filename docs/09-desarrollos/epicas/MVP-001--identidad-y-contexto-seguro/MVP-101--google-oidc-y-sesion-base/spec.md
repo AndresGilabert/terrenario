@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "auth", "oidc"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # MVP-101 — Acceso con Google OIDC y sesión base
@@ -71,7 +71,19 @@ Permitir que un usuario se autentique con Google y obtenga una sesión válida d
 
 ## Maquetas y referencias visuales
 
-- Referencia funcional: flujo de acceso de baja fricción definido en `vision-y-objetivos.md`.
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/components/LoginPage.tsx](../../../../../prototype/terrenario-mvp/src/components/LoginPage.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/components/LandingPage.tsx](../../../../../prototype/terrenario-mvp/src/components/LandingPage.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/App.tsx](../../../../../prototype/terrenario-mvp/src/App.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| LoginPage | RN-018, RN-036, RN-020 | parcial | Prueba manual: login UI y navegacion a diario; pendiente OIDC real |
+| LandingPage | RN-018 | cubierto | Prueba visual: CTA a login/onboarding |
 
 ## Notas y decisiones
 

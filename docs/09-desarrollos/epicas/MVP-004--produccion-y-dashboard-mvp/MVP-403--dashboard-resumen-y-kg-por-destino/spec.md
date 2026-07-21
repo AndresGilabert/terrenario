@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "dashboard", "kpi"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # MVP-403 — Dashboard resumen y kg por destino
@@ -69,7 +69,17 @@ Mostrar un resumen de temporada útil y un desglose fiable por destino a partir 
 
 ## Maquetas y referencias visuales
 
-- Referencia funcional: RN-009 y KPIs de resumen/destino.
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/components/DashboardView.tsx](../../../../../prototype/terrenario-mvp/src/components/DashboardView.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| DashboardView - resumen | RN-005, RN-009 | parcial | Widget de resumen visible |
+| DashboardView - destino | RN-012 | parcial | Incluye Sin destino; faltan taxonomias canonicas completas |
 
 ## Notas y decisiones
 

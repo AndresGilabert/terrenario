@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "masters", "terrenos"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # MVP-202 — Maestro de terrenos con alta mínima
@@ -69,7 +69,19 @@ Permitir crear, editar, listar e inactivar terrenos del Workspace con la mínima
 
 ## Maquetas y referencias visuales
 
-- Referencia funcional: RU-01 y contratos API de terrenos.
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/components/TerrenosView.tsx](../../../../../prototype/terrenario-mvp/src/components/TerrenosView.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/components/TerrenoModal.tsx](../../../../../prototype/terrenario-mvp/src/components/TerrenoModal.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/components/TerrenoDetailModal.tsx](../../../../../prototype/terrenario-mvp/src/components/TerrenoDetailModal.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| TerrenoModal | RN-028 | parcial | Formulario de alta de terreno disponible |
+| TerrenosView | RN-001, RN-028 | parcial | Listado y detalle visual; faltan restricciones completas MVP |
 
 ## Notas y decisiones
 

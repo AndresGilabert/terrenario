@@ -19,7 +19,7 @@ ai_context:
   etiquetas: ["mvp", "auth", "workspace"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # EPICA MVP-001 — Identidad y contexto seguro de Workspace
@@ -71,6 +71,30 @@ Permitir que un usuario pueda autenticarse con Google, crear o unirse a un Works
 - `MVP-103` — Invitaciones por email y enlace compartible.
 - `MVP-104` — Membresía y selector de Workspace activo.
 - `MVP-105` — Autorización por Workspace y trazabilidad mínima de login.
+
+## Vinculacion con prototipo (fuente visual)
+
+Regla de precedencia para todas las historias de esta epica:
+
+- La fuente de verdad funcional y de requisitos es la KB.
+- El prototipo solo aporta referencia visual, estructura de pantallas y flujos UX.
+- Si hay contradiccion, prevalece la KB.
+
+Referencia base del prototipo:
+
+- [prototype/terrenario-mvp/src/App.tsx](../../../../prototype/terrenario-mvp/src/App.tsx)
+- [prototype/terrenario-mvp/src/types.ts](../../../../prototype/terrenario-mvp/src/types.ts)
+- [prototype/reports/mvp-prototype-coverage.md](../../../../prototype/reports/mvp-prototype-coverage.md)
+
+Matriz historia -> pantallas/componentes:
+
+| Historia | Referencias de prototipo | Cobertura |
+|---|---|---|
+| MVP-101 | [prototype/terrenario-mvp/src/components/LoginPage.tsx](../../../../prototype/terrenario-mvp/src/components/LoginPage.tsx), [prototype/terrenario-mvp/src/components/LandingPage.tsx](../../../../prototype/terrenario-mvp/src/components/LandingPage.tsx) | Parcial: UX de acceso disponible; OIDC real y manejo de errores de auth no implementados |
+| MVP-102 | [prototype/terrenario-mvp/src/components/OnboardingStep1.tsx](../../../../prototype/terrenario-mvp/src/components/OnboardingStep1.tsx), [prototype/terrenario-mvp/src/components/OnboardingStep2.tsx](../../../../prototype/terrenario-mvp/src/components/OnboardingStep2.tsx) | Parcial: onboarding visual disponible; flujo real de creacion de Workspace en backend pendiente |
+| MVP-103 | [prototype/terrenario-mvp/src/components/AjustesView.tsx](../../../../prototype/terrenario-mvp/src/components/AjustesView.tsx) | No cubierto funcionalmente: no existen pantallas de invitacion por email/enlace |
+| MVP-104 | [prototype/terrenario-mvp/src/components/Sidebar.tsx](../../../../prototype/terrenario-mvp/src/components/Sidebar.tsx), [prototype/terrenario-mvp/src/components/TopNavbar.tsx](../../../../prototype/terrenario-mvp/src/components/TopNavbar.tsx) | Parcial: selector visual de contexto; alternancia real entre multiples Workspaces pendiente |
+| MVP-105 | [prototype/terrenario-mvp/src/App.tsx](../../../../prototype/terrenario-mvp/src/App.tsx), [prototype/terrenario-mvp/src/components/LoginPage.tsx](../../../../prototype/terrenario-mvp/src/components/LoginPage.tsx) | No cubierto funcionalmente: autorizacion por Workspace y trazabilidad de login no implementadas |
 
 ## Notas y decisiones
 

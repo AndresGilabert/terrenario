@@ -19,7 +19,7 @@ ai_context:
   etiquetas: ["mvp", "operativa", "diario"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # EPICA MVP-003 — Diario y operativa diaria
@@ -72,6 +72,30 @@ Permitir registrar y consultar el día a día del Workspace en una sola experien
 - `MVP-303` — Registro de compras operativas.
 - `MVP-304` — Imputación de compras y consumo sin compra previa.
 - `MVP-305` — Diario cronológico unificado y borrado con confirmación.
+
+## Vinculacion con prototipo (fuente visual)
+
+Regla de precedencia para todas las historias de esta epica:
+
+- La fuente de verdad funcional y de requisitos es la KB.
+- El prototipo solo aporta referencia visual, estructura de pantallas y flujos UX.
+- Si hay contradiccion, prevalece la KB.
+
+Referencia base del prototipo:
+
+- [prototype/terrenario-mvp/src/components/DiarioView.tsx](../../../../prototype/terrenario-mvp/src/components/DiarioView.tsx)
+- [prototype/terrenario-mvp/src/components/ActivityModal.tsx](../../../../prototype/terrenario-mvp/src/components/ActivityModal.tsx)
+- [prototype/reports/mvp-prototype-coverage.md](../../../../prototype/reports/mvp-prototype-coverage.md)
+
+Matriz historia -> pantallas/componentes:
+
+| Historia | Referencias de prototipo | Cobertura |
+|---|---|---|
+| MVP-301 | [prototype/terrenario-mvp/src/components/DiarioView.tsx](../../../../prototype/terrenario-mvp/src/components/DiarioView.tsx), [prototype/terrenario-mvp/src/components/ActivityModal.tsx](../../../../prototype/terrenario-mvp/src/components/ActivityModal.tsx) | Parcial: alta y visualizacion de actividad disponibles |
+| MVP-302 | [prototype/terrenario-mvp/src/components/ActivityModal.tsx](../../../../prototype/terrenario-mvp/src/components/ActivityModal.tsx) | No cubierto funcionalmente: no existe guardado de tarea libre en catalogo |
+| MVP-303 | [prototype/terrenario-mvp/src/components/ComprasView.tsx](../../../../prototype/terrenario-mvp/src/components/ComprasView.tsx) | Parcial: alta/listado de compras disponibles |
+| MVP-304 | [prototype/terrenario-mvp/src/components/ComprasView.tsx](../../../../prototype/terrenario-mvp/src/components/ComprasView.tsx), [prototype/terrenario-mvp/src/components/DiarioView.tsx](../../../../prototype/terrenario-mvp/src/components/DiarioView.tsx) | No cubierto funcionalmente: no existen pantallas de imputacion por terreno ni consumo sin compra previa |
+| MVP-305 | [prototype/terrenario-mvp/src/components/DiarioView.tsx](../../../../prototype/terrenario-mvp/src/components/DiarioView.tsx) | Parcial: diario unificado disponible; borrado con confirmacion no implementado |
 
 ## Notas y decisiones
 

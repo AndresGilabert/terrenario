@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "masters", "temporadas"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # MVP-203 — Maestro de temporadas y regla de única activa
@@ -70,7 +70,18 @@ Permitir gestionar temporadas del Workspace con una regla clara de única activa
 
 ## Maquetas y referencias visuales
 
-- Referencia funcional: RU-02, RN-021, RN-022, RN-023 y RN-024.
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/components/TemporadasView.tsx](../../../../../prototype/terrenario-mvp/src/components/TemporadasView.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/components/OnboardingStep2.tsx](../../../../../prototype/terrenario-mvp/src/components/OnboardingStep2.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| TemporadasView | RN-022, RN-024 | parcial | Activacion de temporada en UI |
+| OnboardingStep2 | RN-023 | falta | No hay aviso explicito de fecha fuera de rango |
 
 ## Notas y decisiones
 

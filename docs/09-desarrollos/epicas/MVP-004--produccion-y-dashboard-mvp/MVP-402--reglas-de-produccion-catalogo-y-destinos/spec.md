@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "produccion", "reglas"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # MVP-402 — Reglas de producción, catálogo y destinos
@@ -70,7 +70,18 @@ Garantizar que las cosechas se registran bajo reglas homogéneas y compatibles c
 
 ## Maquetas y referencias visuales
 
-- Referencia funcional: RN-012, RN-013, RN-014, RN-029 y RN-030.
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/components/CosechaModal.tsx](../../../../../prototype/terrenario-mvp/src/components/CosechaModal.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/components/CosechasView.tsx](../../../../../prototype/terrenario-mvp/src/components/CosechasView.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| CosechaModal | RN-030, RN-012 | parcial | Destino visible, pero catalogo cerrado MVP no completo |
+| CosechaModal | RN-004, RN-013, RN-014 | falta | No aplica regla XOR rendimiento/litros en UI |
 
 ## Notas y decisiones
 

@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "telemetry", "login"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # MVP-601 — Telemetría mínima del embudo de login
@@ -62,7 +62,18 @@ Emitir y conservar la telemetría mínima necesaria para medir conversión, erro
 
 ## Maquetas y referencias visuales
 
-- Referencia funcional: `observabilidad.md` y RN-020.
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/components/LoginPage.tsx](../../../../../prototype/terrenario-mvp/src/components/LoginPage.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/App.tsx](../../../../../prototype/terrenario-mvp/src/App.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| LoginPage | RN-020 | falta | No hay eventos de abandono/exito instrumentados |
+| App rutas auth | RN-020 | parcial | Puntos de enganche definidos por navegacion |
 
 ## Notas y decisiones
 

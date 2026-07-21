@@ -144,6 +144,7 @@ dotnet ef migrations script --project Terrenario.Api
 ```
 
 Requiere la herramienta `dotnet-ef`:
+
 ```bash
 dotnet tool install --global dotnet-ef
 ```
@@ -200,7 +201,7 @@ Cobertura actual: **12 tests** en 3 suites
 
 ## Flujo de autenticación PKCE (resumen técnico)
 
-```
+```text
 Frontend                    Backend                     Google
    │                           │                           │
    │ 1. generateCodeVerifier() │                           │

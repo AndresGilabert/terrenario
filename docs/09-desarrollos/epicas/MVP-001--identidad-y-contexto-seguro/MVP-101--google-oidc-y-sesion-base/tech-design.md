@@ -174,23 +174,27 @@ responses:
 ### Lógica de negocio
 
 **Alta implícita de usuario (upsert):**
+
 - Al recibir un `id_token` válido de Google, se extrae `sub`, `name` y `email`.
 - Si existe un usuario con ese `google_sub` → se actualiza nombre/email y se retorna.
 - Si no existe → se crea el registro en `usuarios`.
 - La decisión de upsert por `google_sub` garantiza idempotencia ante re-logins.
 
 **JWT (access_token):**
+
 - Algoritmo RS256. Clave privada RSA almacenada en Secret Manager (en dev: `appsettings.Development.json` cifrado o variable de entorno).
 - Claims: `sub` (usuario.id), `name` (display_name), `iss` (terrenario-api), `aud` (terrenario-web), `exp` (now+15min), `iat`.
 - No se incluye email en el JWT para minimizar PII en tokens.
 
 **Refresh token:**
+
 - Token opaco de 32 bytes aleatorios (Base64URL).
 - Se persiste el hash SHA-256 en DB para validación sin exponer el valor en claro.
 - Rotación: al refrescar, el token anterior se invalida y se emite uno nuevo.
 - TTL: 30 días.
 
 **Telemetría de embudo (sin PII):**
+
 - Eventos estructurados vía `ILogger` con `scope` `auth.funnel`.
 - Campos: `timestamp`, `session_id` (aleatorio por intento), `flow_id`, `channel=web`, `error_code` (cuando aplique).
 - Nunca se loguea email completo; si se necesita correlación se usa hash SHA-256 del email.

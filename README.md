@@ -1,4 +1,4 @@
-# Terrenario — Tu tierra, bajo control
+﻿# Terrenario — Tu tierra, bajo control
 
 Plataforma de gestión agrícola para el agricultor moderno. Gestiona terrenos, cosechas y tareas diarias desde un único workspace.
 
@@ -40,13 +40,17 @@ El flujo de autenticación requiere un proyecto en Google Cloud con una aplicaci
 3. Ve a **APIs y servicios → Credenciales → Crear credenciales → ID de cliente OAuth 2.0**.
 4. Tipo de aplicación: **Aplicación web**.
 5. Configura los **Orígenes de JavaScript autorizados**:
-   ```
+
+   ```text
    http://localhost:5173
    ```
+
 6. Configura los **URIs de redireccionamiento autorizados**:
-   ```
+
+   ```text
    http://localhost:5173/auth/callback
    ```
+
 7. Guarda. Obtendrás un **Client ID** y un **Client Secret** — los necesitarás en los pasos siguientes.
 
 ---
@@ -56,6 +60,7 @@ El flujo de autenticación requiere un proyecto en Google Cloud con una aplicaci
 El backend firma los tokens JWT con RSA-256. Genera un par de claves en local:
 
 **macOS / Linux:**
+
 ```bash
 # Clave privada (2048 bits)
 openssl genrsa -out jwt_private.pem 2048
@@ -69,6 +74,7 @@ cat jwt_public.pem
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
 # Requiere OpenSSL instalado (incluido en Git for Windows)
 $env:Path += ";C:\Program Files\Git\usr\bin"
@@ -96,6 +102,7 @@ CREATE DATABASE terrenario_dev;
 ```
 
 Con Docker (alternativa rápida):
+
 ```bash
 docker run --name terrenario-pg \
   -e POSTGRES_DB=terrenario_dev \
@@ -128,6 +135,7 @@ dotnet user-secrets set "Auth:Jwt:PublicKeyPem"  "$(cat ../../../jwt_public.pem)
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
 cd src\backend\Terrenario.Api
 
@@ -184,11 +192,13 @@ dotnet run
 ```
 
 Al arrancar en modo Development, el backend:
+
 - Aplica la migración de base de datos automáticamente (crea las tablas `usuarios` y `refresh_tokens`)
 - Expone la API en `http://localhost:5127`
 - Expone OpenAPI en `http://localhost:5127/openapi/v1.json`
 
 Verificar que funciona:
+
 ```bash
 curl http://localhost:5127/api/v1/auth/me
 # Espera: 401 Unauthorized (correcto — no hay token)
@@ -211,6 +221,7 @@ Accede a `http://localhost:5173` — verás la landing page de Terrenario.
 Con ambos servicios corriendo, puedes validar el flujo completo de autenticación:
 
 ### Flujo normal
+
 1. Ve a `http://localhost:5173`
 2. Haz clic en **Empezar gratis con Google** o **Ingresar**
 3. En la pantalla de login, haz clic en **Continuar con Google**
@@ -218,20 +229,24 @@ Con ambos servicios corriendo, puedes validar el flujo completo de autenticació
 5. Serás redirigido a `http://localhost:5173/app` con el mensaje de bienvenida
 
 ### Flujo de cierre de sesión
-6. Haz clic en **Cerrar sesión**
-7. Serás redirigido a la landing page
-8. Al intentar acceder a `http://localhost:5173/app` directamente, serás redirigido a `/login`
+
+1. Haz clic en **Cerrar sesión**
+2. Serás redirigido a la landing page
+3. Al intentar acceder a `http://localhost:5173/app` directamente, serás redirigido a `/login`
 
 ### Verificar el access token (DevTools)
+
 - Abre DevTools → Application → Session Storage → `http://localhost:5173`
 - Verás la clave `terrenario_at` con el JWT
 - En `https://jwt.io` puedes decodificarlo y verificar `sub`, `iss`, `aud`, `exp`
 
 ### Verificar el refresh token (DevTools)
+
 - DevTools → Application → Cookies → `http://localhost:5127`
 - Verás la cookie `refresh_token` con las flags `HttpOnly` y `SameSite=Strict`
 
 ### Endpoint `/me` con token
+
 ```bash
 # Copia el access_token de la Session Storage
 curl -H "Authorization: Bearer TU_ACCESS_TOKEN" \
@@ -253,7 +268,7 @@ dotnet test
 
 ## 9. Estructura del proyecto
 
-```
+```text
 terrenario/
 ├── docs/                    Base de conocimiento (KB)
 │   ├── 00-meta/             Convenciones, plantillas, scripts
@@ -277,21 +292,27 @@ terrenario/
 ## 10. Solución de problemas frecuentes
 
 ### Error: "REPLACE_IN_SECRETS" al arrancar el backend
+
 Los User Secrets no están configurados. Repasa el **paso 4.2**.
 
 ### Error: "redirect_uri_mismatch" en Google
+
 La URL de callback no coincide con lo configurado en Google Cloud Console. Verifica que `http://localhost:5173/auth/callback` está en los **URIs de redireccionamiento autorizados**.
 
 ### Error: "Error establishing a database connection"
+
 PostgreSQL no está corriendo o la cadena de conexión es incorrecta. Verifica con `psql -h localhost -U postgres -d terrenario_dev`.
 
 ### Error al aplicar la migración: "role does not exist"
+
 El usuario de PostgreSQL configurado no existe. Ajusta el `Username` y `Password` en los User Secrets para usar un usuario que exista en tu instancia.
 
 ### El frontend no puede llamar al backend (error CORS / Network)
+
 Verifica que `VITE_API_BASE_URL` en `.env` apunta al puerto correcto (`5127`) y que el backend está corriendo.
 
 ### Error TypeScript en el frontend
+
 ```bash
 cd src/frontend/terrenario-web
 npx tsc --noEmit
@@ -312,4 +333,3 @@ npx tsc --noEmit
 | Setup detallado de entorno | [`docs/05-infraestructura/desarrollo-local.md`](./docs/05-infraestructura/desarrollo-local.md) |
 | Historia MVP-101 (spec) | [`docs/09-desarrollos/epicas/MVP-001--identidad-y-contexto-seguro/MVP-101--google-oidc-y-sesion-base/spec.md`](./docs/09-desarrollos/epicas/MVP-001--identidad-y-contexto-seguro/MVP-101--google-oidc-y-sesion-base/spec.md) |
 | Tech design MVP-101 | [`docs/09-desarrollos/epicas/MVP-001--identidad-y-contexto-seguro/MVP-101--google-oidc-y-sesion-base/tech-design.md`](./docs/09-desarrollos/epicas/MVP-001--identidad-y-contexto-seguro/MVP-101--google-oidc-y-sesion-base/tech-design.md) |
-

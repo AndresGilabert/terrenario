@@ -19,7 +19,7 @@ ai_context:
   etiquetas: ["mvp", "hardening", "release"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # EPICA MVP-005 — Endurecimiento y salida a MVP
@@ -67,6 +67,29 @@ Llevar el núcleo funcional del MVP a un estado desplegable con riesgo controlad
 - `MVP-502` — Hardening de seguridad y validación de PII.
 - `MVP-503` — Checklist de cumplimiento RGPD/LOPDGDD del MVP.
 - `MVP-504` — Gate final de release y salida controlada a staging/producción.
+
+## Vinculacion con prototipo (fuente visual)
+
+Regla de precedencia para todas las historias de esta epica:
+
+- La fuente de verdad funcional y de requisitos es la KB.
+- El prototipo solo aporta referencia visual para UX y navegacion.
+- Si hay contradiccion, prevalece la KB.
+
+Referencia base del prototipo:
+
+- [prototype/terrenario-mvp/README.md](../../../../prototype/terrenario-mvp/README.md)
+- [prototype/terrenario-mvp/src/App.tsx](../../../../prototype/terrenario-mvp/src/App.tsx)
+- [prototype/reports/mvp-prototype-coverage.md](../../../../prototype/reports/mvp-prototype-coverage.md)
+
+Matriz historia -> utilidad del prototipo:
+
+| Historia | Referencias de prototipo | Cobertura |
+|---|---|---|
+| MVP-501 | [prototype/terrenario-mvp/src/App.tsx](../../../../prototype/terrenario-mvp/src/App.tsx) | Referencia de smoke visual para E2E manual; cobertura automatizada no incluida |
+| MVP-502 | [prototype/terrenario-mvp/src/components/LoginPage.tsx](../../../../prototype/terrenario-mvp/src/components/LoginPage.tsx), [prototype/terrenario-mvp/src/components/AjustesView.tsx](../../../../prototype/terrenario-mvp/src/components/AjustesView.tsx) | Referencia de pantallas sensibles; hardening real de seguridad no implementado |
+| MVP-503 | [prototype/terrenario-mvp/src/types.ts](../../../../prototype/terrenario-mvp/src/types.ts) | Referencia para inventario de datos en UI; cumplimiento legal debe definirse en KB y backend |
+| MVP-504 | [prototype/terrenario-mvp/README.md](../../../../prototype/terrenario-mvp/README.md) | Referencia para run local; gate de release debe seguir criterios de KB |
 
 ## Notas y decisiones
 

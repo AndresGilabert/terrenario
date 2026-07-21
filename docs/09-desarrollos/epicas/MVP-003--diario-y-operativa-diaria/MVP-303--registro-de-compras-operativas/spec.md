@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "compras", "operativa"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # MVP-303 — Registro de compras operativas
@@ -70,7 +70,18 @@ Permitir registrar compras operativas del Workspace con el mínimo de datos nece
 
 ## Maquetas y referencias visuales
 
-- Referencia funcional: RU-10 y RN-031.
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/components/ComprasView.tsx](../../../../../prototype/terrenario-mvp/src/components/ComprasView.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/components/DiarioView.tsx](../../../../../prototype/terrenario-mvp/src/components/DiarioView.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| ComprasView | RN-031, RN-003 | parcial | Alta y listado de compras disponibles |
+| DiarioView | RN-033 | parcial | Compras se reflejan en diario |
 
 ## Notas y decisiones
 

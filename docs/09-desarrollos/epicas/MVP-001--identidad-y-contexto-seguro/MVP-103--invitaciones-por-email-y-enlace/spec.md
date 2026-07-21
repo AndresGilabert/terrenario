@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "invite", "workspace"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # MVP-103 — Invitaciones por email y enlace
@@ -71,7 +71,18 @@ Permitir que un miembro de un Workspace invite a otro usuario por email o por en
 
 ## Maquetas y referencias visuales
 
-- Referencia funcional: RN-035 y épica `MVP-001`.
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/components/AjustesView.tsx](../../../../../prototype/terrenario-mvp/src/components/AjustesView.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/components/Sidebar.tsx](../../../../../prototype/terrenario-mvp/src/components/Sidebar.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| AjustesView | RN-035 | falta | No existe flujo de invitacion por email/enlace en el prototipo |
+| Sidebar | RN-034 | parcial | Solo referencia de contexto visual de usuario/workspace |
 
 ## Notas y decisiones
 

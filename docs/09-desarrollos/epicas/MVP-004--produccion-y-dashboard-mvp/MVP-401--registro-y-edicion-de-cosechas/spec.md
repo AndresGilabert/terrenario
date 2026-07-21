@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "produccion", "cosecha"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # MVP-401 — Registro y edición de cosechas
@@ -69,7 +69,18 @@ Permitir registrar y editar cosechas con un modelo simple, consistente y alinead
 
 ## Maquetas y referencias visuales
 
-- Referencia funcional: RU-03 y contratos API de cosechas.
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/components/CosechasView.tsx](../../../../../prototype/terrenario-mvp/src/components/CosechasView.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/components/CosechaModal.tsx](../../../../../prototype/terrenario-mvp/src/components/CosechaModal.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| CosechaModal | RN-029, RN-004 | parcial | Formulario de cosecha disponible |
+| CosechasView | RN-029 | cubierto | Listado de cosechas y borrado visual |
 
 ## Notas y decisiones
 

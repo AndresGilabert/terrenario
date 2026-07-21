@@ -19,7 +19,7 @@ ai_context:
   etiquetas: ["mvp", "observability", "telemetry"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # EPICA MVP-006 — Observabilidad inicial
@@ -65,6 +65,28 @@ Disponer de la telemetría mínima necesaria para detectar abandono en login, us
 - `MVP-601` — Telemetría mínima del embudo de login.
 - `MVP-602` — Métricas de uso del dashboard y recarga manual.
 - `MVP-603` — Alertas básicas y señales de degradación inicial.
+
+## Vinculacion con prototipo (fuente visual)
+
+Regla de precedencia para todas las historias de esta epica:
+
+- La fuente de verdad funcional y de requisitos es la KB.
+- El prototipo solo aporta referencia de eventos UX observables.
+- Si hay contradiccion, prevalece la KB.
+
+Referencia base del prototipo:
+
+- [prototype/terrenario-mvp/src/components/LoginPage.tsx](../../../../prototype/terrenario-mvp/src/components/LoginPage.tsx)
+- [prototype/terrenario-mvp/src/components/DashboardView.tsx](../../../../prototype/terrenario-mvp/src/components/DashboardView.tsx)
+- [prototype/reports/mvp-prototype-coverage.md](../../../../prototype/reports/mvp-prototype-coverage.md)
+
+Matriz historia -> utilidad del prototipo:
+
+| Historia | Referencias de prototipo | Cobertura |
+|---|---|---|
+| MVP-601 | [prototype/terrenario-mvp/src/components/LoginPage.tsx](../../../../prototype/terrenario-mvp/src/components/LoginPage.tsx) | Referencia para instrumentar eventos de login en UI |
+| MVP-602 | [prototype/terrenario-mvp/src/components/DashboardView.tsx](../../../../prototype/terrenario-mvp/src/components/DashboardView.tsx) | Referencia para eventos de filtros/uso de widgets |
+| MVP-603 | [prototype/terrenario-mvp/src/App.tsx](../../../../prototype/terrenario-mvp/src/App.tsx) | Referencia de rutas y vistas para definir señales de degradacion |
 
 ## Notas y decisiones
 

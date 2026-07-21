@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "telemetry", "dashboard"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # MVP-602 — Métricas de uso del dashboard
@@ -61,7 +61,18 @@ Disponer de señales básicas de uso del dashboard y recarga manual que permitan
 
 ## Maquetas y referencias visuales
 
-- Referencia funcional: `kpis.md` y `observabilidad.md`.
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/components/DashboardView.tsx](../../../../../prototype/terrenario-mvp/src/components/DashboardView.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/components/TopNavbar.tsx](../../../../../prototype/terrenario-mvp/src/components/TopNavbar.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| DashboardView | RN-006, RN-007 | parcial | Interacciones de filtros y recarga identificables |
+| TopNavbar | RN-006 | parcial | Botones y contexto visibles para instrumentacion |
 
 ## Notas y decisiones
 

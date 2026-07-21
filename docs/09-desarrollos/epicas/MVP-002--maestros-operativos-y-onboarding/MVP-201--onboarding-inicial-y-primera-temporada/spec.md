@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "onboarding", "temporada"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # MVP-201 — Onboarding inicial del Workspace y primera temporada
@@ -69,7 +69,18 @@ Dejar a un Workspace recién creado en un estado inicial utilizable, con tempora
 
 ## Maquetas y referencias visuales
 
-- Referencia funcional: cierre funcional del MVP en requisitos y roadmap.
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/components/OnboardingStep1.tsx](../../../../../prototype/terrenario-mvp/src/components/OnboardingStep1.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/components/OnboardingStep2.tsx](../../../../../prototype/terrenario-mvp/src/components/OnboardingStep2.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| OnboardingStep1 | RN-021 | parcial | Wizard inicial disponible |
+| OnboardingStep2 | RN-021, RN-022 | parcial | Configuracion de temporada visible |
 
 ## Notas y decisiones
 

@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "consumo", "coste"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # MVP-304 — Imputación de compras y consumo sin compra previa
@@ -69,7 +69,18 @@ Permitir repartir compras por terrenos y registrar consumo operativo incluso cua
 
 ## Maquetas y referencias visuales
 
-- Referencia funcional: RU-10, RN-032 y contratos de compras/imputaciones.
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/components/ComprasView.tsx](../../../../../prototype/terrenario-mvp/src/components/ComprasView.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/components/DiarioView.tsx](../../../../../prototype/terrenario-mvp/src/components/DiarioView.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| ComprasView | RN-032 | falta | No existe imputacion de compra por terreno |
+| DiarioView | RN-032 | falta | No hay flujo de consumo sin compra previa con aviso |
 
 ## Notas y decisiones
 

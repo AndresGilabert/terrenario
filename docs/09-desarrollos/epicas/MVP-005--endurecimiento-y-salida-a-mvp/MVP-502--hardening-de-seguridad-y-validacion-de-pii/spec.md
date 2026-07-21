@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "security", "privacy"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # MVP-502 — Hardening de seguridad y validación de PII
@@ -69,7 +69,19 @@ Reducir el riesgo operativo del MVP reforzando controles de autenticación, auto
 
 ## Maquetas y referencias visuales
 
-- Referencia funcional: `modelo-seguridad.md` y `privacidad-datos.md`.
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/components/LoginPage.tsx](../../../../../prototype/terrenario-mvp/src/components/LoginPage.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/components/AjustesView.tsx](../../../../../prototype/terrenario-mvp/src/components/AjustesView.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/App.tsx](../../../../../prototype/terrenario-mvp/src/App.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| LoginPage | RN-017, RN-018, RN-036 | parcial | UX de acceso definida; sin hardening real |
+| Ajustes/App | docs/07-seguridad/modelo-seguridad.md | falta | No se implementan controles de seguridad avanzados |
 
 ## Notas y decisiones
 

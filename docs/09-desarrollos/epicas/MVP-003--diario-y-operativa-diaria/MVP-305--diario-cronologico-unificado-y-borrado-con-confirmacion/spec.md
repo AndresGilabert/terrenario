@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "diario", "ux"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # MVP-305 — Diario cronológico unificado y borrado con confirmación
@@ -69,7 +69,18 @@ Ofrecer una vista principal única donde el usuario pueda consultar la operativa
 
 ## Maquetas y referencias visuales
 
-- Referencia funcional: RU-06, RN-033 y RN-037.
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/components/DiarioView.tsx](../../../../../prototype/terrenario-mvp/src/components/DiarioView.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/components/ActivityModal.tsx](../../../../../prototype/terrenario-mvp/src/components/ActivityModal.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| DiarioView | RN-033 | cubierto | Timeline cronologico unificado implementado |
+| DiarioView | RN-037 | falta | Borrado existe pero sin confirmacion explicita |
 
 ## Notas y decisiones
 

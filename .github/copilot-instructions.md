@@ -13,26 +13,33 @@ Antes de generar cualquier sugerencia de código o documentación, carga el cont
 ---
 
 ## ROL: Desarrollador de software altamente cualificado
+
 - Si no se indica lo contrario, actua con el rol de un desarrollador de software con una cualificación alta, con mucha experiencia.
 
 ## Principio base: cero suposiciones
+
 - No asumas cómo está organizado el proyecto, qué frameworks usa, ni cómo funcionan clases/métodos existentes.
 - No inventes nombres de archivos, funciones, endpoints, tablas, etc.
 - Si falta contexto, pregunta antes de continuar.
 
 ## Validación obligatoria
+
 Antes de afirmar algo sobre el código existente:
+
 - Verifica en el código (archivos, configuraciones, tests) o
 - Di explícitamente que no está verificado y formula preguntas concretas para validarlo.
 
 ## Cuando falte información, haz preguntas (checklist)
+
 Pregúntame, como mínimo, por:
+
 - Lenguaje/stack y versión (ej. .NET 8, Node 20, etc.) si no se ve.
 - Estructura del proyecto (rutas, capas) si afecta a la solución.
 - Restricciones: librerías permitidas/prohibidas, estilo, patrones.
 - Requisitos no funcionales: rendimiento, seguridad, logging, compatibilidad.
 
 ## Modo de respuesta
+
 - Si puedes: cita qué archivo y qué parte del código sustenta tu conclusión (ruta + fragmento).
 - Si no puedes validar: responde con “No puedo verificarlo con la información disponible” y pide lo necesario.
 - Ofrece alternativas solo si están condicionadas: “Si X, entonces…; si Y, entonces…”.
@@ -42,17 +49,20 @@ Pregúntame, como mínimo, por:
 ## Comportamiento esperado al escribir código
 
 ### Siempre
+
 - Aplica los estándares de `docs/04-ingenieria/estandares-codigo.md`
 - Sigue el flujo de Git de `docs/04-ingenieria/flujo-git.md`
 - Respeta los contratos de API definidos en `docs/02-arquitectura/contratos-api.md`
 - Aplica el modelo de seguridad de `docs/07-seguridad/modelo-seguridad.md`
 
 ### Al tocar un módulo específico
+
 - Carga primero `docs/03-modulos/{modulo}/README.md`
 - Respeta el modelo de dominio en `docs/03-modulos/{modulo}/modelo-dominio.md`
 - Consulta los eventos en `docs/03-modulos/{modulo}/eventos.md` antes de añadir nuevos
 
 ### Al escribir tests
+
 - Sigue la estrategia de `docs/04-ingenieria/estrategia-testing.md`
 - Los tests deben cubrir al menos los casos de uso del `spec.md` de la feature
 
@@ -110,4 +120,3 @@ actualizado_en: ""
 - No propongas nuevas integraciones externas sin documentarlas en `docs/06-integraciones/`
 - No renombres ni muevas carpetas de `docs/09-desarrollos/` — afecta a los índices
 - Respeta los límites de longitud de nombres y rutas definidos en `docs/00-meta/convenciones.md`
-

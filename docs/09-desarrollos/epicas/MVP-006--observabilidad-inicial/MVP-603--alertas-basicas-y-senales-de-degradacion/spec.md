@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "alerts", "operations"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # MVP-603 — Alertas básicas y señales de degradación
@@ -62,7 +62,19 @@ Activar señales y alertas básicas que permitan detectar caídas, errores, late
 
 ## Maquetas y referencias visuales
 
-- Referencia funcional: `observabilidad.md`.
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/App.tsx](../../../../../prototype/terrenario-mvp/src/App.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/components/DashboardView.tsx](../../../../../prototype/terrenario-mvp/src/components/DashboardView.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/components/DiarioView.tsx](../../../../../prototype/terrenario-mvp/src/components/DiarioView.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| App routing | docs/05-infraestructura/observabilidad.md | parcial | Rutas clave para definir alertas de degradacion |
+| Dashboard/Diario | docs/05-infraestructura/observabilidad.md | falta | No hay alertas implementadas en prototipo |
 
 ## Notas y decisiones
 

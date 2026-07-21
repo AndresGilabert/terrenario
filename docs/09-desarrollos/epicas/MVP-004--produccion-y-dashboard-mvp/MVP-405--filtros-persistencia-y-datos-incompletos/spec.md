@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "dashboard", "filters"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # MVP-405 — Filtros, persistencia y datos incompletos
@@ -70,7 +70,18 @@ Cerrar la experiencia operativa del dashboard con filtros coherentes, persistenc
 
 ## Maquetas y referencias visuales
 
-- Referencia funcional: RN-005, RN-006, RN-007, RN-008 y RN-010.
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/components/DashboardView.tsx](../../../../../prototype/terrenario-mvp/src/components/DashboardView.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/components/TerrenosView.tsx](../../../../../prototype/terrenario-mvp/src/components/TerrenosView.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| DashboardView - filtros | RN-007, RN-008 | parcial | Filtros visuales disponibles; no se valida persistencia real tras recarga |
+| TerrenosView + DashboardView | RN-010 | parcial | Hay estado incompleto en terrenos, falta regla completa en KPI global |
 
 ## Notas y decisiones
 

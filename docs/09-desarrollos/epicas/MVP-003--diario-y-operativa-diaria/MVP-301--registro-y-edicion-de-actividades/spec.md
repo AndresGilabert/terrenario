@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "operativa", "actividades"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # MVP-301 — Registro y edición de actividades
@@ -71,7 +71,18 @@ Permitir registrar y editar actividades completas del Workspace con la mínima f
 
 ## Maquetas y referencias visuales
 
-- Referencia funcional: RU-04, RN-021, RN-023 y RN-025.
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/components/DiarioView.tsx](../../../../../prototype/terrenario-mvp/src/components/DiarioView.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/components/ActivityModal.tsx](../../../../../prototype/terrenario-mvp/src/components/ActivityModal.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| ActivityModal | RN-002, RN-003, RN-025 | parcial | Formulario de actividad disponible |
+| DiarioView | RN-033 | cubierto | Visualizacion cronologica del diario |
 
 ## Notas y decisiones
 

@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "testing", "quality-gate"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # MVP-501 — Cobertura mínima de tests del núcleo MVP
@@ -69,7 +69,18 @@ Cubrir el núcleo funcional del MVP con la batería mínima de tests requerida p
 
 ## Maquetas y referencias visuales
 
-- Referencia funcional: `estrategia-testing.md`.
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/App.tsx](../../../../../prototype/terrenario-mvp/src/App.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| App shell | docs/04-ingenieria/estrategia-testing.md | parcial | Smoke manual posible sobre rutas MVP |
+| Build Vite | docs/04-ingenieria/estrategia-testing.md | cubierto | Evidencia: npm run build ejecutado correctamente |
 
 ## Notas y decisiones
 

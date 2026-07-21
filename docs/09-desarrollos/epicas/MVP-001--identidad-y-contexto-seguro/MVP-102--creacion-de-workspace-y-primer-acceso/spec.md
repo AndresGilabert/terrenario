@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "workspace", "onboarding"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # MVP-102 — Creación de Workspace y primer acceso guiado
@@ -70,7 +70,19 @@ Permitir que un usuario autenticado cree su primer Workspace y quede dentro de u
 
 ## Maquetas y referencias visuales
 
-- Referencia funcional: roadmap y cierre funcional del MVP en KB.
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/components/OnboardingStep1.tsx](../../../../../prototype/terrenario-mvp/src/components/OnboardingStep1.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/components/OnboardingStep2.tsx](../../../../../prototype/terrenario-mvp/src/components/OnboardingStep2.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/App.tsx](../../../../../prototype/terrenario-mvp/src/App.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| OnboardingStep1 | RN-021 | parcial | Prueba manual: alta guiada visual de Workspace |
+| OnboardingStep2 | RN-021, RN-022, RN-023 | parcial | Prueba manual: temporada en UI; pendiente reglas backend |
 
 ## Notas y decisiones
 

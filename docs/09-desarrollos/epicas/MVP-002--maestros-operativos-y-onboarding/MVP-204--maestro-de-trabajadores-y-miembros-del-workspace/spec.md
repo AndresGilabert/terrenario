@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "masters", "trabajadores"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # MVP-204 — Maestro de trabajadores y miembros del Workspace
@@ -69,7 +69,18 @@ Dejar preparado un maestro de trabajadores reutilizable y coherente con la membr
 
 ## Maquetas y referencias visuales
 
-- Referencia funcional: RU-04 y RN-027.
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/components/TrabajadoresView.tsx](../../../../../prototype/terrenario-mvp/src/components/TrabajadoresView.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/components/ActivityModal.tsx](../../../../../prototype/terrenario-mvp/src/components/ActivityModal.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| TrabajadoresView | RN-027 | parcial | Maestro de trabajadores operativo en UI |
+| ActivityModal | RN-002, RN-027 | parcial | Seleccion de responsable disponible |
 
 ## Notas y decisiones
 

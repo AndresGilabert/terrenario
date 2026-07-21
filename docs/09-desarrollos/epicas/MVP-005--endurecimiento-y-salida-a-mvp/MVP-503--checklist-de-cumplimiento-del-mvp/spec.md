@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "compliance", "release"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # MVP-503 — Checklist de cumplimiento del MVP
@@ -63,7 +63,18 @@ Dejar verificada y documentada la evidencia mínima de cumplimiento necesaria pa
 
 ## Maquetas y referencias visuales
 
-- Referencia funcional: `definition-of-ready.md`, `definition-of-done.md` y `privacidad-datos.md`.
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/components/AjustesView.tsx](../../../../../prototype/terrenario-mvp/src/components/AjustesView.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/components/LoginPage.tsx](../../../../../prototype/terrenario-mvp/src/components/LoginPage.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| AjustesView | RN-017 | parcial | Campos PII visibles para inventario de cumplimiento |
+| Flujo autenticacion | docs/07-seguridad/privacidad-datos.md | falta | Pendiente checklist legal y evidencia RGPD |
 
 ## Notas y decisiones
 

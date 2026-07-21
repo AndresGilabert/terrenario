@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "security", "telemetry"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-21"
 ---
 
 # MVP-105 — Autorización por Workspace y trazabilidad mínima de login
@@ -70,7 +70,19 @@ Garantizar que toda operación del MVP queda acotada al Workspace activo y que e
 
 ## Maquetas y referencias visuales
 
-- Referencia funcional: RN-017, RN-020 y alcance de `MVP-006`.
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/App.tsx](../../../../../prototype/terrenario-mvp/src/App.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/components/LoginPage.tsx](../../../../../prototype/terrenario-mvp/src/components/LoginPage.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/components/Sidebar.tsx](../../../../../prototype/terrenario-mvp/src/components/Sidebar.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| App shell y rutas | RN-034 | parcial | Navegacion interna disponible; sin autorizacion real por scope |
+| LoginPage | RN-020, RN-017 | falta | No hay trazabilidad de exito/abandono ni eventos de seguridad |
 
 ## Notas y decisiones
 

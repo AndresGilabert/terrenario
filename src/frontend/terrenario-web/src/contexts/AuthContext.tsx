@@ -40,7 +40,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
 }
 
 interface AuthContextValue extends AuthState {
-  login: (accessToken: string, user: AuthUser) => void;
+  login: (accessToken: string, user: AuthUser, expiresIn: number) => void;
   logout: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
 }
@@ -98,13 +98,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = useCallback(
-    (accessToken: string, user: AuthUser) => {
+    (accessToken: string, user: AuthUser, expiresIn: number) => {
       sessionStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+      expiresAtRef.current = Date.now() + expiresIn * 1000;
       dispatch({ type: 'LOGIN_SUCCESS', payload: { accessToken, user } });
-      if (expiresAtRef.current) {
-        const expiresIn = Math.floor((expiresAtRef.current - Date.now()) / 1000);
-        scheduleRefresh(Math.max(expiresIn, 0));
-      }
+      scheduleRefresh(expiresIn);
     },
     [scheduleRefresh]
   );

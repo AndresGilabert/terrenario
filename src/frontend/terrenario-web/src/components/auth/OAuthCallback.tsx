@@ -49,7 +49,7 @@ export const OAuthCallback: React.FC = () => {
         login(tokenResponse.access_token, {
           id: tokenResponse.user.id,
           displayName: tokenResponse.user.display_name,
-        });
+        }, tokenResponse.expires_in);
         navigate('/app', { replace: true });
       })
       .catch((err: unknown) => {

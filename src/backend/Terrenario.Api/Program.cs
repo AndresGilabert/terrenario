@@ -37,6 +37,7 @@ if (!string.IsNullOrWhiteSpace(publicKeyPem))
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.MapInboundClaims = false; // Keep standard JWT claim names (no "sub" → ClaimTypes.NameIdentifier mapping)
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,

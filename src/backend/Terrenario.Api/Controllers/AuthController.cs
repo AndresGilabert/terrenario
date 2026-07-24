@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using Terrenario.Api.Application.Auth;
 using Terrenario.Api.Application.Auth.Commands;
 using Terrenario.Api.Common.Errors;
@@ -140,5 +141,5 @@ public sealed class AuthController(
 
 public sealed record GoogleCallbackRequest(
     [Required] string Code,
-    [Required] string RedirectUri,
-    [Required] string CodeVerifier);
+    [Required][property: JsonPropertyName("redirect_uri")] string RedirectUri,
+    [Required][property: JsonPropertyName("code_verifier")] string CodeVerifier);

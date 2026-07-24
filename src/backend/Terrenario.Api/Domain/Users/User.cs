@@ -6,7 +6,7 @@ public sealed class User
     public string GoogleSub { get; private set; } = string.Empty;
     public string DisplayName { get; private set; } = string.Empty;
     public string Email { get; private set; } = string.Empty;
-    public bool Active { get; private set; }
+    public bool IsActive { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
@@ -24,7 +24,7 @@ public sealed class User
             GoogleSub = googleSub,
             DisplayName = displayName,
             Email = email,
-            Active = true,
+            IsActive = true,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };

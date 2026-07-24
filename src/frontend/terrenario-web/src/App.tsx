@@ -66,7 +66,7 @@ function AppHome() {
         </h1>
         {activeWorkspace && (
           <p className="text-sm font-semibold text-[#33450d]">
-            Workspace activo: {activeWorkspace.nombre}
+            Workspace activo: {activeWorkspace.name}
           </p>
         )}
       </div>

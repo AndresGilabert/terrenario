@@ -27,14 +27,14 @@ public sealed class WorkspacesController(
         try
         {
             var result = await createWorkspaceHandler.HandleAsync(
-                new CreateWorkspaceCommand(userId.Value, User.GetDisplayName(), request.Nombre),
+                new CreateWorkspaceCommand(userId.Value, User.GetDisplayName(), request.Name),
                 ct);
 
             return CreatedAtAction(
                 nameof(GetActive),
                 new
                 {
-                    workspace = new { id = result.Workspace.Id, nombre = result.Workspace.Name },
+                    workspace = new { id = result.Workspace.Id, name = result.Workspace.Name },
                     access_token = result.AccessToken,
                     expires_in = result.ExpiresIn
                 });
@@ -45,7 +45,7 @@ public sealed class WorkspacesController(
         }
     }
 
-    [HttpGet("activo")]
+    [HttpGet("active")]
     public async Task<IActionResult> GetActive(CancellationToken ct)
     {
         var userId = User.GetUserId();
@@ -58,11 +58,11 @@ public sealed class WorkspacesController(
         if (workspace is null)
             return NotFound(new ApiErrorResponse(ApiError.WorkspaceNotFound()));
 
-        return Ok(new { id = workspace.Id, nombre = workspace.Name });
+        return Ok(new { id = workspace.Id, name = workspace.Name });
     }
 }
 
 public sealed record CreateWorkspaceRequest(
     [Required(ErrorMessage = "El nombre del Workspace es obligatorio.")]
     [StringLength(Workspace.NameMaxLength, ErrorMessage = "El nombre del Workspace es demasiado largo.")]
-    string Nombre);
+    string Name);

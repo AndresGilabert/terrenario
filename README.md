@@ -193,7 +193,7 @@ dotnet run
 
 Al arrancar en modo Development, el backend:
 
-- Aplica la migración de base de datos automáticamente (crea las tablas `usuarios` y `refresh_tokens`)
+- Aplica las migraciones de base de datos automáticamente (crea las tablas `users`, `refresh_tokens`, `workspaces` y `workspace_members`)
 - Expone la API en `http://localhost:5127`
 - Expone OpenAPI en `http://localhost:5127/openapi/v1.json`
 

@@ -11,7 +11,7 @@ public sealed class WorkspaceMember
     public Guid WorkspaceId { get; private set; }
     public Guid UserId { get; private set; }
     public string Role { get; private set; } = WorkspaceRoles.Member;
-    public bool Active { get; private set; }
+    public bool IsActive { get; private set; }
     public DateTimeOffset JoinedAt { get; private set; }
 
     private WorkspaceMember() { }
@@ -23,7 +23,7 @@ public sealed class WorkspaceMember
             WorkspaceId = workspaceId,
             UserId = userId,
             Role = WorkspaceRoles.Owner,
-            Active = true,
+            IsActive = true,
             JoinedAt = DateTimeOffset.UtcNow
         };
 }

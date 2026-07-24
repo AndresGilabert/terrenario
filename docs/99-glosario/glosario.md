@@ -1,7 +1,7 @@
 ﻿---
 bloque: 99-glosario
 documento: glosario
-actualizado_en: "2026-07-18"
+actualizado_en: "2026-07-24"
 ---
 
 # Glosario — Lenguaje Ubicuo del Dominio
@@ -18,8 +18,38 @@ actualizado_en: "2026-07-18"
 ## Convenciones
 
 - Los términos se escriben en **inglés en el código** y en **español en las conversaciones y documentación**
+- "Código" incluye clases, propiedades, tablas y columnas de base de datos, rutas de API, campos de
+  request/response, códigos de error y nombres de eventos. Ver
+  [ADR-0009](../02-arquitectura/decisiones/ADR-0009--idioma-de-identificadores-en-codigo.md)
+- La documentación en español **no traduce identificadores**: los cita literalmente. Se escribe
+  "la columna `display_name` de la tabla `users`", no "la columna nombre de la tabla usuarios"
+- Los **valores** de los catálogos cerrados del dominio son la excepción y se mantienen en español
 - Si hay ambigüedad, siempre prevalece la definición de este glosario
 - Solicitar la actualización de este glosario cuando se introduzca un nuevo concepto de dominio
+
+---
+
+## Correspondencia término de dominio → identificador en código
+
+Tabla canónica para no reabrir la traducción en cada historia. En conversación y documentación se
+usa el término en español; en el código, el identificador en inglés.
+
+| Término (documentación) | Entidad / clase | Tabla |
+|---|---|---|
+| Usuario | `User` | `users` |
+| Workspace | `Workspace` | `workspaces` |
+| Miembro del Workspace | `WorkspaceMember` | `workspace_members` |
+| Terreno | `Plot` | `plots` |
+| Temporada | `Season` | `seasons` |
+| Trabajador | `Worker` | `workers` |
+| Tarea | `Task` | `tasks` |
+| Actividad | `Activity` | `activities` |
+| Cosecha | `Harvest` | `harvests` |
+| Compra | `Purchase` | `purchases` |
+| Consumo de compra | `PurchaseConsumption` | `purchase_consumptions` |
+
+> Solo `User`, `Workspace` y `WorkspaceMember` están implementados. El resto queda fijado aquí
+> para que las historias de `MVP-002` en adelante no vuelvan a decidirlo.
 
 ---
 

@@ -12,8 +12,8 @@ public static class ErrorCodes
 
     // Validation errors
     public const string ValidationRequired = "VALIDATION_REQUIRED";
-    public const string ValidationRequiredWorkspaceName = "VALIDATION_REQUIRED_WORKSPACE_NOMBRE";
-    public const string ValidationWorkspaceNameLength = "VALIDATION_WORKSPACE_NOMBRE_LENGTH";
+    public const string ValidationRequiredWorkspaceName = "VALIDATION_REQUIRED_WORKSPACE_NAME";
+    public const string ValidationWorkspaceNameLength = "VALIDATION_WORKSPACE_NAME_LENGTH";
     public const string ValidationRequiredWorkspaceOwner = "VALIDATION_REQUIRED_WORKSPACE_OWNER";
 
     // Resources

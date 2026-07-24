@@ -6,7 +6,7 @@ import { useAuth } from './AuthContext';
 interface WorkspaceContextValue {
   activeWorkspace: Workspace | null;
   isLoading: boolean;
-  createWorkspace: (nombre: string) => Promise<Workspace>;
+  createWorkspace: (name: string) => Promise<Workspace>;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -59,11 +59,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   }, [isAuthenticated, isAuthLoading]);
 
   const createWorkspace = useCallback(
-    async (nombre: string): Promise<Workspace> => {
+    async (name: string): Promise<Workspace> => {
       const accessToken = await getAccessTokenRef.current();
       if (!accessToken) throw new Error('Sesión no válida.');
 
-      const result = await workspaceService.createWorkspace(nombre, accessToken);
+      const result = await workspaceService.createWorkspace(name, accessToken);
 
       // El backend reemite la sesión ya situada en el nuevo Workspace.
       setAccessToken(result.access_token, result.expires_in);

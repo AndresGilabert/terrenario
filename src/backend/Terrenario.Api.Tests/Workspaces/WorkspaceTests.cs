@@ -84,6 +84,6 @@ public class WorkspaceTests
         membership.WorkspaceId.Should().Be(workspace.Id);
         membership.UserId.Should().Be(ownerId);
         membership.Role.Should().Be(WorkspaceRoles.Owner);
-        membership.Active.Should().BeTrue();
+        membership.IsActive.Should().BeTrue();
     }
 }

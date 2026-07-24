@@ -23,7 +23,7 @@ actualizado_en: "2026-07-24"
 
 ## Resumen técnico
 
-Se añade el agregado `Workspace` y su membresía (`usuarios_workspace`) sobre la base de identidad
+Se añade el agregado `Workspace` y su membresía (`workspace_members`) sobre la base de identidad
 de MVP-101. Un usuario autenticado sin Workspace es enviado a un onboarding de un solo paso; al
 crearlo, el backend persiste Workspace + membresía activa del creador en una única transacción y
 reemite el `access_token` con el claim `workspace_id`, de modo que la sesión queda situada en el
@@ -32,6 +32,10 @@ nuevo contexto sin re-login ni paso manual de selección.
 El Workspace activo se resuelve siempre en servidor (`ActiveWorkspaceResolver`), nunca se acepta
 como dato de entrada del cliente. Esto deja preparado el enforcement de ámbito de MVP-105 sin
 implementarlo todavía.
+
+Esta historia adopta además [ADR-0009](../../../../02-arquitectura/decisiones/ADR-0009--idioma-de-identificadores-en-codigo.md):
+todos los identificadores pasan a inglés, lo que incluye renombrar el esquema heredado de MVP-101
+(`usuarios` → `users`) en la misma migración.
 
 ## Diagrama de arquitectura / flujo
 
@@ -44,21 +48,21 @@ sequenceDiagram
 
     Note over FE,BE: Sesión ya autenticada (MVP-101)
 
-    FE->>BE: GET /api/v1/workspaces/activo (Bearer)
+    FE->>BE: GET /api/v1/workspaces/active (Bearer)
     BE->>DB: SELECT membresía activa del usuario
     alt Sin Workspace
         BE->>FE: 404 { error: WORKSPACE_NOT_FOUND }
         FE->>U: Redirige a /onboarding
         U->>FE: Introduce nombre del Workspace
-        FE->>BE: POST /api/v1/workspaces { nombre }
-        BE->>BE: Workspace.Create(ownerId, nombre) + membresía owner
-        BE->>DB: INSERT workspaces + INSERT usuarios_workspace (1 SaveChanges)
+        FE->>BE: POST /api/v1/workspaces { name }
+        BE->>BE: Workspace.Create(ownerId, name) + membresía owner
+        BE->>DB: INSERT workspaces + INSERT workspace_members (1 SaveChanges)
         BE->>BE: Emite access_token con claim workspace_id
         BE->>FE: 201 { workspace, access_token, expires_in }
         FE->>FE: Sustituye el access_token y fija el Workspace activo
         FE->>U: Navega a /app dentro del Workspace
     else Con Workspace
-        BE->>FE: 200 { id, nombre }
+        BE->>FE: 200 { id, name }
         FE->>U: Entra directamente a /app
     end
 ```
@@ -72,14 +76,15 @@ sequenceDiagram
 | `src/backend/.../Domain/Workspaces/IWorkspaceRepository.cs` | nuevo | Puerto de persistencia del agregado |
 | `src/backend/.../Application/Workspaces/CreateWorkspaceHandler.cs` | nuevo | Caso de uso de creación + reemisión de sesión |
 | `src/backend/.../Application/Workspaces/ActiveWorkspaceResolver.cs` | nuevo | Resolución en servidor del Workspace activo |
-| `src/backend/.../Controllers/WorkspacesController.cs` | nuevo | `POST /workspaces` y `GET /workspaces/activo` |
+| `src/backend/.../Controllers/WorkspacesController.cs` | nuevo | `POST /workspaces` y `GET /workspaces/active` |
 | `src/backend/.../Infrastructure/Data/Repositories/WorkspaceRepository.cs` | nuevo | Adaptador EF Core |
-| `src/backend/.../Infrastructure/Data/Migrations/*_AddWorkspacesAndMemberships.cs` | nuevo | Tablas `workspaces` y `usuarios_workspace` |
+| `src/backend/.../Infrastructure/Data/Migrations/*_AdoptEnglishIdentifiersAndAddWorkspaces.cs` | nuevo | Renombra el esquema de MVP-101 a inglés y crea `workspaces` y `workspace_members` |
 | `src/backend/.../Common/Auth/ClaimsPrincipalExtensions.cs` | nuevo | Lectura tipada de `sub`, `name` y `workspace_id` |
 | `src/backend/.../Infrastructure/Auth/JwtService.cs` | modificado | Claim opcional `workspace_id` en el access token |
 | `src/backend/.../Application/Auth/ExchangeGoogleCodeHandler.cs` | modificado | El login resuelve y devuelve el Workspace activo |
 | `src/backend/.../Application/Auth/RefreshTokenHandler.cs` | modificado | La renovación conserva el contexto de Workspace |
 | `src/backend/.../Program.cs` | modificado | Registro de servicios y contrato de error en validación de modelo |
+| `src/backend/.../Infrastructure/Data/TerrenarioDbContext.cs` | modificado | Mapeo de todas las entidades a identificadores en inglés (ADR-0009) |
 | `src/frontend/.../contexts/WorkspaceContext.tsx` | nuevo | Estado del Workspace activo en la SPA |
 | `src/frontend/.../components/onboarding/CreateWorkspacePage.tsx` | nuevo | Pantalla de alta guiada |
 | `src/frontend/.../routes/RequireWorkspace.tsx` | nuevo | Guarda de rutas operativas |
@@ -90,40 +95,57 @@ sequenceDiagram
 
 ### Modelo de datos
 
-Alineado con `docs/02-arquitectura/modelo-de-datos.md` (entidades `WORKSPACE` y `USUARIO_WORKSPACE`).
+Alineado con `docs/02-arquitectura/modelo-de-datos.md` (entidades `WORKSPACE` y `WORKSPACE_MEMBER`).
+
+La migración hace dos cosas en orden: primero renombra el esquema heredado de MVP-101 a
+identificadores en inglés y después crea las tablas nuevas.
 
 ```sql
+-- 1) Renombrado del esquema de MVP-101 (no destructivo, conserva los datos)
+ALTER TABLE usuarios RENAME TO users;
+ALTER TABLE users RENAME COLUMN nombre         TO display_name;
+ALTER TABLE users RENAME COLUMN activo         TO is_active;
+ALTER TABLE users RENAME COLUMN creado_en      TO created_at;
+ALTER TABLE users RENAME COLUMN actualizado_en TO updated_at;
+
+ALTER TABLE refresh_tokens RENAME COLUMN usuario_id  TO user_id;
+ALTER TABLE refresh_tokens RENAME COLUMN revocado_en TO revoked_at;
+ALTER TABLE refresh_tokens RENAME COLUMN creado_en   TO created_at;
+
+-- 2) Tablas nuevas de MVP-102
 CREATE TABLE workspaces (
-    id              UUID PRIMARY KEY,
-    owner_id        UUID NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
-    nombre          VARCHAR(120) NOT NULL,
-    creado_en       TIMESTAMPTZ NOT NULL,
-    actualizado_en  TIMESTAMPTZ NOT NULL
+    id          UUID PRIMARY KEY,
+    owner_id    UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    name        VARCHAR(120) NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL,
+    updated_at  TIMESTAMPTZ NOT NULL
 );
 
 CREATE INDEX idx_workspaces_owner_id ON workspaces(owner_id);
 
-CREATE TABLE usuarios_workspace (
+CREATE TABLE workspace_members (
     id            UUID PRIMARY KEY,
     workspace_id  UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-    usuario_id    UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-    rol           VARCHAR(50) NOT NULL,
-    activo        BOOLEAN NOT NULL,
-    unido_en      TIMESTAMPTZ NOT NULL
+    user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role          VARCHAR(50) NOT NULL,
+    is_active     BOOLEAN NOT NULL,
+    joined_at     TIMESTAMPTZ NOT NULL
 );
 
-CREATE UNIQUE INDEX idx_usuarios_workspace_ws_usuario
-    ON usuarios_workspace(workspace_id, usuario_id);
-CREATE INDEX idx_usuarios_workspace_usuario_id ON usuarios_workspace(usuario_id);
+CREATE UNIQUE INDEX idx_workspace_members_ws_user
+    ON workspace_members(workspace_id, user_id);
+CREATE INDEX idx_workspace_members_user_id ON workspace_members(user_id);
 ```
 
 Notas:
 
 - `owner_id` usa `ON DELETE RESTRICT` para no dejar Workspaces huérfanos si se borrase un usuario.
-- El índice único `(workspace_id, usuario_id)` impide membresías duplicadas, base para MVP-103.
-- `rol` almacena los valores de `docs/07-seguridad/autenticacion-autorizacion.md`
+- El índice único `(workspace_id, user_id)` impide membresías duplicadas, base para MVP-103.
+- `role` almacena los valores de `docs/07-seguridad/autenticacion-autorizacion.md`
   (`workspace_owner`, `workspace_member`). En MVP es informativo por RN-034.
 - El límite de 120 caracteres del nombre es una decisión de esta historia; la KB no fijaba longitud.
+- EF Core genera el renombrado con `RenameTable`/`RenameColumn`/`RenameIndex`, no con drop y
+  recreación, por lo que las bases de datos locales con datos de MVP-101 se conservan.
 
 ### API / Contratos
 
@@ -134,33 +156,33 @@ request:
   headers:
     Authorization: Bearer <access_token>
   body:
-    nombre: string        # obligatorio, 1..120 caracteres (se normaliza con trim)
+    name: string          # obligatorio, 1..120 caracteres (se normaliza con trim)
 
 responses:
   201:
     body:
       workspace:
         id: uuid
-        nombre: string
+        name: string
       access_token: string   # nuevo JWT, ahora con claim workspace_id
       expires_in: 900
     headers:
-      Location: /api/v1/workspaces/activo
+      Location: /api/v1/workspaces/active
   400:
-    body: { error: { code: "VALIDATION_REQUIRED_WORKSPACE_NOMBRE", message: "..." } }
+    body: { error: { code: "VALIDATION_REQUIRED_WORKSPACE_NAME", message: "..." } }
   400:
-    body: { error: { code: "VALIDATION_WORKSPACE_NOMBRE_LENGTH", message: "..." } }
+    body: { error: { code: "VALIDATION_WORKSPACE_NAME_LENGTH", message: "..." } }
   401:
     body: { error: { code: "AUTH_UNAUTHENTICATED", message: "..." } }
 
-# GET /api/v1/workspaces/activo
+# GET /api/v1/workspaces/active
 # Devuelve el Workspace activo de la sesión; el cliente lo usa para decidir onboarding vs. operativa
 request:
   headers:
     Authorization: Bearer <access_token>
 responses:
   200:
-    body: { id: uuid, nombre: string }
+    body: { id: uuid, name: string }
   404:
     body: { error: { code: "WORKSPACE_NOT_FOUND", message: "..." } }
   401:
@@ -173,7 +195,7 @@ Cambios aditivos sobre los contratos de MVP-101:
 # POST /api/v1/auth/google/callback → 200
 # POST /api/v1/auth/refresh         → 200
 # Ambos incorporan el contexto de Workspace de la sesión
-workspace: { id: uuid, nombre: string } | null
+workspace: { id: uuid, name: string } | null
 ```
 
 ### Lógica de negocio
@@ -207,8 +229,8 @@ workspace: { id: uuid, nombre: string } | null
 
 | Situación | Código HTTP | Código de error | Nota |
 | --------- | ----------- | --------------- | ---- |
-| Nombre vacío o solo espacios | 400 | `VALIDATION_REQUIRED_WORKSPACE_NOMBRE` | Validado en el agregado y en el DTO |
-| Nombre de más de 120 caracteres | 400 | `VALIDATION_WORKSPACE_NOMBRE_LENGTH` | El input del cliente ya limita a 120 |
+| Nombre vacío o solo espacios | 400 | `VALIDATION_REQUIRED_WORKSPACE_NAME` | Validado en el agregado y en el DTO |
+| Nombre de más de 120 caracteres | 400 | `VALIDATION_WORKSPACE_NAME_LENGTH` | El input del cliente ya limita a 120 |
 | Cuerpo ausente o mal formado | 400 | `VALIDATION_REQUIRED` | Vía `InvalidModelStateResponseFactory` |
 | Token ausente, inválido o sin `sub` | 401 | `AUTH_UNAUTHENTICATED` | Igual que el resto de endpoints protegidos |
 | El usuario no tiene ningún Workspace | 404 | `WORKSPACE_NOT_FOUND` | Señal de "entra al onboarding", no es un fallo |
@@ -221,7 +243,7 @@ en lugar del `ProblemDetails` por defecto de ASP.NET Core.
 
 | Alternativa | Por qué se descartó |
 | ----------- | ------------------- |
-| Persistir el Workspace activo en una columna de `usuarios` | Introduce un campo fuera del modelo de datos canónico para un dato que es de sesión, no de identidad |
+| Persistir el Workspace activo en una columna de `users` | Introduce un campo fuera del modelo de datos canónico para un dato que es de sesión, no de identidad |
 | Aceptar `workspace_id` como parámetro del cliente en cada llamada | El cliente podría apuntar a un Workspace ajeno; la pertenencia debe resolverla el servidor |
 | Crear el Workspace automáticamente al primer login | El spec pide un flujo explícito y comprensible (CA-1); un alta implícita deja nombres genéricos |
 | Crear también la primera temporada en este flujo | Es alcance explícito de MVP-201; MVP-102 debe limitarse a crear contexto |
@@ -234,7 +256,8 @@ en lugar del `ProblemDetails` por defecto de ASP.NET Core.
 | El cliente conserva un token sin `workspace_id` tras crear el Workspace | media | La creación devuelve un token nuevo y el frontend lo sustituye en el acto |
 | Doble envío del formulario crea dos Workspaces | media | El botón se deshabilita durante el envío y `/onboarding` redirige si ya existe contexto |
 | Sesión larga apuntando a una membresía ya revocada (a partir de MVP-103) | baja | El resolver revalida la membresía activa en cada resolución |
-| Deriva entre nombres de tabla y el modelo de datos canónico | baja | Mapeo explícito a `workspaces` y `usuarios_workspace` en el `DbContext` |
+| Deriva entre nombres de tabla y el modelo de datos canónico | baja | Mapeo explícito a `workspaces` y `workspace_members` en el `DbContext`, alineado con ADR-0009 |
+| Una BD local con MVP-102 ya aplicado en su versión previa queda descuadrada | media | La migración anterior nunca se mergeó; basta con borrar sus tablas y su fila en `__EFMigrationsHistory`, o recrear la BD local |
 
 ## Plan de testing
 
@@ -248,7 +271,7 @@ en lugar del `ProblemDetails` por defecto de ASP.NET Core.
   - `ActiveWorkspaceResolver`: sin Workspaces, Workspace por defecto, preferencia de la sesión y
     caída al valor por defecto cuando la membresía ya no es accesible
   - `ExchangeGoogleCodeHandler` y `RefreshTokenHandler`: sesión con y sin contexto de Workspace
-- [ ] Tests de integración: `POST /api/v1/workspaces` y `GET /api/v1/workspaces/activo` contra
+- [ ] Tests de integración: `POST /api/v1/workspaces` y `GET /api/v1/workspaces/active` contra
   PostgreSQL, pendientes junto al resto de tests de integración de la épica (MVP-501)
 - [ ] Tests E2E: flujo login → onboarding → área operativa, pendiente del sprint final
 
@@ -257,7 +280,7 @@ Resultado local: `dotnet test` en verde (30 tests) y `npm run build` sin errores
 ## Checklist de implementación
 
 - [x] Diseño técnico revisado y aprobado
-- [x] Migraciones de base de datos preparadas (tablas `workspaces` y `usuarios_workspace`)
+- [x] Migraciones de base de datos preparadas (renombrado a inglés + tablas `workspaces` y `workspace_members`)
 - [x] Tests escritos y pasando
 - [x] Documentación de API actualizada en este documento
 - [ ] Módulo de Workspaces documentado en `docs/03-modulos/` (se creará al consolidar el módulo

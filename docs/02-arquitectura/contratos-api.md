@@ -8,6 +8,10 @@ actualizado_en: "2026-07-24"
 
 > Contratos iniciales REST para MVP.
 > Base funcional y reglas: `../01-producto/definicion-requisitos-usuario.md`, `../01-producto/reglas-de-negocio.md` y decisiones MVP cerradas.
+>
+> Rutas, campos y códigos de error se escriben en inglés según
+> [ADR-0009](./decisiones/ADR-0009--idioma-de-identificadores-en-codigo.md). Los **valores** de los
+> catálogos cerrados se mantienen en español por ser vocabulario de dominio.
 
 ---
 
@@ -33,7 +37,8 @@ actualizado_en: "2026-07-24"
 ### REST
 
 - Versionado en la URL: `/api/v1/...`
-- Recursos en plural y kebab-case: `/terrenos`, `/workspace-members`
+- Recursos en plural y kebab-case, en inglés: `/plots`, `/workspace-members`
+- Campos de request y response en `snake_case` inglés: `access_token`, `season_id`
 - Respuestas de error: siempre JSON con `{ "error": { "code": "", "message": "", "details": [] } }`
 - Paginación: `?page=1&limit=20` con respuesta `{ "data": [], "meta": { "total": 0, "page": 1, "limit": 20 } }`
 - Todas las respuestas incluyen `X-Request-Id` para trazabilidad.
@@ -42,7 +47,7 @@ actualizado_en: "2026-07-24"
 
 ### Eventos (mensajería asíncrona)
 
-- Naming de eventos: `{dominio}.{entidad}.{accion}` -> ej: `workspace.miembro.invitado`
+- Naming de eventos: `{dominio}.{entidad}.{accion}` -> ej: `workspace.member.invited`
 - Payload: siempre incluir `id`, `timestamp`, `version`, `data`
 - Ver eventos funcionales por módulo en `../03-modulos/{modulo}/eventos.md`
 
@@ -50,12 +55,15 @@ actualizado_en: "2026-07-24"
 
 ## Catálogos cerrados MVP
 
+El nombre del catálogo es un identificador y va en inglés; sus valores son vocabulario de dominio
+y se mantienen en español.
+
 | Catálogo | Valores permitidos |
 |---|---|
-| `destino_cosecha` | `venta_aceituna`, `aceite_para_venta`, `aceite_personal`, `desconocido` |
-| `producto_cosecha` | catálogo global fijo gobernado por sistema |
-| `estado_temporada` | `planificada`, `activa`, `cerrada` |
-| `estado_worker_member` | `invitado`, `activo`, `revocado` |
+| `harvest_destination` | `venta_aceituna`, `aceite_para_venta`, `aceite_personal`, `desconocido` |
+| `harvest_product` | catálogo global fijo gobernado por sistema |
+| `season_status` | `planificada`, `activa`, `cerrada` |
+| `worker_member_status` | `invitado`, `activo`, `revocado` |
 
 ---
 
@@ -65,15 +73,15 @@ actualizado_en: "2026-07-24"
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
-| Alta workspace | `POST /api/v1/workspaces` | `nombre*` | `201 { workspace: { id, nombre }, access_token, expires_in }` |
-| Workspace activo | `GET /api/v1/workspaces/activo` | — | `200 { id, nombre }` |
+| Alta workspace | `POST /api/v1/workspaces` | `name*` | `201 { workspace: { id, name }, access_token, expires_in }` |
+| Workspace activo | `GET /api/v1/workspaces/active` | — | `200 { id, name }` |
 
 Validaciones clave:
 
 | Regla | Código error |
 |---|---|
-| `nombre` obligatorio | `VALIDATION_REQUIRED_WORKSPACE_NOMBRE` |
-| `nombre` de longitud válida | `VALIDATION_WORKSPACE_NOMBRE_LENGTH` |
+| `name` obligatorio | `VALIDATION_REQUIRED_WORKSPACE_NAME` |
+| `name` de longitud válida | `VALIDATION_WORKSPACE_NAME_LENGTH` |
 | El usuario todavía no tiene ningún Workspace | `WORKSPACE_NOT_FOUND` (404) |
 
 Reglas de contexto:
@@ -84,75 +92,75 @@ Reglas de contexto:
 | El Workspace activo viaja en el claim `workspace_id` del `access_token` | Nunca se acepta como parámetro del cliente |
 | `POST /workspaces` reemite la sesión | Devuelve un `access_token` nuevo ya situado en el Workspace creado |
 
-### 1) Terrenos
+### 1) Plots (terrenos)
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
-| Alta terreno | `POST /api/v1/terrenos` | `nombre*`, `tipo_propiedad*`, `alias?`, `propietario?`, `num_arboles?`, `referencia_catastral?`, `ubicacion?` | `201 { id, workspace_id, ... }` |
-| Editar terreno | `PATCH /api/v1/terrenos/{terrenoId}` | campos parciales permitidos | `200 { ...terreno }` |
-| Listado terrenos | `GET /api/v1/terrenos` | filtros: `search?`, `activos?` | `200 { data, meta }` |
+| Alta terreno | `POST /api/v1/plots` | `name*`, `ownership_type*`, `alias?`, `owner_name?`, `tree_count?`, `cadastral_reference?`, `location?` | `201 { id, workspace_id, ... }` |
+| Editar terreno | `PATCH /api/v1/plots/{plotId}` | campos parciales permitidos | `200 { ...plot }` |
+| Listado terrenos | `GET /api/v1/plots` | filtros: `search?`, `is_active?` | `200 { data, meta }` |
 
 Validaciones clave:
 
 | Regla | Código error |
 |---|---|
-| `nombre` obligatorio y longitud válida | `VALIDATION_REQUIRED_NAME` |
-| `num_arboles >= 0` | `VALIDATION_RANGE_NUM_ARBOLES` |
+| `name` obligatorio y longitud válida | `VALIDATION_REQUIRED_NAME` |
+| `tree_count >= 0` | `VALIDATION_RANGE_TREE_COUNT` |
 | `workspace_id` implícito desde token | `AUTH_WORKSPACE_SCOPE_REQUIRED` |
 
-### 2) Temporadas
+### 2) Seasons (temporadas)
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
-| Alta temporada | `POST /api/v1/temporadas` | `nombre*`, `fecha_inicio*`, `fecha_fin*` | `201 { id, estado: "planificada" }` |
-| Editar temporada | `PATCH /api/v1/temporadas/{temporadaId}` | `nombre?`, `fecha_inicio?`, `fecha_fin?`, `estado?` | `200 { ...temporada }` |
-| Listado temporadas | `GET /api/v1/temporadas` | `estado?`, `includeClosed?` | `200 { data, meta }` |
+| Alta temporada | `POST /api/v1/seasons` | `name*`, `start_date*`, `end_date*` | `201 { id, status: "planificada" }` |
+| Editar temporada | `PATCH /api/v1/seasons/{seasonId}` | `name?`, `start_date?`, `end_date?`, `status?` | `200 { ...season }` |
+| Listado temporadas | `GET /api/v1/seasons` | `status?`, `include_closed?` | `200 { data, meta }` |
 
 Validaciones clave:
 
 | Regla | Código error |
 |---|---|
-| `fecha_inicio <= fecha_fin` | `VALIDATION_DATE_RANGE_INVALID` |
-| No solape exacto de nombre en mismo workspace | `CONFLICT_TEMPORADA_NAME_DUPLICATE` |
-| Solo una temporada activa por workspace | `CONFLICT_TEMPORADA_ACTIVE_DUPLICATE` |
+| `start_date <= end_date` | `VALIDATION_DATE_RANGE_INVALID` |
+| No solape exacto de nombre en mismo workspace | `CONFLICT_SEASON_NAME_DUPLICATE` |
+| Solo una temporada activa por workspace | `CONFLICT_SEASON_ACTIVE_DUPLICATE` |
 
-### 3) Tareas
+### 3) Tasks (tareas)
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
-| Alta tarea | `POST /api/v1/tareas` | `nombre*`, `activa?` | `201 { id, nombre, activa }` |
-| Editar tarea | `PATCH /api/v1/tareas/{tareaId}` | `nombre?`, `activa?` | `200 { ...tarea }` |
-| Listado tareas | `GET /api/v1/tareas` | `activas?` | `200 { data, meta }` |
+| Alta tarea | `POST /api/v1/tasks` | `name*`, `is_active?` | `201 { id, name, is_active }` |
+| Editar tarea | `PATCH /api/v1/tasks/{taskId}` | `name?`, `is_active?` | `200 { ...task }` |
+| Listado tareas | `GET /api/v1/tasks` | `is_active?` | `200 { data, meta }` |
 
 Validaciones clave:
 
 | Regla | Código error |
 |---|---|
-| `nombre` obligatorio | `VALIDATION_REQUIRED_TAREA_NOMBRE` |
+| `name` obligatorio | `VALIDATION_REQUIRED_TASK_NAME` |
 | tarea pertenece al workspace activo | `AUTH_WORKSPACE_FORBIDDEN` |
 
-### 4) Trabajadores
+### 4) Workers (trabajadores)
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
-| Alta trabajador | `POST /api/v1/trabajadores` | `nombre*`, `activo?` | `201 { id, nombre, activo }` |
-| Editar trabajador | `PATCH /api/v1/trabajadores/{trabajadorId}` | `nombre?`, `activo?` | `200 { ...trabajador }` |
-| Listado trabajadores | `GET /api/v1/trabajadores` | `activos?` | `200 { data, meta }` |
+| Alta trabajador | `POST /api/v1/workers` | `name*`, `is_active?` | `201 { id, name, is_active }` |
+| Editar trabajador | `PATCH /api/v1/workers/{workerId}` | `name?`, `is_active?` | `200 { ...worker }` |
+| Listado trabajadores | `GET /api/v1/workers` | `is_active?` | `200 { data, meta }` |
 
 Validaciones clave:
 
 | Regla | Código error |
 |---|---|
-| `nombre` obligatorio | `VALIDATION_REQUIRED_NOMBRE` |
+| `name` obligatorio | `VALIDATION_REQUIRED_NAME` |
 | trabajador pertenece al workspace activo | `AUTH_WORKSPACE_FORBIDDEN` |
 
-### 5) Actividades
+### 5) Activities (actividades)
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
-| Alta actividad | `POST /api/v1/actividades` | `fecha*`, `terreno_id*`, `temporada_id*`, `trabajador_id*`, `tarea_id?`, `tarea_texto?`, `horas*`, `coste_manual*`, `descripcion?` | `201 { id, ...actividad }` |
-| Editar actividad | `PATCH /api/v1/actividades/{actividadId}` | campos parciales | `200 { ...actividad }` |
-| Listado actividades | `GET /api/v1/actividades` | `desde?`, `hasta?`, `terreno_id?`, `temporada_id?`, `trabajador_id?` | `200 { data, meta }` |
+| Alta actividad | `POST /api/v1/activities` | `date*`, `plot_id*`, `season_id*`, `worker_id*`, `task_id?`, `task_text?`, `hours*`, `manual_cost*`, `description?` | `201 { id, ...activity }` |
+| Editar actividad | `PATCH /api/v1/activities/{activityId}` | campos parciales | `200 { ...activity }` |
+| Listado actividades | `GET /api/v1/activities` | `from?`, `to?`, `plot_id?`, `season_id?`, `worker_id?` | `200 { data, meta }` |
 
 Validaciones clave:
 
@@ -160,58 +168,58 @@ Validaciones clave:
 |---|---|
 | responsable y horas obligatorios | `VALIDATION_ACTIVITY_REQUIRED_FIELDS` |
 | tarea obligatoria por catálogo o texto libre | `VALIDATION_ACTIVITY_TASK_REQUIRED` |
-| `horas > 0` | `VALIDATION_ACTIVITY_HOURS_RANGE` |
-| `coste_manual >= 0` | `VALIDATION_ACTIVITY_COST_RANGE` |
+| `hours > 0` | `VALIDATION_ACTIVITY_HOURS_RANGE` |
+| `manual_cost >= 0` | `VALIDATION_ACTIVITY_COST_RANGE` |
 | Integridad de workspace en FKs | `FOREIGN_KEY_WORKSPACE_MISMATCH` |
 
-### 6) Cosechas
+### 6) Harvests (cosechas)
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
-| Alta cosecha | `POST /api/v1/cosechas` | `fecha*`, `terreno_id*`, `temporada_id*`, `producto*`, `kgs*`, `destino*`, `rendimiento?`, `litros?` | `201 { id, ...cosecha }` |
-| Editar cosecha | `PATCH /api/v1/cosechas/{cosechaId}` | campos parciales | `200 { ...cosecha }` |
-| Listado cosechas | `GET /api/v1/cosechas` | `desde?`, `hasta?`, `terreno_id?`, `temporada_id?`, `destino?` | `200 { data, meta }` |
+| Alta cosecha | `POST /api/v1/harvests` | `date*`, `plot_id*`, `season_id*`, `product*`, `kgs*`, `destination*`, `yield?`, `liters?` | `201 { id, ...harvest }` |
+| Editar cosecha | `PATCH /api/v1/harvests/{harvestId}` | campos parciales | `200 { ...harvest }` |
+| Listado cosechas | `GET /api/v1/harvests` | `from?`, `to?`, `plot_id?`, `season_id?`, `destination?` | `200 { data, meta }` |
 
 Validaciones clave:
 
 | Regla | Código error |
 |---|---|
-| `producto` obligatorio y dentro de catálogo cerrado | `VALIDATION_PRODUCTO_INVALID` |
-| `kgs` obligatorio y > 0 | `VALIDATION_COSECHA_KGS_REQUIRED` |
-| `rendimiento` y `litros` no pueden coexistir | `VALIDATION_COSECHA_XOR_RENDIMIENTO_LITROS` |
-| destino en catálogo cerrado | `VALIDATION_DESTINO_INVALID` |
+| `product` obligatorio y dentro de catálogo cerrado | `VALIDATION_PRODUCT_INVALID` |
+| `kgs` obligatorio y > 0 | `VALIDATION_HARVEST_KGS_REQUIRED` |
+| `yield` y `liters` no pueden coexistir | `VALIDATION_HARVEST_XOR_YIELD_LITERS` |
+| destino en catálogo cerrado | `VALIDATION_DESTINATION_INVALID` |
 
-### 7) Compras
+### 7) Purchases (compras)
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
-| Alta compra | `POST /api/v1/compras` | `fecha*`, `producto*`, `cantidad_total*`, `coste_total*`, `temporada_id*` | `201 { id, precio_unitario, ... }` |
-| Editar compra | `PATCH /api/v1/compras/{compraId}` | campos parciales | `200 { ...compra }` |
-| Listado compras | `GET /api/v1/compras` | `producto?`, `temporada_id?` | `200 { data, meta }` |
-| Imputar compra a terreno | `POST /api/v1/compras/{compraId}/imputaciones` | `terreno_id*`, `cantidad*` | `201 { id, compra_id, terreno_id, cantidad, coste_proporcional }` |
+| Alta compra | `POST /api/v1/purchases` | `purchase_date*`, `product*`, `total_quantity*`, `total_cost*`, `season_id*` | `201 { id, unit_price, ... }` |
+| Editar compra | `PATCH /api/v1/purchases/{purchaseId}` | campos parciales | `200 { ...purchase }` |
+| Listado compras | `GET /api/v1/purchases` | `product?`, `season_id?` | `200 { data, meta }` |
+| Imputar compra a terreno | `POST /api/v1/purchases/{purchaseId}/consumptions` | `plot_id*`, `quantity*` | `201 { id, purchase_id, plot_id, quantity, proportional_cost }` |
 
 Validaciones clave:
 
 | Regla | Código error |
 |---|---|
-| `cantidad_total > 0` y `coste_total > 0` | `VALIDATION_COMPRA_TOTALS_RANGE` |
-| suma imputaciones <= cantidad total | `VALIDATION_IMPUTACION_OVERFLOW` |
+| `total_quantity > 0` y `total_cost > 0` | `VALIDATION_PURCHASE_TOTALS_RANGE` |
+| suma imputaciones <= cantidad total | `VALIDATION_CONSUMPTION_OVERFLOW` |
 
 ### 8) Dashboard
 
 | Operación | Método y ruta | Request (query) | Respuesta 2xx |
 |---|---|---|---|
-| Resumen temporada | `GET /api/v1/dashboard/resumen` | `temporada_id?`, `terrenos_ids?[]` | `200 { kg_total, litros_total, rendimiento_medio, kg_por_arbol, incompleto }` |
-| Kg por destino | `GET /api/v1/dashboard/kg-por-destino` | `temporada_id?`, `terrenos_ids?[]` | `200 { data:[{ destino, kg }] }` |
-| Kg por terreno | `GET /api/v1/dashboard/kg-por-terreno` | `temporada_id?` | `200 { data:[{ terreno_id, terreno_nombre, kg }] }` |
-| Evolución rendimiento | `GET /api/v1/dashboard/evolucion-rendimiento` | `temporada_id?`, `granularidad?=mes\|semana` | `200 { data:[{ periodo, rendimiento }] }` |
+| Resumen temporada | `GET /api/v1/dashboard/summary` | `season_id?`, `plot_ids?[]` | `200 { total_kg, total_liters, average_yield, kg_per_tree, incomplete }` |
+| Kg por destino | `GET /api/v1/dashboard/kg-by-destination` | `season_id?`, `plot_ids?[]` | `200 { data:[{ destination, kg }] }` |
+| Kg por terreno | `GET /api/v1/dashboard/kg-by-plot` | `season_id?` | `200 { data:[{ plot_id, plot_name, kg }] }` |
+| Evolución rendimiento | `GET /api/v1/dashboard/yield-evolution` | `season_id?`, `granularity?=month\|week` | `200 { data:[{ period, yield }] }` |
 
 Reglas de filtro por defecto:
 
 | Regla | Comportamiento |
 |---|---|
-| Sin `temporada_id` | backend resuelve temporada activa del workspace |
-| Sin `terrenos_ids` | backend usa todos los terrenos activos del workspace |
+| Sin `season_id` | backend resuelve temporada activa del workspace |
+| Sin `plot_ids` | backend usa todos los terrenos activos del workspace |
 
 ### 9) Alcance de sincronización MVP
 
@@ -223,35 +231,35 @@ Los endpoints de sincronización se definirán en una versión posterior cuando 
 
 ## Esquemas JSON mínimos (extracto)
 
-### `CosechaCreateRequest`
+### `HarvestCreateRequest`
 
 ```json
 {
-  "fecha": "2026-10-05",
-  "terreno_id": "uuid",
-  "temporada_id": "uuid",
-  "producto": "aceituna_olivar",
+  "date": "2026-10-05",
+  "plot_id": "uuid",
+  "season_id": "uuid",
+  "product": "aceituna_olivar",
   "kgs": 1200.5,
-  "destino": "aceite_para_venta",
-  "rendimiento": 18.5,
-  "litros": null
+  "destination": "aceite_para_venta",
+  "yield": 18.5,
+  "liters": null
 }
 ```
 
-Regla: `rendimiento` y `litros` son opcionales, pero no se permite informar ambos a la vez.
+Regla: `yield` y `liters` son opcionales, pero no se permite informar ambos a la vez.
 
-### `ActividadCreateRequest`
+### `ActivityCreateRequest`
 
 ```json
 {
-  "fecha": "2026-09-20",
-  "terreno_id": "uuid",
-  "temporada_id": "uuid",
-  "trabajador_id": "uuid",
-  "tarea_texto": "Poda de mantenimiento",
-  "horas": 4.5,
-  "coste_manual": 70.0,
-  "descripcion": "Poda de mantenimiento"
+  "date": "2026-09-20",
+  "plot_id": "uuid",
+  "season_id": "uuid",
+  "worker_id": "uuid",
+  "task_text": "Poda de mantenimiento",
+  "hours": 4.5,
+  "manual_cost": 70.0,
+  "description": "Poda de mantenimiento"
 }
 ```
 

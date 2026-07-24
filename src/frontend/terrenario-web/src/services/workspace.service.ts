@@ -2,7 +2,7 @@ import { API_BASE, readErrorBody } from './api.config';
 import type { CreateWorkspaceResponse, Workspace } from '../types/workspace.types';
 
 export const workspaceService = {
-  async createWorkspace(nombre: string, accessToken: string): Promise<CreateWorkspaceResponse> {
+  async createWorkspace(name: string, accessToken: string): Promise<CreateWorkspaceResponse> {
     const response = await fetch(`${API_BASE}/api/v1/workspaces`, {
       method: 'POST',
       credentials: 'include',
@@ -10,7 +10,7 @@ export const workspaceService = {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify({ nombre }),
+      body: JSON.stringify({ name }),
     });
 
     if (!response.ok) {
@@ -26,7 +26,7 @@ export const workspaceService = {
 
   /** Devuelve `null` cuando el usuario todavía no tiene ningún Workspace. */
   async getActiveWorkspace(accessToken: string): Promise<Workspace | null> {
-    const response = await fetch(`${API_BASE}/api/v1/workspaces/activo`, {
+    const response = await fetch(`${API_BASE}/api/v1/workspaces/active`, {
       credentials: 'include',
       headers: { Authorization: `Bearer ${accessToken}` },
     });

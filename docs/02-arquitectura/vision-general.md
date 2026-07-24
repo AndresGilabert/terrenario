@@ -1,7 +1,7 @@
 ﻿---
 bloque: 02-arquitectura
 documento: vision-general
-actualizado_en: "2026-07-18"
+actualizado_en: "2026-07-24"
 ---
 
 # Visión General de la Arquitectura
@@ -131,15 +131,18 @@ C4Container
 | Entidad | Clave primaria | Relaciones principales | Estados |
 |---|---|---|---|
 | `workspaces` | `id` UUID | 1:N con miembros, terrenos, temporadas, trabajadores, actividades, cosechas, compras | activo, archivado |
-| `usuarios` | `id` UUID | N:M con workspaces, 1:1 opcional con trabajador | activo, baja_solicitada, anonimizado |
+| `users` | `id` UUID | N:M con workspaces, 1:1 opcional con trabajador | activo, baja_solicitada, anonimizado |
 | `workspace_members` | `id` UUID | FK a usuario y workspace | invitado, activo, revocado |
-| `terrenos` | `id` UUID | N:1 workspace, 1:N actividades/cosechas | activo, inactivo |
-| `temporadas` | `id` UUID | N:1 workspace, 1:N actividades/cosechas/compras | planificada, activa, cerrada |
-| `trabajadores` | `id` UUID | N:1 workspace, 1:N actividades | activo, inactivo |
-| `actividades` | `id` UUID | N:1 workspace/terreno/temporada/trabajador | borrador, confirmada, anulada |
-| `cosechas` | `id` UUID | N:1 workspace/terreno/temporada | borrador, confirmada, anulada |
-| `compras` | `id` UUID | N:1 workspace/temporada, 1:N imputaciones | registrada, imputada_parcial, cerrada |
-| `compra_imputaciones` | `id` UUID | N:1 compra, N:1 terreno | activa, anulada |
+| `plots` | `id` UUID | N:1 workspace, 1:N actividades/cosechas | activo, inactivo |
+| `seasons` | `id` UUID | N:1 workspace, 1:N actividades/cosechas/compras | planificada, activa, cerrada |
+| `workers` | `id` UUID | N:1 workspace, 1:N actividades | activo, inactivo |
+| `activities` | `id` UUID | N:1 workspace/terreno/temporada/trabajador | borrador, confirmada, anulada |
+| `harvests` | `id` UUID | N:1 workspace/terreno/temporada | borrador, confirmada, anulada |
+| `purchases` | `id` UUID | N:1 workspace/temporada, 1:N imputaciones | registrada, imputada_parcial, cerrada |
+| `purchase_consumptions` | `id` UUID | N:1 compra, N:1 terreno | activa, anulada |
+
+> Nombres de tabla en inglés según [ADR-0009](./decisiones/ADR-0009--idioma-de-identificadores-en-codigo.md).
+> El detalle de columnas está en [modelo-de-datos.md](./modelo-de-datos.md).
 
 ### Restricciones relacionales mínimas
 

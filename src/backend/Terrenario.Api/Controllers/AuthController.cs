@@ -122,7 +122,7 @@ public sealed class AuthController(
     }
 
     private static object? ToWorkspacePayload(WorkspaceSummary? workspace)
-        => workspace is null ? null : new { id = workspace.Id, nombre = workspace.Name };
+        => workspace is null ? null : new { id = workspace.Id, name = workspace.Name };
 
     private void SetRefreshTokenCookie(string token)
     {

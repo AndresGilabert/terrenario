@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { WorkspaceServiceError } from '../../services/workspace.service';
 
-const NOMBRE_MAX_LENGTH = 120;
+const NAME_MAX_LENGTH = 120;
 
 /**
  * MVP-102 — Primer paso del onboarding: dar nombre al Workspace.
@@ -16,15 +16,15 @@ export const CreateWorkspacePage: React.FC = () => {
   const { user, logout } = useAuth();
   const { createWorkspace } = useWorkspace();
 
-  const [nombre, setNombre] = useState('');
+  const [name, setName] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    const nombreNormalizado = nombre.trim();
-    if (!nombreNormalizado) {
+    const normalizedName = name.trim();
+    if (!normalizedName) {
       setErrorMessage('Escribe un nombre para tu Workspace.');
       return;
     }
@@ -33,7 +33,7 @@ export const CreateWorkspacePage: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      await createWorkspace(nombreNormalizado);
+      await createWorkspace(normalizedName);
       navigate('/app', { replace: true });
     } catch (error: unknown) {
       setErrorMessage(
@@ -78,18 +78,18 @@ export const CreateWorkspacePage: React.FC = () => {
         <form onSubmit={handleSubmit} className="space-y-5" noValidate>
           <div className="space-y-2">
             <label
-              htmlFor="workspace-nombre"
+              htmlFor="workspace-name"
               className="block text-xs font-bold uppercase tracking-wider text-[#45483c]"
             >
               Nombre del Workspace
             </label>
             <input
-              id="workspace-nombre"
+              id="workspace-name"
               type="text"
-              value={nombre}
-              onChange={(event) => setNombre(event.target.value)}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
               placeholder="ej. Finca El Olivar, AgroSoto, etc."
-              maxLength={NOMBRE_MAX_LENGTH}
+              maxLength={NAME_MAX_LENGTH}
               autoFocus
               disabled={isSubmitting}
               aria-invalid={errorMessage !== null}

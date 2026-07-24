@@ -12,8 +12,8 @@ using Terrenario.Api.Infrastructure.Data;
 namespace Terrenario.Api.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(TerrenarioDbContext))]
-    [Migration("20260724110147_AddWorkspacesAndMemberships")]
-    partial class AddWorkspacesAndMemberships
+    [Migration("20260724155241_AdoptEnglishIdentifiersAndAddWorkspaces")]
+    partial class AdoptEnglishIdentifiersAndAddWorkspaces
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -32,18 +32,14 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<bool>("Active")
-                        .HasColumnType("boolean")
-                        .HasColumnName("activo");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("creado_en");
+                        .HasColumnName("created_at");
 
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasColumnType("text")
-                        .HasColumnName("nombre");
+                        .HasColumnName("display_name");
 
                     b.Property<string>("Email")
                         .IsRequired()
@@ -55,16 +51,20 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("google_sub");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("actualizado_en");
+                        .HasColumnName("updated_at");
 
                     b.HasKey("Id");
 
                     b.HasIndex("GoogleSub")
                         .IsUnique();
 
-                    b.ToTable("usuarios", (string)null);
+                    b.ToTable("users", (string)null);
                 });
 
             modelBuilder.Entity("Terrenario.Api.Domain.Workspaces.Workspace", b =>
@@ -76,13 +76,13 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("creado_en");
+                        .HasColumnName("created_at");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)")
-                        .HasColumnName("nombre");
+                        .HasColumnName("name");
 
                     b.Property<Guid>("OwnerId")
                         .HasColumnType("uuid")
@@ -90,7 +90,7 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("actualizado_en");
+                        .HasColumnName("updated_at");
 
                     b.HasKey("Id");
 
@@ -106,23 +106,23 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<bool>("Active")
+                    b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
-                        .HasColumnName("activo");
+                        .HasColumnName("is_active");
 
                     b.Property<DateTimeOffset>("JoinedAt")
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("unido_en");
+                        .HasColumnName("joined_at");
 
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
-                        .HasColumnName("rol");
+                        .HasColumnName("role");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid")
-                        .HasColumnName("usuario_id");
+                        .HasColumnName("user_id");
 
                     b.Property<Guid>("WorkspaceId")
                         .HasColumnType("uuid")
@@ -135,7 +135,7 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
                     b.HasIndex("WorkspaceId", "UserId")
                         .IsUnique();
 
-                    b.ToTable("usuarios_workspace", (string)null);
+                    b.ToTable("workspace_members", (string)null);
                 });
 
             modelBuilder.Entity("Terrenario.Api.Infrastructure.Auth.RefreshTokenEntity", b =>
@@ -147,7 +147,7 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("creado_en");
+                        .HasColumnName("created_at");
 
                     b.Property<DateTimeOffset>("ExpiresAt")
                         .HasColumnType("timestamp with time zone")
@@ -155,7 +155,7 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
 
                     b.Property<DateTimeOffset?>("RevokedAt")
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("revocado_en");
+                        .HasColumnName("revoked_at");
 
                     b.Property<string>("TokenHash")
                         .IsRequired()
@@ -164,7 +164,7 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid")
-                        .HasColumnName("usuario_id");
+                        .HasColumnName("user_id");
 
                     b.HasKey("Id");
 

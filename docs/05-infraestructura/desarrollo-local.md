@@ -153,17 +153,22 @@ dotnet tool install --global dotnet-ef
 
 ## Esquema de base de datos
 
-### Tabla `usuarios` (MVP-101)
+> Los identificadores están en inglés desde MVP-102, según
+> [ADR-0009](../02-arquitectura/decisiones/ADR-0009--idioma-de-identificadores-en-codigo.md).
+> La migración `AdoptEnglishIdentifiersAndAddWorkspaces` renombra el esquema de MVP-101 sin
+> destruir datos, así que basta con aplicarla sobre una base de datos existente.
+
+### Tabla `users` (MVP-101)
 
 | Columna | Tipo | Descripción |
 |---------|------|-------------|
 | `id` | UUID PK | Identificador interno |
 | `google_sub` | TEXT UNIQUE NOT NULL | Subject de Google OIDC |
-| `nombre` | TEXT NOT NULL | Nombre visible |
+| `display_name` | TEXT NOT NULL | Nombre visible |
 | `email` | TEXT NOT NULL | Email de Google |
-| `activo` | BOOLEAN NOT NULL | Usuario habilitado |
-| `creado_en` | TIMESTAMPTZ | Fecha de creación |
-| `actualizado_en` | TIMESTAMPTZ | Última actualización |
+| `is_active` | BOOLEAN NOT NULL | Usuario habilitado |
+| `created_at` | TIMESTAMPTZ | Fecha de creación |
+| `updated_at` | TIMESTAMPTZ | Última actualización |
 
 ### Tabla `refresh_tokens` (MVP-101)
 
@@ -171,33 +176,33 @@ dotnet tool install --global dotnet-ef
 |---------|------|-------------|
 | `id` | UUID PK | Identificador |
 | `token_hash` | TEXT UNIQUE NOT NULL | SHA-256 del token |
-| `usuario_id` | UUID FK → usuarios | Usuario propietario |
+| `user_id` | UUID FK → users | Usuario propietario |
 | `expires_at` | TIMESTAMPTZ | Expiración (30 días) |
-| `revocado_en` | TIMESTAMPTZ? | Fecha de revocación |
-| `creado_en` | TIMESTAMPTZ | Fecha de emisión |
+| `revoked_at` | TIMESTAMPTZ? | Fecha de revocación |
+| `created_at` | TIMESTAMPTZ | Fecha de emisión |
 
 ### Tabla `workspaces` (MVP-102)
 
 | Columna | Tipo | Descripción |
 |---------|------|-------------|
 | `id` | UUID PK | Identificador del Workspace |
-| `owner_id` | UUID FK → usuarios | Usuario creador |
-| `nombre` | VARCHAR(120) NOT NULL | Nombre de la explotación |
-| `creado_en` | TIMESTAMPTZ | Fecha de creación |
-| `actualizado_en` | TIMESTAMPTZ | Última actualización |
+| `owner_id` | UUID FK → users | Usuario creador |
+| `name` | VARCHAR(120) NOT NULL | Nombre de la explotación |
+| `created_at` | TIMESTAMPTZ | Fecha de creación |
+| `updated_at` | TIMESTAMPTZ | Última actualización |
 
-### Tabla `usuarios_workspace` (MVP-102)
+### Tabla `workspace_members` (MVP-102)
 
 | Columna | Tipo | Descripción |
 |---------|------|-------------|
 | `id` | UUID PK | Identificador de la membresía |
 | `workspace_id` | UUID FK → workspaces | Workspace al que pertenece |
-| `usuario_id` | UUID FK → usuarios | Usuario miembro |
-| `rol` | VARCHAR(50) NOT NULL | `workspace_owner` o `workspace_member` |
-| `activo` | BOOLEAN NOT NULL | Membresía vigente |
-| `unido_en` | TIMESTAMPTZ | Fecha de alta en el Workspace |
+| `user_id` | UUID FK → users | Usuario miembro |
+| `role` | VARCHAR(50) NOT NULL | `workspace_owner` o `workspace_member` |
+| `is_active` | BOOLEAN NOT NULL | Membresía vigente |
+| `joined_at` | TIMESTAMPTZ | Fecha de alta en el Workspace |
 
-Índice único `(workspace_id, usuario_id)`: un usuario no puede tener dos membresías del mismo Workspace.
+Índice único `(workspace_id, user_id)`: un usuario no puede tener dos membresías del mismo Workspace.
 
 ---
 

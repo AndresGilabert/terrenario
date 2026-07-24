@@ -1,6 +1,6 @@
 export interface Workspace {
   id: string;
-  nombre: string;
+  name: string;
 }
 
 /**

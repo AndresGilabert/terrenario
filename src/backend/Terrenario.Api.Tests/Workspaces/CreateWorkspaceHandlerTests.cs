@@ -36,7 +36,7 @@ public class CreateWorkspaceHandlerTests
         result.Workspace.Name.Should().Be("Finca El Olivar");
         await _workspaceRepository.Received(1).AddAsync(
             Arg.Is<Workspace>(w => w.OwnerId == UserId && w.Name == "Finca El Olivar"),
-            Arg.Is<WorkspaceMember>(m => m.UserId == UserId && m.Active && m.Role == WorkspaceRoles.Owner),
+            Arg.Is<WorkspaceMember>(m => m.UserId == UserId && m.IsActive && m.Role == WorkspaceRoles.Owner),
             Arg.Any<CancellationToken>());
         await _workspaceRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }

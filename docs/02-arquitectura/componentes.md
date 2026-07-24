@@ -1,7 +1,7 @@
 ﻿---
 bloque: 02-arquitectura
 documento: componentes
-actualizado_en: "2026-07-18"
+actualizado_en: "2026-07-24"
 ---
 
 # Componentes del Sistema
@@ -21,13 +21,16 @@ actualizado_en: "2026-07-18"
 
 | Interfaz | Tipo | Descripción |
 |----------|------|-------------|
-| `/api/v1/terrenos` | REST | Alta, edición y consulta de terrenos |
-| `/api/v1/temporadas` | REST | Alta, edición y consulta de temporadas |
-| `/api/v1/trabajadores` | REST | Gestión de maestro de trabajadores |
-| `/api/v1/actividades` | REST | Registro y consulta de actividad operativa |
-| `/api/v1/cosechas` | REST | Registro y consulta de cosechas |
-| `/api/v1/compras` | REST | Registro de compras e imputaciones |
+| `/api/v1/workspaces` | REST | Alta del Workspace y consulta del Workspace activo |
+| `/api/v1/plots` | REST | Alta, edición y consulta de terrenos |
+| `/api/v1/seasons` | REST | Alta, edición y consulta de temporadas |
+| `/api/v1/workers` | REST | Gestión de maestro de trabajadores |
+| `/api/v1/activities` | REST | Registro y consulta de actividad operativa |
+| `/api/v1/harvests` | REST | Registro y consulta de cosechas |
+| `/api/v1/purchases` | REST | Registro de compras e imputaciones |
 | `/api/v1/dashboard/*` | REST | Agregaciones KPI por Workspace y temporada |
+
+> Rutas en inglés según [ADR-0009](./decisiones/ADR-0009--idioma-de-identificadores-en-codigo.md).
 
 ### Dependencias
 

@@ -14,12 +14,12 @@ public sealed class WorkspaceRepository(TerrenarioDbContext db) : IWorkspaceRepo
     public Task<Workspace?> FindForMemberAsync(Guid workspaceId, Guid userId, CancellationToken ct = default)
         => db.Workspaces
             .Where(w => w.Id == workspaceId)
-            .Where(w => db.WorkspaceMembers.Any(m => m.WorkspaceId == w.Id && m.UserId == userId && m.Active))
+            .Where(w => db.WorkspaceMembers.Any(m => m.WorkspaceId == w.Id && m.UserId == userId && m.IsActive))
             .FirstOrDefaultAsync(ct);
 
     public Task<Workspace?> FindDefaultForUserAsync(Guid userId, CancellationToken ct = default)
         => db.WorkspaceMembers
-            .Where(m => m.UserId == userId && m.Active)
+            .Where(m => m.UserId == userId && m.IsActive)
             .OrderByDescending(m => m.JoinedAt)
             .Join(db.Workspaces, m => m.WorkspaceId, w => w.Id, (_, w) => w)
             .FirstOrDefaultAsync(ct);

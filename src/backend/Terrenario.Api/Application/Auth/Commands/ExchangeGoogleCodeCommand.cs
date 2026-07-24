@@ -1,3 +1,5 @@
+using Terrenario.Api.Application.Workspaces.Commands;
+
 namespace Terrenario.Api.Application.Auth.Commands;
 
 public sealed record ExchangeGoogleCodeCommand(
@@ -9,6 +11,7 @@ public sealed record ExchangeGoogleCodeResult(
     string AccessToken,
     string RefreshToken,
     int ExpiresIn,
-    UserInfo User);
+    UserInfo User,
+    WorkspaceSummary? Workspace);
 
 public sealed record UserInfo(Guid Id, string DisplayName);

@@ -1,6 +1,5 @@
 import type { TokenResponse } from '../types/auth.types';
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5000';
+import { API_BASE } from './api.config';
 
 export interface AuthCallbackParams {
   code: string;

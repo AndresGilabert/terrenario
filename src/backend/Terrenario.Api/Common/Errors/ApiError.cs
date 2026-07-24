@@ -16,6 +16,11 @@ public sealed record ApiError(string Code, string Message)
 
     public static ApiError Unauthenticated() =>
         new(ErrorCodes.AuthUnauthenticated, "Token de acceso ausente o no válido.");
+
+    public static ApiError Validation(string code, string message) => new(code, message);
+
+    public static ApiError WorkspaceNotFound() =>
+        new(ErrorCodes.WorkspaceNotFound, "Todavía no tienes ningún Workspace activo.");
 }
 
 public sealed record ApiErrorResponse(ApiError Error);

@@ -1,4 +1,4 @@
----
+﻿---
 id: "MVP-101"
 tipo: feature
 titulo: "TDD: Acceso con Google OIDC y sesión base"
@@ -49,7 +49,7 @@ sequenceDiagram
         BE->>G: Intercambio code por tokens (code + code_verifier)
         G->>BE: { id_token, access_token }
         BE->>BE: Valida id_token (firma, iss, aud, exp)
-        BE->>DB: UPSERT usuarios (google_sub → find or create)
+        BE->>DB: UPSERT users (google_sub → find or create)
         BE->>DB: INSERT refresh_tokens (token_hash, user_id, expires_at)
         BE->>FE: 200 { access_token (JWT RS256 15min), expires_in, user: { id, display_name } }<br/>Set-Cookie: refresh_token=...; HttpOnly; Secure; SameSite=Strict
         FE->>FE: Guarda access_token en AuthContext (memoria)
@@ -78,35 +78,39 @@ sequenceDiagram
 | `src/frontend/terrenario-web` | nuevo | SPA React + TypeScript + Vite |
 | `src/backend/.../Controllers/AuthController.cs` | nuevo | Endpoints de autenticación |
 | `src/backend/.../Domain/Users/User.cs` | nuevo | Entidad de dominio Usuario |
-| `src/backend/.../Infrastructure/Data/TerrenarioDbContext.cs` | nuevo | DbContext con tablas `usuarios` y `refresh_tokens` |
+| `src/backend/.../Infrastructure/Data/TerrenarioDbContext.cs` | nuevo | DbContext con tablas `users` y `refresh_tokens` |
 
 ## Diseño detallado
 
 ### Modelo de datos
 
+> Nota: MVP-101 creó estas tablas con identificadores en español. MVP-102 las renombró al adoptar
+> [ADR-0009](../../../../02-arquitectura/decisiones/ADR-0009--idioma-de-identificadores-en-codigo.md).
+> El DDL siguiente refleja el esquema vigente.
+
 ```sql
--- usuarios: entidad central de identidad
-CREATE TABLE usuarios (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    google_sub      TEXT NOT NULL UNIQUE,
-    nombre          TEXT NOT NULL,
-    email           TEXT NOT NULL,
-    activo          BOOLEAN NOT NULL DEFAULT TRUE,
-    creado_en       TIMESTAMPTZ NOT NULL DEFAULT now(),
-    actualizado_en  TIMESTAMPTZ NOT NULL DEFAULT now()
+-- users: entidad central de identidad
+CREATE TABLE users (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    google_sub    TEXT NOT NULL UNIQUE,
+    display_name  TEXT NOT NULL,
+    email         TEXT NOT NULL,
+    is_active     BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- refresh_tokens: tokens rotantes por usuario
 CREATE TABLE refresh_tokens (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    usuario_id      UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-    token_hash      TEXT NOT NULL UNIQUE,   -- SHA-256 del token en claro
-    expires_at      TIMESTAMPTZ NOT NULL,
-    revocado_en     TIMESTAMPTZ,
-    creado_en       TIMESTAMPTZ NOT NULL DEFAULT now()
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash  TEXT NOT NULL UNIQUE,   -- SHA-256 del token en claro
+    expires_at  TIMESTAMPTZ NOT NULL,
+    revoked_at  TIMESTAMPTZ,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_refresh_tokens_usuario_id ON refresh_tokens(usuario_id);
+CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
 CREATE INDEX idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);
 ```
 
@@ -177,7 +181,7 @@ responses:
 
 - Al recibir un `id_token` válido de Google, se extrae `sub`, `name` y `email`.
 - Si existe un usuario con ese `google_sub` → se actualiza nombre/email y se retorna.
-- Si no existe → se crea el registro en `usuarios`.
+- Si no existe → se crea el registro en `users`.
 - La decisión de upsert por `google_sub` garantiza idempotencia ante re-logins.
 
 **JWT (access_token):**

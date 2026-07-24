@@ -1,7 +1,7 @@
 ﻿---
 bloque: 04-ingenieria
 documento: estandares-codigo
-actualizado_en: "2026-07-18"
+actualizado_en: "2026-07-24"
 ---
 
 # Estándares de Código
@@ -20,15 +20,44 @@ actualizado_en: "2026-07-18"
 
 ---
 
+## Idioma de los identificadores
+
+> Decisión completa y alternativas descartadas: [ADR-0009](../02-arquitectura/decisiones/ADR-0009--idioma-de-identificadores-en-codigo.md).
+
+**Todo identificador del sistema se escribe en inglés.** La documentación se redacta en español,
+pero **nunca traduce identificadores**: los cita literalmente en el idioma del código.
+
+Redacción correcta en documentación:
+
+> El login del usuario guarda el nombre visible en la columna `display_name` de la tabla `users`.
+
+Aplica a: clases, interfaces, propiedades, variables, funciones, nombres de archivo, tablas y
+columnas de base de datos, rutas de API, campos de request/response, códigos de error y nombres
+de eventos.
+
+**No aplica a**:
+
+- Textos de interfaz y mensajes dirigidos al usuario final, que van en español por ser contenido.
+- Los **valores** de los catálogos cerrados del dominio (`desconocido`, `venta_aceituna`,
+  `planificada`, `invitado`...), que son vocabulario de negocio. El **nombre** del catálogo sí es
+  un identificador y va en inglés (`harvest_destination`).
+
+---
+
 ## Convenciones de naming
 
 | Elemento | Convención | Ejemplo |
 |----------|-----------|---------|
-| Variables y funciones | camelCase | `getTerrenoById` |
-| Clases e interfaces | PascalCase | `RegistroCosecha` |
-| Constantes | SCREAMING_SNAKE_CASE | `MAX_RETRY_ATTEMPTS` |
-| Archivos | kebab-case | `registro-cosecha.service.cs` |
-| Tablas de DB | snake_case plural | `registros_cosecha` |
+| Variables y funciones | camelCase inglés | `getPlotById` |
+| Clases e interfaces | PascalCase inglés | `HarvestRecord` |
+| Constantes | SCREAMING_SNAKE_CASE inglés | `MAX_RETRY_ATTEMPTS` |
+| Archivos | kebab-case inglés | `harvest-record.service.cs` |
+| Tablas de DB | snake_case plural inglés | `harvest_records` |
+| Columnas de DB | snake_case inglés | `created_at`, `is_active` |
+| Rutas de API | kebab-case plural inglés | `/api/v1/workspaces/active` |
+| Códigos de error | SCREAMING_SNAKE_CASE inglés | `VALIDATION_REQUIRED_WORKSPACE_NAME` |
+
+Los booleanos persistidos usan prefijo `is_` (`is_active`, `is_closed`).
 
 ---
 

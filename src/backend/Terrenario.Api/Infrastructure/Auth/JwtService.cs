@@ -26,7 +26,7 @@ public sealed class JwtService : IJwtService
         _publicKey = new RsaSecurityKey(rsaForVerify);
     }
 
-    public IssuedAccessToken IssueAccessToken(Guid userId, string? displayName)
+    public IssuedAccessToken IssueAccessToken(Guid userId, string? displayName, Guid? workspaceId = null)
     {
         var now = DateTime.UtcNow;
         var expiresAt = now.AddSeconds(_options.AccessTokenLifetimeSeconds);
@@ -40,6 +40,9 @@ public sealed class JwtService : IJwtService
 
         if (!string.IsNullOrWhiteSpace(displayName))
             claims.Add(new(JwtRegisteredClaimNames.Name, displayName));
+
+        if (workspaceId.HasValue)
+            claims.Add(new(TerrenarioClaims.WorkspaceId, workspaceId.Value.ToString()));
 
         var signingCredentials = new SigningCredentials(_privateKey, SecurityAlgorithms.RsaSha256);
 

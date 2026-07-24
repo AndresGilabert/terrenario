@@ -1,4 +1,5 @@
 using Terrenario.Api.Application.Auth.Commands;
+using Terrenario.Api.Application.Workspaces;
 using Terrenario.Api.Domain.Users;
 using Terrenario.Api.Infrastructure.Auth;
 using Terrenario.Api.Infrastructure.Telemetry;
@@ -11,6 +12,7 @@ public sealed class ExchangeGoogleCodeHandler
     private readonly IUserRepository _userRepository;
     private readonly IJwtService _jwtService;
     private readonly IRefreshTokenStore _refreshTokenStore;
+    private readonly IActiveWorkspaceResolver _activeWorkspaceResolver;
     private readonly ILoginTelemetry _telemetry;
 
     public ExchangeGoogleCodeHandler(
@@ -18,12 +20,14 @@ public sealed class ExchangeGoogleCodeHandler
         IUserRepository userRepository,
         IJwtService jwtService,
         IRefreshTokenStore refreshTokenStore,
+        IActiveWorkspaceResolver activeWorkspaceResolver,
         ILoginTelemetry telemetry)
     {
         _googleOidc = googleOidc;
         _userRepository = userRepository;
         _jwtService = jwtService;
         _refreshTokenStore = refreshTokenStore;
+        _activeWorkspaceResolver = activeWorkspaceResolver;
         _telemetry = telemetry;
     }
 
@@ -61,7 +65,10 @@ public sealed class ExchangeGoogleCodeHandler
 
         await _userRepository.SaveChangesAsync(ct);
 
-        var accessToken = _jwtService.IssueAccessToken(user.Id, user.DisplayName);
+        // Un usuario sin Workspace entra al onboarding de MVP-102; la sesión se emite sin contexto.
+        var activeWorkspace = await _activeWorkspaceResolver.ResolveAsync(user.Id, ct: ct);
+
+        var accessToken = _jwtService.IssueAccessToken(user.Id, user.DisplayName, activeWorkspace?.Id);
         var refreshToken = await _refreshTokenStore.CreateAsync(user.Id, ct);
 
         _telemetry.LoginSuccess(flowId);
@@ -70,6 +77,7 @@ public sealed class ExchangeGoogleCodeHandler
             accessToken.Token,
             refreshToken,
             accessToken.ExpiresIn,
-            new UserInfo(user.Id, user.DisplayName));
+            new UserInfo(user.Id, user.DisplayName),
+            activeWorkspace);
     }
 }

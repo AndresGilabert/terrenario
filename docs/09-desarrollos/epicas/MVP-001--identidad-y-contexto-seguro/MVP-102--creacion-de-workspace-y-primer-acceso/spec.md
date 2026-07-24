@@ -2,7 +2,7 @@
 id: "MVP-102"
 tipo: feature
 titulo: "Creación de Workspace y primer acceso guiado"
-estado: borrador
+estado: completado
 prioridad: critica
 sprint: ""
 hito: "Hito A — Base segura y multiusuario"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "workspace", "onboarding"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-24"
 ---
 
 # MVP-102 — Creación de Workspace y primer acceso guiado
@@ -64,9 +64,13 @@ Permitir que un usuario autenticado cree su primer Workspace y quede dentro de u
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Un usuario autenticado puede crear un Workspace desde el primer acceso en un flujo corto y comprensible.
-- [ ] **CA-2**: Al finalizar la creación, el Workspace nuevo queda activo para el usuario creador.
-- [ ] **CA-3**: La información mínima del Workspace queda disponible para continuar el onboarding del MVP.
+- [x] **CA-1**: Un usuario autenticado puede crear un Workspace desde el primer acceso en un flujo corto y comprensible.
+- [x] **CA-2**: Al finalizar la creación, el Workspace nuevo queda activo para el usuario creador.
+- [x] **CA-3**: La información mínima del Workspace queda disponible para continuar el onboarding del MVP.
+
+## Diseño técnico
+
+- Diseño técnico de la implementación: [tech-design.md](./tech-design.md)
 
 ## Maquetas y referencias visuales
 
@@ -81,10 +85,14 @@ Permitir que un usuario autenticado cree su primer Workspace y quede dentro de u
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| OnboardingStep1 | RN-021 | parcial | Prueba manual: alta guiada visual de Workspace |
-| OnboardingStep2 | RN-021, RN-022, RN-023 | parcial | Prueba manual: temporada en UI; pendiente reglas backend |
+| OnboardingStep1 | RN-034 | cubierto | Alta real de Workspace con membresía activa del creador; tests unitarios de `Workspace` y `CreateWorkspaceHandler` |
+| OnboardingStep2 | RN-021, RN-022, RN-023 | falta | Fuera de alcance de esta historia; la temporada inicial se implementa en `MVP-201` |
 
 ## Notas y decisiones
 
 - Esta historia prepara el terreno para que `MVP-002` cree la primera temporada y el resto de maestros.
 - Debe mantenerse mínima: crear contexto, no configurar aún el dominio.
+- El Workspace activo viaja en el claim `workspace_id` del `access_token` y siempre se resuelve en
+  servidor. El selector multi-Workspace y el listado de membresías quedan en `MVP-104`.
+- El mapeo de `OnboardingStep1` se reasigna de RN-021 a RN-034: la pantalla crea el contenedor de
+  negocio y su membresía; RN-021 (temporada operativa) se cubre en `MVP-201`.

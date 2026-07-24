@@ -1,7 +1,7 @@
 ﻿---
 bloque: 05-infraestructura
 documento: entornos
-actualizado_en: "2026-07-18"
+actualizado_en: "2026-07-24"
 ---
 
 # Entornos
@@ -76,6 +76,30 @@ docker compose up --build
 | `DATABASE_URL` | secreto | secreto | secreto | Cadena de conexión DB |
 | `OIDC_CLIENT_ID` | secreto | secreto | secreto | Cliente OIDC |
 | `SENTRY_DSN` | secreto | secreto | secreto | Error tracking |
+| `Invitations__AcceptBaseUrl` | URL del front dev | URL del front staging | `https://app.terrenario.com/invitations` | Base pública del enlace de invitación |
+| `Email__Host` | secreto | secreto | secreto | Servidor SMTP. Vacío = no se envían invitaciones |
+| `Email__Port` | `587` | `587` | `587` | `465` si se usa TLS implícito |
+| `Email__SecurityMode` | `starttls` | `starttls` | `starttls` | `ssl`, `none` o `auto` según servidor |
+| `Email__Username` | secreto | secreto | secreto | Usuario de autenticación |
+| `Email__Password` | secreto | secreto | secreto | Contraseña o contraseña de aplicación |
+| `Email__FromAddress` | secreto | secreto | secreto | Remitente. Vacío = no se envían invitaciones |
+| `Email__FromName` | `Terrenario` | `Terrenario` | `Terrenario` | Nombre visible del remitente |
+
+> **Por qué toda la cuenta de envío va como secreto**: el repositorio es público. `Host`, `Username`
+> y `FromAddress` no son credenciales por sí solos, pero identifican una cuenta concreta de un
+> servicio de terceros y, commiteados, quedan en el historial de git de forma permanente. En
+> `appsettings.json` se mantienen vacíos: definen la forma de la sección, no sus valores. En local
+> se gestionan con User Secrets y por entorno con el Secret Manager del proveedor cloud.
+>
+> **Cuenta de envío de invitaciones**: decisión y alternativas en
+> [ADR-0010](../02-arquitectura/decisiones/ADR-0010--envio-de-email-transaccional-por-smtp.md).
+> El remitente definitivo está **pendiente de decisión de negocio**. Para producción hace falta un
+> dominio propio con **SPF, DKIM y DMARC** publicados; sin eso las invitaciones acaban en spam. Una
+> cuenta de Google Workspace con contraseña de aplicación sirve para `dev` y arranque, pero tiene
+> límite de envío diario.
+>
+> Mientras `Email__Host` o `Email__FromAddress` estén vacíos, el entorno arranca con un warning, las
+> invitaciones se emiten igual y la API responde `email_sent: false`: se comparten por enlace.
 
 ---
 

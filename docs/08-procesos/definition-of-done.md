@@ -1,7 +1,7 @@
 ﻿---
 bloque: 08-procesos
 documento: definition-of-done
-actualizado_en: "2026-07-13"
+actualizado_en: "2026-07-24"
 ---
 
 # Definition of Done (DoD)
@@ -44,6 +44,13 @@ actualizado_en: "2026-07-13"
 - [ ] Si hay datos personales, existe evidencia de cumplimiento RGPD + LOPDGDD en la documentacion del ticket
 - [ ] Si aplica LSSI-CE/ePrivacy, queda documentado y validado
 - [ ] Si aplica EIPD, esta completada o aprobada antes de paso a produccion
+
+### Cierre de épica
+
+- [ ] La épica no pasa a `completado` hasta cerrar su historia `MVP-x99` de `Revision epica`
+- [ ] La historia `MVP-x99` deja evidencia de revisión funcional integral de la épica
+- [ ] Cada punto ciego detectado se convierte en nueva historia trazable
+- [ ] Los puntos que no encajan en épicas activas se registran en `MVP-999`
 
 ### Deploy
 

@@ -29,6 +29,8 @@ actualizado_en: "2026-07-24"
 | `/api/v1/harvests` | REST | Registro y consulta de cosechas |
 | `/api/v1/purchases` | REST | Registro de compras e imputaciones |
 | `/api/v1/dashboard/*` | REST | Agregaciones KPI por Workspace y temporada |
+| `/api/v1/workspaces/invitations` | REST | Emisión y listado de invitaciones del Workspace activo |
+| `/api/v1/invitations/{token}` | REST | Consulta y aceptación de una invitación recibida |
 
 > Rutas en inglés según [ADR-0009](./decisiones/ADR-0009--idioma-de-identificadores-en-codigo.md).
 
@@ -38,7 +40,7 @@ actualizado_en: "2026-07-24"
 |----------------------|---------------------|-------------|
 | Auth Gateway (Google OIDC) | sincrónica | Validación de identidad y emisión/validación de sesión |
 | PostgreSQL | sincrónica | Persistencia transaccional y consultas de lectura |
-| Servicio de email | sincrónica | Invitaciones a miembros de Workspace |
+| Servicio de email | sincrónica | Invitaciones a miembros de Workspace por SMTP genérico ([ADR-0010](./decisiones/ADR-0010--envio-de-email-transaccional-por-smtp.md)). La cuenta de envío se configura por entorno; sin ella, o si el envío falla, la invitación sigue siendo válida y se comparte por enlace |
 
 ---
 
@@ -74,4 +76,4 @@ C4Component
 |----------|------|-----------|-------|-----|
 | `terrenario-api` | API | pendiente de definir por entorno | equipo técnico | 99.9% |
 | `google-oidc` | Integración externa | proveedor externo | seguridad | según proveedor |
-| `email-service` | Integración externa | proveedor externo | producto/infra | según proveedor |
+| `email-service` | Integración externa | SMTP del proveedor (cuenta pendiente de provisionar) | producto/infra | según proveedor |

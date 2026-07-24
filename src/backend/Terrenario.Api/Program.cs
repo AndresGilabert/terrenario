@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Mvc;
 using Terrenario.Api.Application.Auth;
+using Terrenario.Api.Application.Invitations;
 using Terrenario.Api.Application.Workspaces;
 using Terrenario.Api.Common.Errors;
 using Terrenario.Api.Domain.Users;
@@ -11,6 +12,7 @@ using Terrenario.Api.Domain.Workspaces;
 using Terrenario.Api.Infrastructure.Auth;
 using Terrenario.Api.Infrastructure.Data;
 using Terrenario.Api.Infrastructure.Data.Repositories;
+using Terrenario.Api.Infrastructure.Invitations;
 using Terrenario.Api.Infrastructure.Telemetry;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,6 +24,10 @@ builder.Services.Configure<JwtOptions>(
     builder.Configuration.GetSection(JwtOptions.SectionName));
 builder.Services.Configure<RefreshTokenOptions>(
     builder.Configuration.GetSection(RefreshTokenOptions.SectionName));
+builder.Services.Configure<InvitationOptions>(
+    builder.Configuration.GetSection(InvitationOptions.SectionName));
+builder.Services.Configure<EmailOptions>(
+    builder.Configuration.GetSection(EmailOptions.SectionName));
 
 // ── Database ─────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<TerrenarioDbContext>(options =>
@@ -68,6 +74,13 @@ builder.Services.AddScoped<RefreshTokenHandler>();
 builder.Services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
 builder.Services.AddScoped<IActiveWorkspaceResolver, ActiveWorkspaceResolver>();
 builder.Services.AddScoped<CreateWorkspaceHandler>();
+builder.Services.AddScoped<IWorkspaceInvitationRepository, WorkspaceInvitationRepository>();
+builder.Services.AddScoped<IInvitationTokenService, InvitationTokenService>();
+builder.Services.AddScoped<IInvitationEmailSender, SmtpInvitationEmailSender>();
+builder.Services.AddScoped<CreateInvitationHandler>();
+builder.Services.AddScoped<ListWorkspaceInvitationsHandler>();
+builder.Services.AddScoped<PreviewInvitationHandler>();
+builder.Services.AddScoped<AcceptInvitationHandler>();
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
 builder.Services.AddCors(options =>
@@ -111,6 +124,13 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 });
 
 var app = builder.Build();
+
+// Sin cuenta de envío las invitaciones por email no salen: la API lo dice con email_sent=false,
+// pero conviene verlo también al arrancar el entorno.
+if (!(builder.Configuration.GetSection(EmailOptions.SectionName).Get<EmailOptions>() ?? new()).IsConfigured)
+    app.Logger.LogWarning(
+        "Sin cuenta de envío de email configurada ('Email:Host' y 'Email:FromAddress'). "
+        + "Las invitaciones se emiten pero deben compartirse por enlace.");
 
 // ── Middleware pipeline ───────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())

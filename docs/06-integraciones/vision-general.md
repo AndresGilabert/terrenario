@@ -1,7 +1,7 @@
 ﻿---
 bloque: 06-integraciones
 documento: vision-general
-actualizado_en: "2026-07-18"
+actualizado_en: "2026-07-24"
 ---
 
 # Integraciones Externas — Visión General
@@ -19,6 +19,7 @@ actualizado_en: "2026-07-18"
 ```mermaid
 flowchart LR
     sistema["Terrenario MVP"] -->|"OIDC login"| google["Google OIDC"]
+    sistema -->|"invitaciones"| email["Email service (proveedor pendiente)"]
 ```
 
 ---
@@ -28,6 +29,13 @@ flowchart LR
 | Sistema | Propósito | Módulo owner | Estado | Ruta |
 |---------|-----------|-------------|--------|------|
 | `google-oidc` | Autenticación social de acceso | seguridad | activo | `../07-seguridad/autenticacion-autorizacion.md` |
+| `email-service` | Envío de invitaciones a Workspace | workspaces | implementado (SMTP), cuenta pendiente de provisionar | `../02-arquitectura/decisiones/ADR-0010--envio-de-email-transaccional-por-smtp.md` |
+
+> `email-service`: el envío es **SMTP genérico** ([ADR-0010](../02-arquitectura/decisiones/ADR-0010--envio-de-email-transaccional-por-smtp.md)),
+> así que la misma configuración vale para Google Workspace, Brevo, Amazon SES, SendGrid o un
+> servidor corporativo. Lo que falta es **provisionar la cuenta** (`Email:*` en
+> `../05-infraestructura/entornos.md`) y decidir el dominio remitente. Mientras no exista cuenta, el
+> entorno arranca con un warning y las invitaciones se comparten por enlace.
 
 ---
 
@@ -47,3 +55,4 @@ flowchart LR
 | Integración | Si falla | Impacto | Fallback |
 |------------|---------|---------|---------|
 | Google OIDC | No se puede completar login | Bloquea acceso de usuarios no autenticados | Mostrar error controlado, reintento y canal de soporte; trazar evento `login_google_error` |
+| Email service | No hay cuenta configurada o el servidor SMTP falla | La persona invitada no recibe el enlace | La invitación queda emitida y válida; la API devuelve `email_sent: false` y la UI ofrece el enlace para compartirlo por otro medio. Sin cuenta configurada el arranque lo advierte con un warning |

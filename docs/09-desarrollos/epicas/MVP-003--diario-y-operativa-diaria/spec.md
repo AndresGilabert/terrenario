@@ -6,7 +6,7 @@ estado: borrador
 prioridad: critica
 hito: "Hito C — Registro operativo end-to-end"
 tickets: []
-historias: ["MVP-301", "MVP-302", "MVP-303", "MVP-304", "MVP-305"]
+historias: ["MVP-301", "MVP-302", "MVP-303", "MVP-304", "MVP-305", "MVP-399"]
 depende_de: ["MVP-001", "MVP-002"]
 bloquea: ["MVP-004", "MVP-005", "MVP-006"]
 relacionado_con: []
@@ -19,7 +19,7 @@ ai_context:
   etiquetas: ["mvp", "operativa", "diario"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-24"
 ---
 
 # EPICA MVP-003 — Diario y operativa diaria
@@ -72,6 +72,7 @@ Permitir registrar y consultar el día a día del Workspace en una sola experien
 - `MVP-303` — Registro de compras operativas.
 - `MVP-304` — Imputación de compras y consumo sin compra previa.
 - `MVP-305` — Diario cronológico unificado y borrado con confirmación.
+- `MVP-399` — Revision epica.
 
 ## Vinculacion con prototipo (fuente visual)
 

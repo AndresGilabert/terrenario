@@ -2,7 +2,7 @@
 id: "MVP-103"
 tipo: feature
 titulo: "Invitaciones por email y enlace"
-estado: borrador
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito A — Base segura y multiusuario"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "invite", "workspace"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-24"
 ---
 
 # MVP-103 — Invitaciones por email y enlace
@@ -65,9 +65,13 @@ Permitir que un miembro de un Workspace invite a otro usuario por email o por en
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Un miembro del Workspace puede emitir una invitación válida por email o por enlace.
-- [ ] **CA-2**: Un usuario autenticado puede aceptar la invitación y quedar asociado al Workspace correcto.
-- [ ] **CA-3**: El sistema refleja el estado básico de la membresía derivada de la invitación sin introducir roles granulares.
+- [x] **CA-1**: Un miembro del Workspace puede emitir una invitación válida por email o por enlace.
+- [x] **CA-2**: Un usuario autenticado puede aceptar la invitación y quedar asociado al Workspace correcto.
+- [x] **CA-3**: El sistema refleja el estado básico de la membresía derivada de la invitación sin introducir roles granulares.
+
+## Diseño técnico
+
+- Diseño técnico de la implementación: [tech-design.md](./tech-design.md)
 
 ## Maquetas y referencias visuales
 
@@ -81,10 +85,26 @@ Permitir que un miembro de un Workspace invite a otro usuario por email o por en
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| AjustesView | RN-035 | falta | No existe flujo de invitacion por email/enlace en el prototipo |
-| Sidebar | RN-034 | parcial | Solo referencia de contexto visual de usuario/workspace |
+| AjustesView | RN-035 | cubierto | Pantalla real `InvitePeoplePage` con los dos canales y `AcceptInvitationPage` para la aceptación; tests unitarios de `WorkspaceInvitation`, `CreateInvitationHandler` y `AcceptInvitationHandler` |
+| Sidebar | RN-034 | parcial | Cualquier miembro puede invitar (permisos planos); el selector multi-Workspace sigue siendo alcance de `MVP-104` |
 
 ## Notas y decisiones
 
 - Si el envío de email activa cumplimiento condicionado de LSSI/ePrivacy, deberá documentarse al pasar a `aprobado`.
 - El enlace compartible no debe abrir una vía de acceso fuera del flujo autenticado del MVP.
+- La aceptación exige sesión iniciada: la ruta `/invitations/:token` está protegida y el destino se
+  retoma después del login con Google.
+- Las invitaciones son de un solo uso y caducan a los 7 días. La invitación por email solo la puede
+  aceptar la cuenta destinataria; el enlace acepta a cualquier usuario autenticado.
+- El envío es SMTP genérico
+  ([ADR-0010](../../../../02-arquitectura/decisiones/ADR-0010--envio-de-email-transaccional-por-smtp.md)):
+  sirve cualquier proveedor sin tocar código. Falta **provisionar la cuenta** y decidir el dominio
+  remitente, que para producción exige SPF, DKIM y DMARC.
+- Mientras no haya cuenta configurada, el arranque avisa con un warning y la API responde
+  `email_sent: false`, de forma que quien invita comparte el enlace por otro medio. El sistema nunca
+  da por enviado un correo que no salió.
+- El catálogo completo de estados de membresía (`invitado`, `activo`, `revocado`) y la revocación de
+  invitaciones se mantienen como alcance de `MVP-104`.
+- Decision de backlog (2026-07-24): la definicion de plantillas de email y su maquetacion unificada
+  para todos los envios salientes se difiere a `MVP-999` y queda registrada como punto `P-001` en
+  `docs/09-desarrollos/epicas/MVP-999--pendientes-transversales-y-diferidos/spec.md`.

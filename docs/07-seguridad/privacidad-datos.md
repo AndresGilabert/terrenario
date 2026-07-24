@@ -1,7 +1,7 @@
 ﻿---
 bloque: 07-seguridad
 documento: privacidad-datos
-actualizado_en: "2026-06-30"
+actualizado_en: "2026-07-24"
 ---
 
 # Privacidad de Datos y GDPR
@@ -67,6 +67,21 @@ Cuando se use un proveedor externo de identidad (por ejemplo Google):
 3. Los tokens y credenciales del proveedor no se almacenaran en claro en logs, URLs ni mensajes de error.
 4. Si el proveedor entrega atributos adicionales no necesarios, se descartaran por defecto.
 5. Cualquier ampliacion a otros proveedores debera revisarse antes de activarse para confirmar cumplimiento RGPD + LOPDGDD.
+
+---
+
+## Encargados del tratamiento (proveedores externos con acceso a PII)
+
+Todo proveedor externo que trate datos personales por cuenta del proyecto es **encargado del
+tratamiento** (RGPD art. 28) y exige contrato de encargo (DPA) firmado antes de entrar en produccion.
+
+| Proveedor | Datos tratados | Finalidad | Estado |
+|-----------|---------|---------|---------|
+| Google (OIDC) | `sub`, nombre, email | Autenticacion de acceso | Activo |
+| Proveedor de email (SMTP) | Email del destinatario, nombre de quien invita y del Workspace | Envio de invitaciones a Workspace | **Pendiente de contratar**: ver [ADR-0010](../02-arquitectura/decisiones/ADR-0010--envio-de-email-transaccional-por-smtp.md) |
+
+Al contratar el proveedor de email hay que verificar ademas donde se alojan los datos y si implica
+transferencia internacional con garantias adecuadas.
 
 ---
 

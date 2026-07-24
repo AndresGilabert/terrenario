@@ -45,6 +45,20 @@ erDiagram
         timestamp joined_at
     }
 
+    WORKSPACE_INVITATION {
+        uuid id PK
+        uuid workspace_id FK
+        uuid invited_by_user_id FK
+        string channel
+        string email
+        string token_hash
+        string status
+        timestamp expires_at
+        timestamp created_at
+        timestamp accepted_at
+        uuid accepted_by_user_id FK
+    }
+
     WORKER {
         uuid id PK
         uuid workspace_id FK
@@ -148,6 +162,8 @@ erDiagram
 
     USER ||--o{ WORKSPACE_MEMBER : participa_en
     WORKSPACE ||--o{ WORKSPACE_MEMBER : tiene_miembros
+    WORKSPACE ||--o{ WORKSPACE_INVITATION : emite
+    USER ||--o{ WORKSPACE_INVITATION : invita
     WORKSPACE ||--o{ WORKER : mantiene
     WORKSPACE ||--o{ PLOT : contiene
     WORKSPACE ||--o{ SEASON : define
@@ -176,6 +192,20 @@ erDiagram
 | `is_active` | boolean | Si | Membresia vigente. Estados completos de invitacion en MVP-103 |
 
 Restriccion: indice unico `(workspace_id, user_id)`. Un usuario no puede tener dos membresias del mismo Workspace.
+
+### WORKSPACE_INVITATION
+
+| Campo | Tipo | Obligatorio | Descripcion |
+|-------|------|-------------|-------------|
+| `channel` | string | Si | Catalogo `invitation_channel`: `email` o `enlace` |
+| `email` | string(320) | No | Solo en el canal `email`. El enlace compartible no tiene destinatario |
+| `token_hash` | string | Si | SHA-256 del token de invitacion. El valor en claro no se persiste |
+| `status` | string | Si | Catalogo `invitation_status`: `pendiente` o `aceptada` |
+| `expires_at` | timestamptz | Si | La caducidad se deriva de esta fecha; no es un estado persistido |
+| `accepted_by_user_id` | UUID (nullable) | No | Trazabilidad de quien entro con la invitacion |
+
+Restricciones: indice unico en `token_hash` e indice de apoyo `(workspace_id, status)`. La
+invitacion es de un solo uso: al aceptarse pasa a `aceptada` y no vuelve a ser valida.
 
 ### WORKER
 
@@ -251,6 +281,7 @@ Restriccion: indice unico `(workspace_id, user_id)`. Un usuario no puede tener d
 | `USER` | implementada | MVP-101 |
 | `WORKSPACE` | implementada | MVP-102 |
 | `WORKSPACE_MEMBER` | implementada | MVP-102 |
+| `WORKSPACE_INVITATION` | implementada | MVP-103 |
 | `PLOT`, `SEASON`, `WORKER` | pendiente | MVP-002 |
 | `ACTIVITY`, `PURCHASE`, `PURCHASE_CONSUMPTION` | pendiente | MVP-003 |
 | `HARVEST` | pendiente | MVP-004 |

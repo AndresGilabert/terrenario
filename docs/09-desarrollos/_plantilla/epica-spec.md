@@ -81,6 +81,8 @@ TODO
 
 > Ver `_indice.md` para el estado actualizado.
 
+- `{ID}-x99` — Revision epica (obligatoria como ultima historia de la epica).
+
 ## Notas y decisiones
 
 > Decisiones de alcance, restricciones conocidas, dependencias estratégicas.

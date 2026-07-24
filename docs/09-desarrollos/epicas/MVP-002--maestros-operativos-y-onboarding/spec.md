@@ -6,7 +6,7 @@ estado: borrador
 prioridad: alta
 hito: "Hito B — Base operativa preparada"
 tickets: []
-historias: ["MVP-201", "MVP-202", "MVP-203", "MVP-204", "MVP-205"]
+historias: ["MVP-201", "MVP-202", "MVP-203", "MVP-204", "MVP-205", "MVP-299"]
 depende_de: ["MVP-001"]
 bloquea: ["MVP-003", "MVP-004"]
 relacionado_con: []
@@ -19,7 +19,7 @@ ai_context:
   etiquetas: ["mvp", "masters", "onboarding"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-24"
 ---
 
 # EPICA MVP-002 — Maestros operativos y onboarding
@@ -70,6 +70,7 @@ Dejar cada Workspace preparado para empezar a registrar actividad real en pocos 
 - `MVP-203` — Maestro de temporadas y regla de única activa.
 - `MVP-204` — Maestro de trabajadores y exposición automática de miembros.
 - `MVP-205` — Catálogo de tareas por Workspace.
+- `MVP-299` — Revision epica.
 
 ## Vinculacion con prototipo (fuente visual)
 

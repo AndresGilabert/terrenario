@@ -6,7 +6,7 @@ estado: borrador
 prioridad: critica
 hito: "Hito A — Base segura y multiusuario"
 tickets: []
-historias: ["MVP-101", "MVP-102", "MVP-103", "MVP-104", "MVP-105"]
+historias: ["MVP-101", "MVP-102", "MVP-103", "MVP-104", "MVP-105", "MVP-199"]
 depende_de: []
 bloquea: ["MVP-002", "MVP-003", "MVP-004", "MVP-005", "MVP-006"]
 relacionado_con: []
@@ -19,7 +19,7 @@ ai_context:
   etiquetas: ["mvp", "auth", "workspace"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-24"
 ---
 
 # EPICA MVP-001 — Identidad y contexto seguro de Workspace
@@ -71,6 +71,7 @@ Permitir que un usuario pueda autenticarse con Google, crear o unirse a un Works
 - `MVP-103` — Invitaciones por email y enlace compartible.
 - `MVP-104` — Membresía y selector de Workspace activo.
 - `MVP-105` — Autorización por Workspace y trazabilidad mínima de login.
+- `MVP-199` — Revision epica.
 
 ## Vinculacion con prototipo (fuente visual)
 

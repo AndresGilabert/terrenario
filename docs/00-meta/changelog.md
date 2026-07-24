@@ -21,6 +21,8 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/).
 - Historias iniciales de la épica `MVP-003` para dejar definido el Hito C del MVP
 - Historias iniciales de la épica `MVP-004` para dejar definido el Hito D del MVP
 - Historias iniciales de las épicas `MVP-005` y `MVP-006` para cerrar la salida controlada y la operación medible del MVP
+- Historias de cierre `Revision epica` (`MVP-x99`) en todas las épicas MVP activas (`MVP-001` a `MVP-006`)
+- Nueva épica `MVP-999` para pendientes transversales y diferidos fuera de encaje en épicas activas
 
 ### Cambiado
 
@@ -34,6 +36,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/).
 - Eliminada `docs/09-desarrollos/epicas/PROJ-100--checkout-refactor/` por ser una épica de ejemplo, manteniendo `docs/09-desarrollos/_plantilla/` como base para desarrollos reales.
 - Definido un modelo de actualización por versión + núcleo sincronizable para proyectos consumidores de la plantilla.
 - Actualizado el flujo Git para usar `develop` como rama de integración previa a `main` y hacer opcional la aprobación externa en proyectos unipersonales.
+- Actualizados DoR, DoD y flujo Git para institucionalizar la revisión final por épica (`MVP-x99`) y el uso de `MVP-999`.
 
 ---
 

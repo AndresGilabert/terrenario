@@ -6,7 +6,7 @@ estado: borrador
 prioridad: critica
 hito: "Hito D — Visibilidad operativa MVP"
 tickets: []
-historias: ["MVP-401", "MVP-402", "MVP-403", "MVP-404", "MVP-405"]
+historias: ["MVP-401", "MVP-402", "MVP-403", "MVP-404", "MVP-405", "MVP-499"]
 depende_de: ["MVP-001", "MVP-002", "MVP-003"]
 bloquea: ["MVP-005", "MVP-006"]
 relacionado_con: []
@@ -19,7 +19,7 @@ ai_context:
   etiquetas: ["mvp", "produccion", "analytics-basica"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-24"
 ---
 
 # EPICA MVP-004 — Producción y dashboard MVP
@@ -71,6 +71,7 @@ Permitir registrar cosechas consistentes y mostrar un dashboard operativo útil 
 - `MVP-403` — Dashboard MVP: resumen y kg por destino.
 - `MVP-404` — Dashboard MVP: kg por terreno y evolución de rendimiento.
 - `MVP-405` — Filtros, persistencia de contexto y manejo de datos incompletos.
+- `MVP-499` — Revision epica.
 
 ## Vinculacion con prototipo (fuente visual)
 

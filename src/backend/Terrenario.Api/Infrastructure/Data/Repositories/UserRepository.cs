@@ -11,6 +11,9 @@ public sealed class UserRepository(TerrenarioDbContext db) : IUserRepository
     public Task<User?> FindByIdAsync(Guid id, CancellationToken ct = default)
         => db.Users.FirstOrDefaultAsync(u => u.Id == id, ct);
 
+    public Task<User?> FindByEmailAsync(string email, CancellationToken ct = default)
+        => db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower(), ct);
+
     public async Task AddAsync(User user, CancellationToken ct = default)
         => await db.Users.AddAsync(user, ct);
 

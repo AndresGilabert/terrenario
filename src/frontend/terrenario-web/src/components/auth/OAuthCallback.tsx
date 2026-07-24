@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { authService, AuthServiceError } from '../../services/auth.service';
 import { useAuth } from '../../contexts/AuthContext';
+import { consumePostLoginRedirect } from '../../lib/post-login-redirect';
 
 const REDIRECT_URI = `${window.location.origin}/auth/callback`;
 
@@ -50,7 +51,9 @@ export const OAuthCallback: React.FC = () => {
           id: tokenResponse.user.id,
           displayName: tokenResponse.user.display_name,
         }, tokenResponse.expires_in);
-        navigate('/app', { replace: true });
+
+        // Si el acceso arrancó desde un enlace de invitación, se vuelve allí (MVP-103).
+        navigate(consumePostLoginRedirect() ?? '/app', { replace: true });
       })
       .catch((err: unknown) => {
         const errorCode =

@@ -24,6 +24,15 @@ public sealed class WorkspaceRepository(TerrenarioDbContext db) : IWorkspaceRepo
             .Join(db.Workspaces, m => m.WorkspaceId, w => w.Id, (_, w) => w)
             .FirstOrDefaultAsync(ct);
 
+    public Task<Workspace?> FindByIdAsync(Guid workspaceId, CancellationToken ct = default)
+        => db.Workspaces.FirstOrDefaultAsync(w => w.Id == workspaceId, ct);
+
+    public Task<bool> HasActiveMembershipAsync(Guid workspaceId, Guid userId, CancellationToken ct = default)
+        => db.WorkspaceMembers.AnyAsync(m => m.WorkspaceId == workspaceId && m.UserId == userId && m.IsActive, ct);
+
+    public async Task AddMemberAsync(WorkspaceMember member, CancellationToken ct = default)
+        => await db.WorkspaceMembers.AddAsync(member, ct);
+
     public Task SaveChangesAsync(CancellationToken ct = default)
         => db.SaveChangesAsync(ct);
 }

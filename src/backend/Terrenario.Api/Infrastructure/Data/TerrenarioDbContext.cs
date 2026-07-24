@@ -11,6 +11,7 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
     public DbSet<RefreshTokenEntity> RefreshTokens => Set<RefreshTokenEntity>();
     public DbSet<Workspace> Workspaces => Set<Workspace>();
     public DbSet<WorkspaceMember> WorkspaceMembers => Set<WorkspaceMember>();
+    public DbSet<WorkspaceInvitation> WorkspaceInvitations => Set<WorkspaceInvitation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -88,6 +89,41 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
                 .WithMany()
                 .HasForeignKey(m => m.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<WorkspaceInvitation>(entity =>
+        {
+            entity.ToTable("workspace_invitations");
+            entity.HasKey(i => i.Id);
+            entity.Property(i => i.Id).HasColumnName("id");
+            entity.Property(i => i.WorkspaceId).HasColumnName("workspace_id").IsRequired();
+            entity.Property(i => i.InvitedByUserId).HasColumnName("invited_by_user_id").IsRequired();
+            entity.Property(i => i.Channel).HasColumnName("channel").HasMaxLength(20).IsRequired();
+            entity.Property(i => i.Email).HasColumnName("email").HasMaxLength(WorkspaceInvitation.EmailMaxLength);
+            entity.Property(i => i.TokenHash).HasColumnName("token_hash").IsRequired();
+            entity.Property(i => i.Status).HasColumnName("status").HasMaxLength(20).IsRequired();
+            entity.Property(i => i.ExpiresAt).HasColumnName("expires_at");
+            entity.Property(i => i.CreatedAt).HasColumnName("created_at");
+            entity.Property(i => i.AcceptedAt).HasColumnName("accepted_at");
+            entity.Property(i => i.AcceptedByUserId).HasColumnName("accepted_by_user_id");
+
+            entity.HasIndex(i => i.TokenHash).IsUnique();
+            entity.HasIndex(i => new { i.WorkspaceId, i.Status });
+
+            entity.HasOne<Workspace>()
+                .WithMany()
+                .HasForeignKey(i => i.WorkspaceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(i => i.InvitedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(i => i.AcceptedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

@@ -21,6 +21,7 @@ Para una versión compacta (quick start), consulta el [`README.md`](../../README
 | Frontend | React + TypeScript + Vite | React 19, TS 6, Vite 8 |
 | CSS | Tailwind CSS | 4.x (plugin Vite) |
 | Autenticación | Google OIDC + JWT RS256 | — |
+| Email transaccional | SMTP genérico (MailKit) | 4.x |
 
 ---
 
@@ -37,8 +38,18 @@ Gestionadas con **dotnet User Secrets** en local (nunca en archivos commiteados)
 | `Auth:Google:ClientSecret` | Client Secret de Google OAuth 2.0 | `GOCSPX-...` |
 | `Auth:Jwt:PrivateKeyPem` | Clave privada RSA en formato PEM | `-----BEGIN RSA PRIVATE KEY-----\n...` |
 | `Auth:Jwt:PublicKeyPem` | Clave pública RSA en formato PEM | `-----BEGIN PUBLIC KEY-----\n...` |
+| `Email:Host` | Servidor SMTP de la cuenta de envío | `sandbox.smtp.mailtrap.io` |
+| `Email:Username` | Usuario de autenticación SMTP | `a1b2c3d4e5f6a7` |
+| `Email:Password` | Contraseña de la cuenta SMTP de envío | contraseña de aplicación |
+| `Email:FromAddress` | Remitente de las invitaciones | `no-reply@terrenario.com` |
 
 Los valores no secretos están en [`appsettings.json`](../../src/backend/Terrenario.Api/appsettings.json) y los overrides de desarrollo en [`appsettings.Development.json`](../../src/backend/Terrenario.Api/appsettings.Development.json).
+
+> **El repositorio es público.** Las claves de la cuenta de envío (`Email:Host`, `Email:Username`,
+> `Email:FromAddress`) van a User Secrets junto con la contraseña, aunque en sí mismas no sean
+> secretos: identifican una cuenta concreta de un servicio de terceros y, una vez commiteadas,
+> quedan en el historial de git de forma permanente. En `appsettings.json` se quedan vacías a
+> propósito: definen la forma de la sección, no sus valores.
 
 #### Valores por defecto (no secretos)
 
@@ -53,9 +64,25 @@ Los valores no secretos están en [`appsettings.json`](../../src/backend/Terrena
     "RefreshToken": {
       "LifetimeSeconds": 2592000
     }
+  },
+  "Invitations": {
+    "LifetimeDays": 7,
+    "AcceptBaseUrl": "http://localhost:5173/invitations"
+  },
+  "Email": {
+    "Host": "",
+    "Port": 587,
+    "SecurityMode": "starttls",
+    "Username": "",
+    "FromAddress": "",
+    "FromName": "Terrenario",
+    "TimeoutSeconds": 15
   }
 }
 ```
+
+> `Invitations:AcceptBaseUrl` es la base pública del enlace de invitación (MVP-103); el backend le
+> añade `/{token}`. En local apunta al Vite del frontend.
 
 ### Frontend (`terrenario-web`)
 
@@ -121,6 +148,78 @@ openssl rsa -in jwt_private.pem -pubout -out jwt_public.pem
 ```
 
 > Las claves generadas son solo para el entorno local. Cada entorno (dev, staging, prod) debe tener sus propias claves generadas de forma independiente y almacenadas en el gestor de secretos correspondiente.
+
+---
+
+## Cuenta de envío de emails (invitaciones)
+
+> Decisión completa y alternativas descartadas:
+> [ADR-0010](../02-arquitectura/decisiones/ADR-0010--envio-de-email-transaccional-por-smtp.md).
+
+Las invitaciones de MVP-103 se envían por **SMTP genérico**, así que la misma configuración sirve
+para Google Workspace, Brevo, Amazon SES, SendGrid, Mailgun o un servidor corporativo.
+
+### Comportamiento sin cuenta configurada
+
+Por defecto `Email:Host` y `Email:FromAddress` están vacíos. En ese estado:
+
+1. El backend arranca con un warning que lo advierte.
+2. Las invitaciones se emiten con normalidad y son válidas.
+3. La API responde `email_sent: false` y la interfaz ofrece el enlace para compartirlo a mano.
+
+No es un fallo: es el modo previsto mientras no haya cuenta contratada. Lo que **no** ocurre es dar
+por enviado un correo que nunca salió.
+
+### Opción recomendada en local: bandeja de pruebas (Mailtrap)
+
+Un sandbox SMTP captura los correos en una bandeja web sin entregarlos a nadie. Es lo que conviene
+en desarrollo: se ve el correo real —asunto, maquetación, enlace— sin riesgo de escribir a una
+persona por error. Las credenciales de la bandeja las da el propio servicio:
+
+```bash
+cd src/backend/Terrenario.Api && dotnet user-secrets set "Email:Host" "sandbox.smtp.mailtrap.io" && dotnet user-secrets set "Email:Username" "TU_USUARIO_DE_BANDEJA" && dotnet user-secrets set "Email:Password" "TU_CONTRASENA_DE_BANDEJA" && dotnet user-secrets set "Email:FromAddress" "no-reply@terrenario.com"
+```
+
+`Port` (587) y `SecurityMode` (`starttls`) ya vienen bien por defecto desde `appsettings.json`. Como
+la bandeja no entrega nada fuera, `FromAddress` puede ser el remitente definitivo sin haber
+verificado todavía el dominio.
+
+Alternativa sin cuenta externa: un servidor SMTP de pruebas local (`smtp4dev`, MailHog o Papercut)
+en `localhost:1025` con `Email:SecurityMode` a `none`.
+
+> `SecurityMode: none` solo es aceptable contra un servidor de pruebas en `localhost`. En cualquier
+> entorno real se usa `starttls` (puerto 587) o `ssl` (puerto 465).
+
+### Enviar a buzones reales desde local
+
+Solo si necesitas comprobar la entrega de verdad. Con Gmail o Google Workspace:
+
+```bash
+cd src/backend/Terrenario.Api && dotnet user-secrets set "Email:Host" "smtp.gmail.com" && dotnet user-secrets set "Email:Username" "tu-cuenta@gmail.com" && dotnet user-secrets set "Email:Password" "CONTRASENA_DE_APLICACION" && dotnet user-secrets set "Email:FromAddress" "tu-cuenta@gmail.com"
+```
+
+Hace falta **verificación en dos pasos activa** y una **contraseña de aplicación**: la contraseña
+normal de la cuenta no funciona por SMTP. La cuenta tiene además un límite de envío diario, así que
+sirve para desarrollo pero no para producción.
+
+### Comprobar qué cuenta está activa
+
+`dotnet user-secrets list` vuelca los valores en claro por consola, incluidos la clave privada JWT y
+la contraseña de base de datos. Para ver solo qué claves de email hay configuradas:
+
+```bash
+cd src/backend/Terrenario.Api && dotnet user-secrets list | grep -o "^Email:[A-Za-z]*"
+```
+
+Si el backend arranca con el warning de "sin cuenta de envío", falta `Email:Host` o
+`Email:FromAddress`.
+
+### Antes de producción
+
+El remitente definitivo **está pendiente de decisión de negocio** (ADR-0010). Para producción hace
+falta un dominio propio con **SPF**, **DKIM** y **DMARC** publicados en su DNS; sin esa alineación
+las invitaciones acaban en spam. El proveedor que se contrate es **encargado del tratamiento** a
+efectos de RGPD y requiere su DPA firmado.
 
 ---
 
@@ -204,6 +303,24 @@ dotnet tool install --global dotnet-ef
 
 Índice único `(workspace_id, user_id)`: un usuario no puede tener dos membresías del mismo Workspace.
 
+### Tabla `workspace_invitations` (MVP-103)
+
+| Columna | Tipo | Descripción |
+|---------|------|-------------|
+| `id` | UUID PK | Identificador de la invitación |
+| `workspace_id` | UUID FK → workspaces | Workspace al que se invita |
+| `invited_by_user_id` | UUID FK → users | Miembro que emite la invitación |
+| `channel` | VARCHAR(20) NOT NULL | `email` o `enlace` |
+| `email` | VARCHAR(320)? | Destinatario, solo en el canal `email` |
+| `token_hash` | TEXT UNIQUE NOT NULL | SHA-256 del token; el enlace en claro no se guarda |
+| `status` | VARCHAR(20) NOT NULL | `pendiente` o `aceptada` |
+| `expires_at` | TIMESTAMPTZ | Caducidad (7 días por defecto) |
+| `created_at` | TIMESTAMPTZ | Fecha de emisión |
+| `accepted_at` | TIMESTAMPTZ? | Fecha de aceptación |
+| `accepted_by_user_id` | UUID? FK → users | Quién aceptó la invitación |
+
+Índice de apoyo `(workspace_id, status)` para el listado de invitaciones pendientes.
+
 ---
 
 ## Ejecución de tests
@@ -219,9 +336,12 @@ dotnet test --filter "FullyQualifiedName~Auth"
 
 # Solo los tests de workspaces
 dotnet test --filter "FullyQualifiedName~Workspaces"
+
+# Solo los tests de invitaciones
+dotnet test --filter "FullyQualifiedName~Invitations"
 ```
 
-Cobertura actual: **30 tests** en 6 suites
+Cobertura actual: **59 tests** en 10 suites
 
 | Suite | Tests | Qué cubre |
 |-------|-------|-----------|
@@ -231,6 +351,10 @@ Cobertura actual: **30 tests** en 6 suites
 | `WorkspaceTests` | 8 | Invariantes del agregado Workspace y membresía del creador |
 | `CreateWorkspaceHandlerTests` | 4 | Alta de Workspace, membresía vinculada y reemisión de sesión |
 | `ActiveWorkspaceResolverTests` | 4 | Resolución del Workspace activo y caídas al valor por defecto |
+| `WorkspaceInvitationTests` | 14 | Invariantes de la invitación: canal, destinatario, caducidad y aceptación |
+| `CreateInvitationHandlerTests` | 6 | Emisión por email y por enlace, sin cuenta configurada, fallo del proveedor y ya-es-miembro |
+| `AcceptInvitationHandlerTests` | 6 | Membresía derivada, reemisión de sesión y rechazos por token, caducidad o Workspace |
+| `InvitationEmailComposerTests` | 3 | Composición del correo: remitente, asunto, enlace y escapado de HTML |
 
 ---
 
@@ -270,4 +394,5 @@ Frontend                    Backend                     Google
 | Autenticación OIDC | [`docs/07-seguridad/autenticacion-autorizacion.md`](../07-seguridad/autenticacion-autorizacion.md) |
 | Tech design MVP-101 | [`docs/09-desarrollos/epicas/.../tech-design.md`](../09-desarrollos/epicas/MVP-001--identidad-y-contexto-seguro/MVP-101--google-oidc-y-sesion-base/tech-design.md) |
 | Tech design MVP-102 | [`docs/09-desarrollos/epicas/.../tech-design.md`](../09-desarrollos/epicas/MVP-001--identidad-y-contexto-seguro/MVP-102--creacion-de-workspace-y-primer-acceso/tech-design.md) |
+| Tech design MVP-103 | [`docs/09-desarrollos/epicas/.../tech-design.md`](../09-desarrollos/epicas/MVP-001--identidad-y-contexto-seguro/MVP-103--invitaciones-por-email-y-enlace/tech-design.md) |
 | Entornos y secretos | [`docs/05-infraestructura/entornos.md`](./entornos.md) |

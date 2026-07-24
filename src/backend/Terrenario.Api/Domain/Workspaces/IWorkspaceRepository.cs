@@ -19,6 +19,14 @@ public interface IWorkspaceRepository
     /// </summary>
     Task<Workspace?> FindByIdAsync(Guid workspaceId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Membresías vigentes del usuario, ordenadas por nombre de Workspace. Las revocadas
+    /// quedan fuera: no dan acceso ni deben aparecer en el selector (MVP-104).
+    /// </summary>
+    Task<IReadOnlyList<WorkspaceMembership>> ListActiveMembershipsAsync(
+        Guid userId,
+        CancellationToken ct = default);
+
     Task<bool> HasActiveMembershipAsync(Guid workspaceId, Guid userId, CancellationToken ct = default);
 
     Task AddMemberAsync(WorkspaceMember member, CancellationToken ct = default);

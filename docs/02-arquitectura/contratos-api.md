@@ -76,7 +76,9 @@ y se mantienen en español.
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
 | Alta workspace | `POST /api/v1/workspaces` | `name*` | `201 { workspace: { id, name }, access_token, expires_in }` |
+| Mis workspaces | `GET /api/v1/workspaces` | — | `200 { data:[{ id, name, role, status, is_active, joined_at }], meta:{ total, active_workspace_id } }` |
 | Workspace activo | `GET /api/v1/workspaces/active` | — | `200 { id, name }` |
+| Cambiar workspace activo | `PUT /api/v1/workspaces/active` | `workspace_id*` | `200 { workspace: { id, name }, access_token, expires_in }` |
 
 Validaciones clave:
 
@@ -85,6 +87,8 @@ Validaciones clave:
 | `name` obligatorio | `VALIDATION_REQUIRED_WORKSPACE_NAME` |
 | `name` de longitud válida | `VALIDATION_WORKSPACE_NAME_LENGTH` |
 | El usuario todavía no tiene ningún Workspace | `WORKSPACE_NOT_FOUND` (404) |
+| `workspace_id` obligatorio al cambiar de activo | `VALIDATION_REQUIRED` (400) |
+| Activar un Workspace sin membresía activa | `AUTH_WORKSPACE_FORBIDDEN` (403) |
 
 Reglas de contexto:
 
@@ -93,6 +97,8 @@ Reglas de contexto:
 | El creador queda como miembro activo del Workspace | Membresía `workspace_owner` creada en la misma transacción |
 | El Workspace activo viaja en el claim `workspace_id` del `access_token` | Nunca se acepta como parámetro del cliente |
 | `POST /workspaces` reemite la sesión | Devuelve un `access_token` nuevo ya situado en el Workspace creado |
+| `PUT /workspaces/active` reemite la sesión | Valida membresía activa, persiste el activo (`users.active_workspace_id`) y devuelve un `access_token` nuevo situado en el destino (MVP-104) |
+| `GET /workspaces` solo lista membresías `activo` | Las `revocado` quedan fuera; `is_active` marca el que ejecuta las operaciones |
 
 ### 0.b) Invitaciones a Workspace
 

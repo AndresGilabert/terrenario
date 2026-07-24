@@ -8,6 +8,6 @@
 | [MVP-101](./MVP-101--google-oidc-y-sesion-base/spec.md) | Acceso con Google OIDC y sesión base | ✔️ completado | @andres | critica |
 | [MVP-102](./MVP-102--creacion-de-workspace-y-primer-acceso/spec.md) | Creación de Workspace y primer acceso guiado | ✔️ completado | @andres | critica |
 | [MVP-103](./MVP-103--invitaciones-por-email-y-enlace/spec.md) | Invitaciones por email y enlace | ✔️ completado | @andres | alta |
-| [MVP-104](./MVP-104--membresia-y-selector-de-workspace-activo/spec.md) | Membresía y selector de Workspace activo | 📝 borrador | @andres | alta |
+| [MVP-104](./MVP-104--membresia-y-selector-de-workspace-activo/spec.md) | Membresía y selector de Workspace activo | 🔄 en-progreso | @andres | alta |
 | [MVP-105](./MVP-105--autorizacion-por-workspace-y-trazabilidad-minima/spec.md) | Autorización por Workspace y trazabilidad mínima de login | 📝 borrador | @andres | critica |
 | [MVP-199](./MVP-199--revision-epica/spec.md) | Revision epica | 📝 borrador | @andres | alta |

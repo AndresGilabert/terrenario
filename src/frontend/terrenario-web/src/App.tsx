@@ -7,6 +7,7 @@ import { OAuthCallback } from './components/auth/OAuthCallback';
 import { CreateWorkspacePage } from './components/onboarding/CreateWorkspacePage';
 import { AcceptInvitationPage } from './components/invitations/AcceptInvitationPage';
 import { InvitePeoplePage } from './components/workspace/InvitePeoplePage';
+import { WorkspaceSwitcher } from './components/workspace/WorkspaceSwitcher';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { RequireWorkspace } from './routes/RequireWorkspace';
 
@@ -64,6 +65,10 @@ function AppHome() {
 
   return (
     <div className="min-h-screen bg-[#fcf9f4] flex flex-col items-center justify-center p-8 text-center gap-6">
+      {/* Selector de Workspace activo (MVP-104): visible en todo momento sobre la operativa. */}
+      <div className="w-full max-w-xs">
+        <WorkspaceSwitcher />
+      </div>
       <div className="w-16 h-16 rounded-2xl bg-[#33450d] text-white flex items-center justify-center">
         <span className="text-3xl">🌿</span>
       </div>

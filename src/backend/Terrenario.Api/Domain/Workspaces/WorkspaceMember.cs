@@ -1,9 +1,9 @@
 namespace Terrenario.Api.Domain.Workspaces;
 
 /// <summary>
-/// Vínculo entre un usuario y un Workspace. El catálogo completo de estados de membresía
-/// (<c>invitado</c>, <c>revocado</c>) llega con MVP-104; hasta entonces la membresía nace
-/// activa, tanto la del creador (MVP-102) como la derivada de una invitación (MVP-103).
+/// Vínculo entre un usuario y un Workspace. El estado sale del catálogo cerrado
+/// <c>worker_member_status</c> y es la única fuente de verdad sobre si la membresía da acceso:
+/// solo <see cref="WorkspaceMemberStatuses.Active"/> resuelve contexto activo (MVP-104).
 /// </summary>
 public sealed class WorkspaceMember
 {
@@ -11,8 +11,11 @@ public sealed class WorkspaceMember
     public Guid WorkspaceId { get; private set; }
     public Guid UserId { get; private set; }
     public string Role { get; private set; } = WorkspaceRoles.Member;
-    public bool IsActive { get; private set; }
+    public string Status { get; private set; } = WorkspaceMemberStatuses.Active;
     public DateTimeOffset JoinedAt { get; private set; }
+
+    /// <summary>Atajo de lectura del estado; no se persiste como columna propia.</summary>
+    public bool IsActive => Status == WorkspaceMemberStatuses.Active;
 
     private WorkspaceMember() { }
 
@@ -26,6 +29,12 @@ public sealed class WorkspaceMember
     public static WorkspaceMember CreateMember(Guid workspaceId, Guid userId) =>
         Create(workspaceId, userId, WorkspaceRoles.Member);
 
+    /// <summary>
+    /// Retira el acceso sin borrar el vínculo, para no perder la trazabilidad de quién estuvo
+    /// dentro del Workspace. Una membresía revocada deja de aparecer en el selector.
+    /// </summary>
+    public void Revoke() => Status = WorkspaceMemberStatuses.Revoked;
+
     private static WorkspaceMember Create(Guid workspaceId, Guid userId, string role) =>
         new()
         {
@@ -33,7 +42,7 @@ public sealed class WorkspaceMember
             WorkspaceId = workspaceId,
             UserId = userId,
             Role = role,
-            IsActive = true,
+            Status = WorkspaceMemberStatuses.Active,
             JoinedAt = DateTimeOffset.UtcNow
         };
 }

@@ -26,6 +26,8 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/).
 
 ### Cambiado
 
+- Cerrada la historia `MVP-104` (membresía y selector de Workspace activo): estados de membresía por catálogo `worker_member_status`, contexto activo persistido en `users.active_workspace_id`, endpoints `GET /api/v1/workspaces` y `PUT /api/v1/workspaces/active`, y selector de Workspace en la UI. Actualizados modelo de datos y contratos de API.
+- Registrados los puntos `P-002` (administración/revocación de miembros) y `P-003` (materialización del estado `invitado`) en `MVP-999` como pendientes de coherencia detectados durante `MVP-104`.
 - Actualizada documentacion de producto para reflejar definicion funcional confirmada del dashboard MVP (alcance, reglas, journeys y KPIs iniciales).
 - Actualizada la KB para cerrar decisiones funcionales del MVP y convertir el roadmap en una propuesta por bloques ejecutables con dependencias explícitas.
 - Definido marco de cumplimiento obligatorio de proteccion de datos (RGPD + LOPDGDD), con clasificacion de obligatorio vs condicionado vs recomendado y criterios de enforcement en DoR/DoD.

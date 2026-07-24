@@ -43,6 +43,8 @@ interface AuthContextValue extends AuthState {
   login: (accessToken: string, user: AuthUser, expiresIn: number) => void;
   logout: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
+  /** Reemplaza el access token de la sesión activa (p. ej. tras crear un Workspace). */
+  setAccessToken: (accessToken: string, expiresIn: number) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -107,6 +109,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [scheduleRefresh]
   );
 
+  const setAccessToken = useCallback(
+    (accessToken: string, expiresIn: number) => {
+      sessionStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+      expiresAtRef.current = Date.now() + expiresIn * 1000;
+      dispatch({ type: 'REFRESH_SUCCESS', payload: { accessToken } });
+      scheduleRefresh(expiresIn);
+    },
+    [scheduleRefresh]
+  );
+
   const logout = useCallback(async () => {
     try {
       await authService.logout();
@@ -134,6 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login,
     logout,
     getAccessToken,
+    setAccessToken,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Terrenario.Api.Infrastructure.Data;
@@ -11,9 +12,11 @@ using Terrenario.Api.Infrastructure.Data;
 namespace Terrenario.Api.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(TerrenarioDbContext))]
-    partial class TerrenarioDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260724110147_AddWorkspacesAndMemberships")]
+    partial class AddWorkspacesAndMemberships
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

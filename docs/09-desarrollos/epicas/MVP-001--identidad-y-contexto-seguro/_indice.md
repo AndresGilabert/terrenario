@@ -1,6 +1,6 @@
 ﻿# Índice — MVP-001--identidad-y-contexto-seguro: Identidad y contexto seguro de Workspace
 
-> **Progreso**: 3/5 completadas · **Hito**: Hito A — Base segura y multiusuario
+> **Progreso**: 3/6 completadas · **Hito**: Hito A — Base segura y multiusuario
 > _Generado automáticamente por `validar_kb.py`. No editar manualmente._
 
 | Historia | Título | Estado | Responsable | Prioridad |
@@ -10,3 +10,4 @@
 | [MVP-103](./MVP-103--invitaciones-por-email-y-enlace/spec.md) | Invitaciones por email y enlace | ✔️ completado | @andres | alta |
 | [MVP-104](./MVP-104--membresia-y-selector-de-workspace-activo/spec.md) | Membresía y selector de Workspace activo | 📝 borrador | @andres | alta |
 | [MVP-105](./MVP-105--autorizacion-por-workspace-y-trazabilidad-minima/spec.md) | Autorización por Workspace y trazabilidad mínima de login | 📝 borrador | @andres | critica |
+| [MVP-199](./MVP-199--revision-epica/spec.md) | Revision epica | 📝 borrador | @andres | alta |

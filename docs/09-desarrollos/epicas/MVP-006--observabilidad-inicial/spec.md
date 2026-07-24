@@ -6,7 +6,7 @@ estado: borrador
 prioridad: media
 hito: "Hito F — Operación medible"
 tickets: []
-historias: ["MVP-601", "MVP-602", "MVP-603"]
+historias: ["MVP-601", "MVP-602", "MVP-603", "MVP-699"]
 depende_de: ["MVP-001", "MVP-003", "MVP-004", "MVP-005"]
 bloquea: []
 relacionado_con: []
@@ -19,7 +19,7 @@ ai_context:
   etiquetas: ["mvp", "observability", "telemetry"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-24"
 ---
 
 # EPICA MVP-006 — Observabilidad inicial
@@ -65,6 +65,7 @@ Disponer de la telemetría mínima necesaria para detectar abandono en login, us
 - `MVP-601` — Telemetría mínima del embudo de login.
 - `MVP-602` — Métricas de uso del dashboard y recarga manual.
 - `MVP-603` — Alertas básicas y señales de degradación inicial.
+- `MVP-699` — Revision epica.
 
 ## Vinculacion con prototipo (fuente visual)
 

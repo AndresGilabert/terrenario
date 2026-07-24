@@ -1,7 +1,7 @@
 ﻿---
 bloque: 04-ingenieria
 documento: flujo-git
-actualizado_en: "2026-07-13"
+actualizado_en: "2026-07-24"
 ---
 
 # Flujo de Git
@@ -61,6 +61,18 @@ Ejemplos:
 [PR develop → main + release] → estado: completado en producción
 ```text
 > **Regla fundamental**: sin `spec.md` con estado `aprobado` en `docs/09-desarrollos/epicas/`, el desarrollo no comienza.
+
+## Regla de revision por epica (MVP-x99)
+
+Al dar de alta una epica MVP nueva, se crea tambien su historia de cierre `MVP-x99` con titulo `Revision epica`.
+
+Reglas:
+
+1. `MVP-x99` se ejecuta siempre al final de la epica.
+2. `MVP-x99` depende de todas las historias funcionales previas de la epica.
+3. La epica no puede marcarse como `completado` hasta cerrar `MVP-x99`.
+4. Los ajustes y faltas detectados durante la epica se centralizan en `MVP-x99`.
+5. De `MVP-x99` salen nuevas historias: a la epica correspondiente si encajan, o a `MVP-999` si son transversales o diferibles.
 
 ---
 

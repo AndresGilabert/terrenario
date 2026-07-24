@@ -1,7 +1,7 @@
 ﻿---
 bloque: 08-procesos
 documento: definition-of-ready
-actualizado_en: "2026-07-13"
+actualizado_en: "2026-07-24"
 ---
 
 # Definition of Ready (DoR)
@@ -35,6 +35,13 @@ actualizado_en: "2026-07-13"
 
 - [ ] Las dependencias con otros tickets están identificadas en `depende_de`
 - [ ] Si depende de trabajo aún no completado, está marcado y acordado con el equipo
+
+### Regla de cierre de épicas
+
+- [ ] Cada épica incluye su historia de cierre `MVP-x99` con título `Revision epica`
+- [ ] La historia `MVP-x99` depende de todas las historias funcionales previas de su épica
+- [ ] El `spec.md` de la épica lista `MVP-x99` como última historia en `historias`
+- [ ] Los puntos detectados durante desarrollo que no caben en historias activas se registran en la revisión de épica o en `MVP-999`
 
 ### Cumplimiento normativo (obligatorio)
 

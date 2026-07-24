@@ -105,3 +105,6 @@ Permitir que un miembro de un Workspace invite a otro usuario por email o por en
   da por enviado un correo que no salió.
 - El catálogo completo de estados de membresía (`invitado`, `activo`, `revocado`) y la revocación de
   invitaciones se mantienen como alcance de `MVP-104`.
+- Decision de backlog (2026-07-24): la definicion de plantillas de email y su maquetacion unificada
+  para todos los envios salientes se difiere a `MVP-999` y queda registrada como punto `P-001` en
+  `docs/09-desarrollos/epicas/MVP-999--pendientes-transversales-y-diferidos/spec.md`.

@@ -2,8 +2,12 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Cryptography;
+using Microsoft.AspNetCore.Mvc;
 using Terrenario.Api.Application.Auth;
+using Terrenario.Api.Application.Workspaces;
+using Terrenario.Api.Common.Errors;
 using Terrenario.Api.Domain.Users;
+using Terrenario.Api.Domain.Workspaces;
 using Terrenario.Api.Infrastructure.Auth;
 using Terrenario.Api.Infrastructure.Data;
 using Terrenario.Api.Infrastructure.Data.Repositories;
@@ -61,6 +65,9 @@ builder.Services.AddScoped<IRefreshTokenStore, RefreshTokenStore>();
 builder.Services.AddScoped<ILoginTelemetry, LoginTelemetryService>();
 builder.Services.AddScoped<ExchangeGoogleCodeHandler>();
 builder.Services.AddScoped<RefreshTokenHandler>();
+builder.Services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
+builder.Services.AddScoped<IActiveWorkspaceResolver, ActiveWorkspaceResolver>();
+builder.Services.AddScoped<CreateWorkspaceHandler>();
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
 builder.Services.AddCors(options =>
@@ -86,6 +93,22 @@ builder.Services.AddCors(options =>
 // ── Controllers & OpenAPI ────────────────────────────────────────────────────
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+
+// Los errores de validación de modelo deben respetar el contrato { error: { code, message } }
+// definido en docs/02-arquitectura/contratos-api.md, en lugar del ProblemDetails por defecto.
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var firstError = context.ModelState
+            .SelectMany(entry => entry.Value?.Errors ?? [])
+            .Select(error => error.ErrorMessage)
+            .FirstOrDefault(message => !string.IsNullOrWhiteSpace(message));
+
+        return new BadRequestObjectResult(new ApiErrorResponse(
+            ApiError.Validation(ErrorCodes.ValidationRequired, firstError ?? "Datos de entrada no válidos.")));
+    };
+});
 
 var app = builder.Build();
 

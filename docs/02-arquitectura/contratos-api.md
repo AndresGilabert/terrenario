@@ -1,7 +1,7 @@
 ﻿---
 bloque: 02-arquitectura
 documento: contratos-api
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-24"
 ---
 
 # Contratos de API
@@ -60,6 +60,29 @@ actualizado_en: "2026-07-20"
 ---
 
 ## Contratos por flujo MVP
+
+### 0) Workspaces
+
+| Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
+|---|---|---|---|
+| Alta workspace | `POST /api/v1/workspaces` | `nombre*` | `201 { workspace: { id, nombre }, access_token, expires_in }` |
+| Workspace activo | `GET /api/v1/workspaces/activo` | — | `200 { id, nombre }` |
+
+Validaciones clave:
+
+| Regla | Código error |
+|---|---|
+| `nombre` obligatorio | `VALIDATION_REQUIRED_WORKSPACE_NOMBRE` |
+| `nombre` de longitud válida | `VALIDATION_WORKSPACE_NOMBRE_LENGTH` |
+| El usuario todavía no tiene ningún Workspace | `WORKSPACE_NOT_FOUND` (404) |
+
+Reglas de contexto:
+
+| Regla | Comportamiento |
+|---|---|
+| El creador queda como miembro activo del Workspace | Membresía `workspace_owner` creada en la misma transacción |
+| El Workspace activo viaja en el claim `workspace_id` del `access_token` | Nunca se acepta como parámetro del cliente |
+| `POST /workspaces` reemite la sesión | Devuelve un `access_token` nuevo ya situado en el Workspace creado |
 
 ### 1) Terrenos
 

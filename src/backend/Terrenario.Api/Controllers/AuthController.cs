@@ -4,6 +4,8 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 using Terrenario.Api.Application.Auth;
 using Terrenario.Api.Application.Auth.Commands;
+using Terrenario.Api.Application.Workspaces.Commands;
+using Terrenario.Api.Common.Auth;
 using Terrenario.Api.Common.Errors;
 using Terrenario.Api.Domain.Users;
 using Terrenario.Api.Infrastructure.Auth;
@@ -42,7 +44,8 @@ public sealed class AuthController(
             {
                 access_token = result.AccessToken,
                 expires_in = result.ExpiresIn,
-                user = new { id = result.User.Id, display_name = result.User.DisplayName }
+                user = new { id = result.User.Id, display_name = result.User.DisplayName },
+                workspace = ToWorkspacePayload(result.Workspace)
             });
         }
         catch (GoogleOidcException ex) when (ex.ErrorCode == ErrorCodes.AuthGoogleTokenInvalid)
@@ -74,7 +77,12 @@ public sealed class AuthController(
 
             SetRefreshTokenCookie(newRefreshToken);
 
-            return Ok(new { access_token = result.AccessToken, expires_in = result.ExpiresIn });
+            return Ok(new
+            {
+                access_token = result.AccessToken,
+                expires_in = result.ExpiresIn,
+                workspace = ToWorkspacePayload(result.Workspace)
+            });
         }
         catch (RefreshTokenException)
         {
@@ -100,18 +108,21 @@ public sealed class AuthController(
     [Authorize]
     public async Task<IActionResult> Me(CancellationToken ct)
     {
-        var userIdClaim = User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+        var userId = User.GetUserId();
 
-        if (!Guid.TryParse(userIdClaim, out var userId))
+        if (userId is null)
             return Unauthorized(new ApiErrorResponse(ApiError.Unauthenticated()));
 
-        var user = await userRepository.FindByIdAsync(userId, ct);
+        var user = await userRepository.FindByIdAsync(userId.Value, ct);
 
         if (user is null)
             return Unauthorized(new ApiErrorResponse(ApiError.Unauthenticated()));
 
         return Ok(new { id = user.Id, display_name = user.DisplayName });
     }
+
+    private static object? ToWorkspacePayload(WorkspaceSummary? workspace)
+        => workspace is null ? null : new { id = workspace.Id, nombre = workspace.Name };
 
     private void SetRefreshTokenCookie(string token)
     {

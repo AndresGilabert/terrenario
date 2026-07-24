@@ -1,7 +1,7 @@
----
+﻿---
 bloque: 05-infraestructura
 documento: desarrollo-local
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-24"
 ---
 
 # Desarrollo Local
@@ -151,29 +151,53 @@ dotnet tool install --global dotnet-ef
 
 ---
 
-## Esquema de base de datos (MVP-101)
+## Esquema de base de datos
 
-### Tabla `usuarios`
+### Tabla `usuarios` (MVP-101)
 
 | Columna | Tipo | Descripción |
 |---------|------|-------------|
 | `id` | UUID PK | Identificador interno |
 | `google_sub` | TEXT UNIQUE NOT NULL | Subject de Google OIDC |
-| `display_name` | TEXT NOT NULL | Nombre visible |
-| `email` | TEXT UNIQUE NOT NULL | Email de Google |
-| `created_at` | TIMESTAMPTZ | Fecha de creación |
-| `updated_at` | TIMESTAMPTZ | Última actualización |
+| `nombre` | TEXT NOT NULL | Nombre visible |
+| `email` | TEXT NOT NULL | Email de Google |
+| `activo` | BOOLEAN NOT NULL | Usuario habilitado |
+| `creado_en` | TIMESTAMPTZ | Fecha de creación |
+| `actualizado_en` | TIMESTAMPTZ | Última actualización |
 
-### Tabla `refresh_tokens`
+### Tabla `refresh_tokens` (MVP-101)
 
 | Columna | Tipo | Descripción |
 |---------|------|-------------|
 | `id` | UUID PK | Identificador |
 | `token_hash` | TEXT UNIQUE NOT NULL | SHA-256 del token |
-| `user_id` | UUID FK → usuarios | Usuario propietario |
+| `usuario_id` | UUID FK → usuarios | Usuario propietario |
 | `expires_at` | TIMESTAMPTZ | Expiración (30 días) |
-| `revoked_at` | TIMESTAMPTZ? | Fecha de revocación |
-| `created_at` | TIMESTAMPTZ | Fecha de emisión |
+| `revocado_en` | TIMESTAMPTZ? | Fecha de revocación |
+| `creado_en` | TIMESTAMPTZ | Fecha de emisión |
+
+### Tabla `workspaces` (MVP-102)
+
+| Columna | Tipo | Descripción |
+|---------|------|-------------|
+| `id` | UUID PK | Identificador del Workspace |
+| `owner_id` | UUID FK → usuarios | Usuario creador |
+| `nombre` | VARCHAR(120) NOT NULL | Nombre de la explotación |
+| `creado_en` | TIMESTAMPTZ | Fecha de creación |
+| `actualizado_en` | TIMESTAMPTZ | Última actualización |
+
+### Tabla `usuarios_workspace` (MVP-102)
+
+| Columna | Tipo | Descripción |
+|---------|------|-------------|
+| `id` | UUID PK | Identificador de la membresía |
+| `workspace_id` | UUID FK → workspaces | Workspace al que pertenece |
+| `usuario_id` | UUID FK → usuarios | Usuario miembro |
+| `rol` | VARCHAR(50) NOT NULL | `workspace_owner` o `workspace_member` |
+| `activo` | BOOLEAN NOT NULL | Membresía vigente |
+| `unido_en` | TIMESTAMPTZ | Fecha de alta en el Workspace |
+
+Índice único `(workspace_id, usuario_id)`: un usuario no puede tener dos membresías del mismo Workspace.
 
 ---
 
@@ -187,15 +211,21 @@ dotnet test --logger "console;verbosity=normal"
 
 # Solo los tests de auth
 dotnet test --filter "FullyQualifiedName~Auth"
+
+# Solo los tests de workspaces
+dotnet test --filter "FullyQualifiedName~Workspaces"
 ```
 
-Cobertura actual: **12 tests** en 3 suites
+Cobertura actual: **30 tests** en 6 suites
 
 | Suite | Tests | Qué cubre |
 |-------|-------|-----------|
-| `ExchangeGoogleCodeHandlerTests` | 4 | Flujo OAuth: nuevo usuario, usuario existente, error Google, telemetría |
-| `RefreshTokenHandlerTests` | 3 | Rotación de refresh token: válido, inválido, revocado |
+| `ExchangeGoogleCodeHandlerTests` | 6 | Flujo OAuth: nuevo usuario, usuario existente, error Google, telemetría, sesión con y sin Workspace |
+| `RefreshTokenHandlerTests` | 5 | Rotación de refresh token y conservación del Workspace activo |
 | `JwtServiceTests` | 4 | JWT RS256: emisión, validación, token inválido, clave diferente |
+| `WorkspaceTests` | 8 | Invariantes del agregado Workspace y membresía del creador |
+| `CreateWorkspaceHandlerTests` | 4 | Alta de Workspace, membresía vinculada y reemisión de sesión |
+| `ActiveWorkspaceResolverTests` | 4 | Resolución del Workspace activo y caídas al valor por defecto |
 
 ---
 
@@ -234,4 +264,5 @@ Frontend                    Backend                     Google
 | Modelo de seguridad | [`docs/07-seguridad/modelo-seguridad.md`](../07-seguridad/modelo-seguridad.md) |
 | Autenticación OIDC | [`docs/07-seguridad/autenticacion-autorizacion.md`](../07-seguridad/autenticacion-autorizacion.md) |
 | Tech design MVP-101 | [`docs/09-desarrollos/epicas/.../tech-design.md`](../09-desarrollos/epicas/MVP-001--identidad-y-contexto-seguro/MVP-101--google-oidc-y-sesion-base/tech-design.md) |
+| Tech design MVP-102 | [`docs/09-desarrollos/epicas/.../tech-design.md`](../09-desarrollos/epicas/MVP-001--identidad-y-contexto-seguro/MVP-102--creacion-de-workspace-y-primer-acceso/tech-design.md) |
 | Entornos y secretos | [`docs/05-infraestructura/entornos.md`](./entornos.md) |

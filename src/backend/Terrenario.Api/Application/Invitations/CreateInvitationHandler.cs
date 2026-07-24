@@ -67,8 +67,8 @@ public sealed class CreateInvitationHandler(
     }
 
     /// <summary>
-    /// Un fallo del proveedor de email no invalida la invitación: ya está emitida y quien invita
-    /// se queda con el enlace para compartirlo por otro canal.
+    /// Ni la falta de cuenta de envío ni un fallo del proveedor invalidan la invitación: ya está
+    /// emitida y quien invita se queda con el enlace para compartirlo por otro canal.
     /// </summary>
     private async Task<bool> TrySendEmailAsync(
         WorkspaceInvitation invitation,
@@ -76,6 +76,15 @@ public sealed class CreateInvitationHandler(
         string acceptUrl,
         CancellationToken ct)
     {
+        if (!emailSender.IsEnabled)
+        {
+            logger.LogWarning(
+                "Sin cuenta de envío configurada: la invitación {InvitationId} no se envía por correo.",
+                invitation.Id);
+
+            return false;
+        }
+
         try
         {
             await emailSender.SendAsync(

@@ -93,7 +93,9 @@ sequenceDiagram
 | `src/backend/.../Controllers/InvitationsController.cs` | nuevo | `GET /invitations/{token}` y `POST /invitations/{token}/accept` |
 | `src/backend/.../Common/Errors/InvitationErrorMapper.cs` | nuevo | Traducción de código de dominio a código HTTP |
 | `src/backend/.../Infrastructure/Invitations/InvitationTokenService.cs` | nuevo | Generación del token y su hash |
-| `src/backend/.../Infrastructure/Invitations/LoggingInvitationEmailSender.cs` | nuevo | Adaptador provisional del `email-service` |
+| `src/backend/.../Infrastructure/Invitations/SmtpInvitationEmailSender.cs` | nuevo | Adaptador SMTP del `email-service` (ADR-0010) |
+| `src/backend/.../Infrastructure/Invitations/InvitationEmailComposer.cs` | nuevo | Composición del correo, separada del transporte para poder probarla |
+| `src/backend/.../Infrastructure/Invitations/EmailOptions.cs` | nuevo | Cuenta de envío: servidor, seguridad, credenciales y remitente |
 | `src/backend/.../Infrastructure/Invitations/InvitationOptions.cs` | nuevo | Vigencia y base pública del enlace de aceptación |
 | `src/backend/.../Infrastructure/Data/Repositories/WorkspaceInvitationRepository.cs` | nuevo | Adaptador EF Core |
 | `src/backend/.../Infrastructure/Data/Migrations/*_AddWorkspaceInvitations.cs` | nuevo | Tabla `workspace_invitations` |
@@ -241,8 +243,21 @@ responses:
    (`BUSINESS_RULE_INVITATION_ALREADY_MEMBER`); la comprobación solo mira el Workspace propio, así
    que no revela nada sobre cuentas ajenas.
 4. La invitación se persiste con estado `pendiente` y el envío del email ocurre **después** del
-   commit. Un fallo del proveedor no invalida nada: se devuelve `email_sent: false` y quien invita
-   comparte el `accept_url` por su cuenta.
+   commit. Ni la ausencia de cuenta de envío ni un fallo del proveedor invalidan nada: se devuelve
+   `email_sent: false` y quien invita comparte el `accept_url` por su cuenta.
+
+**Cuenta de envío (ADR-0010):**
+
+El correo sale por SMTP genérico con MailKit, configurado en la sección `Email`
+(`Host`, `Port`, `SecurityMode`, `Username`, `Password`, `FromAddress`, `FromName`,
+`TimeoutSeconds`). La contraseña es un secreto y se gestiona como el resto: User Secrets en local y
+Secret Manager por entorno, según `docs/05-infraestructura/entornos.md`.
+
+Mientras `Email:Host` o `Email:FromAddress` estén vacíos, `IInvitationEmailSender.IsEnabled` es
+`false`: el arranque emite un warning, no se intenta ningún envío y `email_sent` es `false`. Esto
+es deliberado —**el sistema no da por enviado un correo que nunca salió**— y mantiene el MVP usable
+por enlace mientras la cuenta no esté provisionada. El nombre del Workspace y el de quien invita se
+escapan al componer el HTML: los escriben personas.
 
 **Aceptación de la invitación (CA-2, CA-3):**
 
@@ -299,7 +314,9 @@ los endpoints de invitaciones.
 | Crear la membresía como `invitado` y activarla en un segundo paso | Los estados completos de membresía y su flujo son alcance de MVP-104; aquí sobra un paso intermedio |
 | Aceptar la invitación sin sesión y crear la cuenta al vuelo | El spec exige que el enlace no abra acceso fuera del flujo autenticado; Google OIDC es el único proveedor del MVP (RN-036) |
 | Enviar el email dentro de la misma transacción | Una caída del proveedor tumbaría la emisión de la invitación; el envío va después del commit y se reporta con `email_sent` |
-| Integrar ya un proveedor real de email | La KB no tiene proveedor decidido (`email-service` está pendiente en `docs/02-arquitectura/componentes.md`); se deja el puerto listo y un adaptador de traza |
+| Integrar la API HTTP de un proveedor concreto | Exige contratar la cuenta antes de poder desarrollar y ata el código a ese proveedor; SMTP sirve para todos y el puerto permite el cambio (ADR-0010) |
+| Dejar solo un adaptador de traza sin envío real | Devolvía `email_sent: true` sin enviar nada: la API mentía y ningún entorno avisaba de que faltaba la cuenta |
+| Usar `System.Net.Mail.SmtpClient` para no añadir dependencia | Microsoft lo desaconseja para desarrollo nuevo y su manejo de STARTTLS da problemas con proveedores modernos |
 | Revocar invitaciones desde la UI | No está en el alcance del spec; la caducidad de 7 días limita la exposición mientras llega MVP-104 |
 
 ## Riesgos e impacto
@@ -308,7 +325,9 @@ los endpoints de invitaciones.
 | ------ | ------------ | ---------- |
 | El token viaja en la URL y puede acabar en historiales o logs de proxies | media | Un solo uso, caducidad de 7 días, solo el hash en base de datos y ningún log del enlace ni del email completo |
 | Reenvío del correo de invitación a un tercero | media | El canal `email` valida que la cuenta autenticada sea la destinataria |
-| El MVP sale sin proveedor de email y las invitaciones por email no llegan | alta | `email_sent: false` es explícito en la API y la UI ofrece el enlace para compartirlo por otro medio |
+| El MVP sale sin cuenta de envío provisionada y las invitaciones por email no llegan | alta | `IsEnabled` es `false`, el arranque avisa con un warning, la API responde `email_sent: false` y la UI ofrece el enlace para compartirlo por otro medio |
+| Las invitaciones acaban en spam por remitente sin SPF/DKIM | alta | El remitente definitivo está pendiente de decisión; ADR-0010 y `entornos.md` fijan SPF, DKIM y DMARC como requisito para producción |
+| Un rebote pasa inadvertido: el SMTP acepta y el buzón no existe | media | Sin webhooks no hay acuse; el enlace compartible es la vía alternativa y ADR-0010 deja la API del proveedor como evolución |
 | Doble clic en "Unirme" genera dos membresías | baja | El botón se deshabilita durante el envío y la segunda llamada choca con `BUSINESS_RULE_INVITATION_ALREADY_ACCEPTED` |
 | Invitaciones pendientes acumuladas sin gestión | baja | Solo se listan las pendientes y caducan solas; la administración llega con MVP-104 |
 | La persona invitada pierde el enlace al pasar por el login de Google | media | El destino se guarda antes de redirigir y se retoma en `OAuthCallback` |
@@ -322,8 +341,10 @@ los endpoints de invitaciones.
     y con formato inválido, canal fuera de catálogo, aceptación válida, aceptación desde otra
     cuenta, invitación caducada e invitación ya usada
   - `CreateInvitationHandler`: persistencia con token hasheado, envío del enlace por email,
-    invitación viva cuando el proveedor de email falla, rechazo de quien ya es miembro y no
-    persistencia ante canal inválido
+    `email_sent: false` sin cuenta configurada, invitación viva cuando el proveedor falla, rechazo
+    de quien ya es miembro y no persistencia ante canal inválido
+  - `InvitationEmailComposer`: remitente, asunto y enlace del correo, y escapado del HTML cuando el
+    nombre del Workspace lleva marcado
   - `AcceptInvitationHandler`: creación de la membresía y reemisión de la sesión, marcado de la
     invitación como aceptada, no duplicar membresía cuando ya era miembro, token inexistente,
     invitación caducada y Workspace inexistente
@@ -331,7 +352,10 @@ los endpoints de invitaciones.
   tests de integración de la épica (MVP-501)
 - [ ] Tests E2E: flujo invitar → recibir enlace → login → aceptar, pendiente del sprint final
 
-Resultado local: `dotnet test` en verde (55 tests, 25 nuevos), `npm run build` sin errores de
+- [ ] Prueba manual de envío real: pendiente de que exista cuenta SMTP provisionada. Con un
+  servidor SMTP de pruebas local queda cubierta según `docs/05-infraestructura/desarrollo-local.md`
+
+Resultado local: `dotnet test` en verde (59 tests, 29 nuevos), `npm run build` sin errores de
 TypeScript y `npm run lint` sin advertencias nuevas.
 
 ## Checklist de implementación

@@ -27,6 +27,7 @@ public class CreateInvitationHandlerTests
     private CreateInvitationHandler CreateSut()
     {
         _tokenService.Generate().Returns(new InvitationToken("token-en-claro", "token-hasheado"));
+        _emailSender.IsEnabled.Returns(true);
 
         return new CreateInvitationHandler(
             _invitationRepository,
@@ -107,6 +108,23 @@ public class CreateInvitationHandlerTests
         result.EmailSent.Should().BeFalse();
         result.AcceptUrl.Should().Be("http://localhost:5173/invitations/token-en-claro");
         await _invitationRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Deberia_ReportarQueNoSeEnvio_Cuando_NoHayCuentaDeEnvioConfigurada()
+    {
+        // Arrange — la invitación se emite igual; el enlace se comparte a mano
+        var sut = CreateSut();
+        _emailSender.IsEnabled.Returns(false);
+
+        // Act
+        var result = await sut.HandleAsync(CommandFor(InvitationChannels.Email, "vecino@ejemplo.com"));
+
+        // Assert
+        result.EmailSent.Should().BeFalse();
+        result.AcceptUrl.Should().Be("http://localhost:5173/invitations/token-en-claro");
+        await _invitationRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _emailSender.DidNotReceive().SendAsync(Arg.Any<InvitationEmail>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

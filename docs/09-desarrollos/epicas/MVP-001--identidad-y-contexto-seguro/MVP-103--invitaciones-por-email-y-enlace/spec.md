@@ -96,8 +96,12 @@ Permitir que un miembro de un Workspace invite a otro usuario por email o por en
   retoma después del login con Google.
 - Las invitaciones son de un solo uso y caducan a los 7 días. La invitación por email solo la puede
   aceptar la cuenta destinataria; el enlace acepta a cualquier usuario autenticado.
-- El MVP sale sin proveedor de email contratado (`email-service` sigue pendiente en
-  `docs/02-arquitectura/componentes.md`): el puerto está listo y la API informa con `email_sent` si
-  el envío no se pudo realizar, de forma que quien invita puede compartir el enlace por otro medio.
+- El envío es SMTP genérico
+  ([ADR-0010](../../../../02-arquitectura/decisiones/ADR-0010--envio-de-email-transaccional-por-smtp.md)):
+  sirve cualquier proveedor sin tocar código. Falta **provisionar la cuenta** y decidir el dominio
+  remitente, que para producción exige SPF, DKIM y DMARC.
+- Mientras no haya cuenta configurada, el arranque avisa con un warning y la API responde
+  `email_sent: false`, de forma que quien invita comparte el enlace por otro medio. El sistema nunca
+  da por enviado un correo que no salió.
 - El catálogo completo de estados de membresía (`invitado`, `activo`, `revocado`) y la revocación de
   invitaciones se mantienen como alcance de `MVP-104`.

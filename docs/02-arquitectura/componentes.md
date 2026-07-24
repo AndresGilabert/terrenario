@@ -40,7 +40,7 @@ actualizado_en: "2026-07-24"
 |----------------------|---------------------|-------------|
 | Auth Gateway (Google OIDC) | sincrónica | Validación de identidad y emisión/validación de sesión |
 | PostgreSQL | sincrónica | Persistencia transaccional y consultas de lectura |
-| Servicio de email | sincrónica | Invitaciones a miembros de Workspace. Proveedor pendiente: MVP-103 deja el puerto `IInvitationEmailSender` y un adaptador de traza, y la invitación sigue siendo válida si el envío falla |
+| Servicio de email | sincrónica | Invitaciones a miembros de Workspace por SMTP genérico ([ADR-0010](./decisiones/ADR-0010--envio-de-email-transaccional-por-smtp.md)). La cuenta de envío se configura por entorno; sin ella, o si el envío falla, la invitación sigue siendo válida y se comparte por enlace |
 
 ---
 
@@ -76,4 +76,4 @@ C4Component
 |----------|------|-----------|-------|-----|
 | `terrenario-api` | API | pendiente de definir por entorno | equipo técnico | 99.9% |
 | `google-oidc` | Integración externa | proveedor externo | seguridad | según proveedor |
-| `email-service` | Integración externa | proveedor externo | producto/infra | según proveedor |
+| `email-service` | Integración externa | SMTP del proveedor (cuenta pendiente de provisionar) | producto/infra | según proveedor |

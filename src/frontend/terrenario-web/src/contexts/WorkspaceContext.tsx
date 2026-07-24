@@ -1,12 +1,15 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { Workspace } from '../types/workspace.types';
 import { workspaceService } from '../services/workspace.service';
+import { invitationService } from '../services/invitation.service';
 import { useAuth } from './AuthContext';
 
 interface WorkspaceContextValue {
   activeWorkspace: Workspace | null;
   isLoading: boolean;
   createWorkspace: (name: string) => Promise<Workspace>;
+  /** Acepta una invitación y deja la sesión situada en ese Workspace (MVP-103). */
+  acceptInvitation: (token: string) => Promise<Workspace>;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -74,7 +77,28 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     [setAccessToken]
   );
 
-  const value: WorkspaceContextValue = { activeWorkspace, isLoading, createWorkspace };
+  const acceptInvitation = useCallback(
+    async (token: string): Promise<Workspace> => {
+      const accessToken = await getAccessTokenRef.current();
+      if (!accessToken) throw new Error('Sesión no válida.');
+
+      const result = await invitationService.acceptInvitation(token, accessToken);
+
+      // Igual que al crear un Workspace, el backend reemite la sesión ya situada en el destino.
+      setAccessToken(result.access_token, result.expires_in);
+      setActiveWorkspace(result.workspace);
+
+      return result.workspace;
+    },
+    [setAccessToken]
+  );
+
+  const value: WorkspaceContextValue = {
+    activeWorkspace,
+    isLoading,
+    createWorkspace,
+    acceptInvitation,
+  };
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
 }

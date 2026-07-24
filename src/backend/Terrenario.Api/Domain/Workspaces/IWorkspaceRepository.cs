@@ -13,5 +13,15 @@ public interface IWorkspaceRepository
     /// </summary>
     Task<Workspace?> FindDefaultForUserAsync(Guid userId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Busca el Workspace sin exigir membresía. Lo necesita la aceptación de invitaciones
+    /// (MVP-103), donde el usuario todavía no es miembro.
+    /// </summary>
+    Task<Workspace?> FindByIdAsync(Guid workspaceId, CancellationToken ct = default);
+
+    Task<bool> HasActiveMembershipAsync(Guid workspaceId, Guid userId, CancellationToken ct = default);
+
+    Task AddMemberAsync(WorkspaceMember member, CancellationToken ct = default);
+
     Task SaveChangesAsync(CancellationToken ct = default);
 }

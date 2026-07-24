@@ -53,9 +53,16 @@ Los valores no secretos están en [`appsettings.json`](../../src/backend/Terrena
     "RefreshToken": {
       "LifetimeSeconds": 2592000
     }
+  },
+  "Invitations": {
+    "LifetimeDays": 7,
+    "AcceptBaseUrl": "http://localhost:5173/invitations"
   }
 }
 ```
+
+> `Invitations:AcceptBaseUrl` es la base pública del enlace de invitación (MVP-103); el backend le
+> añade `/{token}`. En local apunta al Vite del frontend.
 
 ### Frontend (`terrenario-web`)
 
@@ -204,6 +211,24 @@ dotnet tool install --global dotnet-ef
 
 Índice único `(workspace_id, user_id)`: un usuario no puede tener dos membresías del mismo Workspace.
 
+### Tabla `workspace_invitations` (MVP-103)
+
+| Columna | Tipo | Descripción |
+|---------|------|-------------|
+| `id` | UUID PK | Identificador de la invitación |
+| `workspace_id` | UUID FK → workspaces | Workspace al que se invita |
+| `invited_by_user_id` | UUID FK → users | Miembro que emite la invitación |
+| `channel` | VARCHAR(20) NOT NULL | `email` o `enlace` |
+| `email` | VARCHAR(320)? | Destinatario, solo en el canal `email` |
+| `token_hash` | TEXT UNIQUE NOT NULL | SHA-256 del token; el enlace en claro no se guarda |
+| `status` | VARCHAR(20) NOT NULL | `pendiente` o `aceptada` |
+| `expires_at` | TIMESTAMPTZ | Caducidad (7 días por defecto) |
+| `created_at` | TIMESTAMPTZ | Fecha de emisión |
+| `accepted_at` | TIMESTAMPTZ? | Fecha de aceptación |
+| `accepted_by_user_id` | UUID? FK → users | Quién aceptó la invitación |
+
+Índice de apoyo `(workspace_id, status)` para el listado de invitaciones pendientes.
+
 ---
 
 ## Ejecución de tests
@@ -219,9 +244,12 @@ dotnet test --filter "FullyQualifiedName~Auth"
 
 # Solo los tests de workspaces
 dotnet test --filter "FullyQualifiedName~Workspaces"
+
+# Solo los tests de invitaciones
+dotnet test --filter "FullyQualifiedName~Invitations"
 ```
 
-Cobertura actual: **30 tests** en 6 suites
+Cobertura actual: **55 tests** en 9 suites
 
 | Suite | Tests | Qué cubre |
 |-------|-------|-----------|
@@ -231,6 +259,9 @@ Cobertura actual: **30 tests** en 6 suites
 | `WorkspaceTests` | 8 | Invariantes del agregado Workspace y membresía del creador |
 | `CreateWorkspaceHandlerTests` | 4 | Alta de Workspace, membresía vinculada y reemisión de sesión |
 | `ActiveWorkspaceResolverTests` | 4 | Resolución del Workspace activo y caídas al valor por defecto |
+| `WorkspaceInvitationTests` | 14 | Invariantes de la invitación: canal, destinatario, caducidad y aceptación |
+| `CreateInvitationHandlerTests` | 5 | Emisión por email y por enlace, fallo del proveedor de email y ya-es-miembro |
+| `AcceptInvitationHandlerTests` | 6 | Membresía derivada, reemisión de sesión y rechazos por token, caducidad o Workspace |
 
 ---
 
@@ -270,4 +301,5 @@ Frontend                    Backend                     Google
 | Autenticación OIDC | [`docs/07-seguridad/autenticacion-autorizacion.md`](../07-seguridad/autenticacion-autorizacion.md) |
 | Tech design MVP-101 | [`docs/09-desarrollos/epicas/.../tech-design.md`](../09-desarrollos/epicas/MVP-001--identidad-y-contexto-seguro/MVP-101--google-oidc-y-sesion-base/tech-design.md) |
 | Tech design MVP-102 | [`docs/09-desarrollos/epicas/.../tech-design.md`](../09-desarrollos/epicas/MVP-001--identidad-y-contexto-seguro/MVP-102--creacion-de-workspace-y-primer-acceso/tech-design.md) |
+| Tech design MVP-103 | [`docs/09-desarrollos/epicas/.../tech-design.md`](../09-desarrollos/epicas/MVP-001--identidad-y-contexto-seguro/MVP-103--invitaciones-por-email-y-enlace/tech-design.md) |
 | Entornos y secretos | [`docs/05-infraestructura/entornos.md`](./entornos.md) |

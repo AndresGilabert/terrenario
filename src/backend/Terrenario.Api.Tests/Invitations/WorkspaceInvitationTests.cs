@@ -1,0 +1,163 @@
+using FluentAssertions;
+using Terrenario.Api.Common.Errors;
+using Terrenario.Api.Domain.Workspaces;
+
+namespace Terrenario.Api.Tests.Invitations;
+
+public class WorkspaceInvitationTests
+{
+    private static readonly Guid WorkspaceId = Guid.NewGuid();
+    private static readonly Guid InviterId = Guid.NewGuid();
+    private static readonly TimeSpan SevenDays = TimeSpan.FromDays(7);
+
+    private static WorkspaceInvitation CreateEmailInvitation(string email = "antonio@ejemplo.com") =>
+        WorkspaceInvitation.Create(WorkspaceId, InviterId, InvitationChannels.Email, email, "hash", SevenDays);
+
+    private static WorkspaceInvitation CreateLinkInvitation() =>
+        WorkspaceInvitation.Create(WorkspaceId, InviterId, InvitationChannels.Link, null, "hash", SevenDays);
+
+    [Fact]
+    public void Deberia_CrearInvitacionPendiente_Cuando_CanalEsEmailYDatosSonValidos()
+    {
+        // Act
+        var invitation = CreateEmailInvitation("  Antonio@Ejemplo.com  ");
+
+        // Assert
+        invitation.Id.Should().NotBeEmpty();
+        invitation.WorkspaceId.Should().Be(WorkspaceId);
+        invitation.InvitedByUserId.Should().Be(InviterId);
+        invitation.Channel.Should().Be(InvitationChannels.Email);
+        invitation.Email.Should().Be("antonio@ejemplo.com");
+        invitation.Status.Should().Be(InvitationStatuses.Pending);
+        invitation.ExpiresAt.Should().BeAfter(invitation.CreatedAt);
+        invitation.AcceptedAt.Should().BeNull();
+        invitation.AcceptedByUserId.Should().BeNull();
+    }
+
+    [Fact]
+    public void Deberia_NoGuardarDestinatario_Cuando_CanalEsEnlace()
+    {
+        // Act — el enlace compartible no va dirigido a nadie en concreto
+        var invitation = WorkspaceInvitation.Create(
+            WorkspaceId, InviterId, InvitationChannels.Link, "antonio@ejemplo.com", "hash", SevenDays);
+
+        // Assert
+        invitation.Email.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Deberia_RechazarInvitacion_Cuando_CanalEsEmailYFaltaElEmail(string? email)
+    {
+        // Act
+        var act = () => CreateEmailInvitation(email!);
+
+        // Assert
+        act.Should().Throw<InvitationException>()
+            .Which.ErrorCode.Should().Be(ErrorCodes.ValidationRequiredInvitationEmail);
+    }
+
+    [Theory]
+    [InlineData("no-es-un-email")]
+    [InlineData("antonio@localhost")]
+    [InlineData("antonio@@ejemplo.com")]
+    public void Deberia_RechazarInvitacion_Cuando_ElEmailNoTieneFormatoValido(string email)
+    {
+        // Act
+        var act = () => CreateEmailInvitation(email);
+
+        // Assert
+        act.Should().Throw<InvitationException>()
+            .Which.ErrorCode.Should().Be(ErrorCodes.ValidationInvitationEmailInvalid);
+    }
+
+    [Fact]
+    public void Deberia_RechazarInvitacion_Cuando_ElCanalNoEstaEnElCatalogo()
+    {
+        // Act
+        var act = () => WorkspaceInvitation.Create(
+            WorkspaceId, InviterId, "whatsapp", null, "hash", SevenDays);
+
+        // Assert
+        act.Should().Throw<InvitationException>()
+            .Which.ErrorCode.Should().Be(ErrorCodes.ValidationInvitationChannelInvalid);
+    }
+
+    [Fact]
+    public void Deberia_MarcarComoAceptada_Cuando_LaAceptaLaPersonaInvitada()
+    {
+        // Arrange
+        var invitation = CreateEmailInvitation();
+        var userId = Guid.NewGuid();
+        var moment = DateTimeOffset.UtcNow;
+
+        // Act
+        invitation.Accept(userId, "ANTONIO@ejemplo.com", moment);
+
+        // Assert
+        invitation.Status.Should().Be(InvitationStatuses.Accepted);
+        invitation.AcceptedByUserId.Should().Be(userId);
+        invitation.AcceptedAt.Should().Be(moment);
+    }
+
+    [Fact]
+    public void Deberia_AceptarDeCualquierCuenta_Cuando_ElCanalEsEnlace()
+    {
+        // Arrange
+        var invitation = CreateLinkInvitation();
+
+        // Act
+        var act = () => invitation.Accept(Guid.NewGuid(), "cualquiera@ejemplo.com", DateTimeOffset.UtcNow);
+
+        // Assert
+        act.Should().NotThrow();
+        invitation.Status.Should().Be(InvitationStatuses.Accepted);
+    }
+
+    [Fact]
+    public void Deberia_RechazarAceptacion_Cuando_LaInvitacionPorEmailEsDeOtraCuenta()
+    {
+        // Arrange — reenviar el correo no debe abrir la puerta a un tercero
+        var invitation = CreateEmailInvitation();
+
+        // Act
+        var act = () => invitation.Accept(Guid.NewGuid(), "otra@ejemplo.com", DateTimeOffset.UtcNow);
+
+        // Assert
+        act.Should().Throw<InvitationException>()
+            .Which.ErrorCode.Should().Be(ErrorCodes.AuthInvitationEmailMismatch);
+        invitation.Status.Should().Be(InvitationStatuses.Pending);
+    }
+
+    [Fact]
+    public void Deberia_RechazarAceptacion_Cuando_LaInvitacionHaCaducado()
+    {
+        // Arrange
+        var invitation = CreateLinkInvitation();
+
+        // Act
+        var act = () => invitation.Accept(Guid.NewGuid(), "antonio@ejemplo.com", invitation.ExpiresAt);
+
+        // Assert
+        act.Should().Throw<InvitationException>()
+            .Which.ErrorCode.Should().Be(ErrorCodes.BusinessRuleInvitationExpired);
+        invitation.Status.Should().Be(InvitationStatuses.Pending);
+    }
+
+    [Fact]
+    public void Deberia_RechazarAceptacion_Cuando_LaInvitacionYaSeUso()
+    {
+        // Arrange
+        var invitation = CreateLinkInvitation();
+        invitation.Accept(Guid.NewGuid(), "antonio@ejemplo.com", DateTimeOffset.UtcNow);
+
+        // Act
+        var act = () => invitation.Accept(Guid.NewGuid(), "otro@ejemplo.com", DateTimeOffset.UtcNow);
+
+        // Assert
+        act.Should().Throw<InvitationException>()
+            .Which.ErrorCode.Should().Be(ErrorCodes.BusinessRuleInvitationAlreadyAccepted);
+    }
+}

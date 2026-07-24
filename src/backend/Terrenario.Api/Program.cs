@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Mvc;
 using Terrenario.Api.Application.Auth;
+using Terrenario.Api.Application.Invitations;
 using Terrenario.Api.Application.Workspaces;
 using Terrenario.Api.Common.Errors;
 using Terrenario.Api.Domain.Users;
@@ -11,6 +12,7 @@ using Terrenario.Api.Domain.Workspaces;
 using Terrenario.Api.Infrastructure.Auth;
 using Terrenario.Api.Infrastructure.Data;
 using Terrenario.Api.Infrastructure.Data.Repositories;
+using Terrenario.Api.Infrastructure.Invitations;
 using Terrenario.Api.Infrastructure.Telemetry;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,6 +24,8 @@ builder.Services.Configure<JwtOptions>(
     builder.Configuration.GetSection(JwtOptions.SectionName));
 builder.Services.Configure<RefreshTokenOptions>(
     builder.Configuration.GetSection(RefreshTokenOptions.SectionName));
+builder.Services.Configure<InvitationOptions>(
+    builder.Configuration.GetSection(InvitationOptions.SectionName));
 
 // ── Database ─────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<TerrenarioDbContext>(options =>
@@ -68,6 +72,13 @@ builder.Services.AddScoped<RefreshTokenHandler>();
 builder.Services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
 builder.Services.AddScoped<IActiveWorkspaceResolver, ActiveWorkspaceResolver>();
 builder.Services.AddScoped<CreateWorkspaceHandler>();
+builder.Services.AddScoped<IWorkspaceInvitationRepository, WorkspaceInvitationRepository>();
+builder.Services.AddScoped<IInvitationTokenService, InvitationTokenService>();
+builder.Services.AddScoped<IInvitationEmailSender, LoggingInvitationEmailSender>();
+builder.Services.AddScoped<CreateInvitationHandler>();
+builder.Services.AddScoped<ListWorkspaceInvitationsHandler>();
+builder.Services.AddScoped<PreviewInvitationHandler>();
+builder.Services.AddScoped<AcceptInvitationHandler>();
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
 builder.Services.AddCors(options =>

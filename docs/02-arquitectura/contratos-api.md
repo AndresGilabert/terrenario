@@ -64,6 +64,8 @@ y se mantienen en español.
 | `harvest_product` | catálogo global fijo gobernado por sistema |
 | `season_status` | `planificada`, `activa`, `cerrada` |
 | `worker_member_status` | `invitado`, `activo`, `revocado` |
+| `invitation_channel` | `email`, `enlace` |
+| `invitation_status` | `pendiente`, `aceptada` |
 
 ---
 
@@ -91,6 +93,41 @@ Reglas de contexto:
 | El creador queda como miembro activo del Workspace | Membresía `workspace_owner` creada en la misma transacción |
 | El Workspace activo viaja en el claim `workspace_id` del `access_token` | Nunca se acepta como parámetro del cliente |
 | `POST /workspaces` reemite la sesión | Devuelve un `access_token` nuevo ya situado en el Workspace creado |
+
+### 0.b) Invitaciones a Workspace
+
+| Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
+|---|---|---|---|
+| Emitir invitación | `POST /api/v1/workspaces/invitations` | `channel*`, `email?` | `201 { id, channel, email, status, accept_url, expires_at, email_sent }` |
+| Invitaciones pendientes | `GET /api/v1/workspaces/invitations` | — | `200 { data, meta: { total } }` |
+| Ver invitación recibida | `GET /api/v1/invitations/{token}` | — | `200 { id, channel, status, workspace, invited_by, expires_at, is_expired }` |
+| Aceptar invitación | `POST /api/v1/invitations/{token}/accept` | — | `200 { workspace, access_token, expires_in, already_member }` |
+
+Validaciones clave:
+
+| Regla | Código error |
+|---|---|
+| `channel` dentro de `invitation_channel` | `VALIDATION_INVITATION_CHANNEL_INVALID` |
+| `email` obligatorio si `channel` es `email` | `VALIDATION_REQUIRED_INVITATION_EMAIL` |
+| `email` con formato válido (máx. 320 caracteres) | `VALIDATION_INVITATION_EMAIL_INVALID` |
+| Sesión sin Workspace activo al invitar | `AUTH_WORKSPACE_SCOPE_REQUIRED` (403) |
+| La invitación por email la abre otra cuenta | `AUTH_INVITATION_EMAIL_MISMATCH` (403) |
+| Token desconocido | `INVITATION_NOT_FOUND` (404) |
+| Invitación caducada | `BUSINESS_RULE_INVITATION_EXPIRED` (422) |
+| Invitación ya utilizada | `BUSINESS_RULE_INVITATION_ALREADY_ACCEPTED` (422) |
+| El email invitado ya es miembro activo | `BUSINESS_RULE_INVITATION_ALREADY_MEMBER` (422) |
+
+Reglas de contexto:
+
+| Regla | Comportamiento |
+|---|---|
+| Cualquier miembro puede invitar | Permisos planos en MVP por RN-034 |
+| El Workspace de origen no viaja en la petición | Se resuelve en servidor desde el claim `workspace_id` |
+| `accept_url` solo se devuelve al emitir | En base de datos vive únicamente el hash del token: el enlace no se puede recuperar después |
+| La invitación es de un solo uso y caduca | Vigencia por configuración (`Invitations:LifetimeDays`, 7 días en MVP) |
+| La invitación por email va dirigida a una cuenta | Solo la acepta ese email; el canal `enlace` acepta a cualquier usuario autenticado |
+| Aceptar reemite la sesión | Devuelve un `access_token` nuevo ya situado en el Workspace de la invitación |
+| `email_sent: false` | La invitación es válida pero el proveedor de email falló; el enlace se comparte por otro medio |
 
 ### 1) Plots (terrenos)
 
@@ -272,6 +309,7 @@ Regla: `yield` y `liters` son opcionales, pero no se permite informar ambos a la
 | 400 | `VALIDATION_*` | Error de campos o formato |
 | 401 | `AUTH_UNAUTHENTICATED` | Token ausente/inválido |
 | 403 | `AUTH_WORKSPACE_FORBIDDEN` | Acceso fuera de workspace |
+| 403 | `AUTH_WORKSPACE_SCOPE_REQUIRED` | Operación que exige Workspace activo en la sesión |
 | 404 | `RESOURCE_NOT_FOUND` | Recurso inexistente |
 | 409 | `CONFLICT_VERSION_MISMATCH` | Colisión de versión por edición concurrente |
 | 422 | `BUSINESS_RULE_*` | Regla de negocio incumplida |

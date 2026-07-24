@@ -29,6 +29,8 @@ actualizado_en: "2026-07-24"
 | `/api/v1/harvests` | REST | Registro y consulta de cosechas |
 | `/api/v1/purchases` | REST | Registro de compras e imputaciones |
 | `/api/v1/dashboard/*` | REST | Agregaciones KPI por Workspace y temporada |
+| `/api/v1/workspaces/invitations` | REST | Emisión y listado de invitaciones del Workspace activo |
+| `/api/v1/invitations/{token}` | REST | Consulta y aceptación de una invitación recibida |
 
 > Rutas en inglés según [ADR-0009](./decisiones/ADR-0009--idioma-de-identificadores-en-codigo.md).
 
@@ -38,7 +40,7 @@ actualizado_en: "2026-07-24"
 |----------------------|---------------------|-------------|
 | Auth Gateway (Google OIDC) | sincrónica | Validación de identidad y emisión/validación de sesión |
 | PostgreSQL | sincrónica | Persistencia transaccional y consultas de lectura |
-| Servicio de email | sincrónica | Invitaciones a miembros de Workspace |
+| Servicio de email | sincrónica | Invitaciones a miembros de Workspace. Proveedor pendiente: MVP-103 deja el puerto `IInvitationEmailSender` y un adaptador de traza, y la invitación sigue siendo válida si el envío falla |
 
 ---
 

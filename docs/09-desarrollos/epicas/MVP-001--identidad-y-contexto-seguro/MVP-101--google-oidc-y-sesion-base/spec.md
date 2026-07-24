@@ -2,7 +2,7 @@
 id: "MVP-101"
 tipo: feature
 titulo: "Acceso con Google OIDC y sesión base"
-estado: borrador
+estado: completado
 prioridad: critica
 sprint: ""
 hito: "Hito A — Base segura y multiusuario"

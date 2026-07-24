@@ -250,8 +250,12 @@ responses:
 
 El correo sale por SMTP genérico con MailKit, configurado en la sección `Email`
 (`Host`, `Port`, `SecurityMode`, `Username`, `Password`, `FromAddress`, `FromName`,
-`TimeoutSeconds`). La contraseña es un secreto y se gestiona como el resto: User Secrets en local y
-Secret Manager por entorno, según `docs/05-infraestructura/entornos.md`.
+`TimeoutSeconds`). **La identidad de la cuenta completa vive fuera del repositorio**, no solo la
+contraseña: `Host`, `Username` y `FromAddress` van a User Secrets en local y al Secret Manager por
+entorno, porque este repositorio es público y una cuenta commiteada queda en el historial de git
+para siempre. En `appsettings.json` esas claves se quedan vacías, documentando la forma de la
+sección sin fijar valores; así ningún entorno hereda por descuido la cuenta de otro. Detalle en
+`docs/05-infraestructura/entornos.md` y en ADR-0010.
 
 Mientras `Email:Host` o `Email:FromAddress` estén vacíos, `IInvitationEmailSender.IsEnabled` es
 `false`: el arranque emite un warning, no se intenta ningún envío y `email_sent` es `false`. Esto

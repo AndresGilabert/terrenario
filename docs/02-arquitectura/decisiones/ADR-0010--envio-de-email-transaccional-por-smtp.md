@@ -38,15 +38,23 @@ Condicionantes del MVP:
 **El MVP envía el correo transaccional por SMTP genérico**, con MailKit como cliente, y toda la
 cuenta de envío se configura por la sección `Email` sin tocar código.
 
-| Clave | Secreto | Descripción |
+| Clave | Fuera del repositorio | Descripción |
 |---|---|---|
-| `Email:Host` | no | Servidor SMTP. Vacío = sin cuenta configurada |
+| `Email:Host` | **sí** | Servidor SMTP. Vacío = sin cuenta configurada |
 | `Email:Port` | no | `587` con STARTTLS, `465` con TLS implícito |
 | `Email:SecurityMode` | no | `starttls`, `ssl`, `none` (solo relay local) o `auto` |
-| `Email:Username` | no | Usuario de autenticación SMTP |
-| `Email:Password` | **sí** | Contraseña o contraseña de aplicación; nunca en `appsettings` |
-| `Email:FromAddress` | no | Remitente. Vacío = sin cuenta configurada |
+| `Email:Username` | **sí** | Usuario de autenticación SMTP |
+| `Email:Password` | **sí** | Contraseña o contraseña de aplicación |
+| `Email:FromAddress` | **sí** | Remitente. Vacío = sin cuenta configurada |
 | `Email:FromName` | no | Nombre visible del remitente |
+
+**Toda la identidad de la cuenta vive fuera del repositorio**, no solo la contraseña: este
+repositorio es público y `Host`, `Username` y `FromAddress` identifican una cuenta concreta de un
+servicio de terceros que, una vez commiteada, queda en el historial de git de forma permanente.
+`appsettings.json` mantiene esas claves vacías para documentar la forma de la sección; los valores
+van a User Secrets en local y al Secret Manager del proveedor por entorno. Poner ahí una cuenta
+concreta tiene además un segundo efecto: `appsettings.json` es la base de **todos** los entornos, así
+que un sandbox de desarrollo commiteado se hereda en producción y se traga el correo real.
 | `Email:TimeoutSeconds` | no | Tiempo máximo de conexión y envío |
 
 Consecuencias directas de la decisión:
@@ -70,6 +78,7 @@ La elección del remitente **no está cerrada**. Las dos rutas viables, con lo q
 |---|---|---|---|
 | Dominio propio (`no-reply@terrenario.com`) | SMTP del proveedor transaccional elegido | Verificar el dominio y publicar **SPF**, **DKIM** y **DMARC** en su DNS | Única ruta válida para producción |
 | Cuenta Google Workspace / Gmail existente | `smtp.gmail.com:587` con STARTTLS | **Contraseña de aplicación** (nunca la del usuario) y 2FA activo; límite de envío diario de la cuenta | Válida para desarrollo y arranque, no para producción |
+| Bandeja de pruebas (Mailtrap o similar) | SMTP sandbox del servicio | Credenciales de la propia bandeja | Solo desarrollo: no entrega a nadie, por lo que no vale para validar entrega real |
 
 Sin SPF/DKIM alineados, las invitaciones acaban en spam con alta probabilidad. Al cerrar la ruta
 hay que actualizar este ADR, `../../06-integraciones/vision-general.md` y las variables por entorno

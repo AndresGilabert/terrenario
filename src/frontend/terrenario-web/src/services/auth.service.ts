@@ -5,6 +5,8 @@ export interface AuthCallbackParams {
   code: string;
   redirectUri: string;
   codeVerifier: string;
+  /** Correlador del embudo de login (MVP-105); se envía para unir la traza cliente con éxito/error. */
+  flowId?: string | null;
 }
 
 export const authService = {
@@ -17,6 +19,7 @@ export const authService = {
         code: params.code,
         redirect_uri: params.redirectUri,
         code_verifier: params.codeVerifier,
+        flow_id: params.flowId ?? undefined,
       }),
     });
 

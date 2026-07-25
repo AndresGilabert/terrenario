@@ -1,6 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { authService } from '../../services/auth.service';
 import { generateCodeVerifier, generateCodeChallenge, generateState } from '../../lib/pkce';
+import { logLoginEvent } from '../../services/telemetry.service';
+import {
+  LoginFunnelEvent,
+  beginLoginScreen,
+  isLoginStarted,
+  markLoginStarted,
+} from '../../lib/login-telemetry';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
 const REDIRECT_URI = `${window.location.origin}/auth/callback`;
@@ -12,6 +19,24 @@ interface LoginPageProps {
 export const LoginPage: React.FC<LoginPageProps> = ({ onDemoAccess }) => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const flowIdRef = useRef<string>('');
+
+  // MVP-105 — Traza del embudo de login (RN-020): "pantalla vista" al entrar y "abandono" al salir
+  // sin haber pulsado Google. El éxito y el error los emite el servidor durante el intercambio.
+  useEffect(() => {
+    const flowId = beginLoginScreen();
+    flowIdRef.current = flowId;
+    logLoginEvent(LoginFunnelEvent.ScreenViewed, flowId);
+
+    const handlePageHide = () => {
+      if (!isLoginStarted()) {
+        logLoginEvent(LoginFunnelEvent.Abandonment, flowId, { beacon: true });
+      }
+    };
+
+    window.addEventListener('pagehide', handlePageHide);
+    return () => window.removeEventListener('pagehide', handlePageHide);
+  }, []);
 
   const handleGoogleLogin = async () => {
     setError(null);
@@ -24,6 +49,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onDemoAccess }) => {
 
       sessionStorage.setItem('pkce_code_verifier', codeVerifier);
       sessionStorage.setItem('oauth_state', state);
+
+      // "login iniciado": a partir de aquí la salida de la página es la redirección a Google, no un
+      // abandono.
+      logLoginEvent(LoginFunnelEvent.GoogleClicked, flowIdRef.current);
+      markLoginStarted();
 
       const authUrl = authService.buildGoogleAuthUrl({
         clientId: GOOGLE_CLIENT_ID,

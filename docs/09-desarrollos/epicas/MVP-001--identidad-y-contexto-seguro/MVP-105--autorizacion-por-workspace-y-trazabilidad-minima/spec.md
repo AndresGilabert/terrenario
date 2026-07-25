@@ -2,7 +2,7 @@
 id: "MVP-105"
 tipo: feature
 titulo: "Autorización por Workspace y trazabilidad mínima de login"
-estado: borrador
+estado: en-progreso
 prioridad: critica
 sprint: ""
 hito: "Hito A — Base segura y multiusuario"
@@ -64,9 +64,9 @@ Garantizar que toda operación del MVP queda acotada al Workspace activo y que e
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Las operaciones protegidas del MVP rechazan accesos fuera del Workspace activo.
-- [ ] **CA-2**: El sistema genera trazas mínimas que permiten diferenciar login iniciado, completado y abandonado.
-- [ ] **CA-3**: La trazabilidad cumple las restricciones de privacidad y no expone PII sensible en logs ni errores.
+- [x] **CA-1**: Las operaciones protegidas del MVP rechazan accesos fuera del Workspace activo. _Primitiva `[RequireWorkspaceScope]` + `IWorkspaceContext.EnsureInScope` → `403 AUTH_WORKSPACE_SCOPE_REQUIRED` / `AUTH_WORKSPACE_FORBIDDEN`. Ver [tech-design.md](./tech-design.md)._
+- [x] **CA-2**: El sistema genera trazas mínimas que permiten diferenciar login iniciado, completado y abandonado. _Eventos `login_screen_viewed`/`login_google_clicked`/`login_abandonment` (cliente) + `login_google_success`/`login_google_error` (servidor), correlacionados por `flow_id`._
+- [x] **CA-3**: La trazabilidad cumple las restricciones de privacidad y no expone PII sensible en logs ni errores. _Solo evento + `flow_id` validado + `channel`; sin email/token; logging estructurado (RN-020/RN-017)._
 
 ## Maquetas y referencias visuales
 
@@ -81,8 +81,8 @@ Garantizar que toda operación del MVP queda acotada al Workspace activo y que e
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| App shell y rutas | RN-034 | parcial | Navegacion interna disponible; sin autorizacion real por scope |
-| LoginPage | RN-020, RN-017 | falta | No hay trazabilidad de exito/abandono ni eventos de seguridad |
+| App shell y rutas | RN-034 | cubierto | Primitiva `[RequireWorkspaceScope]` + `EnsureInScope`; tests de filtro y contexto (`WorkspaceScopeFilterTests`, `WorkspaceScopeContextTests`) |
+| LoginPage | RN-020, RN-017 | cubierto | Embudo `screen_viewed`/`google_clicked`/`abandonment`/`success`/`error` correlacionado por `flow_id`, sin PII; tests `LoginFunnelEventsTests`, `AuthControllerTelemetryTests` |
 
 ## Notas y decisiones
 

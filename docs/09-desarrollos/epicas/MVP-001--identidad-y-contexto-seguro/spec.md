@@ -6,7 +6,7 @@ estado: borrador
 prioridad: critica
 hito: "Hito A — Base segura y multiusuario"
 tickets: []
-historias: ["MVP-101", "MVP-102", "MVP-103", "MVP-104", "MVP-105", "MVP-199"]
+historias: ["MVP-101", "MVP-102", "MVP-103", "MVP-104", "MVP-105", "MVP-106", "MVP-107", "MVP-199"]
 depende_de: []
 bloquea: ["MVP-002", "MVP-003", "MVP-004", "MVP-005", "MVP-006"]
 relacionado_con: []
@@ -71,6 +71,8 @@ Permitir que un usuario pueda autenticarse con Google, crear o unirse a un Works
 - `MVP-103` — Invitaciones por email y enlace compartible.
 - `MVP-104` — Membresía y selector de Workspace activo.
 - `MVP-105` — Autorización por Workspace y trazabilidad mínima de login.
+- `MVP-106` — Correcciones de acceso: login y landing. _(derivada de la revisión MVP-199)_
+- `MVP-107` — Invitaciones no bloqueantes y centro de notificaciones. _(derivada de la revisión MVP-199)_
 - `MVP-199` — Revision epica.
 
 ## Vinculacion con prototipo (fuente visual)
@@ -96,6 +98,8 @@ Matriz historia -> pantallas/componentes:
 | MVP-103 | [prototype/terrenario-mvp/src/components/AjustesView.tsx](../../../../prototype/terrenario-mvp/src/components/AjustesView.tsx) | No cubierto funcionalmente: no existen pantallas de invitacion por email/enlace |
 | MVP-104 | [prototype/terrenario-mvp/src/components/Sidebar.tsx](../../../../prototype/terrenario-mvp/src/components/Sidebar.tsx), [prototype/terrenario-mvp/src/components/TopNavbar.tsx](../../../../prototype/terrenario-mvp/src/components/TopNavbar.tsx) | Parcial: selector visual de contexto; alternancia real entre multiples Workspaces pendiente |
 | MVP-105 | [prototype/terrenario-mvp/src/App.tsx](../../../../prototype/terrenario-mvp/src/App.tsx), [prototype/terrenario-mvp/src/components/LoginPage.tsx](../../../../prototype/terrenario-mvp/src/components/LoginPage.tsx) | No cubierto funcionalmente: autorizacion por Workspace y trazabilidad de login no implementadas |
+| MVP-106 | [prototype/terrenario-mvp/src/components/LandingPage.tsx](../../../../prototype/terrenario-mvp/src/components/LandingPage.tsx), [prototype/terrenario-mvp/src/components/LoginPage.tsx](../../../../prototype/terrenario-mvp/src/components/LoginPage.tsx) | Correccion sobre lo entregado: callback OIDC idempotente, coherencia de CTAs de landing y enlaces legales sin destino roto |
+| MVP-107 | [prototype/terrenario-mvp/src/components/TopNavbar.tsx](../../../../prototype/terrenario-mvp/src/components/TopNavbar.tsx) | Alcance nuevo: invitacion no bloqueante (modal), rechazo, campanita y bandeja de invitaciones recibidas |
 
 ## Notas y decisiones
 

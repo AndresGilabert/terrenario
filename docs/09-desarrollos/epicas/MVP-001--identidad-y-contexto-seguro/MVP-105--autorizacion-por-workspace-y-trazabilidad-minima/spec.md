@@ -2,7 +2,7 @@
 id: "MVP-105"
 tipo: feature
 titulo: "Autorización por Workspace y trazabilidad mínima de login"
-estado: en-progreso
+estado: completado
 prioridad: critica
 sprint: ""
 hito: "Hito A — Base segura y multiusuario"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "security", "telemetry"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-25"
 ---
 
 # MVP-105 — Autorización por Workspace y trazabilidad mínima de login

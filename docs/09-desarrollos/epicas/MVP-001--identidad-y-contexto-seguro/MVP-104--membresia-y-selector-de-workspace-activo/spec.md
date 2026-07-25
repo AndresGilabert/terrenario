@@ -2,7 +2,7 @@
 id: "MVP-104"
 tipo: feature
 titulo: "Membresía y selector de Workspace activo"
-estado: en-progreso
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito A — Base segura y multiusuario"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "workspace", "membership"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-24"
+actualizado_en: "2026-07-25"
 ---
 
 # MVP-104 — Membresía y selector de Workspace activo

@@ -19,9 +19,9 @@ ai_context:
   etiquetas: ["mvp", "pendientes", "transversal"]
   nivel_riesgo: medio
 creado_en: "2026-07-24"
-actualizado_en: "2026-07-24"
+actualizado_en: "2026-07-25"
 ---
-<!-- actualizado_en refleja la ultima anotacion en el registro de puntos (MVP-104). -->
+<!-- actualizado_en refleja la ultima anotacion en el registro de puntos (P-002 -> MVP-204). -->
 
 # EPICA MVP-999 — Pendientes transversales y diferidos
 
@@ -70,8 +70,9 @@ Cuando una epica cierre su `MVP-x99`, estos puntos deben revisarse, priorizarse 
 | Punto | Fecha deteccion | Origen (epica/historia) | Tipo | Descripcion breve | Impacto | Bloqueante | Destino propuesto | Estado de revision | Historia creada |
 |---|---|---|---|---|---|---|---|---|---|
 | P-001 | 2026-07-24 | MVP-001 / MVP-103 | ux | Definir inventario y plantillas unificadas para todos los emails salientes del producto, incluyendo criterios de contenido legal (RGPD/LOPDGDD y LSSI/ePrivacy si aplica), para planificar su maquetacion coherente en un bloque transversal. | medio | no | MVP-999 | pendiente | - |
-| P-002 | 2026-07-24 | MVP-001 / MVP-104 | funcional | Administracion de miembros del Workspace: listar miembros activos y revocar acceso (transicion de `status` a `revocado`) desde la UI. El estado `revocado` del catalogo `worker_member_status` y el metodo de dominio `WorkspaceMember.Revoke()` ya estan implementados en MVP-104, pero no hay endpoint ni pantalla que los use. Queda fuera del alcance de MVP-104 ("Administracion avanzada de miembros"). Encaje natural a evaluar entre MVP-204 (maestro de trabajadores y miembros) y MVP-105 (autorizacion por Workspace). | medio | no | MVP-204 | pendiente | - |
-| P-003 | 2026-07-24 | MVP-001 / MVP-104 | funcional | Estado de membresia `invitado`: el catalogo `worker_member_status` lo contempla, pero el flujo de MVP-103 crea la membresia directamente como `activo` al aceptar la invitacion, por lo que ningun flujo produce hoy una membresia `invitado`. Decidir si se materializa (pre-crear membresia `invitado` al emitir la invitacion por email para poder mostrar "invitaciones pendientes" como miembros) o si se documenta como valor reservado para evolucion futura. | bajo | no | MVP-999 | pendiente | - |
+| P-002 | 2026-07-24 | MVP-001 / MVP-104 | funcional | Administracion de miembros del Workspace: listar miembros activos y revocar acceso (transicion de `status` a `revocado`) desde la UI. El estado `revocado` del catalogo `worker_member_status` y el metodo de dominio `WorkspaceMember.Revoke()` ya estan implementados en MVP-104, pero no hay endpoint ni pantalla que los use. Queda fuera del alcance de MVP-104 ("Administracion avanzada de miembros"). Encaja en MVP-204 (maestro de trabajadores y miembros). | medio | no | MVP-204 | aprobado-crear-historia | MVP-204 (HU-3, CA-4..CA-6) |
+| P-003 | 2026-07-24 | MVP-001 / MVP-104 | funcional | El catalogo `worker_member_status` define tres estados (`invitado`, `activo`, `revocado`), pero hoy ningun flujo crea una membresia en estado `invitado`: en MVP-103 la fila de `workspace_members` no existe mientras la invitacion esta pendiente y nace directamente en `activo` al aceptarse (la invitacion pendiente vive en `workspace_invitations`, no en `workspace_members`). Es decir, `invitado` es un valor del catalogo sin flujo que lo produzca. Decision a tomar: (a) materializarlo, creando la membresia en `invitado` al emitir la invitacion por email y promoviendola a `activo` al aceptar, para que "invitaciones pendientes" y "miembros" sean una unica lista; o (b) documentarlo como valor reservado para evolucion futura y no emitirlo en MVP. Impacto bajo: es consistencia del modelo, no bloquea funcionalidad. | bajo | no | MVP-999 | pendiente | - |
+| P-004 | 2026-07-24 | MVP-001 / MVP-102 / MVP-104 | funcional | Gestion del ciclo de vida del Workspace: hoy existe alta (`POST /api/v1/workspaces`) y cambio de activo (`PUT /api/v1/workspaces/active`), pero no hay plan explicito para edicion (renombrado/ajustes) ni eliminacion (baja logica o fisica) de Workspaces existentes. Definir alcance MVP/post-MVP, reglas de seguridad (quien puede hacerlo), precondiciones (workspace activo, miembros, datos historicos) y contrato API/UI. **Trasladado a triage prioritario de la epica en curso (MVP-199).** | alto | si | MVP-001 / MVP-199 | aprobado-crear-historia | MVP-199 (triage en curso) |
 
 ### Criterios de uso del registro
 

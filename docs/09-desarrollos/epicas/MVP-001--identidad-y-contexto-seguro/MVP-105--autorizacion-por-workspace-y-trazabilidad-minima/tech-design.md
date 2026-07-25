@@ -96,7 +96,9 @@ sequenceDiagram
 | `src/backend/.../Infrastructure/Telemetry/LoginFunnelEvents.cs` | nuevo | Nombres canónicos del embudo, allow-list de cliente y validación de `flow_id` |
 | `src/backend/.../Infrastructure/Telemetry/LoginTelemetryService.cs` | modificado | Usa las constantes de `LoginFunnelEvents` en vez de literales |
 | `src/backend/.../Controllers/AuthController.cs` | modificado | Endpoint de ingesta de telemetría + `flow_id` correlacionado en el callback |
-| `src/backend/.../Program.cs` | modificado | Registro del contexto/filtro y del filtro global de excepción |
+| `src/backend/.../Common/Http/SecurityHeadersMiddleware.cs` | nuevo | Headers de seguridad HTTP en todas las respuestas (P-005) |
+| `src/backend/.../Common/Http/RequestIdMiddleware.cs` | nuevo | `X-Request-Id` de correlación + scope de logging (P-006) |
+| `src/backend/.../Program.cs` | modificado | Registro del contexto/filtro, filtro global de excepción y middlewares transversales |
 | `src/frontend/.../lib/login-telemetry.ts` | nuevo | Ciclo de vida del `flow_id` y flags del embudo en `sessionStorage` |
 | `src/frontend/.../services/telemetry.service.ts` | nuevo | Emisión fire-and-forget de eventos (fetch keepalive / sendBeacon) |
 | `src/frontend/.../components/auth/LoginPage.tsx` | modificado | Emite pantalla vista, clic en Google y abandono |
@@ -152,6 +154,25 @@ servidor, de modo que un cliente no puede falsear conversión ni errores.
 Nunca email, token ni identificadores sensibles. El `flow_id` se valida a alfanumérico y longitud
 acotada (`IsValidFlowId`): ni es PII ni permite inyectar contenido arbitrario en la traza. El logging
 es estructurado (parámetros, no interpolación).
+
+### Endurecimiento transversal del perímetro (P-005, P-006)
+
+Al cerrar el perímetro de seguridad del Hito A se incorporan dos middlewares que la KB exige a
+**todas** las respuestas y que no estaban implementados. Se hacen ahora (en vez de diferirlos a
+`MVP-999`) por ser "seguros por defecto": aplicarlos en un único punto del pipeline evita retrofit
+endpoint a endpoint y hace que todo desarrollo posterior los herede de serie. Decisión tomada con el
+Product Owner (ver registro de `MVP-999`, P-005/P-006 → resueltos aquí; P-007 diferido a `MVP-202`).
+
+- **`SecurityHeadersMiddleware` (P-005).** Añade `Strict-Transport-Security`, `X-Content-Type-Options:
+  nosniff`, `X-Frame-Options: DENY` y `Content-Security-Policy: default-src 'self'`
+  (`docs/07-seguridad/autenticacion-autorizacion.md`). La API solo devuelve JSON y el SPA se sirve
+  aparte, así que la CSP estricta no afecta al frontend. Se registra al inicio del pipeline para cubrir
+  también las respuestas de error y las redirecciones.
+- **`RequestIdMiddleware` (P-006).** Garantiza `X-Request-Id` en toda respuesta
+  (`docs/02-arquitectura/contratos-api.md`): reutiliza el entrante si es válido (encadena la traza con
+  quien llama) o genera uno, y lo publica en la respuesta y en el scope de logging para correlacionar
+  los errores 500 con sus logs. El valor entrante se acota (alfanumérico, `-`/`_`, ≤ 128) para no
+  inyectar contenido arbitrario.
 
 ### API / Contratos
 
@@ -227,12 +248,14 @@ Enforcement (transversal, se materializa en las operaciones de negocio de épica
   - `LoginFunnelEvents`: validación de `flow_id` y allow-list de cliente (excluye éxito/error)
   - `AuthController.LoginTelemetry`: acepta y emite los eventos de cliente; rechaza evento no
     ingestable y `flow_id` inválido
+  - `SecurityHeadersMiddleware`: fija los cuatro headers y no los duplica (P-005)
+  - `RequestIdMiddleware`: genera el id si falta, propaga el entrante válido y descarta el inválido (P-006)
 - [ ] Tests de integración: `POST /auth/telemetry/login` y enforcement de scope contra la app real,
   pendientes junto al resto de tests de integración de la épica (MVP-199)
 - [ ] Tests E2E: embudo de login completo (visto → clic → éxito) y rechazo cross-Workspace, pendientes
   del sprint final
 
-Resultado local: `dotnet test` en verde (99 tests, 24 nuevos), `npm run build` sin errores de
+Resultado local: `dotnet test` en verde (105 tests, 30 nuevos), `npm run build` sin errores de
 TypeScript y `npm run lint` sin advertencias nuevas.
 
 ## Checklist de implementación
@@ -245,4 +268,5 @@ TypeScript y `npm run lint` sin advertencias nuevas.
 - [ ] Módulo de Workspaces documentado en `docs/03-modulos/` (se consolidará al cerrar la épica en
   `MVP-199`, junto con el resto del bloque de identidad)
 - [x] Sin `TODO` sin resolver en este documento
-- [x] Puntos transversales detectados registrados en `MVP-999`
+- [x] Endurecimiento transversal seguro-por-defecto (headers de seguridad P-005 y `X-Request-Id` P-006) implementado en esta historia por acuerdo con el PO
+- [x] Punto transversal diferido (`P-007`, cliente HTTP común) redirigido a `MVP-202` en el registro de `MVP-999`

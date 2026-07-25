@@ -55,6 +55,7 @@ Garantizar que toda operación del MVP queda acotada al Workspace activo y que e
 - Señal mínima de login iniciado, login completado o login abandonado.
 - Trazabilidad segura sin PII sensible en claro.
 - Preparación base para ampliar esta telemetría en la épica de observabilidad.
+- Endurecimiento transversal seguro-por-defecto del perímetro (ampliación acordada con el PO): headers de seguridad HTTP obligatorios (P-005) y `X-Request-Id` de correlación en todas las respuestas (P-006).
 
 ## Fuera de alcance (out-of-scope)
 
@@ -88,3 +89,4 @@ Garantizar que toda operación del MVP queda acotada al Workspace activo y que e
 
 - Aunque parte de la explotación posterior viva en `MVP-006`, la señal mínima de login se considera base del bloque de identidad.
 - Esta historia es la que realmente cierra el perímetro de seguridad del Hito A.
+- Ampliación de alcance acordada con el PO: los puntos transversales P-005 (headers de seguridad HTTP) y P-006 (`X-Request-Id`) se implementan aquí en lugar de diferirlos, por ser seguros por defecto y evitar retrofit endpoint a endpoint. El punto P-007 (cliente HTTP común con manejo reactivo de 403 de scope) se difiere a `MVP-202`, donde existirá la primera pantalla con recurso scoped que defina su UX. Ver registro de `MVP-999`.

@@ -7,6 +7,7 @@ using Terrenario.Api.Application.Auth;
 using Terrenario.Api.Application.Invitations;
 using Terrenario.Api.Application.Workspaces;
 using Terrenario.Api.Common.Errors;
+using Terrenario.Api.Common.Http;
 using Terrenario.Api.Common.Workspaces;
 using Terrenario.Api.Domain.Users;
 using Terrenario.Api.Domain.Workspaces;
@@ -146,6 +147,10 @@ if (!(builder.Configuration.GetSection(EmailOptions.SectionName).Get<EmailOption
 // ── Middleware pipeline ───────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
+
+// Transversales primero, para que cubran también respuestas de error y redirecciones (MVP-105).
+app.UseMiddleware<RequestIdMiddleware>();       // X-Request-Id + scope de logging (P-006)
+app.UseMiddleware<SecurityHeadersMiddleware>(); // Headers de seguridad HTTP (P-005)
 
 app.UseHttpsRedirection();
 app.UseCors("FrontendPolicy");

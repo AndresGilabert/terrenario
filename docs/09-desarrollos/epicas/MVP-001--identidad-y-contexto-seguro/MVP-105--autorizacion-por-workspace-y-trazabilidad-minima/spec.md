@@ -2,7 +2,7 @@
 id: "MVP-105"
 tipo: feature
 titulo: "Autorización por Workspace y trazabilidad mínima de login"
-estado: borrador
+estado: en-progreso
 prioridad: critica
 sprint: ""
 hito: "Hito A — Base segura y multiusuario"
@@ -55,6 +55,7 @@ Garantizar que toda operación del MVP queda acotada al Workspace activo y que e
 - Señal mínima de login iniciado, login completado o login abandonado.
 - Trazabilidad segura sin PII sensible en claro.
 - Preparación base para ampliar esta telemetría en la épica de observabilidad.
+- Endurecimiento transversal seguro-por-defecto del perímetro (ampliación acordada con el PO): headers de seguridad HTTP obligatorios (P-005) y `X-Request-Id` de correlación en todas las respuestas (P-006).
 
 ## Fuera de alcance (out-of-scope)
 
@@ -64,9 +65,9 @@ Garantizar que toda operación del MVP queda acotada al Workspace activo y que e
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Las operaciones protegidas del MVP rechazan accesos fuera del Workspace activo.
-- [ ] **CA-2**: El sistema genera trazas mínimas que permiten diferenciar login iniciado, completado y abandonado.
-- [ ] **CA-3**: La trazabilidad cumple las restricciones de privacidad y no expone PII sensible en logs ni errores.
+- [x] **CA-1**: Las operaciones protegidas del MVP rechazan accesos fuera del Workspace activo. _Primitiva `[RequireWorkspaceScope]` + `IWorkspaceContext.EnsureInScope` → `403 AUTH_WORKSPACE_SCOPE_REQUIRED` / `AUTH_WORKSPACE_FORBIDDEN`. Ver [tech-design.md](./tech-design.md)._
+- [x] **CA-2**: El sistema genera trazas mínimas que permiten diferenciar login iniciado, completado y abandonado. _Eventos `login_screen_viewed`/`login_google_clicked`/`login_abandonment` (cliente) + `login_google_success`/`login_google_error` (servidor), correlacionados por `flow_id`._
+- [x] **CA-3**: La trazabilidad cumple las restricciones de privacidad y no expone PII sensible en logs ni errores. _Solo evento + `flow_id` validado + `channel`; sin email/token; logging estructurado (RN-020/RN-017)._
 
 ## Maquetas y referencias visuales
 
@@ -81,10 +82,11 @@ Garantizar que toda operación del MVP queda acotada al Workspace activo y que e
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| App shell y rutas | RN-034 | parcial | Navegacion interna disponible; sin autorizacion real por scope |
-| LoginPage | RN-020, RN-017 | falta | No hay trazabilidad de exito/abandono ni eventos de seguridad |
+| App shell y rutas | RN-034 | cubierto | Primitiva `[RequireWorkspaceScope]` + `EnsureInScope`; tests de filtro y contexto (`WorkspaceScopeFilterTests`, `WorkspaceScopeContextTests`) |
+| LoginPage | RN-020, RN-017 | cubierto | Embudo `screen_viewed`/`google_clicked`/`abandonment`/`success`/`error` correlacionado por `flow_id`, sin PII; tests `LoginFunnelEventsTests`, `AuthControllerTelemetryTests` |
 
 ## Notas y decisiones
 
 - Aunque parte de la explotación posterior viva en `MVP-006`, la señal mínima de login se considera base del bloque de identidad.
 - Esta historia es la que realmente cierra el perímetro de seguridad del Hito A.
+- Ampliación de alcance acordada con el PO: los puntos transversales P-005 (headers de seguridad HTTP) y P-006 (`X-Request-Id`) se implementan aquí en lugar de diferirlos, por ser seguros por defecto y evitar retrofit endpoint a endpoint. El punto P-007 (cliente HTTP común con manejo reactivo de 403 de scope) se difiere a `MVP-202`, donde existirá la primera pantalla con recurso scoped que defina su UX. Ver registro de `MVP-999`.

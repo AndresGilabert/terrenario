@@ -135,6 +135,38 @@ Reglas de contexto:
 | Aceptar reemite la sesión | Devuelve un `access_token` nuevo ya situado en el Workspace de la invitación |
 | `email_sent: false` | La invitación es válida pero el proveedor de email falló; el enlace se comparte por otro medio |
 
+### 0.c) Telemetría del embudo de login (MVP-105)
+
+| Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
+|---|---|---|---|
+| Ingesta de evento de embudo | `POST /api/v1/auth/telemetry/login` | `event*`, `flow_id*` | `202` (sin cuerpo) |
+
+`POST /api/v1/auth/google/callback` acepta además un `flow_id` **opcional** para correlacionar el
+éxito/error del intercambio con los eventos de cliente. Si no llega, el servidor genera uno.
+
+Validaciones y reglas:
+
+| Regla | Código error / comportamiento |
+|---|---|
+| `event` dentro de `{ login_screen_viewed, login_google_clicked, login_abandonment }` | `VALIDATION_REQUIRED` (400) si no |
+| `flow_id` alfanumérico y de longitud válida (≤ 64) | `VALIDATION_REQUIRED` (400) si no |
+| `login_google_success` / `login_google_error` no se aceptan del cliente | Son autoritativos del servidor (se emiten en el callback) |
+| La traza no contiene PII | Solo `event`, `flow_id` y `channel`; nunca email ni token (RN-020, RN-017) |
+
+> El detalle de eventos y campos mínimos del embudo vive en
+> `../07-seguridad/autenticacion-autorizacion.md`. La explotación completa (dimensiones, persistencia
+> y alertado) es alcance de `MVP-601`.
+
+### Ámbito de Workspace en operaciones protegidas (MVP-105)
+
+Toda operación de negocio Workspace-first se marca con `[RequireWorkspaceScope]`: el Workspace activo
+se resuelve en servidor desde el claim `workspace_id` (RN-034) y **nunca** viaja como parámetro.
+
+| Regla | Código error |
+|---|---|
+| La sesión no tiene ningún Workspace activo | `AUTH_WORKSPACE_SCOPE_REQUIRED` (403) |
+| El recurso no pertenece al Workspace activo (`IWorkspaceContext.EnsureInScope`) | `AUTH_WORKSPACE_FORBIDDEN` (403) |
+
 ### 1) Plots (terrenos)
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |

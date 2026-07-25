@@ -5,19 +5,19 @@ public sealed class LoginTelemetryService(ILogger<LoginTelemetryService> logger)
     private const string Channel = "web";
 
     public void LoginScreenViewed(string flowId) =>
-        LogEvent("login_screen_viewed", flowId);
+        LogEvent(LoginFunnelEvents.ScreenViewed, flowId);
 
     public void LoginGoogleClicked(string flowId) =>
-        LogEvent("login_google_clicked", flowId);
+        LogEvent(LoginFunnelEvents.GoogleClicked, flowId);
 
     public void LoginSuccess(string flowId) =>
-        LogEvent("login_google_success", flowId);
+        LogEvent(LoginFunnelEvents.Success, flowId);
 
     public void LoginError(string flowId, string errorCode) =>
-        LogEvent("login_google_error", flowId, errorCode);
+        LogEvent(LoginFunnelEvents.Error, flowId, errorCode);
 
     public void LoginAbandoned(string flowId) =>
-        LogEvent("login_abandonment", flowId);
+        LogEvent(LoginFunnelEvents.Abandonment, flowId);
 
     private void LogEvent(string eventName, string flowId, string? errorCode = null)
     {

@@ -7,6 +7,8 @@ using Terrenario.Api.Application.Auth;
 using Terrenario.Api.Application.Invitations;
 using Terrenario.Api.Application.Workspaces;
 using Terrenario.Api.Common.Errors;
+using Terrenario.Api.Common.Http;
+using Terrenario.Api.Common.Workspaces;
 using Terrenario.Api.Domain.Users;
 using Terrenario.Api.Domain.Workspaces;
 using Terrenario.Api.Infrastructure.Auth;
@@ -73,6 +75,10 @@ builder.Services.AddScoped<ExchangeGoogleCodeHandler>();
 builder.Services.AddScoped<RefreshTokenHandler>();
 builder.Services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
 builder.Services.AddScoped<IActiveWorkspaceResolver, ActiveWorkspaceResolver>();
+// Contexto de Workspace por petición (MVP-105): el filtro de scope lo rellena y controllers/handlers lo leen.
+builder.Services.AddScoped<WorkspaceScopeContext>();
+builder.Services.AddScoped<IWorkspaceContext>(sp => sp.GetRequiredService<WorkspaceScopeContext>());
+builder.Services.AddScoped<WorkspaceScopeFilter>();
 builder.Services.AddScoped<CreateWorkspaceHandler>();
 builder.Services.AddScoped<ListUserWorkspacesHandler>();
 builder.Services.AddScoped<SwitchActiveWorkspaceHandler>();
@@ -106,7 +112,11 @@ builder.Services.AddCors(options =>
 });
 
 // ── Controllers & OpenAPI ────────────────────────────────────────────────────
-builder.Services.AddControllers();
+// El filtro de excepción traduce el rechazo de scope de Workspace (dominio) a 403 uniforme (MVP-105).
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<WorkspaceAccessExceptionFilter>();
+});
 builder.Services.AddOpenApi();
 
 // Los errores de validación de modelo deben respetar el contrato { error: { code, message } }
@@ -137,6 +147,10 @@ if (!(builder.Configuration.GetSection(EmailOptions.SectionName).Get<EmailOption
 // ── Middleware pipeline ───────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
+
+// Transversales primero, para que cubran también respuestas de error y redirecciones (MVP-105).
+app.UseMiddleware<RequestIdMiddleware>();       // X-Request-Id + scope de logging (P-006)
+app.UseMiddleware<SecurityHeadersMiddleware>(); // Headers de seguridad HTTP (P-005)
 
 app.UseHttpsRedirection();
 app.UseCors("FrontendPolicy");

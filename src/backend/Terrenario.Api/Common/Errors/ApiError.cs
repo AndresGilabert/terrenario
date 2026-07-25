@@ -21,6 +21,12 @@ public sealed record ApiError(string Code, string Message)
 
     public static ApiError WorkspaceNotFound() =>
         new(ErrorCodes.WorkspaceNotFound, "Todavía no tienes ningún Workspace activo.");
+
+    public static ApiError WorkspaceScopeRequired() =>
+        new(ErrorCodes.AuthWorkspaceScopeRequired, "Necesitas un Workspace activo para esta operación.");
+
+    public static ApiError WorkspaceForbidden(string? message = null) =>
+        new(ErrorCodes.AuthWorkspaceForbidden, message ?? "No tienes acceso a este recurso en tu Workspace activo.");
 }
 
 public sealed record ApiErrorResponse(ApiError Error);

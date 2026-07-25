@@ -89,25 +89,18 @@ public sealed class WorkspacesController(
         if (userId is null)
             return Unauthorized(new ApiErrorResponse(ApiError.Unauthenticated()));
 
-        try
-        {
-            var result = await switchActiveWorkspaceHandler.HandleAsync(
-                new SwitchActiveWorkspaceCommand(userId.Value, User.GetDisplayName(), request.WorkspaceId!.Value),
-                ct);
+        // Activar un Workspace sin membresía activa lanza WorkspaceAccessDeniedException, que el
+        // WorkspaceAccessExceptionFilter traduce a 403 AUTH_WORKSPACE_FORBIDDEN de forma uniforme.
+        var result = await switchActiveWorkspaceHandler.HandleAsync(
+            new SwitchActiveWorkspaceCommand(userId.Value, User.GetDisplayName(), request.WorkspaceId!.Value),
+            ct);
 
-            return Ok(new
-            {
-                workspace = new { id = result.Workspace.Id, name = result.Workspace.Name },
-                access_token = result.AccessToken,
-                expires_in = result.ExpiresIn
-            });
-        }
-        catch (WorkspaceAccessDeniedException ex)
+        return Ok(new
         {
-            return StatusCode(
-                StatusCodes.Status403Forbidden,
-                new ApiErrorResponse(ApiError.Validation(ErrorCodes.AuthWorkspaceForbidden, ex.Message)));
-        }
+            workspace = new { id = result.Workspace.Id, name = result.Workspace.Name },
+            access_token = result.AccessToken,
+            expires_in = result.ExpiresIn
+        });
     }
 
     [HttpGet("active")]

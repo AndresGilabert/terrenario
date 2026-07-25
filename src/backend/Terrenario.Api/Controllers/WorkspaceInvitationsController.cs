@@ -3,37 +3,32 @@ using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
 using Terrenario.Api.Application.Invitations;
 using Terrenario.Api.Application.Invitations.Commands;
-using Terrenario.Api.Application.Workspaces;
 using Terrenario.Api.Common.Auth;
 using Terrenario.Api.Common.Errors;
+using Terrenario.Api.Common.Workspaces;
 using Terrenario.Api.Domain.Workspaces;
 
 namespace Terrenario.Api.Controllers;
 
 /// <summary>
 /// MVP-103 — Invitaciones del Workspace activo. Cualquier miembro puede invitar: en MVP los
-/// permisos son planos (RN-034).
+/// permisos son planos (RN-034). El Workspace de origen no viaja en la petición: lo resuelve
+/// <see cref="RequireWorkspaceScopeAttribute"/> desde la sesión y lo publica en
+/// <see cref="IWorkspaceContext"/> (MVP-105).
 /// </summary>
 [ApiController]
 [Authorize]
+[RequireWorkspaceScope]
 [Route("api/v1/workspaces/invitations")]
 public sealed class WorkspaceInvitationsController(
     CreateInvitationHandler createInvitationHandler,
     ListWorkspaceInvitationsHandler listWorkspaceInvitationsHandler,
-    IActiveWorkspaceResolver activeWorkspaceResolver) : ControllerBase
+    IWorkspaceContext workspaceContext) : ControllerBase
 {
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateInvitationRequest request, CancellationToken ct)
     {
-        var userId = User.GetUserId();
-
-        if (userId is null)
-            return Unauthorized(new ApiErrorResponse(ApiError.Unauthenticated()));
-
-        var workspace = await activeWorkspaceResolver.ResolveAsync(userId.Value, User.GetWorkspaceId(), ct);
-
-        if (workspace is null)
-            return WorkspaceScopeRequired();
+        var workspace = workspaceContext.Workspace;
 
         try
         {
@@ -41,7 +36,7 @@ public sealed class WorkspaceInvitationsController(
                 new CreateInvitationCommand(
                     workspace.Id,
                     workspace.Name,
-                    userId.Value,
+                    User.GetUserId()!.Value,
                     User.GetDisplayName(),
                     request.Channel,
                     request.Email),
@@ -67,17 +62,7 @@ public sealed class WorkspaceInvitationsController(
     [HttpGet]
     public async Task<IActionResult> ListPending(CancellationToken ct)
     {
-        var userId = User.GetUserId();
-
-        if (userId is null)
-            return Unauthorized(new ApiErrorResponse(ApiError.Unauthenticated()));
-
-        var workspace = await activeWorkspaceResolver.ResolveAsync(userId.Value, User.GetWorkspaceId(), ct);
-
-        if (workspace is null)
-            return WorkspaceScopeRequired();
-
-        var invitations = await listWorkspaceInvitationsHandler.HandleAsync(workspace.Id, ct);
+        var invitations = await listWorkspaceInvitationsHandler.HandleAsync(workspaceContext.WorkspaceId, ct);
 
         return Ok(new
         {
@@ -93,14 +78,6 @@ public sealed class WorkspaceInvitationsController(
             meta = new { total = invitations.Count }
         });
     }
-
-    private ObjectResult WorkspaceScopeRequired() =>
-        new(new ApiErrorResponse(new ApiError(
-            ErrorCodes.AuthWorkspaceScopeRequired,
-            "Necesitas un Workspace activo para gestionar invitaciones.")))
-        {
-            StatusCode = StatusCodes.Status403Forbidden
-        };
 }
 
 public sealed record CreateInvitationRequest(

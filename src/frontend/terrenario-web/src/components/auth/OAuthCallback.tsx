@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { authService, AuthServiceError } from '../../services/auth.service';
 import { useAuth } from '../../contexts/AuthContext';
 import { consumePostLoginRedirect } from '../../lib/post-login-redirect';
+import { clearLoginFlow, getLoginFlowId } from '../../lib/login-telemetry';
 
 const REDIRECT_URI = `${window.location.origin}/auth/callback`;
 
@@ -45,8 +46,17 @@ export const OAuthCallback: React.FC = () => {
     sessionStorage.removeItem('pkce_code_verifier');
 
     authService
-      .exchangeGoogleCode({ code, redirectUri: REDIRECT_URI, codeVerifier })
+      .exchangeGoogleCode({
+        code,
+        redirectUri: REDIRECT_URI,
+        codeVerifier,
+        // El servidor emite login_google_success con este mismo flow_id: cierra el embudo (MVP-105).
+        flowId: getLoginFlowId(),
+      })
       .then((tokenResponse) => {
+        // Acceso completado: el intento de login se cierra y el próximo abre un flow_id nuevo.
+        clearLoginFlow();
+
         login(tokenResponse.access_token, {
           id: tokenResponse.user.id,
           displayName: tokenResponse.user.display_name,

@@ -71,6 +71,14 @@ Ejecutar una revision final de la epica para validar el funcionamiento global, c
 
 - No aplica para esta historia de gobierno de alcance.
 
+## Registro de triage de la epica en curso
+
+Usa esta seccion para decidir cuanto antes los puntos de alcance critico detectados dentro de MVP-001, sin diferirlos a fases finales del MVP.
+
+| Punto | Fecha deteccion | Origen (epica/historia) | Tipo | Descripcion breve | Impacto | Bloqueante | Estado de revision | Decision esperada |
+|---|---|---|---|---|---|---|---|---|
+| T-001 | 2026-07-24 | MVP-001 / MVP-102 / MVP-104 | funcional | Gestion del ciclo de vida del Workspace: hoy existe alta (`POST /api/v1/workspaces`) y cambio de activo (`PUT /api/v1/workspaces/active`), pero no hay plan explicito para edicion (renombrado/ajustes) ni eliminacion (baja logica o fisica) de Workspaces existentes. Definir alcance MVP/post-MVP, reglas de seguridad (quien puede hacerlo), precondiciones (workspace activo, miembros, datos historicos) y contrato API/UI. | alto | si | en-analisis | Resolver en esta revision de epica y derivar historia prioritaria inmediata |
+
 ## Notas y decisiones
 
 - Esta historia debe ejecutarse siempre como cierre de la epica.

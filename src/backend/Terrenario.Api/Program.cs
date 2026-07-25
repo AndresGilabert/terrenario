@@ -74,6 +74,8 @@ builder.Services.AddScoped<RefreshTokenHandler>();
 builder.Services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
 builder.Services.AddScoped<IActiveWorkspaceResolver, ActiveWorkspaceResolver>();
 builder.Services.AddScoped<CreateWorkspaceHandler>();
+builder.Services.AddScoped<ListUserWorkspacesHandler>();
+builder.Services.AddScoped<SwitchActiveWorkspaceHandler>();
 builder.Services.AddScoped<IWorkspaceInvitationRepository, WorkspaceInvitationRepository>();
 builder.Services.AddScoped<IInvitationTokenService, InvitationTokenService>();
 builder.Services.AddScoped<IInvitationEmailSender, SmtpInvitationEmailSender>();

@@ -43,8 +43,12 @@ public sealed class AcceptInvitationHandler(
         if (!alreadyMember)
             await workspaceRepository.AddMemberAsync(WorkspaceMember.CreateMember(workspace.Id, user.Id), ct);
 
-        // Ambos repositorios comparten el DbContext de la petición, así que membresía e
-        // invitación se escriben en la misma transacción implícita de EF Core.
+        // El Workspace recién aceptado queda como activo persistido para no perderlo en la
+        // siguiente renovación de sesión (MVP-104).
+        user.SetActiveWorkspace(workspace.Id);
+
+        // Ambos repositorios comparten el DbContext de la petición, así que membresía,
+        // invitación y preferencia se escriben en la misma transacción implícita de EF Core.
         await invitationRepository.SaveChangesAsync(ct);
 
         var accessToken = jwtService.IssueAccessToken(user.Id, user.DisplayName, workspace.Id);

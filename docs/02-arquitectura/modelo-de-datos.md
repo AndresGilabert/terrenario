@@ -23,6 +23,7 @@ erDiagram
         string google_sub
         string display_name
         string email
+        uuid active_workspace_id FK
         timestamp created_at
         timestamp updated_at
         boolean is_active
@@ -41,7 +42,7 @@ erDiagram
         uuid workspace_id FK
         uuid user_id FK
         string role
-        boolean is_active
+        string status
         timestamp joined_at
     }
 
@@ -161,6 +162,7 @@ erDiagram
     }
 
     USER ||--o{ WORKSPACE_MEMBER : participa_en
+    USER ||--o| WORKSPACE : tiene_activo
     WORKSPACE ||--o{ WORKSPACE_MEMBER : tiene_miembros
     WORKSPACE ||--o{ WORKSPACE_INVITATION : emite
     USER ||--o{ WORKSPACE_INVITATION : invita
@@ -189,9 +191,15 @@ erDiagram
 | Campo | Tipo | Obligatorio | Descripcion |
 |-------|------|-------------|-------------|
 | `role` | string | Si | `workspace_owner` o `workspace_member`. Informativo en MVP por RN-034 |
-| `is_active` | boolean | Si | Membresia vigente. Estados completos de invitacion en MVP-103 |
+| `status` | string | Si | Catalogo `worker_member_status`: `invitado`, `activo`, `revocado`. Solo `activo` da acceso y aparece en el selector (MVP-104) |
 
-Restriccion: indice unico `(workspace_id, user_id)`. Un usuario no puede tener dos membresias del mismo Workspace.
+Restricciones: indice unico `(workspace_id, user_id)` (un usuario no puede tener dos membresias del mismo Workspace) e indice de apoyo `(user_id, status)` para el selector de Workspace activo.
+
+### USER (contexto activo)
+
+| Campo | Tipo | Obligatorio | Descripcion |
+|-------|------|-------------|-------------|
+| `active_workspace_id` | UUID (nullable) | No | Ultimo Workspace que el usuario dejo activo. Mantiene el contexto entre renovaciones de sesion (MVP-104). `ON DELETE SET NULL` si el Workspace desaparece |
 
 ### WORKSPACE_INVITATION
 
@@ -278,9 +286,9 @@ invitacion es de un solo uso: al aceptarse pasa a `aceptada` y no vuelve a ser v
 
 | Entidad | Estado | Historia |
 |---|---|---|
-| `USER` | implementada | MVP-101 |
+| `USER` | implementada | MVP-101 (contexto activo en MVP-104) |
 | `WORKSPACE` | implementada | MVP-102 |
-| `WORKSPACE_MEMBER` | implementada | MVP-102 |
+| `WORKSPACE_MEMBER` | implementada | MVP-102 (estados de membresia en MVP-104) |
 | `WORKSPACE_INVITATION` | implementada | MVP-103 |
 | `PLOT`, `SEASON`, `WORKER` | pendiente | MVP-002 |
 | `ACTIVITY`, `PURCHASE`, `PURCHASE_CONSUMPTION` | pendiente | MVP-003 |

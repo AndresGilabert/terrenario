@@ -26,10 +26,18 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
             entity.Property(u => u.DisplayName).HasColumnName("display_name").IsRequired();
             entity.Property(u => u.Email).HasColumnName("email").IsRequired();
             entity.Property(u => u.IsActive).HasColumnName("is_active");
+            entity.Property(u => u.ActiveWorkspaceId).HasColumnName("active_workspace_id");
             entity.Property(u => u.CreatedAt).HasColumnName("created_at");
             entity.Property(u => u.UpdatedAt).HasColumnName("updated_at");
 
             entity.HasIndex(u => u.GoogleSub).IsUnique();
+
+            // Si el Workspace preferido desaparece, la sesión vuelve a resolver por defecto
+            // en lugar de quedar apuntando a un contexto inexistente.
+            entity.HasOne<Workspace>()
+                .WithMany()
+                .HasForeignKey(u => u.ActiveWorkspaceId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<RefreshTokenEntity>(entity =>
@@ -74,11 +82,14 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
             entity.Property(m => m.WorkspaceId).HasColumnName("workspace_id").IsRequired();
             entity.Property(m => m.UserId).HasColumnName("user_id").IsRequired();
             entity.Property(m => m.Role).HasColumnName("role").HasMaxLength(50).IsRequired();
-            entity.Property(m => m.IsActive).HasColumnName("is_active");
+            entity.Property(m => m.Status).HasColumnName("status").HasMaxLength(20).IsRequired();
             entity.Property(m => m.JoinedAt).HasColumnName("joined_at");
+            entity.Ignore(m => m.IsActive);
 
             entity.HasIndex(m => new { m.WorkspaceId, m.UserId }).IsUnique();
-            entity.HasIndex(m => m.UserId);
+
+            // El selector consulta siempre por usuario y estado (MVP-104).
+            entity.HasIndex(m => new { m.UserId, m.Status });
 
             entity.HasOne<Workspace>()
                 .WithMany()

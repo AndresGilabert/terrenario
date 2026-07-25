@@ -7,6 +7,13 @@ public sealed class User
     public string DisplayName { get; private set; } = string.Empty;
     public string Email { get; private set; } = string.Empty;
     public bool IsActive { get; private set; }
+
+    /// <summary>
+    /// Último Workspace que el usuario dejó activo. Es lo que mantiene el contexto entre
+    /// renovaciones de sesión y nuevos logins (MVP-104), donde el claim ya no viaja.
+    /// </summary>
+    public Guid? ActiveWorkspaceId { get; private set; }
+
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
@@ -37,6 +44,18 @@ public sealed class User
 
         DisplayName = displayName;
         Email = email;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Recuerda el Workspace sobre el que opera el usuario. La pertenencia se valida antes de
+    /// llamar aquí: el agregado solo guarda la preferencia, no concede acceso.
+    /// </summary>
+    public void SetActiveWorkspace(Guid workspaceId)
+    {
+        if (ActiveWorkspaceId == workspaceId) return;
+
+        ActiveWorkspaceId = workspaceId;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 }

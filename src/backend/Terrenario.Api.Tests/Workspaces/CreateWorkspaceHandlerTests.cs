@@ -3,6 +3,7 @@ using NSubstitute;
 using Terrenario.Api.Application.Workspaces;
 using Terrenario.Api.Application.Workspaces.Commands;
 using Terrenario.Api.Common.Errors;
+using Terrenario.Api.Domain.Users;
 using Terrenario.Api.Domain.Workspaces;
 using Terrenario.Api.Infrastructure.Auth;
 
@@ -11,9 +12,10 @@ namespace Terrenario.Api.Tests.Workspaces;
 public class CreateWorkspaceHandlerTests
 {
     private readonly IWorkspaceRepository _workspaceRepository = Substitute.For<IWorkspaceRepository>();
+    private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IJwtService _jwtService = Substitute.For<IJwtService>();
 
-    private CreateWorkspaceHandler CreateSut() => new(_workspaceRepository, _jwtService);
+    private CreateWorkspaceHandler CreateSut() => new(_workspaceRepository, _userRepository, _jwtService);
 
     private static readonly Guid UserId = Guid.NewGuid();
 

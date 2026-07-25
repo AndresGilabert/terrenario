@@ -2,7 +2,7 @@
 id: "MVP-104"
 tipo: feature
 titulo: "Membresía y selector de Workspace activo"
-estado: borrador
+estado: en-progreso
 prioridad: alta
 sprint: ""
 hito: "Hito A — Base segura y multiusuario"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "workspace", "membership"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-24"
 ---
 
 # MVP-104 — Membresía y selector de Workspace activo
@@ -64,9 +64,9 @@ Permitir que el usuario vea sus Workspaces disponibles, cambie el Workspace acti
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Un usuario puede ver todos sus Workspaces disponibles y distinguir el activo.
-- [ ] **CA-2**: Al cambiar de Workspace, la aplicación actualiza el contexto sin mostrar datos cruzados del Workspace anterior.
-- [ ] **CA-3**: El contexto activo queda disponible para las operaciones posteriores del MVP.
+- [x] **CA-1**: Un usuario puede ver todos sus Workspaces disponibles y distinguir el activo.
+- [x] **CA-2**: Al cambiar de Workspace, la aplicación actualiza el contexto sin mostrar datos cruzados del Workspace anterior.
+- [x] **CA-3**: El contexto activo queda disponible para las operaciones posteriores del MVP.
 
 ## Maquetas y referencias visuales
 
@@ -81,8 +81,8 @@ Permitir que el usuario vea sus Workspaces disponibles, cambie el Workspace acti
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| Sidebar | RN-034 | parcial | Selector visual de workspace sin alternancia multi-workspace real |
-| TopNavbar | RN-034 | parcial | Muestra contexto activo de workspace/temporada |
+| Sidebar | RN-034 | cubierto | `WorkspaceSwitcher` lista Workspaces y alterna el activo reemitiendo la sesión |
+| TopNavbar | RN-034 | cubierto | El activo se resuelve en servidor y se muestra sobre la operativa de `/app` |
 
 ## Notas y decisiones
 

@@ -136,8 +136,7 @@ gestionarlas,
 
 - Historia derivada de la revisión de épica **MVP-199** (consolidación de puntos 5, 6 y 7, más
   los hallazgos R-C y R-D).
-- Decisión con el PO (2026-07-25): el punto 7 entra **completo** en la épica (modal no bloqueante
-  + campanita + bandeja de invitaciones recibidas), en lugar de diferir el centro de
-  notificaciones.
+- Decisión con el PO (2026-07-25): el punto 7 entra **completo** en la épica (modal no bloqueante,
+  campanita y bandeja de invitaciones recibidas), en lugar de diferir el centro de notificaciones.
 - Amplía el flujo entregado en MVP-103 sin cambiar sus reglas de negocio (un solo uso, caducidad
   7 días, email vs enlace); añade rechazo y visibilidad in-app.

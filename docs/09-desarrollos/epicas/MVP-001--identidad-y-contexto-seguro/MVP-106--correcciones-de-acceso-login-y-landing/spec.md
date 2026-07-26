@@ -2,7 +2,7 @@
 id: "MVP-106"
 tipo: feature
 titulo: "Correcciones de acceso: login y landing"
-estado: aprobado
+estado: en-progreso
 prioridad: alta
 sprint: ""
 hito: "Hito A — Base segura y multiusuario"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "auth", "ux", "correccion"]
   nivel_riesgo: medio
 creado_en: "2026-07-25"
-actualizado_en: "2026-07-25"
+actualizado_en: "2026-07-26"
 ---
 
 # MVP-106 — Correcciones de acceso: login y landing

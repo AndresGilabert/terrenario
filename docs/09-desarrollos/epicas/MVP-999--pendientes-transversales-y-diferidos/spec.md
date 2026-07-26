@@ -19,9 +19,9 @@ ai_context:
   etiquetas: ["mvp", "pendientes", "transversal"]
   nivel_riesgo: medio
 creado_en: "2026-07-24"
-actualizado_en: "2026-07-25"
+actualizado_en: "2026-07-26"
 ---
-<!-- actualizado_en refleja la ultima anotacion en el registro de puntos (P-008..P-010 detectados en la revision de epica MVP-199). -->
+<!-- actualizado_en refleja la ultima anotacion en el registro de puntos (P-009 resuelto en MVP-106; P-008..P-010 detectados en la revision de epica MVP-199). -->
 
 # EPICA MVP-999 — Pendientes transversales y diferidos
 
@@ -77,7 +77,7 @@ Cuando una epica cierre su `MVP-x99`, estos puntos deben revisarse, priorizarse 
 | P-006 | 2026-07-25 | MVP-001 / MVP-105 | observabilidad | `X-Request-Id` en todas las respuestas, exigido por las convenciones de `docs/02-arquitectura/contratos-api.md` (trazabilidad y correlacion de errores 500), no implementado ni asignado. Transversal a toda la API. **Decision con PO: refuerza directamente la "trazabilidad minima" de MVP-105 y es seguro por defecto, se implementa YA en MVP-105 (`RequestIdMiddleware`) en vez de diferirlo.** | medio | no | MVP-105 | resuelto | MVP-105 |
 | P-007 | 2026-07-25 | MVP-001 / MVP-105 | tecnico | Cliente HTTP comun en el frontend con manejo centralizado de 401/403 de scope. Hoy cada `*.service.ts` hace `fetch` a mano. Con el enforcement introducido en MVP-105, cuando lleguen recursos con ambito de Workspace conviene un cliente unico que reaccione a `AUTH_WORKSPACE_SCOPE_REQUIRED` (forzar onboarding/seleccion de Workspace) y `AUTH_WORKSPACE_FORBIDDEN` (refrescar contexto), ademas del refresh de token ya existente. **Decision con PO: se difiere a MVP-202 (primer maestro con recurso scoped), donde la UX del 403 quedara definida; construirlo ahora sin consumidor real seria una abstraccion prematura.** | bajo | no | MVP-202 | aprobado-crear-historia | MVP-202 (enganchar al primer recurso con scope) |
 | P-008 | 2026-07-25 | MVP-001 / MVP-106 (rev. MVP-199) | legal/ux | Paginas de **Politica de Privacidad** y **Terminos del Servicio** para el usuario final y **consentimiento de cookies**. Hoy los enlaces del login (`LoginPage.tsx:119,123`) apuntan a rutas inexistentes; MVP-106 solo corrige el comportamiento roto de los enlaces, no crea el contenido. El marco de cumplimiento existe solo como doc interno (`docs/07-seguridad/privacidad-datos.md`, RGPD/LOPDGDD, LSSI/ePrivacy). Requiere contenido legal validado. Enlazar con P-001 (emails y criterios legales). | medio | no | MVP-005 / MVP-502 | pendiente | - |
-| P-009 | 2026-07-25 | MVP-001 / MVP-101 (rev. MVP-199) | tecnico | Codigo muerto en el login: boton "Acceder como invitado / Demo" (`LoginPage.tsx:105-114`) que nunca se cablea (`onDemoAccess` no se pasa desde `App.tsx`). Retirar o decidir su uso. | bajo | no | MVP-999 | pendiente | - (posible retirada oportunista en MVP-106) |
+| P-009 | 2026-07-25 | MVP-001 / MVP-101 (rev. MVP-199) | tecnico | Codigo muerto en el login: boton "Acceder como invitado / Demo" (`LoginPage.tsx:105-114`) que nunca se cablea (`onDemoAccess` no se pasa desde `App.tsx`). Retirar o decidir su uso. **Resuelto: retirada oportunista en MVP-106 (prop `onDemoAccess` y bloque demo eliminados de `LoginPage.tsx`).** | bajo | no | MVP-106 | resuelto | MVP-106 |
 | P-010 | 2026-07-25 | MVP-001 / MVP-102 (rev. MVP-199) | ux | El asistente de creacion de Workspace muestra "Paso 1 de 3" (`CreateWorkspacePage.tsx`) pero los pasos 2-3 (temporada inicial, MVP-201) no existen aun en el build; el indicador puede confundir. Ajustar el copy/indicador mientras MVP-201 no este entregado. | bajo | no | MVP-999 | pendiente | - (posible ajuste en MVP-106) |
 
 ### Criterios de uso del registro

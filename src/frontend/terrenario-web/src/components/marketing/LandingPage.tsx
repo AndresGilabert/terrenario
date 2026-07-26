@@ -20,21 +20,14 @@ export const LandingPage: React.FC = () => {
 
         <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-[#45483c]">
           <a href="#beneficios" className="hover:text-[#33450d] transition-colors">Beneficios</a>
-          <a href="#funciones" className="hover:text-[#33450d] transition-colors">Funcionalidades</a>
         </nav>
 
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/login')}
-            className="px-4 py-2 text-sm font-semibold text-[#33450d] hover:bg-[#f0ede8] rounded-xl transition-colors"
-          >
-            Ingresar
-          </button>
-          <button
-            onClick={() => navigate('/login')}
             className="px-4 py-2 text-sm font-semibold text-white bg-[#33450d] hover:bg-[#4a5d23] rounded-xl shadow-sm transition-colors"
           >
-            Empezar Gratis
+            Acceder
           </button>
         </div>
       </header>
@@ -59,13 +52,8 @@ export const LandingPage: React.FC = () => {
             onClick={() => navigate('/login')}
             className="flex items-center justify-center gap-3 px-6 py-3.5 rounded-xl bg-[#33450d] hover:bg-[#4a5d23] text-white font-semibold text-base shadow-md transition-all"
           >
-            Empezar gratis con Google
+            Acceder a la plataforma
           </button>
-        </div>
-
-        <div className="pt-4 flex items-center justify-center gap-6 text-xs font-semibold text-[#76786b]">
-          <span>✅ Sin tarjeta de crédito</span>
-          <span>✅ Configuración en 2 minutos</span>
         </div>
       </section>
 
@@ -108,7 +96,7 @@ export const LandingPage: React.FC = () => {
             onClick={() => navigate('/login')}
             className="px-8 py-4 rounded-xl bg-[#c9f16f] text-[#33450d] hover:bg-[#aed456] font-bold text-base shadow-lg transition-all"
           >
-            Crear mi Workspace gratis
+            Acceder a la plataforma
           </button>
         </div>
       </section>
@@ -122,7 +110,7 @@ export const LandingPage: React.FC = () => {
             <span>© 2026. Todos los derechos reservados.</span>
           </div>
           <div className="flex items-center gap-6">
-            <button onClick={() => navigate('/login')} className="hover:underline">Iniciar Sesión</button>
+            <button onClick={() => navigate('/login')} className="hover:underline">Acceder</button>
           </div>
         </div>
       </footer>

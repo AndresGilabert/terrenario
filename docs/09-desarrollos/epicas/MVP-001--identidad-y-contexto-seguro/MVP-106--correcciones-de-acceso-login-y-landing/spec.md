@@ -2,7 +2,7 @@
 id: "MVP-106"
 tipo: feature
 titulo: "Correcciones de acceso: login y landing"
-estado: en-progreso
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito A — Base segura y multiusuario"
@@ -100,14 +100,17 @@ ofrece un único mensaje de acceso claro y ningún enlace del acceso lleva a un 
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Un login válido con Google completa el acceso sin renderizar en ningún momento
+- [x] **CA-1**: Un login válido con Google completa el acceso sin renderizar en ningún momento
   la pantalla "No se pudo iniciar sesión", incluso ante doble montaje del callback.
-- [ ] **CA-2**: La landing presenta un único patrón de acceso coherente ("Acceder" /
+  _Guard de idempotencia a nivel de módulo (`processedCodes` Set) y borrado de artefactos PKCE
+  solo tras resolver el intercambio en `OAuthCallback.tsx`._
+- [x] **CA-2**: La landing presenta un único patrón de acceso coherente ("Acceder" /
   "Acceder a la plataforma"), sin la palabra "gratis", sin el enlace "Ingresar", sin el enlace
   roto "Funcionalidades" y sin ningún botón que prometa iniciar Google sin hacerlo.
-- [ ] **CA-3**: Los enlaces "Política de Privacidad" y "Términos del Servicio" del login no
+  _Verificado en `LandingPage.tsx`: sin términos prohibidos; toda CTA navega a `/login`._
+- [x] **CA-3**: Los enlaces "Política de Privacidad" y "Términos del Servicio" del login no
   redirigen a la landing ni provocan recarga; muestran un estado definido hasta que exista
-  contenido legal.
+  contenido legal. _`<button disabled title="Disponible próximamente">` en `LoginPage.tsx`._
 
 ## Diseño técnico
 

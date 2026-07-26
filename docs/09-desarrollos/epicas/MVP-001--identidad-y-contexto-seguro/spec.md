@@ -2,7 +2,7 @@
 id: "MVP-001"
 tipo: epica
 titulo: "Identidad y contexto seguro de Workspace"
-estado: borrador
+estado: completado
 prioridad: critica
 hito: "Hito A — Base segura y multiusuario"
 tickets: []
@@ -19,7 +19,7 @@ ai_context:
   etiquetas: ["mvp", "auth", "workspace"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-24"
+actualizado_en: "2026-07-26"
 ---
 
 # EPICA MVP-001 — Identidad y contexto seguro de Workspace
@@ -58,9 +58,9 @@ Permitir que un usuario pueda autenticarse con Google, crear o unirse a un Works
 
 ## Criterios de aceptación de la épica
 
-- [ ] **CA-1**: Todas las historias de la épica están en estado `completado`.
-- [ ] **CA-2**: Un usuario puede autenticarse con Google, crear o aceptar un Workspace y operar dentro del Workspace activo sin pasos manuales fuera del flujo principal.
-- [ ] **CA-3**: Todas las operaciones operativas del MVP se ejecutan con ámbito de Workspace y rechazan acceso fuera de ese contexto.
+- [x] **CA-1**: Todas las historias de la épica están en estado `completado`. _MVP-101..107 y MVP-199 en `completado` tras la 2ª revisión (2026-07-26)._
+- [x] **CA-2**: Un usuario puede autenticarse con Google, crear o aceptar un Workspace y operar dentro del Workspace activo sin pasos manuales fuera del flujo principal. _Acceso post-login directo (MVP-107) e invitaciones no bloqueantes._
+- [x] **CA-3**: Todas las operaciones operativas del MVP se ejecutan con ámbito de Workspace y rechazan acceso fuera de ese contexto. _Primitiva `[RequireWorkspaceScope]` + `EnsureInScope` (MVP-105)._
 
 ## Historias de esta épica
 

@@ -2,7 +2,7 @@
 id: "MVP-199"
 tipo: feature
 titulo: "Revision epica"
-estado: borrador
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito A — Base segura y multiusuario"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "revision-epica", "cierre"]
   nivel_riesgo: medio
 creado_en: "2026-07-24"
-actualizado_en: "2026-07-24"
+actualizado_en: "2026-07-26"
 ---
 
 # MVP-199 — Revision epica
@@ -83,7 +83,7 @@ Usa esta seccion para decidir cuanto antes los puntos de alcance critico detecta
 
 | Punto | Fecha deteccion | Origen (epica/historia) | Tipo | Descripcion breve | Impacto | Bloqueante | Estado de revision | Decision esperada |
 |---|---|---|---|---|---|---|---|---|
-| T-001 | 2026-07-24 | MVP-001 / MVP-102 / MVP-104 | funcional | Gestion del ciclo de vida del Workspace: hoy existe alta (`POST /api/v1/workspaces`) y cambio de activo (`PUT /api/v1/workspaces/active`), pero no hay plan explicito para edicion (renombrado/ajustes) ni eliminacion (baja logica o fisica) de Workspaces existentes. Definir alcance MVP/post-MVP, reglas de seguridad (quien puede hacerlo), precondiciones (workspace activo, miembros, datos historicos) y contrato API/UI. | alto | si | aprobado-crear-historia | Mismo asunto que P-004 (MVP-999); derivar historia de ciclo de vida de Workspace. Sigue pendiente de crear |
+| T-001 | 2026-07-24 | MVP-001 / MVP-102 / MVP-104 | funcional | Gestion del ciclo de vida del Workspace: hoy existe alta (`POST /api/v1/workspaces`) y cambio de activo (`PUT /api/v1/workspaces/active`), pero no hay plan explicito para edicion (renombrado/ajustes) ni eliminacion (baja logica o fisica) de Workspaces existentes. Definir alcance MVP/post-MVP, reglas de seguridad (quien puede hacerlo), precondiciones (workspace activo, miembros, datos historicos) y contrato API/UI. | alto | si | resuelto (derivado fuera de MVP-001) | 2a revision 2026-07-26: la 1a pasada creo la creacion de adicionales (P-013) dentro de MVP-107 pero no la edicion/eliminacion, dejando una asimetria. Decision del PO (2026-07-26): NO se resuelve en MVP-001; el ciclo de vida (renombrar/eliminar) se traslada a **MVP-002 / MVP-204** junto a P-002/P-003 (= P-004 en MVP-999). MVP-001 cierra sin este flujo |
 | R-01 (punto 1) | 2026-07-25 | MVP-001 / MVP-101 | ux | Landing: enlace "Funcionalidades" apunta al ancla `#funciones` sin seccion destino (`LandingPage.tsx:23`); no hace scroll. | bajo | no | aprobado-crear-historia | Arreglar ya en la epica: retirar el enlace. Historia MVP-106 |
 | R-02 (punto 2) | 2026-07-25 | MVP-001 / MVP-101 | ux | Landing: 5 CTAs de acceso redundantes ("Ingresar", "Empezar Gratis", "Empezar gratis con Google", "Crear mi Workspace gratis", "Iniciar Sesion"); el hero "con Google" no inicia Google, solo navega a `/login`. | medio | no | aprobado-crear-historia | Coherencia de copy (quitar "Ingresar", "Acceder"/"Acceder a la plataforma", sin "gratis"). Historia MVP-106 |
 | R-03 (punto 3) | 2026-07-25 | MVP-001 / MVP-101 | ux/legal | Login: enlaces "Politica de Privacidad" y "Terminos del Servicio" (`LoginPage.tsx:119,123`) apuntan a `/privacidad` y `/terminos` inexistentes; el catch-all (`App.tsx:42`) los redirige a la landing. Ademas no existe contenido legal para el usuario final. | medio | no | aprobado-crear-historia | Split: comportamiento roto de enlaces -> MVP-106; contenido legal + cookies -> diferido P-008 (MVP-999) |
@@ -115,6 +115,53 @@ adicionales (R-A..R-I) se clasifican asi:
 
 Con la decision del PO, el alcance de la epica MVP-001 se amplia con MVP-106 y MVP-107; la epica
 no se cierra hasta entregarlas.
+
+## Resultado de la 2a revision (2026-07-26)
+
+Segunda pasada de cierre tras la entrega de `MVP-106` (PR #9) y `MVP-107` (PR #10), verificando la
+implementacion **contra el codigo real** (frontend `src/frontend/terrenario-web` y backend
+`src/backend/Terrenario.Api`), no solo build/tests.
+
+**Verificacion de entrega (todas las historias entregadas y conformes):**
+
+- `MVP-106` — 3/3 CA CUMPLEN: callback OIDC idempotente (`processedCodes` a nivel de modulo, sin
+  borrar artefactos PKCE hasta resolver), landing con patron de acceso unico (sin "gratis",
+  "Ingresar", "#funciones" ni "con Google" enganoso) y enlaces legales deshabilitados
+  ("proximamente"). P-009 (codigo muerto Demo) retirado.
+- `MVP-107` — 3/3 CA CUMPLEN: acceso post-login directo sin pagina-gate, preview con aptitud
+  (`viewer.can_accept` sin PII), rechazo (`POST /api/v1/invitations/{token}/reject`), campanita +
+  bandeja de recibidas (`GET /api/v1/invitations/received`) y modal descartable. Ademas quedan
+  resueltos P-013 (crear Workspace adicional), P-014 (bug EF 500 en `GET /workspaces` con
+  regresion SQLite real), P-015 (design-system) y P-016 (shell de app).
+- `MVP-101..105` — sin regresiones detectadas; sesion base completa (login + refresh + logout).
+
+**Reconciliacion de gobernanza aplicada (habilita el CA-1 de la epica):**
+
+- `MVP-106`: `en-progreso` → `completado`, CA marcados `[x]`.
+- `MVP-107`: `aprobado` → `completado`, CA marcados `[x]`.
+- `MVP-101`: checklist de CA cerrado (`[x]`); ya estaba `completado`.
+- `_indice.md` regenerado (8/8).
+- `MVP-199`: `borrador` → `completado`.
+
+**Alcance absorbido en MVP-001 (trazado, no defecto):** creacion de Workspaces adicionales (P-013)
+y los fundamentos transversales de UI —design-system (P-015) y shell (P-016)— entraron via
+MVP-107. Documentado en `MVP-999` que esa base ya existe para MVP-002..004.
+
+**Pendientes reruteados/confirmados en esta pasada:**
+
+- `T-001`/`P-004` — ciclo de vida de Workspace (renombrar/eliminar): decision del PO, **fuera de
+  MVP-001**, se traslada a **MVP-002 / MVP-204** (pendiente de crear). Cierra la asimetria
+  documentalmente: crear adicionales existe, editar/eliminar se plantea alli.
+- `P-008` — contenido legal (Privacidad/Terminos) + consentimiento de cookies: **se mantiene
+  diferido** a MVP-005/MVP-502 (decision del PO). Vigilar como requisito previo a salida a
+  produccion/beta publica por RGPD/LOPDGDD/LSSI.
+- `P-010` — copy "Paso 1 de 3" del onboarding: sigue visible (verificado en
+  `CreateWorkspacePage.tsx`); permanece `pendiente` en MVP-999. Deuda cosmetica menor.
+- `P-011` (refresco campanita), `P-012` (arnes tests frontend): correctamente diferidos.
+
+**Conclusion:** con la reconciliacion aplicada, las 8 historias quedan en `completado`, los CA de
+la epica (CA-1/CA-2/CA-3) se cumplen y **MVP-001 queda cerrada**. No quedan puntos bloqueantes
+dentro de la epica; los pendientes tienen destino en otras epicas o en MVP-999.
 
 ## Notas y decisiones
 

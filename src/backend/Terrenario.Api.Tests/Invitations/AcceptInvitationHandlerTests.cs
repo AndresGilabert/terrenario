@@ -39,7 +39,7 @@ public class AcceptInvitationHandlerTests
             _jwtService);
     }
 
-    private void GivenPendingInvitation(TimeSpan? lifetime = null)
+    private WorkspaceInvitation GivenPendingInvitation(TimeSpan? lifetime = null)
     {
         var invitation = WorkspaceInvitation.Create(
             TargetWorkspace.Id,
@@ -51,6 +51,8 @@ public class AcceptInvitationHandlerTests
 
         _invitationRepository.FindByTokenHashAsync("token-hasheado", Arg.Any<CancellationToken>())
             .Returns(invitation);
+        _invitationRepository.FindByIdAsync(invitation.Id, Arg.Any<CancellationToken>()).Returns(invitation);
+        return invitation;
     }
 
     private static AcceptInvitationCommand Command() => new(InvitedUser.Id, "token-en-claro");
@@ -169,5 +171,63 @@ public class AcceptInvitationHandlerTests
         // Assert
         (await act.Should().ThrowAsync<InvitationException>())
             .Which.ErrorCode.Should().Be(ErrorCodes.WorkspaceNotFound);
+    }
+
+    // --- MVP-107: aceptación por id desde la bandeja de recibidas ------------------------------
+
+    [Fact]
+    public async Task Deberia_CrearMembresiaYSituarLaSesion_Cuando_SeAceptaPorIdDesdeLaBandeja()
+    {
+        // Arrange
+        var invitation = GivenPendingInvitation();
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.HandleByIdAsync(InvitedUser.Id, invitation.Id);
+
+        // Assert — mismo efecto que aceptar por token (CA-2/CA-3)
+        result.Workspace.Id.Should().Be(TargetWorkspace.Id);
+        result.AccessToken.Should().Be("access-token-con-workspace");
+        invitation.Status.Should().Be(InvitationStatuses.Accepted);
+        await _workspaceRepository.Received(1)
+            .AddMemberAsync(Arg.Any<WorkspaceMember>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Deberia_OcultarLaInvitacion_Cuando_PorIdNoVaDirigidaAEstaCuenta()
+    {
+        // Arrange — la bandeja se autoriza por titularidad del email
+        var invitation = WorkspaceInvitation.Create(
+            TargetWorkspace.Id, Guid.NewGuid(), InvitationChannels.Email, "otra@ejemplo.com",
+            "hash-otra", TimeSpan.FromDays(7));
+        _invitationRepository.FindByIdAsync(invitation.Id, Arg.Any<CancellationToken>()).Returns(invitation);
+        var sut = CreateSut();
+
+        // Act
+        var act = async () => await sut.HandleByIdAsync(InvitedUser.Id, invitation.Id);
+
+        // Assert
+        (await act.Should().ThrowAsync<InvitationException>())
+            .Which.ErrorCode.Should().Be(ErrorCodes.InvitationNotFound);
+        await _workspaceRepository.DidNotReceive()
+            .AddMemberAsync(Arg.Any<WorkspaceMember>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Deberia_OcultarLaInvitacion_Cuando_PorIdEsDeCanalEnlace()
+    {
+        // Arrange — el enlace no tiene destinatario: no se acepta por id desde ninguna bandeja
+        var invitation = WorkspaceInvitation.Create(
+            TargetWorkspace.Id, Guid.NewGuid(), InvitationChannels.Link, null,
+            "hash-enlace", TimeSpan.FromDays(7));
+        _invitationRepository.FindByIdAsync(invitation.Id, Arg.Any<CancellationToken>()).Returns(invitation);
+        var sut = CreateSut();
+
+        // Act
+        var act = async () => await sut.HandleByIdAsync(InvitedUser.Id, invitation.Id);
+
+        // Assert
+        (await act.Should().ThrowAsync<InvitationException>())
+            .Which.ErrorCode.Should().Be(ErrorCodes.InvitationNotFound);
     }
 }

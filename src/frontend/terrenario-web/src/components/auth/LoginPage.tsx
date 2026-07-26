@@ -69,11 +69,11 @@ export const LoginPage: React.FC = () => {
     <div className="min-h-screen bg-[#fcf9f4] flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-2xl p-8 border border-[#e5e2dd] shadow-xl text-center space-y-6">
         <div className="mx-auto w-16 h-16 rounded-2xl bg-[#33450d] text-white flex items-center justify-center shadow-lg">
-          <span style={{ fontSize: '1.875rem' }}>🌿</span>
+          <span className="material-symbols-outlined fill text-3xl" aria-hidden="true">eco</span>
         </div>
 
         <div className="space-y-2">
-          <h1 className="font-bold text-2xl text-[#1c1c19]">Terrenario</h1>
+          <h1 className="font-headline font-extrabold text-2xl text-[#1c1c19]">Terrenario</h1>
           <p className="text-sm text-[#45483c] leading-relaxed">
             Gestiona tu finca de forma sencilla. Sin contraseñas complicadas, accede
             directamente con tu cuenta de Google.

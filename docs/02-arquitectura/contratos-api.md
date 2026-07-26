@@ -105,9 +105,13 @@ Reglas de contexto:
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
 | Emitir invitación | `POST /api/v1/workspaces/invitations` | `channel*`, `email?` | `201 { id, channel, email, status, accept_url, expires_at, email_sent }` |
-| Invitaciones pendientes | `GET /api/v1/workspaces/invitations` | — | `200 { data, meta: { total } }` |
-| Ver invitación recibida | `GET /api/v1/invitations/{token}` | — | `200 { id, channel, status, workspace, invited_by, expires_at, is_expired }` |
-| Aceptar invitación | `POST /api/v1/invitations/{token}/accept` | — | `200 { workspace, access_token, expires_in, already_member }` |
+| Invitaciones pendientes (emitidas) | `GET /api/v1/workspaces/invitations` | — | `200 { data, meta: { total } }` |
+| Ver invitación por enlace | `GET /api/v1/invitations/{token}` | — | `200 { id, channel, status, workspace, invited_by, expires_at, is_expired, viewer: { can_accept, reason } }` |
+| Aceptar invitación por enlace | `POST /api/v1/invitations/{token}/accept` | — | `200 { workspace, access_token, expires_in, already_member }` |
+| Rechazar invitación por enlace (MVP-107) | `POST /api/v1/invitations/{token}/reject` | — | `204` |
+| Invitaciones recibidas (MVP-107) | `GET /api/v1/invitations/received` | — | `200 { data, meta: { total } }` |
+| Aceptar recibida desde bandeja (MVP-107) | `POST /api/v1/invitations/received/{id}/accept` | — | `200 { workspace, access_token, expires_in, already_member }` |
+| Rechazar recibida desde bandeja (MVP-107) | `POST /api/v1/invitations/received/{id}/reject` | — | `204` |
 
 Validaciones clave:
 
@@ -121,7 +125,9 @@ Validaciones clave:
 | Token desconocido | `INVITATION_NOT_FOUND` (404) |
 | Invitación caducada | `BUSINESS_RULE_INVITATION_EXPIRED` (422) |
 | Invitación ya utilizada | `BUSINESS_RULE_INVITATION_ALREADY_ACCEPTED` (422) |
+| Aceptar una invitación ya rechazada (MVP-107) | `BUSINESS_RULE_INVITATION_ALREADY_REJECTED` (422) |
 | El email invitado ya es miembro activo | `BUSINESS_RULE_INVITATION_ALREADY_MEMBER` (422) |
+| Aceptar/rechazar por id una invitación no dirigida a la cuenta o de canal enlace (MVP-107) | `INVITATION_NOT_FOUND` (404) |
 
 Reglas de contexto:
 
@@ -134,6 +140,9 @@ Reglas de contexto:
 | La invitación por email va dirigida a una cuenta | Solo la acepta ese email; el canal `enlace` acepta a cualquier usuario autenticado |
 | Aceptar reemite la sesión | Devuelve un `access_token` nuevo ya situado en el Workspace de la invitación |
 | `email_sent: false` | La invitación es válida pero el proveedor de email falló; el enlace se comparte por otro medio |
+| `viewer.can_accept` / `viewer.reason` (MVP-107) | Aptitud de la cuenta autenticada calculada antes de aceptar; `reason` ∈ `email_mismatch`, `expired`, `already_used`, `already_rejected`, `already_member`. No revela el email destinatario |
+| Bandeja de recibidas (MVP-107) | Solo canal `email` dirigido a la cuenta, pendiente y no caducada; se autoriza por titularidad del email, no por token. No exige Workspace activo |
+| Rechazar (MVP-107) | Transita a `rechazada` sin crear membresía; no cierra sesión. Idempotente ante doble rechazo del destinatario |
 
 ### 0.c) Telemetría del embudo de login (MVP-105)
 

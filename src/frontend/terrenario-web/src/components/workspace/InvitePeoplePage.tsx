@@ -99,10 +99,9 @@ export const InvitePeoplePage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#fcf9f4] p-4 sm:p-8">
-      <div className="mx-auto w-full max-w-2xl space-y-6">
-        <div className="bg-white p-5 rounded-2xl border border-[#e5e2dd] shadow-xs space-y-1">
-          <h1 className="font-bold text-xl text-[#1c1c19]">Invitar a tu Workspace</h1>
+    <div className="space-y-6">
+      <div className="bg-white p-6 rounded-2xl border border-[#e5e2dd] shadow-xs space-y-1">
+        <h1 className="font-headline font-bold text-xl text-[#1c1c19]">Invitar a tu Workspace</h1>
           <p className="text-xs text-[#76786b]">
             {activeWorkspace
               ? `Comparte ${activeWorkspace.name} con quien trabaje contigo. Todos los miembros pueden operar y administrar el Workspace.`
@@ -267,7 +266,6 @@ export const InvitePeoplePage: React.FC = () => {
             </ul>
           )}
         </div>
-      </div>
     </div>
   );
 };

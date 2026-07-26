@@ -89,6 +89,8 @@ builder.Services.AddScoped<CreateInvitationHandler>();
 builder.Services.AddScoped<ListWorkspaceInvitationsHandler>();
 builder.Services.AddScoped<PreviewInvitationHandler>();
 builder.Services.AddScoped<AcceptInvitationHandler>();
+builder.Services.AddScoped<RejectInvitationHandler>();
+builder.Services.AddScoped<ListReceivedInvitationsHandler>();
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
 builder.Services.AddCors(options =>

@@ -33,14 +33,23 @@ public sealed class WorkspaceRepository(TerrenarioDbContext db) : IWorkspaceRepo
     public async Task<IReadOnlyList<WorkspaceMembership>> ListActiveMembershipsAsync(
         Guid userId,
         CancellationToken ct = default)
+        // El orden va por la columna real del Workspace ANTES de proyectar: EF Core no sabe
+        // traducir un OrderBy sobre una propiedad del DTO construido en el Select/Join, y hacerlo
+        // lanzaba "could not be translated" (HTTP 500) en todo el listado de Workspaces (MVP-104).
         => await db.WorkspaceMembers
             .Where(m => m.UserId == userId && m.Status == WorkspaceMemberStatuses.Active)
             .Join(
                 db.Workspaces,
                 m => m.WorkspaceId,
                 w => w.Id,
-                (m, w) => new WorkspaceMembership(w.Id, w.Name, m.Role, m.Status, m.JoinedAt))
-            .OrderBy(membership => membership.Name)
+                (m, w) => new { Member = m, Workspace = w })
+            .OrderBy(x => x.Workspace.Name)
+            .Select(x => new WorkspaceMembership(
+                x.Workspace.Id,
+                x.Workspace.Name,
+                x.Member.Role,
+                x.Member.Status,
+                x.Member.JoinedAt))
             .ToListAsync(ct);
 
     public Task<bool> HasActiveMembershipAsync(Guid workspaceId, Guid userId, CancellationToken ct = default)

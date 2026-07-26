@@ -2,7 +2,7 @@
 id: "MVP-107"
 tipo: feature
 titulo: "Invitaciones no bloqueantes y centro de notificaciones"
-estado: aprobado
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito A — Base segura y multiusuario"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "invite", "notifications", "ux"]
   nivel_riesgo: medio
 creado_en: "2026-07-25"
-actualizado_en: "2026-07-25"
+actualizado_en: "2026-07-26"
 ---
 
 # MVP-107 — Invitaciones no bloqueantes y centro de notificaciones
@@ -104,14 +104,19 @@ gestionarlas,
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Al iniciar sesión, el usuario llega directamente a su Workspace activo o al
+- [x] **CA-1**: Al iniciar sesión, el usuario llega directamente a su Workspace activo o al
   asistente de creación si no tiene ninguno; una invitación pendiente no impide el acceso.
-- [ ] **CA-2**: El usuario puede **aceptar** o **rechazar** una invitación; antes de aceptar se le
+  _`OAuthCallback` → `/app`; `RequireWorkspace`/`OnboardingRoute` con salida al asistente; sin
+  página-gate obligatoria._
+- [x] **CA-2**: El usuario puede **aceptar** o **rechazar** una invitación; antes de aceptar se le
   informa si su cuenta actual puede hacerlo, y en ningún caso queda sin una salida a la
-  plataforma. El rechazo no cierra la sesión.
-- [ ] **CA-3**: Existe una campanita/centro de notificaciones en la cabecera que muestra el número
+  plataforma. El rechazo no cierra la sesión. _Preview con `viewer.can_accept` (sin PII);
+  `POST /api/v1/invitations/{token}/reject` y `.../received/{id}/reject` sin crear membresía._
+- [x] **CA-3**: Existe una campanita/centro de notificaciones en la cabecera que muestra el número
   de invitaciones pendientes recibidas y permite gestionarlas (aceptar/rechazar) desde una
   bandeja; el modal de invitación se puede cerrar dejando la invitación pendiente.
+  _`GET /api/v1/invitations/received`; `NotificationBell`/`NotificationsContext`; `InvitationModal`
+  descartable ("Decidir más tarde")._
 
 ## Diseño técnico
 

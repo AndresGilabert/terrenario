@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "auth", "oidc"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-26"
 ---
 
 # MVP-101 — Acceso con Google OIDC y sesión base
@@ -65,9 +65,9 @@ Permitir que un usuario se autentique con Google y obtenga una sesión válida d
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Un usuario puede iniciar sesión con Google y acceder a la aplicación sin crear contraseña local.
-- [ ] **CA-2**: Si el login falla o se cancela, el sistema informa el estado sin exponer información sensible.
-- [ ] **CA-3**: La sesión autenticada queda disponible para las operaciones posteriores del MVP.
+- [x] **CA-1**: Un usuario puede iniciar sesión con Google y acceder a la aplicación sin crear contraseña local.
+- [x] **CA-2**: Si el login falla o se cancela, el sistema informa el estado sin exponer información sensible.
+- [x] **CA-3**: La sesión autenticada queda disponible para las operaciones posteriores del MVP. _Sesión base con refresh token (`RefreshTokenHandler`) y logout (`/api/v1/auth/logout`)._
 
 ## Maquetas y referencias visuales
 

@@ -13,6 +13,17 @@ const ERROR_MESSAGES: Record<string, string> = {
   AUTH_GOOGLE_EXCHANGE_FAILED: 'Error al completar el acceso. Por favor, inténtalo de nuevo.',
 };
 
+// Guarda de idempotencia a nivel de módulo (MVP-106, CA-1): el `code` de Google es de un solo
+// uso. Ante un doble montaje (React StrictMode) o un remount del callback, la primera pasada ya
+// está procesando —o ha procesado— el código; las siguientes salen sin volver a intercambiarlo
+// ni descartar los artefactos PKCE, de modo que un login válido nunca pinta la pantalla de error.
+const processedCodes = new Set<string>();
+
+function clearPkceArtifacts(): void {
+  sessionStorage.removeItem('oauth_state');
+  sessionStorage.removeItem('pkce_code_verifier');
+}
+
 export const OAuthCallback: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -29,6 +40,14 @@ export const OAuthCallback: React.FC = () => {
 
     const code = searchParams.get('code');
     const returnedState = searchParams.get('state');
+
+    // Un `code` ya en curso o consumido no vuelve a procesarse: la segunda pasada mantiene el
+    // spinner (el login válido está resolviéndose) en lugar de leer artefactos ya ausentes y
+    // renderizar "No se pudo iniciar sesión".
+    if (code && processedCodes.has(code)) {
+      return;
+    }
+
     const storedState = sessionStorage.getItem('oauth_state');
     const codeVerifier = sessionStorage.getItem('pkce_code_verifier');
 
@@ -42,8 +61,7 @@ export const OAuthCallback: React.FC = () => {
       return;
     }
 
-    sessionStorage.removeItem('oauth_state');
-    sessionStorage.removeItem('pkce_code_verifier');
+    processedCodes.add(code);
 
     authService
       .exchangeGoogleCode({
@@ -54,6 +72,10 @@ export const OAuthCallback: React.FC = () => {
         flowId: getLoginFlowId(),
       })
       .then((tokenResponse) => {
+        // Los artefactos PKCE solo se descartan tras confirmar el resultado (MVP-106, CA-1): así
+        // una pasada concurrente previa a la resolución nunca los encuentra ausentes.
+        clearPkceArtifacts();
+
         // Acceso completado: el intento de login se cierra y el próximo abre un flow_id nuevo.
         clearLoginFlow();
 
@@ -66,6 +88,9 @@ export const OAuthCallback: React.FC = () => {
         navigate(consumePostLoginRedirect() ?? '/app', { replace: true });
       })
       .catch((err: unknown) => {
+        // En error también se limpian, para no reintentar un intercambio con artefactos ya gastados.
+        clearPkceArtifacts();
+
         const errorCode =
           err instanceof AuthServiceError ? err.code : 'AUTH_UNKNOWN';
         const message =

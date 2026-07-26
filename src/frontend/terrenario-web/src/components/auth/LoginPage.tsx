@@ -12,11 +12,7 @@ import {
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
 const REDIRECT_URI = `${window.location.origin}/auth/callback`;
 
-interface LoginPageProps {
-  onDemoAccess?: () => void;
-}
-
-export const LoginPage: React.FC<LoginPageProps> = ({ onDemoAccess }) => {
+export const LoginPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const flowIdRef = useRef<string>('');
@@ -101,28 +97,34 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onDemoAccess }) => {
           <GoogleLogoIcon />
           <span>{isLoading ? 'Redirigiendo…' : 'Continuar con Google'}</span>
         </button>
-
-        {onDemoAccess && (
-          <div className="pt-2 border-t border-[#e5e2dd]">
-            <p className="text-xs text-[#76786b] mb-2">¿Quieres ver la aplicación antes?</p>
-            <button
-              onClick={onDemoAccess}
-              className="text-xs font-semibold text-[#33450d] hover:underline"
-            >
-              Acceder como invitado / Demo
-            </button>
-          </div>
-        )}
       </div>
 
+      {/*
+        Enlaces legales (MVP-106, CA-3): el contenido legal (Política de Privacidad y Términos del
+        Servicio) está diferido a P-008 (MVP-999). Hasta que exista, se muestran deshabilitados con
+        indicación "próximamente" en vez de navegar a rutas inexistentes que el catch-all redirigía
+        a la landing (recarga incluida). No inician ninguna navegación.
+      */}
       <footer className="mt-8 text-center text-xs text-[#76786b] space-x-4">
-        <a href="/privacidad" className="hover:underline">
+        <button
+          type="button"
+          disabled
+          title="Disponible próximamente"
+          aria-label="Política de Privacidad (disponible próximamente)"
+          className="cursor-not-allowed opacity-60"
+        >
           Política de Privacidad
-        </a>
-        <span>•</span>
-        <a href="/terminos" className="hover:underline">
+        </button>
+        <span aria-hidden="true">•</span>
+        <button
+          type="button"
+          disabled
+          title="Disponible próximamente"
+          aria-label="Términos del Servicio (disponible próximamente)"
+          className="cursor-not-allowed opacity-60"
+        >
           Términos del Servicio
-        </a>
+        </button>
       </footer>
     </div>
   );

@@ -1,13 +1,16 @@
+import { useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { WorkspaceProvider, useWorkspace } from './contexts/WorkspaceContext';
+import { NotificationsProvider, useNotifications } from './contexts/NotificationsContext';
 import { LandingPage } from './components/marketing/LandingPage';
 import { LoginPage } from './components/auth/LoginPage';
 import { OAuthCallback } from './components/auth/OAuthCallback';
 import { CreateWorkspacePage } from './components/onboarding/CreateWorkspacePage';
 import { AcceptInvitationPage } from './components/invitations/AcceptInvitationPage';
+import { ReceivedInvitationsPage } from './components/invitations/ReceivedInvitationsPage';
 import { InvitePeoplePage } from './components/workspace/InvitePeoplePage';
-import { WorkspaceSwitcher } from './components/workspace/WorkspaceSwitcher';
+import { AppLayout } from './components/layout/AppLayout';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { RequireWorkspace } from './routes/RequireWorkspace';
 
@@ -30,11 +33,15 @@ function AppRoutes() {
         {/* Aceptar invitación no exige Workspace previo: es la vía de entrada al primero (MVP-103) */}
         <Route path="/invitations/:token" element={<AcceptInvitationPage />} />
 
-        {/* Operativa: exige Workspace activo (MVP-102) */}
+        {/* Operativa: exige Workspace activo (MVP-102). El layout aporta cabecera y modal (MVP-107) */}
         <Route element={<RequireWorkspace />}>
-          <Route path="/app" element={<AppHome />} />
-          <Route path="/app/invitations" element={<InvitePeoplePage />} />
-          <Route path="/app/*" element={<AppHome />} />
+          {/* Alta de un Workspace adicional desde la app (MVP-107): pantalla completa, sin cabecera */}
+          <Route path="/app/workspaces/new" element={<CreateWorkspacePage mode="additional" />} />
+          <Route element={<AppLayout />}>
+            <Route path="/app" element={<AppHome />} />
+            <Route path="/app/invitations" element={<InvitePeoplePage />} />
+            <Route path="/app/*" element={<AppHome />} />
+          </Route>
         </Route>
       </Route>
 
@@ -46,8 +53,11 @@ function AppRoutes() {
 
 function OnboardingRoute() {
   const { activeWorkspace, isLoading } = useWorkspace();
+  const { receivedInvitations, isLoading: isLoadingInvitations } = useNotifications();
+  // Salida secundaria explícita: forzar el asistente aunque haya invitaciones pendientes (MVP-107).
+  const [createOwn, setCreateOwn] = useState(false);
 
-  if (isLoading) {
+  if (isLoading || isLoadingInvitations) {
     return (
       <div className="min-h-screen bg-[#fcf9f4] flex items-center justify-center">
         <div className="w-10 h-10 border-4 border-[#33450d] border-t-transparent rounded-full animate-spin" />
@@ -55,49 +65,51 @@ function OnboardingRoute() {
     );
   }
 
-  return activeWorkspace ? <Navigate to="/app" replace /> : <CreateWorkspacePage />;
+  if (activeWorkspace) return <Navigate to="/app" replace />;
+
+  // Invitado sin Workspace: se prioriza la decisión de invitación, con enlace a crear el propio.
+  if (receivedInvitations.length > 0 && !createOwn) {
+    return <ReceivedInvitationsPage onCreateOwn={() => setCreateOwn(true)} />;
+  }
+
+  return <CreateWorkspacePage />;
 }
 
 function AppHome() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { activeWorkspace } = useWorkspace();
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-[#fcf9f4] flex flex-col items-center justify-center p-8 text-center gap-6">
-      {/* Selector de Workspace activo (MVP-104): visible en todo momento sobre la operativa. */}
-      <div className="w-full max-w-xs">
-        <WorkspaceSwitcher />
-      </div>
-      <div className="w-16 h-16 rounded-2xl bg-[#33450d] text-white flex items-center justify-center">
-        <span className="text-3xl">🌿</span>
-      </div>
-      <div className="space-y-2">
-        <h1 className="text-2xl font-bold text-[#1c1c19]">
-          ¡Bienvenido, {user?.displayName ?? 'usuario'}!
-        </h1>
-        {activeWorkspace && (
-          <p className="text-sm font-semibold text-[#33450d]">
-            Workspace activo: {activeWorkspace.name}
-          </p>
-        )}
-      </div>
-      <p className="text-[#45483c] text-sm max-w-xs">
-        Tu espacio de trabajo está listo. Las funcionalidades de gestión llegarán muy pronto.
-      </p>
-      <div className="flex flex-col sm:flex-row items-center gap-3">
-        <button
-          onClick={() => navigate('/app/invitations')}
-          className="px-4 py-2 rounded-xl bg-[#33450d] hover:bg-[#4a5d23] text-white text-sm font-semibold transition-colors"
-        >
-          Invitar a alguien
-        </button>
-        <button
-          onClick={logout}
-          className="px-4 py-2 rounded-xl border border-[#c6c8b8] text-[#1c1c19] text-sm font-semibold hover:bg-[#f0ede8] transition-colors"
-        >
-          Cerrar sesión
-        </button>
+    <div className="space-y-6">
+      {/* El selector, la campanita, la navegación y el cierre de sesión viven en el shell (MVP-107). */}
+      <div className="bg-white rounded-2xl border border-[#e5e2dd] p-8 ambient-shadow space-y-4">
+        <div className="w-14 h-14 rounded-2xl bg-[#33450d] text-white flex items-center justify-center">
+          <span className="material-symbols-outlined fill text-3xl" aria-hidden="true">eco</span>
+        </div>
+        <div className="space-y-1">
+          <h1 className="font-headline font-bold text-2xl text-[#1c1c19]">
+            ¡Bienvenido, {user?.displayName ?? 'usuario'}!
+          </h1>
+          {activeWorkspace && (
+            <p className="text-sm font-semibold text-[#33450d]">
+              Estás trabajando en «{activeWorkspace.name}».
+            </p>
+          )}
+        </div>
+        <p className="text-[#45483c] text-sm max-w-lg">
+          Tu espacio de trabajo está listo. Los módulos de gestión (diario, terrenos, cosechas…)
+          aparecerán en el menú lateral a medida que se vayan habilitando.
+        </p>
+        <div className="flex flex-col sm:flex-row items-start gap-3 pt-1">
+          <button
+            onClick={() => navigate('/app/invitations')}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#33450d] hover:bg-[#4a5d23] text-white text-sm font-semibold transition-colors"
+          >
+            <span className="material-symbols-outlined text-lg" aria-hidden="true">person_add</span>
+            Invitar a alguien
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -108,7 +120,9 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <WorkspaceProvider>
-          <AppRoutes />
+          <NotificationsProvider>
+            <AppRoutes />
+          </NotificationsProvider>
         </WorkspaceProvider>
       </AuthProvider>
     </BrowserRouter>

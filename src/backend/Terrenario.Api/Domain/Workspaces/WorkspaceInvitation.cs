@@ -23,6 +23,8 @@ public sealed class WorkspaceInvitation
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset? AcceptedAt { get; private set; }
     public Guid? AcceptedByUserId { get; private set; }
+    public DateTimeOffset? RejectedAt { get; private set; }
+    public Guid? RejectedByUserId { get; private set; }
 
     private WorkspaceInvitation() { }
 
@@ -66,15 +68,21 @@ public sealed class WorkspaceInvitation
     public bool IsExpiredAt(DateTimeOffset moment) => moment >= ExpiresAt;
 
     /// <summary>
+    /// Indica si la cuenta autenticada es apta para actuar sobre esta invitación. El enlace
+    /// compartible (MVP-103) no va dirigido a nadie, así que lo acepta cualquier usuario; la
+    /// invitación por email solo la acepta su destinatario. Se usa para informar en el preview
+    /// (MVP-107, R-C) sin filtrar el email destinatario: solo se compara, no se revela.
+    /// </summary>
+    public bool IsAddressedTo(string? userEmail) =>
+        Channel != InvitationChannels.Email || Email == Canonicalize(userEmail);
+
+    /// <summary>
     /// Marca la invitación como aceptada por un usuario autenticado. No crea la membresía:
     /// el caso de uso decide si hay que emitirla o si el usuario ya era miembro del Workspace.
     /// </summary>
     public void Accept(Guid userId, string userEmail, DateTimeOffset moment)
     {
-        if (Status == InvitationStatuses.Accepted)
-            throw new InvitationException(
-                ErrorCodes.BusinessRuleInvitationAlreadyAccepted,
-                "Esta invitación ya se ha utilizado.");
+        EnsurePending();
 
         if (IsExpiredAt(moment))
             throw new InvitationException(
@@ -84,7 +92,7 @@ public sealed class WorkspaceInvitation
         // Una invitación por email va dirigida a una persona concreta: reenviar el correo no
         // debe abrir la puerta a un tercero. El enlace compartible sí acepta a cualquier
         // usuario autenticado, que es justo su propósito.
-        if (Channel == InvitationChannels.Email && Email != Canonicalize(userEmail))
+        if (!IsAddressedTo(userEmail))
             throw new InvitationException(
                 ErrorCodes.AuthInvitationEmailMismatch,
                 "Esta invitación está dirigida a otra cuenta de correo.");
@@ -92,6 +100,46 @@ public sealed class WorkspaceInvitation
         Status = InvitationStatuses.Accepted;
         AcceptedAt = moment;
         AcceptedByUserId = userId;
+    }
+
+    /// <summary>
+    /// Declina la invitación sin crear membresía (MVP-107, HU-2/punto 6). No cierra sesión ni
+    /// toca el Workspace: solo cambia el estado. Es idempotente ante un segundo rechazo del mismo
+    /// destinatario (doble clic), pero una cuenta ajena sigue chocando con el desajuste de email.
+    /// Rechazar una invitación caducada se permite: limpia la bandeja sin efecto colateral.
+    /// </summary>
+    public void Reject(Guid userId, string userEmail, DateTimeOffset moment)
+    {
+        if (Status == InvitationStatuses.Accepted)
+            throw new InvitationException(
+                ErrorCodes.BusinessRuleInvitationAlreadyAccepted,
+                "Esta invitación ya se ha utilizado.");
+
+        // El desajuste de email se comprueba antes de la idempotencia: un tercero con el correo
+        // reenviado no debe poder declinar la invitación de otra persona.
+        if (!IsAddressedTo(userEmail))
+            throw new InvitationException(
+                ErrorCodes.AuthInvitationEmailMismatch,
+                "Esta invitación está dirigida a otra cuenta de correo.");
+
+        if (Status == InvitationStatuses.Rejected) return;
+
+        Status = InvitationStatuses.Rejected;
+        RejectedAt = moment;
+        RejectedByUserId = userId;
+    }
+
+    private void EnsurePending()
+    {
+        if (Status == InvitationStatuses.Accepted)
+            throw new InvitationException(
+                ErrorCodes.BusinessRuleInvitationAlreadyAccepted,
+                "Esta invitación ya se ha utilizado.");
+
+        if (Status == InvitationStatuses.Rejected)
+            throw new InvitationException(
+                ErrorCodes.BusinessRuleInvitationAlreadyRejected,
+                "Esta invitación se ha rechazado y ya no está disponible.");
     }
 
     private static string Canonicalize(string? email) => (email ?? string.Empty).Trim().ToLowerInvariant();

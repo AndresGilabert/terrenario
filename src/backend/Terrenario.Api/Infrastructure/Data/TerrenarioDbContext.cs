@@ -117,9 +117,13 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
             entity.Property(i => i.CreatedAt).HasColumnName("created_at");
             entity.Property(i => i.AcceptedAt).HasColumnName("accepted_at");
             entity.Property(i => i.AcceptedByUserId).HasColumnName("accepted_by_user_id");
+            entity.Property(i => i.RejectedAt).HasColumnName("rejected_at");
+            entity.Property(i => i.RejectedByUserId).HasColumnName("rejected_by_user_id");
 
             entity.HasIndex(i => i.TokenHash).IsUnique();
             entity.HasIndex(i => new { i.WorkspaceId, i.Status });
+            // La bandeja de invitaciones recibidas (MVP-107) filtra por email + estado.
+            entity.HasIndex(i => new { i.Email, i.Status });
 
             entity.HasOne<Workspace>()
                 .WithMany()
@@ -134,6 +138,11 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
             entity.HasOne<User>()
                 .WithMany()
                 .HasForeignKey(i => i.AcceptedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(i => i.RejectedByUserId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
     }

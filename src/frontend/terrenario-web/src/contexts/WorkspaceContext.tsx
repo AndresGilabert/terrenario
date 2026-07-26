@@ -14,8 +14,10 @@ interface WorkspaceContextValue {
   switchWorkspace: (workspaceId: string) => Promise<Workspace>;
   /** Vuelve a cargar la lista de membresías (p. ej. tras aceptar una invitación). */
   refreshWorkspaces: () => Promise<void>;
-  /** Acepta una invitación y deja la sesión situada en ese Workspace (MVP-103). */
+  /** Acepta una invitación por enlace y deja la sesión situada en ese Workspace (MVP-103). */
   acceptInvitation: (token: string) => Promise<Workspace>;
+  /** Acepta una invitación recibida por id (bandeja/notificaciones) y sitúa la sesión (MVP-107). */
+  acceptInvitationById: (id: string) => Promise<Workspace>;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -36,8 +38,10 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const getAccessTokenRef = useRef(getAccessToken);
   getAccessTokenRef.current = getAccessToken;
 
-  const loadWorkspaces = useCallback(async (): Promise<void> => {
-    const accessToken = await getAccessTokenRef.current();
+  const loadWorkspaces = useCallback(async (tokenOverride?: string): Promise<void> => {
+    // Tras crear/cambiar/aceptar, la sesión se reemite: se pasa el token nuevo explícitamente
+    // porque el de estado aún no se ha propagado (evita recargar con un token obsoleto).
+    const accessToken = tokenOverride ?? (await getAccessTokenRef.current());
     if (!accessToken) {
       setWorkspaces([]);
       return;
@@ -46,8 +50,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     try {
       setWorkspaces(await workspaceService.listWorkspaces(accessToken));
     } catch {
-      // El selector es informativo: si la lista falla, la operativa sigue con el activo.
-      setWorkspaces([]);
+      // Un fallo transitorio no debe borrar la lista buena: se conserva lo último cargado para
+      // no hacer "desaparecer" del selector Workspaces a los que el usuario sí pertenece.
     }
   }, []);
 
@@ -96,7 +100,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       // El backend reemite la sesión ya situada en el nuevo Workspace.
       setAccessToken(result.access_token, result.expires_in);
       setActiveWorkspace(result.workspace);
-      await loadWorkspaces();
+      await loadWorkspaces(result.access_token);
 
       return result.workspace;
     },
@@ -114,11 +118,21 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       // operación posterior queda acotada al contexto elegido (CA-2, sin datos cruzados).
       setAccessToken(result.access_token, result.expires_in);
       setActiveWorkspace(result.workspace);
-      await loadWorkspaces();
+      await loadWorkspaces(result.access_token);
 
       return result.workspace;
     },
     [setAccessToken, loadWorkspaces]
+  );
+
+  const adoptAcceptedSession = useCallback(
+    (result: { access_token: string; expires_in: number; workspace: Workspace }): Workspace => {
+      // Igual que al crear un Workspace, el backend reemite la sesión ya situada en el destino.
+      setAccessToken(result.access_token, result.expires_in);
+      setActiveWorkspace(result.workspace);
+      return result.workspace;
+    },
+    [setAccessToken]
   );
 
   const acceptInvitation = useCallback(
@@ -127,15 +141,26 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       if (!accessToken) throw new Error('Sesión no válida.');
 
       const result = await invitationService.acceptInvitation(token, accessToken);
+      const workspace = adoptAcceptedSession(result);
+      await loadWorkspaces(result.access_token);
 
-      // Igual que al crear un Workspace, el backend reemite la sesión ya situada en el destino.
-      setAccessToken(result.access_token, result.expires_in);
-      setActiveWorkspace(result.workspace);
-      await loadWorkspaces();
-
-      return result.workspace;
+      return workspace;
     },
-    [setAccessToken, loadWorkspaces]
+    [adoptAcceptedSession, loadWorkspaces]
+  );
+
+  const acceptInvitationById = useCallback(
+    async (id: string): Promise<Workspace> => {
+      const accessToken = await getAccessTokenRef.current();
+      if (!accessToken) throw new Error('Sesión no válida.');
+
+      const result = await invitationService.acceptReceivedInvitation(id, accessToken);
+      const workspace = adoptAcceptedSession(result);
+      await loadWorkspaces(result.access_token);
+
+      return workspace;
+    },
+    [adoptAcceptedSession, loadWorkspaces]
   );
 
   const value: WorkspaceContextValue = {
@@ -146,6 +171,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     switchWorkspace,
     refreshWorkspaces: loadWorkspaces,
     acceptInvitation,
+    acceptInvitationById,
   };
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;

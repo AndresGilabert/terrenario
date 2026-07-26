@@ -1,5 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
+import type { WorkspaceMembership } from '../../types/workspace.types';
 import { WorkspaceServiceError } from '../../services/workspace.service';
 
 /**
@@ -9,6 +11,7 @@ import { WorkspaceServiceError } from '../../services/workspace.service';
  */
 export const WorkspaceSwitcher: React.FC = () => {
   const { activeWorkspace, workspaces, switchWorkspace } = useWorkspace();
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [switchingId, setSwitchingId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -34,6 +37,24 @@ export const WorkspaceSwitcher: React.FC = () => {
     };
   }, [isOpen]);
 
+  // La lista de membresías es informativa y puede venir vacía si `listWorkspaces` falla
+  // (WorkspaceContext lo tolera). Aun así, el Workspace activo siempre debe figurar: estás
+  // operando en él, y sin esto el desplegable diría "no tienes Workspaces" estando dentro de uno.
+  const displayWorkspaces = useMemo<WorkspaceMembership[]>(() => {
+    if (!activeWorkspace) return workspaces;
+    if (workspaces.some((workspace) => workspace.id === activeWorkspace.id)) return workspaces;
+
+    const activeItem: WorkspaceMembership = {
+      id: activeWorkspace.id,
+      name: activeWorkspace.name,
+      role: '',
+      status: 'activo',
+      is_active: true,
+      joined_at: '',
+    };
+    return [activeItem, ...workspaces];
+  }, [workspaces, activeWorkspace]);
+
   const handleSelect = async (workspaceId: string) => {
     if (workspaceId === activeWorkspace?.id) {
       setIsOpen(false);
@@ -58,23 +79,20 @@ export const WorkspaceSwitcher: React.FC = () => {
   };
 
   const activeName = activeWorkspace?.name ?? 'Sin Workspace';
-  const hasAlternatives = workspaces.length > 1;
+  const hasAlternatives = displayWorkspaces.length > 1;
 
   return (
     <div ref={containerRef} className="relative">
       <button
         type="button"
         onClick={() => setIsOpen((open) => !open)}
-        disabled={workspaces.length === 0}
-        aria-haspopup="listbox"
+        aria-haspopup="menu"
         aria-expanded={isOpen}
-        aria-label={`Workspace activo: ${activeName}. ${
-          hasAlternatives ? 'Pulsa para cambiar.' : ''
-        }`}
-        className="w-full bg-white rounded-xl p-3 border border-[#e5e2dd] shadow-xs flex items-center justify-between gap-2 hover:border-[#c6c8b8] transition-colors disabled:opacity-60 disabled:cursor-default"
+        aria-label={`Workspace activo: ${activeName}. Pulsa para cambiar o crear otro.`}
+        className="w-full bg-white rounded-xl p-3 border border-[#e5e2dd] shadow-xs flex items-center justify-between gap-2 hover:border-[#c6c8b8] transition-colors"
       >
         <span className="flex items-center gap-2.5 min-w-0">
-          <span aria-hidden="true" className="text-[#33450d]">🌿</span>
+          <span className="material-symbols-outlined text-[#33450d] text-xl" aria-hidden="true">landscape</span>
           <span className="min-w-0 text-left">
             <span className="block text-xs font-semibold text-[#1c1c19] truncate">{activeName}</span>
             <span className="block text-[11px] text-[#76786b]">
@@ -82,17 +100,18 @@ export const WorkspaceSwitcher: React.FC = () => {
             </span>
           </span>
         </span>
-        {hasAlternatives && (
-          <span aria-hidden="true" className="text-[#76786b] text-sm shrink-0">
-            {isOpen ? '▲' : '▼'}
-          </span>
-        )}
+        <span aria-hidden="true" className="text-[#76786b] text-sm shrink-0">
+          {isOpen ? '▲' : '▼'}
+        </span>
       </button>
 
       {isOpen && (
         <div className="absolute z-40 mt-1 w-full bg-white rounded-xl border border-[#e5e2dd] shadow-lg overflow-hidden">
           <ul role="listbox" aria-label="Selecciona un Workspace" className="max-h-72 overflow-y-auto py-1">
-            {workspaces.map((workspace) => {
+            {displayWorkspaces.length === 0 && (
+              <li className="px-3.5 py-2.5 text-sm text-[#76786b]">Aún no tienes Workspaces.</li>
+            )}
+            {displayWorkspaces.map((workspace) => {
               const isActive = workspace.id === activeWorkspace?.id;
               const isSwitching = switchingId === workspace.id;
               return (
@@ -123,6 +142,21 @@ export const WorkspaceSwitcher: React.FC = () => {
               );
             })}
           </ul>
+
+          {/* Alta de un Workspace adicional (MVP-107): siempre disponible desde el selector. */}
+          <div className="border-t border-[#e5e2dd]">
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                navigate('/app/workspaces/new');
+              }}
+              className="w-full flex items-center gap-2 px-3.5 py-2.5 text-left text-sm font-semibold text-[#33450d] hover:bg-[#f6f3ee] transition-colors"
+            >
+              <span className="material-symbols-outlined text-lg" aria-hidden="true">add</span>
+              <span>Nuevo Workspace</span>
+            </button>
+          </div>
         </div>
       )}
 

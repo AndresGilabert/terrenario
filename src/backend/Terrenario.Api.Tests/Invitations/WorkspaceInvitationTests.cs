@@ -160,4 +160,119 @@ public class WorkspaceInvitationTests
         act.Should().Throw<InvitationException>()
             .Which.ErrorCode.Should().Be(ErrorCodes.BusinessRuleInvitationAlreadyAccepted);
     }
+
+    // --- MVP-107 -------------------------------------------------------------------------------
+
+    [Fact]
+    public void Deberia_MarcarComoRechazada_Cuando_LaDeclinaLaPersonaInvitada()
+    {
+        // Arrange
+        var invitation = CreateEmailInvitation();
+        var userId = Guid.NewGuid();
+        var moment = DateTimeOffset.UtcNow;
+
+        // Act
+        invitation.Reject(userId, "ANTONIO@ejemplo.com", moment);
+
+        // Assert
+        invitation.Status.Should().Be(InvitationStatuses.Rejected);
+        invitation.RejectedByUserId.Should().Be(userId);
+        invitation.RejectedAt.Should().Be(moment);
+    }
+
+    [Fact]
+    public void Deberia_SerIdempotente_Cuando_SeRechazaDosVecesLaMismaCuenta()
+    {
+        // Arrange — doble clic en "Rechazar" no debe reventar
+        var invitation = CreateEmailInvitation();
+        invitation.Reject(Guid.NewGuid(), "antonio@ejemplo.com", DateTimeOffset.UtcNow);
+
+        // Act
+        var act = () => invitation.Reject(Guid.NewGuid(), "antonio@ejemplo.com", DateTimeOffset.UtcNow);
+
+        // Assert
+        act.Should().NotThrow();
+        invitation.Status.Should().Be(InvitationStatuses.Rejected);
+    }
+
+    [Fact]
+    public void Deberia_RechazarElRechazo_Cuando_LaInvitacionPorEmailEsDeOtraCuenta()
+    {
+        // Arrange — un tercero con el correo reenviado no declina la invitación de otra persona
+        var invitation = CreateEmailInvitation();
+
+        // Act
+        var act = () => invitation.Reject(Guid.NewGuid(), "otra@ejemplo.com", DateTimeOffset.UtcNow);
+
+        // Assert
+        act.Should().Throw<InvitationException>()
+            .Which.ErrorCode.Should().Be(ErrorCodes.AuthInvitationEmailMismatch);
+        invitation.Status.Should().Be(InvitationStatuses.Pending);
+    }
+
+    [Fact]
+    public void Deberia_ImpedirRechazar_Cuando_LaInvitacionYaSeAcepto()
+    {
+        // Arrange
+        var invitation = CreateEmailInvitation();
+        invitation.Accept(Guid.NewGuid(), "antonio@ejemplo.com", DateTimeOffset.UtcNow);
+
+        // Act
+        var act = () => invitation.Reject(Guid.NewGuid(), "antonio@ejemplo.com", DateTimeOffset.UtcNow);
+
+        // Assert
+        act.Should().Throw<InvitationException>()
+            .Which.ErrorCode.Should().Be(ErrorCodes.BusinessRuleInvitationAlreadyAccepted);
+    }
+
+    [Fact]
+    public void Deberia_ImpedirAceptar_Cuando_LaInvitacionYaSeRechazo()
+    {
+        // Arrange
+        var invitation = CreateEmailInvitation();
+        invitation.Reject(Guid.NewGuid(), "antonio@ejemplo.com", DateTimeOffset.UtcNow);
+
+        // Act
+        var act = () => invitation.Accept(Guid.NewGuid(), "antonio@ejemplo.com", DateTimeOffset.UtcNow);
+
+        // Assert
+        act.Should().Throw<InvitationException>()
+            .Which.ErrorCode.Should().Be(ErrorCodes.BusinessRuleInvitationAlreadyRejected);
+    }
+
+    [Fact]
+    public void Deberia_PermitirRechazarCaducada_Para_LimpiarLaBandeja()
+    {
+        // Arrange — rechazar una invitación vencida no tiene efecto colateral y limpia la bandeja
+        var invitation = CreateEmailInvitation();
+
+        // Act
+        var act = () => invitation.Reject(Guid.NewGuid(), "antonio@ejemplo.com", invitation.ExpiresAt);
+
+        // Assert
+        act.Should().NotThrow();
+        invitation.Status.Should().Be(InvitationStatuses.Rejected);
+    }
+
+    [Theory]
+    [InlineData(InvitationChannels.Email, "antonio@ejemplo.com", true)]
+    [InlineData(InvitationChannels.Email, "otra@ejemplo.com", false)]
+    public void Deberia_IdentificarDestinatario_SegunCanalYEmail(string channel, string email, bool expected)
+    {
+        // Arrange
+        var invitation = channel == InvitationChannels.Email ? CreateEmailInvitation() : CreateLinkInvitation();
+
+        // Act & Assert
+        invitation.IsAddressedTo(email).Should().Be(expected);
+    }
+
+    [Fact]
+    public void Deberia_AceptarCualquierEmail_ParaAptitud_Cuando_ElCanalEsEnlace()
+    {
+        // Arrange — el enlace no va dirigido a nadie: cualquiera es "destinatario" apto
+        var invitation = CreateLinkInvitation();
+
+        // Act & Assert
+        invitation.IsAddressedTo("cualquiera@ejemplo.com").Should().BeTrue();
+    }
 }

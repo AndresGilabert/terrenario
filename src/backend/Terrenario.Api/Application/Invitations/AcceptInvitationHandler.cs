@@ -19,16 +19,50 @@ public sealed class AcceptInvitationHandler(
     IInvitationTokenService tokenService,
     IJwtService jwtService)
 {
+    /// <summary>Aceptación por token: el flujo de quien abre el enlace de invitación (MVP-103).</summary>
     public async Task<AcceptInvitationResult> HandleAsync(
         AcceptInvitationCommand command,
         CancellationToken ct = default)
     {
         var invitation = await FindInvitationAsync(command.Token, ct);
-        var user = await userRepository.FindByIdAsync(command.UserId, ct)
-            ?? throw new InvitationException(
-                ErrorCodes.AuthUnauthenticated,
-                "Token de acceso ausente o no válido.");
+        return await AcceptAsync(invitation, command.UserId, ct);
+    }
 
+    /// <summary>
+    /// Aceptación por identificador desde la bandeja de invitaciones recibidas (MVP-107, HU-3):
+    /// la persona invitada nunca tuvo el token en claro. La autorización es por titularidad del
+    /// email —el JWT prueba que la cuenta es su dueña— así que una invitación no dirigida a esta
+    /// cuenta se trata como inexistente para no revelar su existencia.
+    /// </summary>
+    public async Task<AcceptInvitationResult> HandleByIdAsync(
+        Guid userId,
+        Guid invitationId,
+        CancellationToken ct = default)
+    {
+        var invitation = await invitationRepository.FindByIdAsync(invitationId, ct);
+        var user = await FindUserAsync(userId, ct);
+
+        if (invitation is null
+            || invitation.Channel != InvitationChannels.Email
+            || !invitation.IsAddressedTo(user.Email))
+            throw new InvitationException(
+                ErrorCodes.InvitationNotFound,
+                "Esta invitación no existe o ya no es válida.");
+
+        return await AcceptAsync(invitation, user, ct);
+    }
+
+    private async Task<AcceptInvitationResult> AcceptAsync(
+        WorkspaceInvitation invitation,
+        Guid userId,
+        CancellationToken ct)
+        => await AcceptAsync(invitation, await FindUserAsync(userId, ct), ct);
+
+    private async Task<AcceptInvitationResult> AcceptAsync(
+        WorkspaceInvitation invitation,
+        User user,
+        CancellationToken ct)
+    {
         var workspace = await workspaceRepository.FindByIdAsync(invitation.WorkspaceId, ct)
             ?? throw new InvitationException(
                 ErrorCodes.WorkspaceNotFound,
@@ -65,4 +99,10 @@ public sealed class AcceptInvitationHandler(
             ?? throw new InvitationException(
                 ErrorCodes.InvitationNotFound,
                 "Esta invitación no existe o ya no es válida.");
+
+    private async Task<User> FindUserAsync(Guid userId, CancellationToken ct)
+        => await userRepository.FindByIdAsync(userId, ct)
+            ?? throw new InvitationException(
+                ErrorCodes.AuthUnauthenticated,
+                "Token de acceso ausente o no válido.");
 }

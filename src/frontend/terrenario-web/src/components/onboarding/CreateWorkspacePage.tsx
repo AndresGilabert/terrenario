@@ -6,15 +6,27 @@ import { WorkspaceServiceError } from '../../services/workspace.service';
 
 const NAME_MAX_LENGTH = 120;
 
+interface CreateWorkspacePageProps {
+  /**
+   * `onboarding` (por defecto): primer Workspace del usuario, con indicador de pasos y salida a
+   * "Cerrar sesión" (MVP-102). `additional`: alta de un Workspace más desde la app (MVP-107),
+   * sin el indicador de onboarding y con "Cancelar" que vuelve a la operativa.
+   */
+  mode?: 'onboarding' | 'additional';
+}
+
 /**
- * MVP-102 — Primer paso del onboarding: dar nombre al Workspace.
+ * MVP-102 — Dar nombre al Workspace. En modo `onboarding` es el primer paso del alta inicial;
+ * en modo `additional` (MVP-107) crea un Workspace adicional reutilizando la misma pantalla.
  * Referencia visual: `prototype/terrenario-mvp/src/components/OnboardingStep1.tsx`.
  * El paso 2 (temporada inicial) llega con MVP-201.
  */
-export const CreateWorkspacePage: React.FC = () => {
+export const CreateWorkspacePage: React.FC<CreateWorkspacePageProps> = ({ mode = 'onboarding' }) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { createWorkspace } = useWorkspace();
+
+  const isAdditional = mode === 'additional';
 
   const [name, setName] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -48,26 +60,37 @@ export const CreateWorkspacePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#fcf9f4] flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-lg bg-white rounded-2xl p-8 border border-[#e5e2dd] shadow-xl space-y-6">
-        <div className="flex items-center justify-between border-b border-[#e5e2dd] pb-4">
-          <div className="flex items-center gap-2 text-xs font-bold text-[#33450d]">
-            <span aria-hidden="true">🌿</span>
-            <span>Paso 1 de 3</span>
+        {/* El indicador de pasos solo tiene sentido en el onboarding inicial (MVP-102). */}
+        {!isAdditional && (
+          <div className="flex items-center justify-between border-b border-[#e5e2dd] pb-4">
+            <div className="flex items-center gap-2 text-xs font-bold text-[#33450d]">
+              <span className="material-symbols-outlined text-base" aria-hidden="true">eco</span>
+              <span>Paso 1 de 3</span>
+            </div>
+            <div
+              className="w-24 bg-[#e5e2dd] h-1.5 rounded-full overflow-hidden"
+              role="progressbar"
+              aria-valuenow={1}
+              aria-valuemin={1}
+              aria-valuemax={3}
+              aria-label="Progreso del onboarding"
+            >
+              <div className="bg-[#33450d] h-full w-1/3" />
+            </div>
           </div>
-          <div
-            className="w-24 bg-[#e5e2dd] h-1.5 rounded-full overflow-hidden"
-            role="progressbar"
-            aria-valuenow={1}
-            aria-valuemin={1}
-            aria-valuemax={3}
-            aria-label="Progreso del onboarding"
-          >
-            <div className="bg-[#33450d] h-full w-1/3" />
-          </div>
-        </div>
+        )}
 
         <div className="space-y-1.5">
-          <h1 className="font-bold text-2xl text-[#1c1c19]">
-            {user?.displayName ? `Hola, ${user.displayName}` : 'Demos nombre a tu espacio de trabajo'}
+          <div className="flex items-center gap-2 text-xs font-bold text-[#33450d]">
+            <span className="material-symbols-outlined text-base" aria-hidden="true">eco</span>
+            <span>{isAdditional ? 'Nuevo Workspace' : 'Tu espacio de trabajo'}</span>
+          </div>
+          <h1 className="font-headline font-bold text-2xl text-[#1c1c19]">
+            {isAdditional
+              ? 'Crea un nuevo Workspace'
+              : user?.displayName
+                ? `Hola, ${user.displayName}`
+                : 'Demos nombre a tu espacio de trabajo'}
           </h1>
           <p className="text-sm text-[#45483c]">
             Un Workspace representa tu finca o explotación agrícola. Todos tus terrenos, tareas
@@ -83,18 +106,26 @@ export const CreateWorkspacePage: React.FC = () => {
             >
               Nombre del Workspace
             </label>
-            <input
-              id="workspace-name"
-              type="text"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="ej. Finca El Olivar, AgroSoto, etc."
-              maxLength={NAME_MAX_LENGTH}
-              autoFocus
-              disabled={isSubmitting}
-              aria-invalid={errorMessage !== null}
-              className="w-full px-4 py-3 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-sm text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white transition-all font-medium disabled:opacity-60"
-            />
+            <div className="relative">
+              <span
+                className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#76786b]"
+                aria-hidden="true"
+              >
+                landscape
+              </span>
+              <input
+                id="workspace-name"
+                type="text"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="ej. Finca El Olivar, AgroSoto, etc."
+                maxLength={NAME_MAX_LENGTH}
+                autoFocus
+                disabled={isSubmitting}
+                aria-invalid={errorMessage !== null}
+                className="w-full pl-11 pr-4 py-3 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-sm text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white transition-all font-medium disabled:opacity-60"
+              />
+            </div>
           </div>
 
           {errorMessage && (
@@ -106,21 +137,41 @@ export const CreateWorkspacePage: React.FC = () => {
             </div>
           )}
 
-          <div className="bg-[#f0ede8] rounded-xl p-4 border border-[#e5e2dd] space-y-1">
-            <p className="text-xs font-bold text-[#1c1c19]">Workspace personalizado</p>
-            <p className="text-xs text-[#76786b] leading-tight">
-              Podrás invitar a tus trabajadores y colaboradores a este espacio más adelante.
-            </p>
+          <div className="bg-[#f0ede8] rounded-xl p-4 border border-[#e5e2dd] flex items-center gap-4">
+            <img
+              src="https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=300&auto=format&fit=crop&q=80"
+              alt=""
+              aria-hidden="true"
+              className="w-20 h-20 rounded-lg object-cover shadow-xs shrink-0"
+            />
+            <div className="space-y-1">
+              <p className="text-xs font-bold text-[#1c1c19]">Workspace personalizado</p>
+              <p className="text-xs text-[#76786b] leading-tight">
+                Podrás invitar a tus trabajadores y colaboradores a este espacio más adelante.
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center justify-between pt-2">
-            <button
-              type="button"
-              onClick={() => void logout()}
-              className="px-4 py-2 text-xs font-semibold text-[#76786b] hover:text-[#1c1c19]"
-            >
-              Cerrar sesión
-            </button>
+            {isAdditional ? (
+              // Alta adicional: la salida vuelve a la operativa, no cierra sesión.
+              <button
+                type="button"
+                onClick={() => navigate('/app', { replace: true })}
+                disabled={isSubmitting}
+                className="px-4 py-2 text-xs font-semibold text-[#76786b] hover:text-[#1c1c19] disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void logout()}
+                className="px-4 py-2 text-xs font-semibold text-[#76786b] hover:text-[#1c1c19]"
+              >
+                Cerrar sesión
+              </button>
+            )}
             <button
               type="submit"
               disabled={isSubmitting}

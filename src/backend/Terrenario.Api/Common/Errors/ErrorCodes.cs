@@ -25,6 +25,7 @@ public static class ErrorCodes
     // Business rules
     public const string BusinessRuleInvitationExpired = "BUSINESS_RULE_INVITATION_EXPIRED";
     public const string BusinessRuleInvitationAlreadyAccepted = "BUSINESS_RULE_INVITATION_ALREADY_ACCEPTED";
+    public const string BusinessRuleInvitationAlreadyRejected = "BUSINESS_RULE_INVITATION_ALREADY_REJECTED";
     public const string BusinessRuleInvitationAlreadyMember = "BUSINESS_RULE_INVITATION_ALREADY_MEMBER";
 
     // Resources

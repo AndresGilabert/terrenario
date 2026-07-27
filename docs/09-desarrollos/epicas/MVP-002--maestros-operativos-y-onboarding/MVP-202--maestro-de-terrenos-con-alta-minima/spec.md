@@ -89,5 +89,5 @@ Permitir crear, editar, listar e inactivar terrenos del Workspace con la mínima
 - La ausencia de `num_arboles` (`tree_count`) se trata como dato incompleto en dashboard (RN-010); aquí no bloquea. La respuesta expone `has_tree_count` para que la UI lo marque.
 - **`tipo_propiedad`** se cierra como catálogo `plot_ownership_type` = `{propia, cedida}` (decisión con PO), formalizado en `contratos-api.md`.
 - **Divergencias con el ER canónico** (corregidas y documentadas): se añade `is_active` (no estaba); `location` en texto libre en vez de `latitude`/`longitude`; `soil_metadata` diferido. Registrado en MVP-999 (P-019).
-- Esta historia estrena el **cliente HTTP común** con manejo centralizado de 401/403 de scope, cerrando la deuda P-007/P-018 de MVP-999 (recursos *scoped*: terrenos y temporadas).
+- Esta historia estrena el **cliente HTTP común** con manejo centralizado de 401/403 de scope, cerrando la deuda P-007/P-018 de MVP-999 (recursos _scoped_: terrenos y temporadas).
 - Detalle técnico de la implementación: [tech-design.md](./tech-design.md).

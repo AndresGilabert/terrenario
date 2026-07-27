@@ -46,7 +46,7 @@ nunca viaja como parámetro (RN-034).
   producto define el terreno como «propio o cedido»; RN-028 lo hace obligatorio pero la KB no tenía
   catálogo formal. Se formaliza `plot_ownership_type` en `contratos-api.md` y se valida en el dominio.
 - **Alcance del cliente HTTP común**: se crea el cliente compartido y se usa en el nuevo servicio de
-  terrenos y en `season.service` (ambos recursos *scoped*, cerrando P-018). Los servicios de
+  terrenos y en `season.service` (ambos recursos _scoped_, cerrando P-018). Los servicios de
   auth/workspace/invitation se mantienen (ruta crítica de login) y su migración queda como mejora
   incremental, no como deuda bloqueante.
 
@@ -175,7 +175,7 @@ para que la UI marque el dato incompleto de `tree_count` (RN-010) sin lógica de
 - **Alta (`CreatePlotHandler`).** Crea el terreno con `Plot.Create`. Solo exige `name` y
   `ownership_type` válido; el resto se normaliza (recorte; cadena vacía ≡ ausente). Nace `is_active`.
 - **Edición (`UpdatePlotHandler`).** Busca el terreno acotado al Workspace (`FindByIdAsync`), aplica
-  el *merge* parcial contra los valores actuales y persiste. Si no existe en el Workspace → `null` →
+  el _merge_ parcial contra los valores actuales y persiste. Si no existe en el Workspace → `null` →
   404 (no revela terrenos de otros Workspaces; refuerza el aislamiento además de `EnsureInScope`).
 - **Inactivación (CA-3).** `SetActive(false)` vía el mismo PATCH; reversible con `SetActive(true)`.
 - **Listado (`ListPlotsHandler`).** Filtra por Workspace, por `is_active` y por texto
@@ -204,7 +204,7 @@ con `useApiClient`. Lo consumen `plot.service` y `season.service`.
 | `latitude`/`longitude` del ER canónico | Fuera de alcance (mapas/coordenadas); el spec y el contrato piden `location` de texto libre |
 | Borrado físico de terrenos | El histórico rompería integridad; el MVP inactiva (CA-3) |
 | PATCH "PUT-style" (reenviar todo) | **Bug detectado en verificación real**: un PATCH parcial borraba los opcionales. Se implementa PATCH parcial con presencia de campo |
-| Migrar ya todos los servicios al cliente común | Toca la ruta crítica de login; se limita a los recursos *scoped* (plots + seasons), que es lo que P-007/P-018 pedían |
+| Migrar ya todos los servicios al cliente común | Toca la ruta crítica de login; se limita a los recursos _scoped_ (plots + seasons), que es lo que P-007/P-018 pedían |
 | Modal de detalle con histórico (prototipo `TerrenoDetailModal`) | Su contenido (cosechas/labores) depende de datos de MVP-003/004; se difiere (P-019) |
 
 ## Riesgos e impacto
@@ -248,7 +248,6 @@ Resultado local: `dotnet test` en verde (160 tests); `npm run build` y `npm run 
 - [x] Tests escritos y pasando
 - [x] Documentación de API actualizada (contrato + catálogo `plot_ownership_type`)
 - [x] Modelo de datos actualizado (`PLOT` con `is_active`; estado de implementación; divergencias)
-- [x] Cliente HTTP común (P-007/P-018) implementado y usado por los recursos *scoped*
+- [x] Cliente HTTP común (P-007/P-018) implementado y usado por los recursos _scoped_
 - [x] Puntos fuera de alcance registrados en MVP-999 (P-007/P-018 resueltos; P-019 nuevo)
 - [x] Sin `TODO` sin resolver en este documento
-```

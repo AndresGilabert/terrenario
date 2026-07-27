@@ -93,6 +93,7 @@ erDiagram
         string name
         date start_date
         date end_date
+        boolean is_active
         boolean is_closed
         string active_crop
         timestamp created_at
@@ -215,6 +216,20 @@ Restricciones: indice unico `(workspace_id, user_id)` (un usuario no puede tener
 Restricciones: indice unico en `token_hash` e indice de apoyo `(workspace_id, status)`. La
 invitacion es de un solo uso: al aceptarse pasa a `aceptada` y no vuelve a ser valida.
 
+### SEASON
+
+| Campo | Tipo | Obligatorio | Descripcion |
+|-------|------|-------------|-------------|
+| `is_active` | boolean | Si | Temporada activa del Workspace (RN-021/RN-022). En MVP solo una por Workspace |
+| `is_closed` | boolean | Si | Cierre informativo (RN-024); no bloquea altas ni ediciones |
+| `end_date` | date (nullable) | No | Fecha fin estimada; opcional |
+| `active_crop` | string (nullable) | No | Reservado para la evolucion por cultivo (RU-18/RU-19). No materializado en MVP-201 |
+
+Restricciones: indice unico parcial `(workspace_id) WHERE is_active` (`ux_seasons_workspace_active`)
+que materializa RN-022 en la base de datos. Introducida en MVP-201 (creacion explicita y cancelable;
+no se siembra por defecto). El maestro completo (estados `planificada/activa/cerrada`, derivables de
+`is_active`/`is_closed`; alta de varias, edicion, cierre) es alcance de MVP-203.
+
 ### WORKER
 
 | Campo | Tipo | Obligatorio | Descripcion |
@@ -290,7 +305,8 @@ invitacion es de un solo uso: al aceptarse pasa a `aceptada` y no vuelve a ser v
 | `WORKSPACE` | implementada | MVP-102 |
 | `WORKSPACE_MEMBER` | implementada | MVP-102 (estados de membresia en MVP-104) |
 | `WORKSPACE_INVITATION` | implementada | MVP-103 |
-| `PLOT`, `SEASON`, `WORKER` | pendiente | MVP-002 |
+| `SEASON` | parcial | MVP-201 (temporada inicial + `is_active`); maestro completo en MVP-203 |
+| `PLOT`, `WORKER` | pendiente | MVP-002 |
 | `ACTIVITY`, `PURCHASE`, `PURCHASE_CONSUMPTION` | pendiente | MVP-003 |
 | `HARVEST` | pendiente | MVP-004 |
 

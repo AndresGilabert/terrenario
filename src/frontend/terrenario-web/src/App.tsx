@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { WorkspaceProvider, useWorkspace } from './contexts/WorkspaceContext';
+import { SeasonProvider, useSeason } from './contexts/SeasonContext';
 import { NotificationsProvider, useNotifications } from './contexts/NotificationsContext';
 import { LandingPage } from './components/marketing/LandingPage';
 import { LoginPage } from './components/auth/LoginPage';
 import { OAuthCallback } from './components/auth/OAuthCallback';
 import { CreateWorkspacePage } from './components/onboarding/CreateWorkspacePage';
+import { SeasonSetupPage } from './components/onboarding/SeasonSetupPage';
 import { AcceptInvitationPage } from './components/invitations/AcceptInvitationPage';
 import { ReceivedInvitationsPage } from './components/invitations/ReceivedInvitationsPage';
 import { InvitePeoplePage } from './components/workspace/InvitePeoplePage';
@@ -37,10 +39,15 @@ function AppRoutes() {
         <Route element={<RequireWorkspace />}>
           {/* Alta de un Workspace adicional desde la app (MVP-107): pantalla completa, sin cabecera */}
           <Route path="/app/workspaces/new" element={<CreateWorkspacePage mode="additional" />} />
-          <Route element={<AppLayout />}>
-            <Route path="/app" element={<AppHome />} />
-            <Route path="/app/invitations" element={<InvitePeoplePage />} />
-            <Route path="/app/*" element={<AppHome />} />
+          {/* Oferta de temporada (MVP-201): pantalla de creación, fuera de la guarda para no hacer bucle */}
+          <Route path="/app/temporada/nueva" element={<SeasonSetupPage />} />
+          {/* Si el Workspace activo no tiene temporada, se ofrece crearla (cancelable) */}
+          <Route element={<RequireSeasonOffer />}>
+            <Route element={<AppLayout />}>
+              <Route path="/app" element={<AppHome />} />
+              <Route path="/app/invitations" element={<InvitePeoplePage />} />
+              <Route path="/app/*" element={<AppHome />} />
+            </Route>
           </Route>
         </Route>
       </Route>
@@ -73,6 +80,27 @@ function OnboardingRoute() {
   }
 
   return <CreateWorkspacePage />;
+}
+
+/**
+ * Guarda de oferta de temporada (MVP-201). Si el Workspace activo no tiene temporada y el usuario no
+ * ha rechazado la oferta en esta sesión, redirige a la pantalla de creación (cancelable). Cubre por
+ * igual el alta de un Workspace nuevo y la selección de uno existente sin temporada.
+ */
+function RequireSeasonOffer() {
+  const { activeSeason, isLoading, offerDismissed } = useSeason();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#fcf9f4] flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-[#33450d] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!activeSeason && !offerDismissed) return <Navigate to="/app/temporada/nueva" replace />;
+
+  return <Outlet />;
 }
 
 function AppHome() {
@@ -120,9 +148,11 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <WorkspaceProvider>
-          <NotificationsProvider>
-            <AppRoutes />
-          </NotificationsProvider>
+          <SeasonProvider>
+            <NotificationsProvider>
+              <AppRoutes />
+            </NotificationsProvider>
+          </SeasonProvider>
         </WorkspaceProvider>
       </AuthProvider>
     </BrowserRouter>

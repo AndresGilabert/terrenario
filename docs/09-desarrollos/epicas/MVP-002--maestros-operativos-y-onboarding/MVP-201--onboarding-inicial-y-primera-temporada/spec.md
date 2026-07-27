@@ -2,7 +2,7 @@
 id: "MVP-201"
 tipo: feature
 titulo: "Onboarding inicial del Workspace y primera temporada"
-estado: borrador
+estado: en-progreso
 prioridad: alta
 sprint: ""
 hito: "Hito B — Base operativa preparada"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "onboarding", "temporada"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-27"
 ---
 
 # MVP-201 — Onboarding inicial del Workspace y primera temporada
@@ -63,9 +63,13 @@ Dejar a un Workspace recién creado en un estado inicial utilizable, con tempora
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Un Workspace nuevo termina con una temporada inicial activa sin requerir configuración manual compleja.
-- [ ] **CA-2**: El usuario puede continuar desde ese punto con la configuración de maestros del MVP.
-- [ ] **CA-3**: El sistema mantiene la restricción de una única temporada activa por Workspace desde el primer uso.
+> **Ajuste por decisión de producto (2026-07-27)**: no se crea temporada por defecto. La CA-1 se
+> reinterpreta como "se **ofrece** crear una temporada inicial activa, de forma cancelable", en vez
+> de "el Workspace termina con una temporada" (que impondría un dato no querido). Ver Notas.
+
+- [x] **CA-1 (reinterpretada)**: Al crear un Workspace nuevo se ofrece crear una temporada inicial activa, sin configuración compleja y de forma cancelable. _(Guarda de oferta tras el alta; verificado por UI y API.)_
+- [x] **CA-2**: El usuario puede continuar desde ese punto con la configuración de maestros del MVP. _(El Home muestra la temporada activa o el acceso para crearla; base de autoselección RN-021 lista.)_
+- [x] **CA-3**: El sistema mantiene la restricción de una única temporada activa por Workspace desde el primer uso. _(Índice único parcial `ux_seasons_workspace_active` + 409; test SQLite de la invariante.)_
 
 ## Maquetas y referencias visuales
 
@@ -79,9 +83,19 @@ Dejar a un Workspace recién creado en un estado inicial utilizable, con tempora
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| OnboardingStep1 | RN-021 | parcial | Wizard inicial disponible |
-| OnboardingStep2 | RN-021, RN-022 | parcial | Configuracion de temporada visible |
+| OnboardingStep1 | RN-021 | cubierto | Alta de Workspace; sin contador "Paso X de Y" (P-010 resuelto) |
+| OnboardingStep2 | RN-021, RN-022 | cubierto | Pantalla de creación de temporada (oferta cancelable); `POST /seasons`; UI conducida verificada |
 
 ## Notas y decisiones
 
-- Esta historia acelera el arranque, pero no sustituye la historia específica de gestión completa de temporadas.
+- Esta historia acelera el arranque, pero no sustituye la historia específica de gestión completa de temporadas (MVP-203).
+- **Decisión de producto (2026-07-27)**: **no se crea ninguna temporada por defecto**. La temporada
+  es un acto explícito y **cancelable** del usuario. La app **ofrece** crearla en dos momentos:
+  (a) al crear un Workspace y (b) cuando el Workspace activo no tiene temporada (p. ej. al
+  seleccionarlo). "Ahora no" entra a la app sin crear ninguna; queda un acceso para hacerlo después.
+- Este mecanismo **también cubre los Workspaces preexistentes** sin temporada (al activarlos se
+  ofrece crearla), por lo que no hace falta ningún backfill de datos.
+- El endpoint de creación (`POST /api/v1/seasons`) es mínimo (crea la primera temporada activa; 409
+  si ya hay). El CRUD completo (varias temporadas, editar, cerrar, cambiar de activa) es MVP-203;
+  registrado como punto en MVP-999 (P-017).
+- Detalle técnico de la implementación: [tech-design.md](./tech-design.md).

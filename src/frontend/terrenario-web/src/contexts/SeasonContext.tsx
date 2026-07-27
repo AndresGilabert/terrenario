@@ -1,7 +1,7 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { CreateSeasonPayload, Season } from '../types/season.types';
-import { seasonService } from '../services/season.service';
-import { useAuth } from './AuthContext';
+import { createSeasonService } from '../services/season.service';
+import { useApiClient } from './ApiContext';
 import { useWorkspace } from './WorkspaceContext';
 
 interface SeasonContextValue {
@@ -24,16 +24,14 @@ const SeasonContext = createContext<SeasonContextValue | null>(null);
  * temporada es siempre un acto explícito del usuario.
  */
 export function SeasonProvider({ children }: { children: React.ReactNode }) {
-  const { getAccessToken } = useAuth();
+  const http = useApiClient();
   const { activeWorkspace } = useWorkspace();
+  const seasonService = useMemo(() => createSeasonService(http), [http]);
 
   const [activeSeason, setActiveSeason] = useState<Season | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   // Workspaces cuya oferta de temporada se rechazó en esta sesión (en memoria; se reofrece al recargar).
   const [dismissedWorkspaces, setDismissedWorkspaces] = useState<ReadonlySet<string>>(new Set());
-
-  const getAccessTokenRef = useRef(getAccessToken);
-  getAccessTokenRef.current = getAccessToken;
 
   const workspaceId = activeWorkspace?.id ?? null;
 
@@ -48,11 +46,8 @@ export function SeasonProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
 
     (async () => {
-      const accessToken = await getAccessTokenRef.current();
-      if (cancelled) return;
-
       try {
-        const season = accessToken ? await seasonService.getActiveSeason(accessToken) : null;
+        const season = await seasonService.getActiveSeason();
         if (!cancelled) setActiveSeason(season);
       } catch {
         if (!cancelled) setActiveSeason(null);
@@ -64,18 +59,15 @@ export function SeasonProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [workspaceId]);
+  }, [workspaceId, seasonService]);
 
   const createSeason = useCallback(
     async (payload: CreateSeasonPayload): Promise<Season> => {
-      const accessToken = await getAccessTokenRef.current();
-      if (!accessToken) throw new Error('Sesión no válida.');
-
-      const season = await seasonService.createSeason(payload, accessToken);
+      const season = await seasonService.createSeason(payload);
       setActiveSeason(season);
       return season;
     },
-    []
+    [seasonService]
   );
 
   const dismissOffer = useCallback(() => {

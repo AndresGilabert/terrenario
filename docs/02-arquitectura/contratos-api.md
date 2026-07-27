@@ -60,6 +60,7 @@ y se mantienen en español.
 
 | Catálogo | Valores permitidos |
 |---|---|
+| `plot_ownership_type` | `propia`, `cedida` |
 | `harvest_destination` | `venta_aceituna`, `aceite_para_venta`, `aceite_personal`, `desconocido` |
 | `harvest_product` | catálogo global fijo gobernado por sistema |
 | `season_status` | `planificada`, `activa`, `cerrada` |
@@ -188,9 +189,22 @@ Validaciones clave:
 
 | Regla | Código error |
 |---|---|
-| `name` obligatorio y longitud válida | `VALIDATION_REQUIRED_NAME` |
-| `tree_count >= 0` | `VALIDATION_RANGE_TREE_COUNT` |
-| `workspace_id` implícito desde token | `AUTH_WORKSPACE_SCOPE_REQUIRED` |
+| `name` obligatorio y longitud válida | `VALIDATION_REQUIRED_NAME` (400) |
+| `ownership_type` obligatorio (RN-028) | `VALIDATION_REQUIRED` / `VALIDATION_REQUIRED_PLOT_OWNERSHIP_TYPE` (400) |
+| `ownership_type` dentro de `plot_ownership_type` | `VALIDATION_PLOT_OWNERSHIP_TYPE_INVALID` (400) |
+| `tree_count >= 0` (entero) | `VALIDATION_RANGE_TREE_COUNT` (400) |
+| `workspace_id` implícito desde token | `AUTH_WORKSPACE_SCOPE_REQUIRED` (403) |
+| Terreno inexistente o de otro Workspace | `RESOURCE_NOT_FOUND` (404) |
+
+Reglas de contexto (MVP-202):
+
+| Regla | Comportamiento |
+|---|---|
+| Alta mínima (RN-028) | Solo `name` y `ownership_type` son obligatorios; el resto es opcional e informativo |
+| `tree_count` ausente | No bloquea; se marca como dato incompleto para el dashboard (RN-010). La respuesta incluye `has_tree_count` |
+| Inactivación con histórico (CA-3) | `PATCH { is_active:false }`; reversible. No hay borrado físico de terrenos |
+| `PATCH` de campos parciales | Un campo ausente mantiene su valor; presente (incluido vacío) lo asigna/limpia |
+| `location` | Texto libre. Coordenadas/mapas y `soil_metadata` quedan fuera de alcance del MVP |
 
 ### 2) Seasons (temporadas)
 

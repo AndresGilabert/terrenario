@@ -33,6 +33,9 @@ public sealed record ApiError(string Code, string Message)
 
     public static ApiError SeasonAlreadyActive() =>
         new(ErrorCodes.BusinessRuleSeasonAlreadyActive, "Tu Workspace ya tiene una temporada activa.");
+
+    public static ApiError PlotNotFound() =>
+        new(ErrorCodes.ResourceNotFound, "El terreno no existe en tu Workspace activo.");
 }
 
 public sealed record ApiErrorResponse(ApiError Error);

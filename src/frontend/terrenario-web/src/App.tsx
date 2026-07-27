@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { WorkspaceProvider, useWorkspace } from './contexts/WorkspaceContext';
+import { ApiProvider } from './contexts/ApiContext';
 import { SeasonProvider, useSeason } from './contexts/SeasonContext';
 import { NotificationsProvider, useNotifications } from './contexts/NotificationsContext';
 import { LandingPage } from './components/marketing/LandingPage';
@@ -12,6 +13,7 @@ import { SeasonSetupPage } from './components/onboarding/SeasonSetupPage';
 import { AcceptInvitationPage } from './components/invitations/AcceptInvitationPage';
 import { ReceivedInvitationsPage } from './components/invitations/ReceivedInvitationsPage';
 import { InvitePeoplePage } from './components/workspace/InvitePeoplePage';
+import { TerrenosView } from './components/plots/TerrenosView';
 import { AppLayout } from './components/layout/AppLayout';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { RequireWorkspace } from './routes/RequireWorkspace';
@@ -45,6 +47,7 @@ function AppRoutes() {
           <Route element={<RequireSeasonOffer />}>
             <Route element={<AppLayout />}>
               <Route path="/app" element={<AppHome />} />
+              <Route path="/app/terrenos" element={<TerrenosView />} />
               <Route path="/app/invitations" element={<InvitePeoplePage />} />
               <Route path="/app/*" element={<AppHome />} />
             </Route>
@@ -148,11 +151,13 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <WorkspaceProvider>
-          <SeasonProvider>
-            <NotificationsProvider>
-              <AppRoutes />
-            </NotificationsProvider>
-          </SeasonProvider>
+          <ApiProvider>
+            <SeasonProvider>
+              <NotificationsProvider>
+                <AppRoutes />
+              </NotificationsProvider>
+            </SeasonProvider>
+          </ApiProvider>
         </WorkspaceProvider>
       </AuthProvider>
     </BrowserRouter>

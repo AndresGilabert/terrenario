@@ -1,57 +1,28 @@
-import { API_BASE, readErrorBody } from './api.config';
+import { HttpError, type HttpClient } from './http-client';
 import type { CreateSeasonPayload, Season } from '../types/season.types';
 
-export const seasonService = {
-  /** Temporada activa del Workspace en curso. `null` si aún no hay ninguna (RN-021/RN-022). */
-  async getActiveSeason(accessToken: string): Promise<Season | null> {
-    const response = await fetch(`${API_BASE}/api/v1/seasons/active`, {
-      credentials: 'include',
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+/**
+ * Servicio de temporadas sobre el cliente HTTP común (migrado en MVP-202, P-018). El manejo de
+ * 401/403 de ámbito de Workspace vive ahora en el cliente; aquí solo queda la lógica propia del
+ * recurso (p. ej. tratar un 404 como "el Workspace aún no tiene temporada").
+ */
+export function createSeasonService(http: HttpClient) {
+  return {
+    /** Temporada activa del Workspace en curso. `null` si aún no hay ninguna (RN-021/RN-022). */
+    async getActiveSeason(): Promise<Season | null> {
+      try {
+        return await http.request<Season>('/api/v1/seasons/active');
+      } catch (error) {
+        if (error instanceof HttpError && error.status === 404) return null;
+        throw error;
+      }
+    },
 
-    if (response.status === 404) return null;
-
-    if (!response.ok) {
-      const errorBody = await readErrorBody(response);
-      throw new SeasonServiceError(
-        errorBody?.error?.code ?? 'SEASON_FETCH_FAILED',
-        errorBody?.error?.message ?? 'No se pudo cargar tu temporada.'
-      );
-    }
-
-    return response.json();
-  },
-
-  /** Crea la (primera) temporada activa del Workspace (MVP-201). */
-  async createSeason(payload: CreateSeasonPayload, accessToken: string): Promise<Season> {
-    const response = await fetch(`${API_BASE}/api/v1/seasons`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const errorBody = await readErrorBody(response);
-      throw new SeasonServiceError(
-        errorBody?.error?.code ?? 'SEASON_CREATE_FAILED',
-        errorBody?.error?.message ?? 'No se pudo crear la temporada. Inténtalo de nuevo.'
-      );
-    }
-
-    return response.json();
-  },
-};
-
-export class SeasonServiceError extends Error {
-  readonly code: string;
-
-  constructor(code: string, message: string) {
-    super(message);
-    this.name = 'SeasonServiceError';
-    this.code = code;
-  }
+    /** Crea la (primera) temporada activa del Workspace (MVP-201). */
+    async createSeason(payload: CreateSeasonPayload): Promise<Season> {
+      return http.request<Season>('/api/v1/seasons', { method: 'POST', body: payload });
+    },
+  };
 }
+
+export type SeasonService = ReturnType<typeof createSeasonService>;

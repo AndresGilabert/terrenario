@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useSeason } from '../../contexts/SeasonContext';
-import { SeasonServiceError } from '../../services/season.service';
+import { HttpError } from '../../services/http-client';
 
 const NAME_MAX_LENGTH = 120;
 
@@ -64,7 +64,7 @@ export const SeasonSetupPage: React.FC = () => {
       navigate('/app', { replace: true });
     } catch (error: unknown) {
       setErrorMessage(
-        error instanceof SeasonServiceError
+        error instanceof HttpError
           ? error.message
           : 'No se pudo crear la temporada. Inténtalo de nuevo.'
       );

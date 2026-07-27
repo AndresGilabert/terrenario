@@ -35,6 +35,31 @@ public sealed record InvitationSummary(
     DateTimeOffset ExpiresAt,
     DateTimeOffset CreatedAt);
 
+/// <summary>
+/// Reenvío de una invitación por email pendiente (MVP-204, HU-5/CA-6). El Workspace y el emisor se
+/// resuelven en servidor. <paramref name="DeliverEmail"/> distingue las dos vías del reenvío: por
+/// email (se vuelve a enviar el correo) o por enlace (solo se devuelve el nuevo <c>accept_url</c>
+/// para compartirlo por otro medio). En ambos casos se rota el token y se renueva la caducidad.
+/// </summary>
+public sealed record ResendInvitationCommand(
+    Guid WorkspaceId,
+    string WorkspaceName,
+    Guid ActingUserId,
+    string? ActingDisplayName,
+    Guid InvitationId,
+    bool DeliverEmail);
+
+/// <summary>
+/// Resultado del reenvío. <paramref name="AcceptUrl"/> es la única vez que el enlace nuevo existe en
+/// claro (en base de datos solo queda su hash), igual que en la emisión original.
+/// </summary>
+public sealed record ResendInvitationResult(
+    Guid Id,
+    string Email,
+    string AcceptUrl,
+    DateTimeOffset ExpiresAt,
+    bool EmailSent);
+
 public sealed record AcceptInvitationCommand(Guid UserId, string Token);
 
 /// <summary>

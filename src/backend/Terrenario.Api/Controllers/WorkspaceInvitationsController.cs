@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using Terrenario.Api.Application.Invitations;
 using Terrenario.Api.Application.Invitations.Commands;
 using Terrenario.Api.Common.Auth;
@@ -23,6 +24,7 @@ namespace Terrenario.Api.Controllers;
 public sealed class WorkspaceInvitationsController(
     CreateInvitationHandler createInvitationHandler,
     ListWorkspaceInvitationsHandler listWorkspaceInvitationsHandler,
+    ResendInvitationHandler resendInvitationHandler,
     IWorkspaceContext workspaceContext) : ControllerBase
 {
     [HttpPost]
@@ -48,6 +50,47 @@ public sealed class WorkspaceInvitationsController(
                 channel = result.Channel,
                 email = result.Email,
                 status = result.Status,
+                accept_url = result.AcceptUrl,
+                expires_at = result.ExpiresAt,
+                email_sent = result.EmailSent
+            });
+        }
+        catch (InvitationException ex)
+        {
+            return InvitationErrorMapper.ToActionResult(ex);
+        }
+    }
+
+    /// <summary>
+    /// MVP-204 (HU-5/CA-6) — Reenvía una invitación por email pendiente a una persona en estado
+    /// <c>invitado</c>. Rota el token (un solo uso) y renueva la caducidad, igual que la emisión
+    /// original. <c>deliver_email: false</c> hace el reenvío "por enlace": no reenvía el correo y solo
+    /// devuelve el nuevo <c>accept_url</c> para compartirlo por otro medio.
+    /// </summary>
+    [HttpPost("{invitationId:guid}/resend")]
+    public async Task<IActionResult> Resend(
+        Guid invitationId,
+        [FromBody] ResendInvitationRequest? request,
+        CancellationToken ct)
+    {
+        var workspace = workspaceContext.Workspace;
+
+        try
+        {
+            var result = await resendInvitationHandler.HandleAsync(
+                new ResendInvitationCommand(
+                    workspace.Id,
+                    workspace.Name,
+                    User.GetUserId()!.Value,
+                    User.GetDisplayName(),
+                    invitationId,
+                    request?.DeliverEmail ?? true),
+                ct);
+
+            return Ok(new
+            {
+                id = result.Id,
+                email = result.Email,
                 accept_url = result.AcceptUrl,
                 expires_at = result.ExpiresAt,
                 email_sent = result.EmailSent
@@ -85,3 +128,10 @@ public sealed record CreateInvitationRequest(
     string Channel,
     [StringLength(WorkspaceInvitation.EmailMaxLength, ErrorMessage = "El email de la persona invitada es demasiado largo.")]
     string? Email);
+
+/// <summary>
+/// Reenvío de invitación (MVP-204). <c>deliver_email</c> distingue reenviar por email (por defecto)
+/// de reenviar por enlace (solo devuelve el nuevo <c>accept_url</c>).
+/// </summary>
+public sealed record ResendInvitationRequest(
+    [property: JsonPropertyName("deliver_email")] bool DeliverEmail = true);

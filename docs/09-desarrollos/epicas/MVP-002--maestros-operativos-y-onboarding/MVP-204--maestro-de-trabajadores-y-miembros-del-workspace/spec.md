@@ -89,14 +89,14 @@ Dejar preparado un maestro de trabajadores reutilizable y coherente con la membr
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Los miembros del Workspace aparecen automáticamente como responsables seleccionables en el maestro de trabajadores.
-- [ ] **CA-2**: El usuario puede crear y mantener trabajadores sin cuenta vinculada dentro del mismo Workspace.
-- [ ] **CA-3**: Los trabajadores con histórico pueden inactivarse sin invalidar los registros ya existentes.
-- [ ] **CA-4**: El usuario puede ver la lista de personas del Workspace con su estado de membresía, distinguiendo `invitado` (invitación por email pendiente), `activo` y `revocado`.
-- [ ] **CA-5**: Una invitación por email pendiente aparece en la lista como persona en estado `invitado`, y al aceptarse esa misma persona pasa a `activo` sin duplicarse.
-- [ ] **CA-6**: El usuario puede reenviar la invitación a una persona en estado `invitado`, por email o por enlace, obteniendo el mismo resultado que la emisión original (nuevo enlace de un solo uso y caducidad renovada).
-- [ ] **CA-7**: Al revocar el acceso de un miembro, su membresía pasa a `revocado` y deja de resolver contexto activo y de aparecer en su selector de Workspaces, sin borrar el vínculo ni invalidar los registros operativos que ese usuario ya hubiera creado.
-- [ ] **CA-8**: El sistema impide dejar el Workspace sin ningún miembro activo: no se puede revocar al último miembro activo ni al `workspace_owner` mientras siga siendo el único propietario.
+- [x] **CA-1**: Los miembros del Workspace aparecen automáticamente como responsables seleccionables en el maestro de trabajadores.
+- [x] **CA-2**: El usuario puede crear y mantener trabajadores sin cuenta vinculada dentro del mismo Workspace.
+- [x] **CA-3**: Los trabajadores con histórico pueden inactivarse sin invalidar los registros ya existentes.
+- [x] **CA-4**: El usuario puede ver la lista de personas del Workspace con su estado de membresía, distinguiendo `invitado` (invitación por email pendiente), `activo` y `revocado`.
+- [x] **CA-5**: Una invitación por email pendiente aparece en la lista como persona en estado `invitado`, y al aceptarse esa misma persona pasa a `activo` sin duplicarse.
+- [x] **CA-6**: El usuario puede reenviar la invitación a una persona en estado `invitado`, por email o por enlace, obteniendo el mismo resultado que la emisión original (nuevo enlace de un solo uso y caducidad renovada).
+- [x] **CA-7**: Al revocar el acceso de un miembro, su membresía pasa a `revocado` y deja de resolver contexto activo y de aparecer en su selector de Workspaces, sin borrar el vínculo ni invalidar los registros operativos que ese usuario ya hubiera creado.
+- [x] **CA-8**: El sistema impide dejar el Workspace sin ningún miembro activo: no se puede revocar al último miembro activo ni al `workspace_owner` mientras siga siendo el único propietario.
 
 ## Maquetas y referencias visuales
 
@@ -110,8 +110,9 @@ Dejar preparado un maestro de trabajadores reutilizable y coherente con la membr
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| TrabajadoresView | RN-027 | parcial | Maestro de trabajadores operativo en UI |
-| ActivityModal | RN-002, RN-027 | parcial | Seleccion de responsable disponible |
+| TrabajadoresView | RN-027 | cubierto | Maestro de trabajadores (CRUD sin cuenta) + miembros seleccionables en `/app/trabajadores`; verificado E2E (API+DB+UI) |
+| Miembros y accesos (nuevo, sin prototipo) | RN-034 | cubierto | `/app/miembros`: lista con estado, revocar (CA-8) y reenviar (CA-6); verificado E2E |
+| ActivityModal | RN-002, RN-027 | parcial | El maestro y la exposicion de responsables existen; la seleccion en el registro de actividad es alcance de MVP-301 |
 
 ## Notas y decisiones
 

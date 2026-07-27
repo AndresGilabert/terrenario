@@ -17,6 +17,13 @@ public interface IWorkspaceInvitationRepository
     Task<IReadOnlyList<WorkspaceInvitation>> ListPendingAsync(Guid workspaceId, CancellationToken ct = default);
 
     /// <summary>
+    /// Invitaciones por email pendientes del Workspace (MVP-204, HU-3): las personas en estado
+    /// <c>invitado</c> de la vista de personas. El canal <c>enlace</c> no tiene destinatario, así que
+    /// no genera una persona invitada.
+    /// </summary>
+    Task<IReadOnlyList<WorkspaceInvitation>> ListPendingEmailAsync(Guid workspaceId, CancellationToken ct = default);
+
+    /// <summary>
     /// Invitaciones por email pendientes dirigidas a un correo (MVP-107, HU-3). El enlace
     /// compartible no tiene destinatario, así que nunca aparece en la bandeja de nadie.
     /// </summary>

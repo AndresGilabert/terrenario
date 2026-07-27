@@ -21,6 +21,18 @@ public sealed class WorkspaceInvitationRepository(TerrenarioDbContext db) : IWor
             .OrderByDescending(i => i.CreatedAt)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<WorkspaceInvitation>> ListPendingEmailAsync(
+        Guid workspaceId,
+        CancellationToken ct = default)
+        // Sin ORDER BY en base de datos: el caso de uso ordena en memoria. Evita ordenar por
+        // DateTimeOffset, que EF+SQLite no traduce (aunque PostgreSQL sí), para no romper el test
+        // de repositorio contra SQLite real.
+        => await db.WorkspaceInvitations
+            .Where(i => i.WorkspaceId == workspaceId
+                && i.Channel == InvitationChannels.Email
+                && i.Status == InvitationStatuses.Pending)
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<WorkspaceInvitation>> ListReceivedPendingAsync(
         string canonicalEmail,
         CancellationToken ct = default)

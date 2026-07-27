@@ -107,6 +107,7 @@ Reglas de contexto:
 |---|---|---|---|
 | Emitir invitación | `POST /api/v1/workspaces/invitations` | `channel*`, `email?` | `201 { id, channel, email, status, accept_url, expires_at, email_sent }` |
 | Invitaciones pendientes (emitidas) | `GET /api/v1/workspaces/invitations` | — | `200 { data, meta: { total } }` |
+| Reenviar invitación por email (MVP-204) | `POST /api/v1/workspaces/invitations/{id}/resend` | `deliver_email?` (def. `true`) | `200 { id, email, accept_url, expires_at, email_sent }` |
 | Ver invitación por enlace | `GET /api/v1/invitations/{token}` | — | `200 { id, channel, status, workspace, invited_by, expires_at, is_expired, viewer: { can_accept, reason } }` |
 | Aceptar invitación por enlace | `POST /api/v1/invitations/{token}/accept` | — | `200 { workspace, access_token, expires_in, already_member }` |
 | Rechazar invitación por enlace (MVP-107) | `POST /api/v1/invitations/{token}/reject` | — | `204` |
@@ -141,6 +142,7 @@ Reglas de contexto:
 | La invitación por email va dirigida a una cuenta | Solo la acepta ese email; el canal `enlace` acepta a cualquier usuario autenticado |
 | Aceptar reemite la sesión | Devuelve un `access_token` nuevo ya situado en el Workspace de la invitación |
 | `email_sent: false` | La invitación es válida pero el proveedor de email falló; el enlace se comparte por otro medio |
+| Reenvío (MVP-204, HU-5/CA-6) | Solo invitaciones por email **pendientes** del Workspace activo. Rota el token (un solo uso) y renueva la caducidad, igual que la emisión original; la persona sigue `invitado`. `deliver_email:false` es el reenvío "por enlace" (no reenvía el correo, solo devuelve el nuevo `accept_url`). Cualquier invitación inexistente, de otro Workspace, de canal `enlace` o no pendiente responde `INVITATION_NOT_FOUND` (404) |
 | `viewer.can_accept` / `viewer.reason` (MVP-107) | Aptitud de la cuenta autenticada calculada antes de aceptar; `reason` ∈ `email_mismatch`, `expired`, `already_used`, `already_rejected`, `already_member`. No revela el email destinatario |
 | Bandeja de recibidas (MVP-107) | Solo canal `email` dirigido a la cuenta, pendiente y no caducada; se autoriza por titularidad del email, no por token. No exige Workspace activo |
 | Rechazar (MVP-107) | Transita a `rechazada` sin crear membresía; no cierra sesión. Idempotente ante doble rechazo del destinatario |
@@ -241,16 +243,53 @@ Validaciones clave:
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
-| Alta trabajador | `POST /api/v1/workers` | `name*`, `is_active?` | `201 { id, name, is_active }` |
-| Editar trabajador | `PATCH /api/v1/workers/{workerId}` | `name?`, `is_active?` | `200 { ...worker }` |
+| Alta trabajador | `POST /api/v1/workers` | `name*`, `hourly_rate?` | `201 { id, workspace_id, name, hourly_rate, is_active }` |
+| Editar trabajador | `PATCH /api/v1/workers/{workerId}` | `name?`, `hourly_rate?`, `is_active?` | `200 { ...worker }` |
 | Listado trabajadores | `GET /api/v1/workers` | `is_active?` | `200 { data, meta }` |
 
 Validaciones clave:
 
 | Regla | Código error |
 |---|---|
-| `name` obligatorio | `VALIDATION_REQUIRED_NAME` |
-| trabajador pertenece al workspace activo | `AUTH_WORKSPACE_FORBIDDEN` |
+| `name` obligatorio | `VALIDATION_REQUIRED_NAME` (400) |
+| `name` de longitud válida (≤ 150) | `VALIDATION_WORKER_NAME_LENGTH` (400) |
+| `hourly_rate >= 0` (opcional, de referencia) | `VALIDATION_RANGE_HOURLY_RATE` (400) |
+| trabajador inexistente o de otro Workspace | `RESOURCE_NOT_FOUND` (404) |
+
+Reglas de contexto (MVP-204):
+
+| Regla | Comportamiento |
+|---|---|
+| Alcance del maestro | Solo trabajadores **sin cuenta vinculada** (cuadrilla). Los miembros del Workspace se exponen como seleccionables aparte (RN-027), desde `GET /workspace-members` |
+| `hourly_rate` | Opcional y de referencia; no automatiza el coste (RN-003). `PATCH { hourly_rate: null }` la limpia |
+| Inactivación con histórico (CA-3) | `PATCH { is_active:false }`; reversible. No hay borrado físico de trabajadores |
+| `PATCH` de campos parciales | Un campo ausente mantiene su valor; presente (incluido vacío) lo asigna/limpia |
+
+### 4.b) Workspace members (personas del Workspace, MVP-204)
+
+| Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
+|---|---|---|---|
+| Personas del Workspace | `GET /api/v1/workspace-members` | — | `200 { data, meta:{ total, active, invited, revoked } }` |
+| Revocar acceso de un miembro | `POST /api/v1/workspace-members/{userId}/revoke` | — | `204` |
+
+`GET /workspace-members` devuelve una **lista unificada** con el estado de membresía
+(`worker_member_status`): las membresías reales (`activo`/`revocado`, `kind: "member"`) más las
+invitaciones por email pendientes proyectadas como `invitado` (`kind: "invitation"`). El estado
+`invitado` **no** es una fila de `workspace_members`: se combina desde `workspace_invitations` (el
+canal `enlace` no tiene destinatario, así que no genera persona). Orden: activos, invitados,
+revocados. Cada persona incluye señales de UI: `is_self` y `can_revoke` (miembros), `is_expired`
+(invitaciones).
+
+Validaciones y reglas:
+
+| Regla | Código error / comportamiento |
+|---|---|
+| Cualquier miembro activo puede listar y revocar | Permisos planos en MVP (RN-034) |
+| La persona no es un miembro activo del Workspace | `RESOURCE_NOT_FOUND` (404) |
+| No se puede revocar al propietario único (CA-8) | `BUSINESS_RULE_CANNOT_REVOKE_OWNER` (422) |
+| No se puede revocar al último miembro activo (CA-8) | `BUSINESS_RULE_LAST_ACTIVE_MEMBER` (422) |
+| Revocar (CA-7) | La membresía pasa a `revocado`: deja de resolver contexto y de aparecer en el selector (MVP-104), sin borrar el vínculo ni los registros que ese usuario creó |
+| Reingreso de un revocado | Por una invitación nueva (MVP-103); no hay reactivación directa |
 
 ### 5) Activities (actividades)
 

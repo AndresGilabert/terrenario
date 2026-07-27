@@ -6,7 +6,7 @@ estado: borrador
 prioridad: alta
 hito: "Hito B — Base operativa preparada"
 tickets: []
-historias: ["MVP-201", "MVP-202", "MVP-203", "MVP-204", "MVP-205", "MVP-299"]
+historias: ["MVP-201", "MVP-202", "MVP-203", "MVP-204", "MVP-205", "MVP-206", "MVP-299"]
 depende_de: ["MVP-001"]
 bloquea: ["MVP-003", "MVP-004"]
 relacionado_con: []
@@ -70,6 +70,7 @@ Dejar cada Workspace preparado para empezar a registrar actividad real en pocos 
 - `MVP-203` — Maestro de temporadas y regla de única activa.
 - `MVP-204` — Maestro de trabajadores y exposición automática de miembros.
 - `MVP-205` — Catálogo de tareas por Workspace.
+- `MVP-206` — Ciclo de vida del Workspace: renombrar, baja lógica y traspaso de propiedad.
 - `MVP-299` — Revision epica.
 
 ## Vinculacion con prototipo (fuente visual)
@@ -95,6 +96,7 @@ Matriz historia -> pantallas/componentes:
 | MVP-203 | [prototype/terrenario-mvp/src/components/TemporadasView.tsx](../../../../prototype/terrenario-mvp/src/components/TemporadasView.tsx) | Parcial: gestion y activacion visual de temporada; reglas completas de validacion/rango pendientes |
 | MVP-204 | [prototype/terrenario-mvp/src/components/TrabajadoresView.tsx](../../../../prototype/terrenario-mvp/src/components/TrabajadoresView.tsx), [prototype/terrenario-mvp/src/components/ActivityModal.tsx](../../../../prototype/terrenario-mvp/src/components/ActivityModal.tsx) | Parcial: maestro de trabajadores y seleccion en actividad disponibles |
 | MVP-205 | [prototype/terrenario-mvp/src/components/ActivityModal.tsx](../../../../prototype/terrenario-mvp/src/components/ActivityModal.tsx) | No cubierto funcionalmente: no existe catalogo de tareas por Workspace ni inactivacion |
+| MVP-206 | [prototype/terrenario-mvp/src/components/AjustesView.tsx](../../../../prototype/terrenario-mvp/src/components/AjustesView.tsx) | No cubierto: renombrar/baja logica/traspaso de propiedad no existen en el prototipo |
 
 ## Notas y decisiones
 

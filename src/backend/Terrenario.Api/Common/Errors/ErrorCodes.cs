@@ -36,12 +36,19 @@ public static class ErrorCodes
     public const string ValidationPlotLocationLength = "VALIDATION_PLOT_LOCATION_LENGTH";
     public const string ValidationRangeTreeCount = "VALIDATION_RANGE_TREE_COUNT";
     public const string ValidationRequiredPlotWorkspace = "VALIDATION_REQUIRED_PLOT_WORKSPACE";
+    // Workers (trabajadores, MVP-204)
+    public const string ValidationWorkerNameLength = "VALIDATION_WORKER_NAME_LENGTH";
+    public const string ValidationRangeHourlyRate = "VALIDATION_RANGE_HOURLY_RATE";
+    public const string ValidationRequiredWorkerWorkspace = "VALIDATION_REQUIRED_WORKER_WORKSPACE";
 
     // Business rules
     public const string BusinessRuleInvitationExpired = "BUSINESS_RULE_INVITATION_EXPIRED";
     public const string BusinessRuleInvitationAlreadyAccepted = "BUSINESS_RULE_INVITATION_ALREADY_ACCEPTED";
     public const string BusinessRuleInvitationAlreadyRejected = "BUSINESS_RULE_INVITATION_ALREADY_REJECTED";
     public const string BusinessRuleInvitationAlreadyMember = "BUSINESS_RULE_INVITATION_ALREADY_MEMBER";
+    // Administración de miembros (MVP-204, CA-8)
+    public const string BusinessRuleLastActiveMember = "BUSINESS_RULE_LAST_ACTIVE_MEMBER";
+    public const string BusinessRuleCannotRevokeOwner = "BUSINESS_RULE_CANNOT_REVOKE_OWNER";
 
     // Resources
     public const string ResourceNotFound = "RESOURCE_NOT_FOUND";

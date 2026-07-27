@@ -29,6 +29,22 @@ public interface IWorkspaceRepository
 
     Task<bool> HasActiveMembershipAsync(Guid workspaceId, Guid userId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Todas las personas con membresía real del Workspace (activas y revocadas), unidas a su cuenta,
+    /// para la vista de personas (MVP-204, HU-3). Las <c>invitado</c> no salen de aquí: son
+    /// invitaciones por email pendientes que se combinan aparte.
+    /// </summary>
+    Task<IReadOnlyList<WorkspaceMemberDetail>> ListMembersAsync(Guid workspaceId, CancellationToken ct = default);
+
+    /// <summary>Membresía <c>activo</c> de un usuario en el Workspace (para revocar, MVP-204). <c>null</c> si no la tiene.</summary>
+    Task<WorkspaceMember?> FindActiveMemberAsync(Guid workspaceId, Guid userId, CancellationToken ct = default);
+
+    /// <summary>Número de miembros activos del Workspace. Sostiene la invariante CA-8 (no quedarse sin ninguno).</summary>
+    Task<int> CountActiveMembersAsync(Guid workspaceId, CancellationToken ct = default);
+
+    /// <summary>Número de propietarios activos del Workspace. Sostiene la invariante CA-8 (no quedarse sin propietario).</summary>
+    Task<int> CountActiveOwnersAsync(Guid workspaceId, CancellationToken ct = default);
+
     Task AddMemberAsync(WorkspaceMember member, CancellationToken ct = default);
 
     Task SaveChangesAsync(CancellationToken ct = default);

@@ -196,6 +196,12 @@ erDiagram
 
 Restricciones: indice unico `(workspace_id, user_id)` (un usuario no puede tener dos membresias del mismo Workspace) e indice de apoyo `(user_id, status)` para el selector de Workspace activo.
 
+MVP-204 expone estos estados en la vista de personas del Workspace y hace operativa la revocacion
+(`activo` -> `revocado`, metodo `Revoke()`). El estado `invitado` **no** se materializa como fila de
+`workspace_members` (su `user_id` es NOT NULL y el invitado por email puede no tener cuenta): se
+proyecta desde las invitaciones por email pendientes (`workspace_invitations`), combinandolas con las
+membresias reales, sin cambio de esquema.
+
 ### USER (contexto activo)
 
 | Campo | Tipo | Obligatorio | Descripcion |
@@ -255,8 +261,15 @@ diferido (RU-18/RU-19): en MVP rige "una activa por Workspace".
 
 | Campo | Tipo | Obligatorio | Descripcion |
 |-------|------|-------------|-------------|
-| `user_account_id` | UUID (nullable) | No | Permite vincular un trabajador a una cuenta del sistema cuando exista |
-| `hourly_rate` | decimal(10,2) | No | Valor de referencia para sugerencia de coste; no sustituye `manual_cost` en actividad |
+| `name` | string(150) | Si | Alta minima del maestro (MVP-204): es el unico campo obligatorio |
+| `user_account_id` | UUID (nullable) | No | **Reservado**: vincula un trabajador a una cuenta cuando exista. En MVP-204 no se materializa (los miembros se exponen desde `workspace_members`, no como filas de `workers`) y nace `null`. FK opcional a `users` con `ON DELETE SET NULL` |
+| `hourly_rate` | decimal(10,2) (nullable) | No | Valor de referencia para sugerencia de coste; no sustituye `manual_cost` en actividad (RN-003) |
+| `is_active` | boolean | Si | Estado de actividad. Los trabajadores con historico se inactivan en vez de borrarse (MVP-204, CA-3) |
+
+Restricciones: indice de apoyo `(workspace_id, is_active)` para el listado del maestro. El maestro
+`workers` (MVP-204) cubre solo a los trabajadores **sin cuenta**; los miembros del Workspace se
+exponen como seleccionables (RN-027) desde la vista de personas (`workspace_members` union
+`workspace_invitations` pendientes), no como filas de `workers`.
 
 ### HARVEST
 
@@ -325,10 +338,10 @@ diferido (RU-18/RU-19): en MVP rige "una activa por Workspace".
 | `USER` | implementada | MVP-101 (contexto activo en MVP-104) |
 | `WORKSPACE` | implementada | MVP-102 |
 | `WORKSPACE_MEMBER` | implementada | MVP-102 (estados de membresia en MVP-104) |
-| `WORKSPACE_INVITATION` | implementada | MVP-103 |
+| `WORKSPACE_INVITATION` | implementada | MVP-103 (reenvio en MVP-204: `Reissue` rota token y renueva caducidad) |
 | `SEASON` | implementada | MVP-201 (temporada inicial + `is_active`); maestro completo en MVP-203 (estados `planificada/activa/cerrada` derivados; `active_crop` diferido) |
 | `PLOT` | implementada | MVP-202 (alta minima RN-028, `is_active`; `location` en vez de coordenadas; `soil_metadata` diferido) |
-| `WORKER` | pendiente | MVP-204 |
+| `WORKER` | implementada | MVP-204 (alta minima `name`, `hourly_rate` de referencia, `is_active`; `user_account_id` reservado) |
 | `ACTIVITY`, `PURCHASE`, `PURCHASE_CONSUMPTION` | pendiente | MVP-003 |
 | `HARVEST` | pendiente | MVP-004 |
 

@@ -2,6 +2,7 @@ using FluentAssertions;
 using NSubstitute;
 using Terrenario.Api.Application.Plots;
 using Terrenario.Api.Application.Plots.Commands;
+using Terrenario.Api.Common;
 using Terrenario.Api.Domain.Plots;
 
 namespace Terrenario.Api.Tests.Plots;

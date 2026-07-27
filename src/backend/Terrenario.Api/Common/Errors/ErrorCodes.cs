@@ -42,7 +42,6 @@ public static class ErrorCodes
     public const string BusinessRuleInvitationAlreadyAccepted = "BUSINESS_RULE_INVITATION_ALREADY_ACCEPTED";
     public const string BusinessRuleInvitationAlreadyRejected = "BUSINESS_RULE_INVITATION_ALREADY_REJECTED";
     public const string BusinessRuleInvitationAlreadyMember = "BUSINESS_RULE_INVITATION_ALREADY_MEMBER";
-    public const string BusinessRuleSeasonAlreadyActive = "BUSINESS_RULE_SEASON_ALREADY_ACTIVE";
 
     // Resources
     public const string ResourceNotFound = "RESOURCE_NOT_FOUND";

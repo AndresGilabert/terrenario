@@ -17,15 +17,13 @@ public class CreateSeasonHandlerTests
         new(WorkspaceId, name, start, end);
 
     [Fact]
-    public async Task Deberia_CrearTemporadaActiva_Cuando_ElWorkspaceNoTieneNinguna()
+    public async Task Deberia_CrearTemporadaActiva_YPersistirlaComoUnicaActiva()
     {
-        // Arrange
-        _seasonRepository.FindActiveByWorkspaceAsync(WorkspaceId, Arg.Any<CancellationToken>())
-            .Returns((Season?)null);
-
+        // Arrange — crear cambia la activa (MVP-203): se persiste con ActivateExclusivelyAsync(isNew:true),
+        // que desbanca a la anterior si la hubiera.
         Season? persisted = null;
-        await _seasonRepository.AddAsync(
-            Arg.Do<Season>(s => persisted = s), Arg.Any<CancellationToken>());
+        await _seasonRepository.ActivateExclusivelyAsync(
+            Arg.Do<Season>(s => persisted = s), true, Arg.Any<CancellationToken>());
 
         var sut = CreateSut();
 
@@ -36,45 +34,26 @@ public class CreateSeasonHandlerTests
         // Assert
         result.Name.Should().Be("Campaña Oliva 2026");
         result.IsActive.Should().BeTrue();
+        result.Status.Should().Be(SeasonStatus.Activa);
         persisted.Should().NotBeNull();
         persisted!.WorkspaceId.Should().Be(WorkspaceId);
-        await _seasonRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task Deberia_RechazarConConflicto_Cuando_YaExisteTemporadaActiva()
-    {
-        // Arrange — RN-022: gestionar varias es alcance de MVP-203
-        _seasonRepository.FindActiveByWorkspaceAsync(WorkspaceId, Arg.Any<CancellationToken>())
-            .Returns(Season.Create(WorkspaceId, "Existente", new DateOnly(2026, 1, 1), null));
-
-        var sut = CreateSut();
-
-        // Act
-        var act = async () => await sut.HandleAsync(
-            CommandWith("Campaña 2026", new DateOnly(2026, 1, 1), null));
-
-        // Assert
-        await act.Should().ThrowAsync<SeasonConflictException>();
-        await _seasonRepository.DidNotReceive().AddAsync(Arg.Any<Season>(), Arg.Any<CancellationToken>());
-        await _seasonRepository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _seasonRepository.Received(1).ActivateExclusivelyAsync(
+            Arg.Any<Season>(), true, Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task Deberia_NoPersistir_Cuando_FechaFinEsAnteriorAInicio()
     {
         // Arrange
-        _seasonRepository.FindActiveByWorkspaceAsync(WorkspaceId, Arg.Any<CancellationToken>())
-            .Returns((Season?)null);
-
         var sut = CreateSut();
 
         // Act
         var act = async () => await sut.HandleAsync(
             CommandWith("Campaña 2026", new DateOnly(2026, 5, 1), new DateOnly(2026, 4, 1)));
 
-        // Assert
+        // Assert — la validación del agregado corta antes de tocar el repositorio.
         await act.Should().ThrowAsync<SeasonValidationException>();
-        await _seasonRepository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _seasonRepository.DidNotReceive().ActivateExclusivelyAsync(
+            Arg.Any<Season>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
     }
 }

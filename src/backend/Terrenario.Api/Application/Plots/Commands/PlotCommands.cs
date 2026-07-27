@@ -1,4 +1,4 @@
-using Terrenario.Api.Domain.Plots;
+using Terrenario.Api.Common;
 
 namespace Terrenario.Api.Application.Plots.Commands;
 

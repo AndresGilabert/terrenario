@@ -64,9 +64,9 @@ Permitir gestionar temporadas del Workspace con una regla clara de única activa
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Un Workspace no puede tener más de una temporada activa al mismo tiempo.
-- [ ] **CA-2**: El usuario puede crear y editar temporadas sin perder flexibilidad operativa para registros fuera de rango.
-- [ ] **CA-3**: El estado `cerrada` no bloquea por sí mismo la edición o creación de registros posteriores.
+- [x] **CA-1**: Un Workspace no puede tener más de una temporada activa al mismo tiempo. _(Índice único parcial `ux_seasons_workspace_active` + desbanque transaccional en `ActivateExclusivelyAsync`; verificado en SQLite y E2E sobre PostgreSQL.)_
+- [x] **CA-2**: El usuario puede crear y editar temporadas sin perder flexibilidad operativa para registros fuera de rango. _(Alta/edición de nombre y fechas; la fecha de fin es opcional y no se bloquea por rango operativo; RN-023 se resolverá como aviso en las historias operativas.)_
+- [x] **CA-3**: El estado `cerrada` no bloquea por sí mismo la edición o creación de registros posteriores. _(`cerrada` es informativo (RN-024); se puede reabrir, y no impide crear ni editar otras temporadas.)_
 
 ## Maquetas y referencias visuales
 
@@ -80,8 +80,8 @@ Permitir gestionar temporadas del Workspace con una regla clara de única activa
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| TemporadasView | RN-022, RN-024 | parcial | Activacion de temporada en UI |
-| OnboardingStep2 | RN-023 | falta | No hay aviso explicito de fecha fuera de rango |
+| TemporadasView | RN-022, RN-024 | cubierto | Maestro real (`components/seasons/TemporadasView.tsx`): listado con estados, alta, edición, cambio de activa y cierre/reapertura; verificado por UI conducida sobre PostgreSQL |
+| OnboardingStep2 | RN-023 | fuera de alcance | El aviso de fecha fuera de rango es de las historias operativas (MVP-003/004); el maestro ya soporta fechas flexibles. Ver nota y P-017 (d) |
 
 ## Notas y decisiones
 

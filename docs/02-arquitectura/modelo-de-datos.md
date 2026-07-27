@@ -245,8 +245,11 @@ canonico **no se materializan** en el MVP: coordenadas/mapas y metadatos de suel
 
 Restricciones: indice unico parcial `(workspace_id) WHERE is_active` (`ux_seasons_workspace_active`)
 que materializa RN-022 en la base de datos. Introducida en MVP-201 (creacion explicita y cancelable;
-no se siembra por defecto). El maestro completo (estados `planificada/activa/cerrada`, derivables de
-`is_active`/`is_closed`; alta de varias, edicion, cierre) es alcance de MVP-203.
+no se siembra por defecto). El maestro completo (estados `planificada/activa/cerrada`, derivados de
+`is_active`/`is_closed` sin columna de estado ni cambio de esquema; alta de varias, edicion,
+cierre/reapertura y cambio de temporada activa) se entrega en MVP-203. El cambio de activa desbanca a
+la anterior de forma transaccional para no violar el indice ni transitoriamente. `active_crop` sigue
+diferido (RU-18/RU-19): en MVP rige "una activa por Workspace".
 
 ### WORKER
 
@@ -323,7 +326,7 @@ no se siembra por defecto). El maestro completo (estados `planificada/activa/cer
 | `WORKSPACE` | implementada | MVP-102 |
 | `WORKSPACE_MEMBER` | implementada | MVP-102 (estados de membresia en MVP-104) |
 | `WORKSPACE_INVITATION` | implementada | MVP-103 |
-| `SEASON` | parcial | MVP-201 (temporada inicial + `is_active`); maestro completo en MVP-203 |
+| `SEASON` | implementada | MVP-201 (temporada inicial + `is_active`); maestro completo en MVP-203 (estados `planificada/activa/cerrada` derivados; `active_crop` diferido) |
 | `PLOT` | implementada | MVP-202 (alta minima RN-028, `is_active`; `location` en vez de coordenadas; `soil_metadata` diferido) |
 | `WORKER` | pendiente | MVP-204 |
 | `ACTIVITY`, `PURCHASE`, `PURCHASE_CONSUMPTION` | pendiente | MVP-003 |

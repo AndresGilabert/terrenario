@@ -7,6 +7,8 @@ import { InvitationModal } from '../notifications/InvitationModal';
 /** Título contextual de la cabecera según la ruta activa. */
 function titleForPath(pathname: string): string {
   if (pathname.startsWith('/app/invitations')) return 'Invitar a alguien';
+  if (pathname.startsWith('/app/temporadas')) return 'Temporadas';
+  if (pathname.startsWith('/app/terrenos')) return 'Terrenos';
   return 'Inicio';
 }
 

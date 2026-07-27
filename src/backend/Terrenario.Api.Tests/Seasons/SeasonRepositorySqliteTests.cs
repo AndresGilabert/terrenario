@@ -12,33 +12,40 @@ namespace Terrenario.Api.Tests.Seasons;
 /// <summary>
 /// Tests del repositorio de temporadas contra SQLite real: ejercitan la traducción a SQL (que los
 /// mocks no ven) y, sobre todo, la invariante RN-022 materializada como índice único parcial en la
-/// base de datos (MVP-201, CA-3).
+/// base de datos, incluido el <b>cambio de temporada activa</b> del maestro (MVP-203 HU-2), que debe
+/// desbancar a la anterior sin violar el índice ni de forma transitoria.
+///
+/// Se usa un <see cref="TerrenarioDbContext"/> nuevo por operación (compartiendo la conexión en
+/// memoria), reproduciendo el ámbito por petición de producción y evitando artefactos del identity-map.
 /// </summary>
 public sealed class SeasonRepositorySqliteTests : IDisposable
 {
     private readonly SqliteConnection _connection;
-    private readonly TerrenarioDbContext _db;
+    private readonly DbContextOptions<TerrenarioDbContext> _options;
 
     public SeasonRepositorySqliteTests()
     {
         _connection = new SqliteConnection("DataSource=:memory:");
         _connection.Open();
 
-        var options = new DbContextOptionsBuilder<TerrenarioDbContext>()
+        _options = new DbContextOptionsBuilder<TerrenarioDbContext>()
             .UseSqlite(_connection)
             .Options;
 
-        _db = new TerrenarioDbContext(options);
-        _db.Database.EnsureCreated();
+        using var db = NewDb();
+        db.Database.EnsureCreated();
     }
+
+    private TerrenarioDbContext NewDb() => new(_options);
 
     private async Task<Workspace> SeedWorkspaceAsync()
     {
+        await using var db = NewDb();
         var user = User.Create("google-sub", "Andrés", "andres@ejemplo.com");
-        _db.Users.Add(user);
+        db.Users.Add(user);
         var workspace = Workspace.Create(user.Id, "Finca El Olivar");
-        _db.Workspaces.Add(workspace);
-        await _db.SaveChangesAsync();
+        db.Workspaces.Add(workspace);
+        await db.SaveChangesAsync();
         return workspace;
     }
 
@@ -47,12 +54,14 @@ public sealed class SeasonRepositorySqliteTests : IDisposable
     {
         var workspace = await SeedWorkspaceAsync();
         var season = Season.Create(workspace.Id, "Campaña 2026", new DateOnly(2026, 1, 1), null);
-        _db.Seasons.Add(season);
-        await _db.SaveChangesAsync();
+        await using (var seed = NewDb())
+        {
+            seed.Seasons.Add(season);
+            await seed.SaveChangesAsync();
+        }
 
-        var repository = new SeasonRepository(_db);
-
-        var active = await repository.FindActiveByWorkspaceAsync(workspace.Id);
+        await using var db = NewDb();
+        var active = await new SeasonRepository(db).FindActiveByWorkspaceAsync(workspace.Id);
 
         active.Should().NotBeNull();
         active!.Id.Should().Be(season.Id);
@@ -62,23 +71,99 @@ public sealed class SeasonRepositorySqliteTests : IDisposable
     [Fact]
     public async Task Deberia_ImpedirDosTemporadasActivas_EnElMismoWorkspace()
     {
-        // Arrange — RN-022 / CA-3: el índice único parcial no debe permitir una segunda activa
+        // RN-022 / CA-3: el índice único parcial no debe permitir insertar una segunda activa directa.
         var workspace = await SeedWorkspaceAsync();
-        _db.Seasons.Add(Season.Create(workspace.Id, "Campaña 2026", new DateOnly(2026, 1, 1), null));
-        await _db.SaveChangesAsync();
+        await using (var seed = NewDb())
+        {
+            seed.Seasons.Add(Season.Create(workspace.Id, "Campaña 2026", new DateOnly(2026, 1, 1), null));
+            await seed.SaveChangesAsync();
+        }
 
-        _db.Seasons.Add(Season.Create(workspace.Id, "Campaña 2027", new DateOnly(2027, 1, 1), null));
+        await using var db = NewDb();
+        db.Seasons.Add(Season.Create(workspace.Id, "Campaña 2027", new DateOnly(2027, 1, 1), null));
 
-        // Act
-        var act = async () => await _db.SaveChangesAsync();
+        var act = async () => await db.SaveChangesAsync();
 
-        // Assert
         await act.Should().ThrowAsync<DbUpdateException>();
+    }
+
+    [Fact]
+    public async Task ActivateExclusivelyAsync_Deberia_DesbancarLaActivaAnterior_SinViolarElIndice()
+    {
+        // RN-022 / MVP-203 HU-2: crear otra activa debe dejar UNA sola activa, sin excepción.
+        var workspace = await SeedWorkspaceAsync();
+
+        var first = Season.Create(workspace.Id, "Campaña 2026", new DateOnly(2026, 1, 1), null);
+        await using (var db = NewDb())
+            await new SeasonRepository(db).ActivateExclusivelyAsync(first, isNew: true);
+
+        var second = Season.Create(workspace.Id, "Campaña 2027", new DateOnly(2027, 1, 1), null);
+        await using (var db = NewDb())
+        {
+            var act = async () => await new SeasonRepository(db).ActivateExclusivelyAsync(second, isNew: true);
+            await act.Should().NotThrowAsync();
+        }
+
+        await using var verify = NewDb();
+        var actives = await verify.Seasons.Where(s => s.WorkspaceId == workspace.Id && s.IsActive).ToListAsync();
+        actives.Should().ContainSingle().Which.Id.Should().Be(second.Id);
+    }
+
+    [Fact]
+    public async Task ActivateExclusivelyAsync_Deberia_ReactivarUnaExistente_DesbancandoLaActual()
+    {
+        // Dos temporadas: la 2027 activa, la 2026 planificada; el usuario reactiva la 2026.
+        var workspace = await SeedWorkspaceAsync();
+        var older = Season.Create(workspace.Id, "Campaña 2026", new DateOnly(2026, 1, 1), null);
+        var newer = Season.Create(workspace.Id, "Campaña 2027", new DateOnly(2027, 1, 1), null);
+
+        await using (var db = NewDb())
+            await new SeasonRepository(db).ActivateExclusivelyAsync(older, isNew: true);
+        await using (var db = NewDb())
+            await new SeasonRepository(db).ActivateExclusivelyAsync(newer, isNew: true); // older → planificada
+
+        await using (var db = NewDb())
+        {
+            var repository = new SeasonRepository(db);
+            var target = await repository.FindByIdAsync(workspace.Id, older.Id);
+            target!.Activate();
+            await repository.ActivateExclusivelyAsync(target, isNew: false);
+        }
+
+        await using var verify = NewDb();
+        var actives = await verify.Seasons.Where(s => s.WorkspaceId == workspace.Id && s.IsActive).ToListAsync();
+        actives.Should().ContainSingle().Which.Id.Should().Be(older.Id);
+    }
+
+    [Fact]
+    public async Task ListByWorkspaceAsync_Deberia_DevolverLaActivaPrimero()
+    {
+        var workspace = await SeedWorkspaceAsync();
+
+        var closed = Season.Create(workspace.Id, "Campaña 2024", new DateOnly(2024, 1, 1), null);
+        closed.Close();
+        await using (var seed = NewDb())
+        {
+            seed.Seasons.Add(closed);
+            await seed.SaveChangesAsync();
+        }
+
+        var active = Season.Create(workspace.Id, "Campaña 2026", new DateOnly(2026, 1, 1), null);
+        await using (var db = NewDb())
+            await new SeasonRepository(db).ActivateExclusivelyAsync(active, isNew: true);
+
+        await using var verify = NewDb();
+        var list = await new SeasonRepository(verify).ListByWorkspaceAsync(workspace.Id);
+
+        list.Should().HaveCount(2);
+        list[0].Id.Should().Be(active.Id);
+        list[0].IsActive.Should().BeTrue();
+        list[1].Id.Should().Be(closed.Id);
+        list[1].IsClosed.Should().BeTrue();
     }
 
     public void Dispose()
     {
-        _db.Dispose();
         _connection.Dispose();
     }
 }

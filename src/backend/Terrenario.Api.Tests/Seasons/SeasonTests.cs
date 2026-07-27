@@ -66,4 +66,78 @@ public class SeasonTests
         act.Should().Throw<SeasonValidationException>()
             .Which.ErrorCode.Should().Be(ErrorCodes.ValidationSeasonDateRange);
     }
+
+    // ── Máquina de estados (MVP-203) ────────────────────────────────────────────
+
+    [Fact]
+    public void Create_Deberia_EstarEnEstadoActiva()
+    {
+        var season = Season.Create(WorkspaceId, "Campaña 2026", Start, null);
+
+        season.Status.Should().Be(SeasonStatus.Activa);
+    }
+
+    [Fact]
+    public void Close_Deberia_DejarlaCerradaYNoActiva()
+    {
+        // Cerrar la activa libera el hueco de activa del Workspace (decisión de producto MVP-203).
+        var season = Season.Create(WorkspaceId, "Campaña 2026", Start, null);
+
+        season.Close();
+
+        season.IsClosed.Should().BeTrue();
+        season.IsActive.Should().BeFalse();
+        season.Status.Should().Be(SeasonStatus.Cerrada);
+    }
+
+    [Fact]
+    public void Reopen_Deberia_DevolverlaAPlanificada_SinActivarla()
+    {
+        var season = Season.Create(WorkspaceId, "Campaña 2026", Start, null);
+        season.Close();
+
+        season.Reopen();
+
+        season.IsClosed.Should().BeFalse();
+        season.IsActive.Should().BeFalse();
+        season.Status.Should().Be(SeasonStatus.Planificada);
+    }
+
+    [Fact]
+    public void Activate_Deberia_ReabrirUnaTemporadaCerrada()
+    {
+        var season = Season.Create(WorkspaceId, "Campaña 2026", Start, null);
+        season.Close();
+
+        season.Activate();
+
+        season.IsActive.Should().BeTrue();
+        season.IsClosed.Should().BeFalse();
+        season.Status.Should().Be(SeasonStatus.Activa);
+    }
+
+    [Fact]
+    public void UpdateDetails_Deberia_CambiarNombreYFechas_NormalizandoNombre()
+    {
+        var season = Season.Create(WorkspaceId, "Campaña 2026", Start, null);
+
+        season.UpdateDetails("  Campaña Oliva 2027  ", new DateOnly(2027, 2, 1), new DateOnly(2027, 11, 30));
+
+        season.Name.Should().Be("Campaña Oliva 2027");
+        season.StartDate.Should().Be(new DateOnly(2027, 2, 1));
+        season.EndDate.Should().Be(new DateOnly(2027, 11, 30));
+        // Editar no cambia el estado.
+        season.Status.Should().Be(SeasonStatus.Activa);
+    }
+
+    [Fact]
+    public void UpdateDetails_Deberia_Rechazar_Cuando_FinEsAnteriorAInicio()
+    {
+        var season = Season.Create(WorkspaceId, "Campaña 2026", Start, null);
+
+        var act = () => season.UpdateDetails("Campaña 2026", new DateOnly(2026, 5, 1), new DateOnly(2026, 4, 30));
+
+        act.Should().Throw<SeasonValidationException>()
+            .Which.ErrorCode.Should().Be(ErrorCodes.ValidationSeasonDateRange);
+    }
 }

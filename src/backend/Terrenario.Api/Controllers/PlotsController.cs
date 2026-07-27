@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Terrenario.Api.Application.Plots;
 using Terrenario.Api.Application.Plots.Commands;
+using Terrenario.Api.Common;
 using Terrenario.Api.Common.Errors;
 using Terrenario.Api.Common.Workspaces;
 using Terrenario.Api.Domain.Plots;

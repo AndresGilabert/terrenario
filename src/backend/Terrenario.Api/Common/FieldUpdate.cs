@@ -1,10 +1,13 @@
-namespace Terrenario.Api.Domain.Plots;
+namespace Terrenario.Api.Common;
 
 /// <summary>
 /// Campo de una edición parcial (PATCH). Distingue "no viene en la petición" (<see cref="Present"/>
 /// = <c>false</c> ⇒ se mantiene el valor actual) de "viene con un valor" (incluido <c>null</c>/vacío
-/// ⇒ se asigna/limpia). Es lo que permite que <c>PATCH /plots/{id}</c> sea de campos parciales
-/// (contrato de API) sin que omitir un campo borre datos.
+/// ⇒ se asigna/limpia). Es lo que permite que un <c>PATCH</c> sea de campos parciales (contrato de
+/// API) sin que omitir un campo borre datos.
+///
+/// Helper transversal (lo usan los maestros de terrenos y de temporadas); vive en <c>Common</c> para
+/// no acoplar un dominio con otro.
 /// </summary>
 public readonly record struct FieldUpdate<T>
 {

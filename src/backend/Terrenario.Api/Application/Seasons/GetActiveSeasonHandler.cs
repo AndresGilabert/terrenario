@@ -22,5 +22,6 @@ public sealed class GetActiveSeasonHandler(ISeasonRepository seasonRepository)
         season.StartDate,
         season.EndDate,
         season.IsActive,
-        season.IsClosed);
+        season.IsClosed,
+        season.Status);
 }

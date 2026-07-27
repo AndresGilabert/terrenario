@@ -14,6 +14,11 @@ interface SeasonContextValue {
   createSeason: (payload: CreateSeasonPayload) => Promise<Season>;
   /** Descarta la oferta de temporada para el Workspace activo (no crea ninguna). */
   dismissOffer: () => void;
+  /**
+   * Resincroniza la temporada activa desde el servidor. Lo usa el maestro (MVP-203) tras activar,
+   * cerrar o editar una temporada, para que la cabecera y la autoselección queden coherentes.
+   */
+  refresh: () => Promise<void>;
 }
 
 const SeasonContext = createContext<SeasonContextValue | null>(null);
@@ -79,12 +84,23 @@ export function SeasonProvider({ children }: { children: React.ReactNode }) {
     });
   }, [workspaceId]);
 
+  const refresh = useCallback(async () => {
+    if (!workspaceId) return;
+    try {
+      const season = await seasonService.getActiveSeason();
+      setActiveSeason(season);
+    } catch {
+      setActiveSeason(null);
+    }
+  }, [workspaceId, seasonService]);
+
   const value: SeasonContextValue = {
     activeSeason,
     isLoading,
     offerDismissed: workspaceId ? dismissedWorkspaces.has(workspaceId) : false,
     createSeason,
     dismissOffer,
+    refresh,
   };
 
   return <SeasonContext.Provider value={value}>{children}</SeasonContext.Provider>;

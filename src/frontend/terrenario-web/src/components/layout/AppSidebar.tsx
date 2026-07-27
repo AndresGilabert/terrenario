@@ -21,7 +21,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Visión General', icon: 'monitoring' },
   { label: 'Terrenos', icon: 'map', to: '/app/terrenos' },
   { label: 'Cosechas', icon: 'agriculture' },
-  { label: 'Temporadas', icon: 'calendar_today' },
+  { label: 'Temporadas', icon: 'calendar_today', to: '/app/temporadas' },
   { label: 'Trabajadores', icon: 'group' },
   { label: 'Compras', icon: 'receipt_long' },
   { label: 'Ajustes', icon: 'settings' },

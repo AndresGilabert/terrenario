@@ -21,17 +21,23 @@ public static class ErrorCodes
     public const string ValidationRequiredInvitationEmail = "VALIDATION_REQUIRED_INVITATION_EMAIL";
     public const string ValidationInvitationEmailInvalid = "VALIDATION_INVITATION_EMAIL_INVALID";
     public const string ValidationInvitationChannelInvalid = "VALIDATION_INVITATION_CHANNEL_INVALID";
+    public const string ValidationRequiredSeasonName = "VALIDATION_REQUIRED_SEASON_NAME";
+    public const string ValidationSeasonNameLength = "VALIDATION_SEASON_NAME_LENGTH";
+    public const string ValidationSeasonDateRange = "VALIDATION_SEASON_DATE_RANGE";
+    public const string ValidationRequiredSeasonWorkspace = "VALIDATION_REQUIRED_SEASON_WORKSPACE";
 
     // Business rules
     public const string BusinessRuleInvitationExpired = "BUSINESS_RULE_INVITATION_EXPIRED";
     public const string BusinessRuleInvitationAlreadyAccepted = "BUSINESS_RULE_INVITATION_ALREADY_ACCEPTED";
     public const string BusinessRuleInvitationAlreadyRejected = "BUSINESS_RULE_INVITATION_ALREADY_REJECTED";
     public const string BusinessRuleInvitationAlreadyMember = "BUSINESS_RULE_INVITATION_ALREADY_MEMBER";
+    public const string BusinessRuleSeasonAlreadyActive = "BUSINESS_RULE_SEASON_ALREADY_ACTIVE";
 
     // Resources
     public const string ResourceNotFound = "RESOURCE_NOT_FOUND";
     public const string WorkspaceNotFound = "WORKSPACE_NOT_FOUND";
     public const string InvitationNotFound = "INVITATION_NOT_FOUND";
+    public const string SeasonNotFound = "SEASON_NOT_FOUND";
 
     // Generic
     public const string InternalError = "INTERNAL_ERROR";

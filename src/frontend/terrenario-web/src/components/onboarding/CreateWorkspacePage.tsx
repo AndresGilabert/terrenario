@@ -19,7 +19,10 @@ interface CreateWorkspacePageProps {
  * MVP-102 — Dar nombre al Workspace. En modo `onboarding` es el primer paso del alta inicial;
  * en modo `additional` (MVP-107) crea un Workspace adicional reutilizando la misma pantalla.
  * Referencia visual: `prototype/terrenario-mvp/src/components/OnboardingStep1.tsx`.
- * El paso 2 (temporada inicial) llega con MVP-201.
+ *
+ * MVP-201 — Tras crear el Workspace se entra a `/app`; si el Workspace no tiene temporada, la app
+ * ofrece crear una (cancelable) mediante la guarda de oferta de temporada. No se crea ninguna por
+ * defecto. Esto aplica igual al primer Workspace (onboarding) y a los adicionales (MVP-107).
  */
 export const CreateWorkspacePage: React.FC<CreateWorkspacePageProps> = ({ mode = 'onboarding' }) => {
   const navigate = useNavigate();
@@ -46,6 +49,7 @@ export const CreateWorkspacePage: React.FC<CreateWorkspacePageProps> = ({ mode =
 
     try {
       await createWorkspace(normalizedName);
+      // Se entra a la operativa; si el Workspace no tiene temporada, la guarda ofrece crearla (MVP-201).
       navigate('/app', { replace: true });
     } catch (error: unknown) {
       setErrorMessage(
@@ -60,26 +64,9 @@ export const CreateWorkspacePage: React.FC<CreateWorkspacePageProps> = ({ mode =
   return (
     <div className="min-h-screen bg-[#fcf9f4] flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-lg bg-white rounded-2xl p-8 border border-[#e5e2dd] shadow-xl space-y-6">
-        {/* El indicador de pasos solo tiene sentido en el onboarding inicial (MVP-102). */}
-        {!isAdditional && (
-          <div className="flex items-center justify-between border-b border-[#e5e2dd] pb-4">
-            <div className="flex items-center gap-2 text-xs font-bold text-[#33450d]">
-              <span className="material-symbols-outlined text-base" aria-hidden="true">eco</span>
-              <span>Paso 1 de 3</span>
-            </div>
-            <div
-              className="w-24 bg-[#e5e2dd] h-1.5 rounded-full overflow-hidden"
-              role="progressbar"
-              aria-valuenow={1}
-              aria-valuemin={1}
-              aria-valuemax={3}
-              aria-label="Progreso del onboarding"
-            >
-              <div className="bg-[#33450d] h-full w-1/3" />
-            </div>
-          </div>
-        )}
-
+        {/* Onboarding en dos momentos (crear Workspace y, después, ofrecer temporada). No se usa un
+            contador "Paso X de Y" porque el segundo momento es una oferta cancelable, no un paso
+            obligado del asistente (resuelve P-010). */}
         <div className="space-y-1.5">
           <div className="flex items-center gap-2 text-xs font-bold text-[#33450d]">
             <span className="material-symbols-outlined text-base" aria-hidden="true">eco</span>

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Terrenario.Api.Domain.Seasons;
 using Terrenario.Api.Domain.Users;
 using Terrenario.Api.Domain.Workspaces;
 using Terrenario.Api.Infrastructure.Auth;
@@ -12,6 +13,7 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
     public DbSet<Workspace> Workspaces => Set<Workspace>();
     public DbSet<WorkspaceMember> WorkspaceMembers => Set<WorkspaceMember>();
     public DbSet<WorkspaceInvitation> WorkspaceInvitations => Set<WorkspaceInvitation>();
+    public DbSet<Season> Seasons => Set<Season>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -144,6 +146,34 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
                 .WithMany()
                 .HasForeignKey(i => i.RejectedByUserId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Season>(entity =>
+        {
+            entity.ToTable("seasons");
+            entity.HasKey(s => s.Id);
+            entity.Property(s => s.Id).HasColumnName("id");
+            entity.Property(s => s.WorkspaceId).HasColumnName("workspace_id").IsRequired();
+            entity.Property(s => s.Name).HasColumnName("name").HasMaxLength(Season.NameMaxLength).IsRequired();
+            entity.Property(s => s.StartDate).HasColumnName("start_date").IsRequired();
+            entity.Property(s => s.EndDate).HasColumnName("end_date");
+            entity.Property(s => s.IsActive).HasColumnName("is_active");
+            entity.Property(s => s.IsClosed).HasColumnName("is_closed");
+            entity.Property(s => s.CreatedAt).HasColumnName("created_at");
+            entity.Property(s => s.UpdatedAt).HasColumnName("updated_at");
+
+            // RN-022 — una sola temporada activa por Workspace: índice único parcial sobre las filas
+            // activas. La invariante deja de depender solo de la lógica de aplicación (CA-3). También
+            // es el índice de acceso de la consulta de temporada activa (workspace_id + is_active).
+            entity.HasIndex(s => s.WorkspaceId)
+                .IsUnique()
+                .HasFilter("is_active")
+                .HasDatabaseName("ux_seasons_workspace_active");
+
+            entity.HasOne<Workspace>()
+                .WithMany()
+                .HasForeignKey(s => s.WorkspaceId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

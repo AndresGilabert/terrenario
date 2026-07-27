@@ -9,6 +9,10 @@ namespace Terrenario.Api.Application.Workspaces;
 /// MVP-102 — Crea el Workspace, vincula al creador como miembro activo y devuelve una sesión
 /// ya situada en ese contexto. Deja el Workspace nuevo como activo persistido para que la sesión
 /// renovada no lo pierda (MVP-104).
+///
+/// MVP-201 — La creación NO siembra ninguna temporada por defecto (decisión de producto): la
+/// temporada es un acto explícito y cancelable que el frontend ofrece justo después de crear el
+/// Workspace (y también cuando el Workspace activo no tiene temporada), vía <c>POST /seasons</c>.
 /// </summary>
 public sealed class CreateWorkspaceHandler(
     IWorkspaceRepository workspaceRepository,

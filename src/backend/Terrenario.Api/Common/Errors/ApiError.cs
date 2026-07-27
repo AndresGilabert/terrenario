@@ -27,6 +27,12 @@ public sealed record ApiError(string Code, string Message)
 
     public static ApiError WorkspaceForbidden(string? message = null) =>
         new(ErrorCodes.AuthWorkspaceForbidden, message ?? "No tienes acceso a este recurso en tu Workspace activo.");
+
+    public static ApiError SeasonNotFound() =>
+        new(ErrorCodes.SeasonNotFound, "Tu Workspace todavía no tiene una temporada activa.");
+
+    public static ApiError SeasonAlreadyActive() =>
+        new(ErrorCodes.BusinessRuleSeasonAlreadyActive, "Tu Workspace ya tiene una temporada activa.");
 }
 
 public sealed record ApiErrorResponse(ApiError Error);

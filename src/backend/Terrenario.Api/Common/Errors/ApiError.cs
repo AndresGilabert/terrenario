@@ -36,6 +36,9 @@ public sealed record ApiError(string Code, string Message)
 
     public static ApiError PlotNotFound() =>
         new(ErrorCodes.ResourceNotFound, "El terreno no existe en tu Workspace activo.");
+
+    public static ApiError WorkerNotFound() =>
+        new(ErrorCodes.ResourceNotFound, "El trabajador no existe en tu Workspace activo.");
 }
 
 public sealed record ApiErrorResponse(ApiError Error);

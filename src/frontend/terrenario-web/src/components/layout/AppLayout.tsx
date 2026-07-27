@@ -9,6 +9,8 @@ function titleForPath(pathname: string): string {
   if (pathname.startsWith('/app/invitations')) return 'Invitar a alguien';
   if (pathname.startsWith('/app/temporadas')) return 'Temporadas';
   if (pathname.startsWith('/app/terrenos')) return 'Terrenos';
+  if (pathname.startsWith('/app/trabajadores')) return 'Trabajadores';
+  if (pathname.startsWith('/app/miembros')) return 'Miembros y accesos';
   return 'Inicio';
 }
 

@@ -1,6 +1,6 @@
 ﻿# Índice — MVP-002--maestros-operativos-y-onboarding: Maestros operativos y onboarding
 
-> **Progreso**: 0/6 completadas · **Hito**: Hito B — Base operativa preparada
+> **Progreso**: 0/7 completadas · **Hito**: Hito B — Base operativa preparada
 > _Generado automáticamente por `validar_kb.py`. No editar manualmente._
 
 | Historia | Título | Estado | Responsable | Prioridad |
@@ -10,4 +10,5 @@
 | [MVP-203](./MVP-203--maestro-de-temporadas-y-unica-activa/spec.md) | Maestro de temporadas y regla de única activa | 📝 borrador | @andres | alta |
 | [MVP-204](./MVP-204--maestro-de-trabajadores-y-miembros-del-workspace/spec.md) | Maestro de trabajadores y miembros del Workspace | 📝 borrador | @andres | alta |
 | [MVP-205](./MVP-205--catalogo-de-tareas-por-workspace/spec.md) | Catálogo de tareas por Workspace | 📝 borrador | @andres | alta |
+| [MVP-206](./MVP-206--ciclo-de-vida-del-workspace/spec.md) | Ciclo de vida del Workspace: renombrar, baja lógica y traspaso de propiedad | 📝 borrador | @andres | alta |
 | [MVP-299](./MVP-299--revision-epica/spec.md) | Revision epica | 📝 borrador | @andres | alta |

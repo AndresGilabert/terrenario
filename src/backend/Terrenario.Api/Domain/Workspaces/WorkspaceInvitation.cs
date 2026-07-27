@@ -129,6 +129,27 @@ public sealed class WorkspaceInvitation
         RejectedByUserId = userId;
     }
 
+    /// <summary>
+    /// Reemite la invitación por email pendiente (MVP-204, HU-5/CA-6): rota el token a uno nuevo de
+    /// un solo uso y renueva la caducidad, con el mismo comportamiento que la emisión original de
+    /// MVP-103. No cambia el destinatario ni el canal, así que la persona sigue en estado
+    /// <c>invitado</c>. El token en claro solo lo ve quien reemite; en base de datos vive el hash.
+    /// </summary>
+    public void Reissue(string newTokenHash, TimeSpan lifetime)
+    {
+        EnsurePending();
+
+        if (Channel != InvitationChannels.Email)
+            throw new InvitationException(
+                ErrorCodes.InvitationNotFound,
+                "Solo se reenvían invitaciones por email dirigidas a una persona.");
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(newTokenHash);
+
+        TokenHash = newTokenHash;
+        ExpiresAt = DateTimeOffset.UtcNow.Add(lifetime);
+    }
+
     private void EnsurePending()
     {
         if (Status == InvitationStatuses.Accepted)

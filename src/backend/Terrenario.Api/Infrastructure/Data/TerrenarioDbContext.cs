@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Terrenario.Api.Domain.Plots;
 using Terrenario.Api.Domain.Seasons;
 using Terrenario.Api.Domain.Users;
+using Terrenario.Api.Domain.Workers;
 using Terrenario.Api.Domain.Workspaces;
 using Terrenario.Api.Infrastructure.Auth;
 
@@ -16,6 +17,7 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
     public DbSet<WorkspaceInvitation> WorkspaceInvitations => Set<WorkspaceInvitation>();
     public DbSet<Season> Seasons => Set<Season>();
     public DbSet<Plot> Plots => Set<Plot>();
+    public DbSet<Worker> Workers => Set<Worker>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -203,6 +205,36 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
                 .WithMany()
                 .HasForeignKey(p => p.WorkspaceId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Worker>(entity =>
+        {
+            entity.ToTable("workers");
+            entity.HasKey(w => w.Id);
+            entity.Property(w => w.Id).HasColumnName("id");
+            entity.Property(w => w.WorkspaceId).HasColumnName("workspace_id").IsRequired();
+            entity.Property(w => w.UserAccountId).HasColumnName("user_account_id");
+            entity.Property(w => w.Name).HasColumnName("name").HasMaxLength(Worker.NameMaxLength).IsRequired();
+            entity.Property(w => w.HourlyRate).HasColumnName("hourly_rate").HasPrecision(10, 2);
+            entity.Property(w => w.IsActive).HasColumnName("is_active");
+            entity.Property(w => w.CreatedAt).HasColumnName("created_at");
+            entity.Property(w => w.UpdatedAt).HasColumnName("updated_at");
+
+            // El maestro consulta por Workspace (aislamiento multi-tenant) y filtra por estado de
+            // actividad: índice de apoyo (workspace_id, is_active), coherente con plots (MVP-202).
+            entity.HasIndex(w => new { w.WorkspaceId, w.IsActive });
+
+            entity.HasOne<Workspace>()
+                .WithMany()
+                .HasForeignKey(w => w.WorkspaceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // user_account_id es reservado (modelo canónico); no se materializa el vínculo en MVP-204,
+            // pero se declara la FK opcional a users para no reabrir el esquema al usarlo más adelante.
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(w => w.UserAccountId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

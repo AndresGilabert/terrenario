@@ -59,6 +59,47 @@ public sealed class WorkspaceRepository(TerrenarioDbContext db) : IWorkspaceRepo
                 && m.Status == WorkspaceMemberStatuses.Active,
             ct);
 
+    public async Task<IReadOnlyList<WorkspaceMemberDetail>> ListMembersAsync(
+        Guid workspaceId,
+        CancellationToken ct = default)
+        // Orden por la columna real (nombre de la cuenta) ANTES de proyectar: EF no traduce un
+        // OrderBy sobre el DTO del Join y lanzaría "could not be translated" (lección de P-014).
+        => await db.WorkspaceMembers
+            .Where(m => m.WorkspaceId == workspaceId)
+            .Join(
+                db.Users,
+                m => m.UserId,
+                u => u.Id,
+                (m, u) => new { Member = m, User = u })
+            .OrderBy(x => x.User.DisplayName)
+            .Select(x => new WorkspaceMemberDetail(
+                x.Member.UserId,
+                x.User.DisplayName,
+                x.User.Email,
+                x.Member.Role,
+                x.Member.Status,
+                x.Member.JoinedAt))
+            .ToListAsync(ct);
+
+    public Task<WorkspaceMember?> FindActiveMemberAsync(Guid workspaceId, Guid userId, CancellationToken ct = default)
+        => db.WorkspaceMembers.FirstOrDefaultAsync(
+            m => m.WorkspaceId == workspaceId
+                && m.UserId == userId
+                && m.Status == WorkspaceMemberStatuses.Active,
+            ct);
+
+    public Task<int> CountActiveMembersAsync(Guid workspaceId, CancellationToken ct = default)
+        => db.WorkspaceMembers.CountAsync(
+            m => m.WorkspaceId == workspaceId && m.Status == WorkspaceMemberStatuses.Active,
+            ct);
+
+    public Task<int> CountActiveOwnersAsync(Guid workspaceId, CancellationToken ct = default)
+        => db.WorkspaceMembers.CountAsync(
+            m => m.WorkspaceId == workspaceId
+                && m.Status == WorkspaceMemberStatuses.Active
+                && m.Role == WorkspaceRoles.Owner,
+            ct);
+
     public async Task AddMemberAsync(WorkspaceMember member, CancellationToken ct = default)
         => await db.WorkspaceMembers.AddAsync(member, ct);
 

@@ -216,6 +216,24 @@ Restricciones: indice unico `(workspace_id, user_id)` (un usuario no puede tener
 Restricciones: indice unico en `token_hash` e indice de apoyo `(workspace_id, status)`. La
 invitacion es de un solo uso: al aceptarse pasa a `aceptada` y no vuelve a ser valida.
 
+### PLOT
+
+| Campo | Tipo | Obligatorio | Descripcion |
+|-------|------|-------------|-------------|
+| `name` | string(150) | Si | Alta minima (RN-028) |
+| `ownership_type` | string(20) | Si | Alta minima (RN-028). Catalogo cerrado `plot_ownership_type`: `propia`, `cedida` |
+| `alias` | string(60) | No | Codigo/alias corto de la parcela |
+| `owner_name` | string(150) | No | Propietario informativo |
+| `cadastral_reference` | string(50) | No | Referencia catastral sin validacion fuerte (fuera de alcance MVP) |
+| `location` | string(200) | No | Ubicacion en texto libre. En MVP-202 **sustituye** a `latitude`/`longitude` del ER: los mapas y coordenadas quedan fuera de alcance |
+| `tree_count` | integer | No | Opcional (RN-028). Su ausencia se trata como dato incompleto en dashboard (RN-010), no bloquea |
+| `is_active` | boolean | Si | Estado de actividad. Los terrenos con historico se inactivan en vez de borrarse (MVP-202, CA-3). Anadido en MVP-202 (no estaba en el ER original) |
+
+Restricciones: indice de apoyo `(workspace_id, is_active)` para el listado del maestro (filtra por
+Workspace y estado). Introducida en MVP-202. `latitude`/`longitude` y `soil_metadata` (JSONB) del ER
+canonico **no se materializan** en el MVP: coordenadas/mapas y metadatos de suelo quedan diferidos
+(ver MVP-999, P-019).
+
 ### SEASON
 
 | Campo | Tipo | Obligatorio | Descripcion |
@@ -306,7 +324,8 @@ no se siembra por defecto). El maestro completo (estados `planificada/activa/cer
 | `WORKSPACE_MEMBER` | implementada | MVP-102 (estados de membresia en MVP-104) |
 | `WORKSPACE_INVITATION` | implementada | MVP-103 |
 | `SEASON` | parcial | MVP-201 (temporada inicial + `is_active`); maestro completo en MVP-203 |
-| `PLOT`, `WORKER` | pendiente | MVP-002 |
+| `PLOT` | implementada | MVP-202 (alta minima RN-028, `is_active`; `location` en vez de coordenadas; `soil_metadata` diferido) |
+| `WORKER` | pendiente | MVP-204 |
 | `ACTIVITY`, `PURCHASE`, `PURCHASE_CONSUMPTION` | pendiente | MVP-003 |
 | `HARVEST` | pendiente | MVP-004 |
 

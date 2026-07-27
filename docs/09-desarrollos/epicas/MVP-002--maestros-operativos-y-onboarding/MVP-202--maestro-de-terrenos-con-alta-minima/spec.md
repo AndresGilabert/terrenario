@@ -2,7 +2,7 @@
 id: "MVP-202"
 tipo: feature
 titulo: "Maestro de terrenos con alta mínima"
-estado: borrador
+estado: en-progreso
 prioridad: alta
 sprint: ""
 hito: "Hito B — Base operativa preparada"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "masters", "terrenos"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-27"
 ---
 
 # MVP-202 — Maestro de terrenos con alta mínima
@@ -63,9 +63,9 @@ Permitir crear, editar, listar e inactivar terrenos del Workspace con la mínima
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Un usuario puede crear un terreno con `nombre` y `tipo_propiedad` como único mínimo obligatorio.
-- [ ] **CA-2**: Los campos opcionales del terreno pueden añadirse o editarse después sin impedir el uso del terreno en el MVP.
-- [ ] **CA-3**: Los terrenos con uso histórico pueden inactivarse sin romper la integridad de los registros asociados.
+- [x] **CA-1**: Un usuario puede crear un terreno con `nombre` y `tipo_propiedad` como único mínimo obligatorio. _(`POST /api/v1/plots` con solo `name`+`ownership_type` → 201; verificado por API y UI conducida. `tipo_propiedad` es el catálogo cerrado `plot_ownership_type` = `{propia, cedida}`.)_
+- [x] **CA-2**: Los campos opcionales del terreno pueden añadirse o editarse después sin impedir el uso del terreno en el MVP. _(Campos opcionales; `PATCH` parcial que no borra los campos omitidos; añadir `tree_count` después retira el aviso de dato incompleto. Verificado en BD.)_
+- [x] **CA-3**: Los terrenos con uso histórico pueden inactivarse sin romper la integridad de los registros asociados. _(`is_active` reversible vía `PATCH { is_active:false }`, sin borrado; listado con filtro de estado. Verificado por API y UI.)_
 
 ## Maquetas y referencias visuales
 
@@ -80,9 +80,14 @@ Permitir crear, editar, listar e inactivar terrenos del Workspace con la mínima
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| TerrenoModal | RN-028 | parcial | Formulario de alta de terreno disponible |
-| TerrenosView | RN-001, RN-028 | parcial | Listado y detalle visual; faltan restricciones completas MVP |
+| TerrenoModal (`PlotFormModal`) | RN-028 | cubierto | Alta/edición con solo `name`+`ownership_type` obligatorios; opcionales bajo aviso |
+| TerrenosView (`TerrenosView`) | RN-001, RN-028 | cubierto | Listado, búsqueda, filtro de inactivos, aviso de dato incompleto (RN-010) |
+| TerrenoDetailModal | RN-001 | diferido | El detalle con histórico (cosechas/labores) depende de MVP-003/004 (MVP-999, P-019) |
 
 ## Notas y decisiones
 
-- La ausencia de `num_arboles` se tratará después como dato incompleto en dashboard; aquí no debe bloquear nada.
+- La ausencia de `num_arboles` (`tree_count`) se trata como dato incompleto en dashboard (RN-010); aquí no bloquea. La respuesta expone `has_tree_count` para que la UI lo marque.
+- **`tipo_propiedad`** se cierra como catálogo `plot_ownership_type` = `{propia, cedida}` (decisión con PO), formalizado en `contratos-api.md`.
+- **Divergencias con el ER canónico** (corregidas y documentadas): se añade `is_active` (no estaba); `location` en texto libre en vez de `latitude`/`longitude`; `soil_metadata` diferido. Registrado en MVP-999 (P-019).
+- Esta historia estrena el **cliente HTTP común** con manejo centralizado de 401/403 de scope, cerrando la deuda P-007/P-018 de MVP-999 (recursos _scoped_: terrenos y temporadas).
+- Detalle técnico de la implementación: [tech-design.md](./tech-design.md).

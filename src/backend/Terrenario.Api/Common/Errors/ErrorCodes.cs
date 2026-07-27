@@ -25,6 +25,17 @@ public static class ErrorCodes
     public const string ValidationSeasonNameLength = "VALIDATION_SEASON_NAME_LENGTH";
     public const string ValidationSeasonDateRange = "VALIDATION_SEASON_DATE_RANGE";
     public const string ValidationRequiredSeasonWorkspace = "VALIDATION_REQUIRED_SEASON_WORKSPACE";
+    // Plots (terrenos, MVP-202)
+    public const string ValidationRequiredName = "VALIDATION_REQUIRED_NAME";
+    public const string ValidationPlotNameLength = "VALIDATION_PLOT_NAME_LENGTH";
+    public const string ValidationRequiredPlotOwnershipType = "VALIDATION_REQUIRED_PLOT_OWNERSHIP_TYPE";
+    public const string ValidationPlotOwnershipTypeInvalid = "VALIDATION_PLOT_OWNERSHIP_TYPE_INVALID";
+    public const string ValidationPlotAliasLength = "VALIDATION_PLOT_ALIAS_LENGTH";
+    public const string ValidationPlotOwnerNameLength = "VALIDATION_PLOT_OWNER_NAME_LENGTH";
+    public const string ValidationPlotCadastralLength = "VALIDATION_PLOT_CADASTRAL_LENGTH";
+    public const string ValidationPlotLocationLength = "VALIDATION_PLOT_LOCATION_LENGTH";
+    public const string ValidationRangeTreeCount = "VALIDATION_RANGE_TREE_COUNT";
+    public const string ValidationRequiredPlotWorkspace = "VALIDATION_REQUIRED_PLOT_WORKSPACE";
 
     // Business rules
     public const string BusinessRuleInvitationExpired = "BUSINESS_RULE_INVITATION_EXPIRED";

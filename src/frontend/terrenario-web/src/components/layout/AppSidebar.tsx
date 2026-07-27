@@ -19,7 +19,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: 'Diario de Campo', icon: 'event_note' },
   { label: 'Visión General', icon: 'monitoring' },
-  { label: 'Terrenos', icon: 'map' },
+  { label: 'Terrenos', icon: 'map', to: '/app/terrenos' },
   { label: 'Cosechas', icon: 'agriculture' },
   { label: 'Temporadas', icon: 'calendar_today' },
   { label: 'Trabajadores', icon: 'group' },

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Terrenario.Api.Domain.Plots;
 using Terrenario.Api.Domain.Seasons;
 using Terrenario.Api.Domain.Users;
 using Terrenario.Api.Domain.Workspaces;
@@ -14,6 +15,7 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
     public DbSet<WorkspaceMember> WorkspaceMembers => Set<WorkspaceMember>();
     public DbSet<WorkspaceInvitation> WorkspaceInvitations => Set<WorkspaceInvitation>();
     public DbSet<Season> Seasons => Set<Season>();
+    public DbSet<Plot> Plots => Set<Plot>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -173,6 +175,33 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
             entity.HasOne<Workspace>()
                 .WithMany()
                 .HasForeignKey(s => s.WorkspaceId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Plot>(entity =>
+        {
+            entity.ToTable("plots");
+            entity.HasKey(p => p.Id);
+            entity.Property(p => p.Id).HasColumnName("id");
+            entity.Property(p => p.WorkspaceId).HasColumnName("workspace_id").IsRequired();
+            entity.Property(p => p.Name).HasColumnName("name").HasMaxLength(Plot.NameMaxLength).IsRequired();
+            entity.Property(p => p.OwnershipType).HasColumnName("ownership_type").HasMaxLength(20).IsRequired();
+            entity.Property(p => p.Alias).HasColumnName("alias").HasMaxLength(Plot.AliasMaxLength);
+            entity.Property(p => p.OwnerName).HasColumnName("owner_name").HasMaxLength(Plot.OwnerNameMaxLength);
+            entity.Property(p => p.CadastralReference).HasColumnName("cadastral_reference").HasMaxLength(Plot.CadastralReferenceMaxLength);
+            entity.Property(p => p.Location).HasColumnName("location").HasMaxLength(Plot.LocationMaxLength);
+            entity.Property(p => p.TreeCount).HasColumnName("tree_count");
+            entity.Property(p => p.IsActive).HasColumnName("is_active");
+            entity.Property(p => p.CreatedAt).HasColumnName("created_at");
+            entity.Property(p => p.UpdatedAt).HasColumnName("updated_at");
+
+            // El maestro siempre consulta por Workspace (aislamiento multi-tenant) y suele filtrar por
+            // estado de actividad: índice de apoyo (workspace_id, is_active).
+            entity.HasIndex(p => new { p.WorkspaceId, p.IsActive });
+
+            entity.HasOne<Workspace>()
+                .WithMany()
+                .HasForeignKey(p => p.WorkspaceId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

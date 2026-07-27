@@ -1,0 +1,25 @@
+namespace Terrenario.Api.Domain.Plots;
+
+public interface IPlotRepository
+{
+    /// <summary>Registra un terreno nuevo en la unidad de trabajo en curso.</summary>
+    Task AddAsync(Plot plot, CancellationToken ct = default);
+
+    /// <summary>
+    /// Terreno por id dentro del Workspace activo. Devuelve <c>null</c> si no existe o pertenece a
+    /// otro Workspace (el aislamiento multi-tenant se refuerza filtrando por <paramref name="workspaceId"/>).
+    /// </summary>
+    Task<Plot?> FindByIdAsync(Guid workspaceId, Guid plotId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Terrenos del Workspace (MVP-202). Filtra opcionalmente por texto (<paramref name="search"/>,
+    /// sobre nombre/alias/ubicación) y por estado de actividad (<paramref name="isActive"/>).
+    /// </summary>
+    Task<IReadOnlyList<Plot>> ListByWorkspaceAsync(
+        Guid workspaceId,
+        string? search,
+        bool? isActive,
+        CancellationToken ct = default);
+
+    Task SaveChangesAsync(CancellationToken ct = default);
+}

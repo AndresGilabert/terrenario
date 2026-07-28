@@ -3,8 +3,12 @@ import type { Workspace } from './workspace.types';
 /** Catálogo cerrado `invitation_channel`: los valores son vocabulario de dominio. */
 export type InvitationChannel = 'email' | 'enlace';
 
-/** Catálogo cerrado `invitation_status`. La caducidad se deriva de `expires_at`. */
-export type InvitationStatus = 'pendiente' | 'aceptada' | 'rechazada';
+/**
+ * Catálogo cerrado `invitation_status`. La caducidad se deriva de `expires_at`. `anulada` (MVP-207)
+ * la fija el Workspace emisor al retirar una invitación pendiente; `rechazada` la fija la persona
+ * invitada al declinarla (MVP-107).
+ */
+export type InvitationStatus = 'pendiente' | 'aceptada' | 'rechazada' | 'anulada';
 
 /**
  * Motivo por el que la cuenta autenticada no puede aceptar una invitación (MVP-107, R-C). Se
@@ -15,6 +19,7 @@ export type InvitationViewerReason =
   | 'expired'
   | 'already_used'
   | 'already_rejected'
+  | 'cancelled'
   | 'already_member';
 
 /**

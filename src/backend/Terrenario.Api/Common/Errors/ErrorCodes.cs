@@ -55,6 +55,8 @@ public static class ErrorCodes
     public const string BusinessRuleInvitationExpired = "BUSINESS_RULE_INVITATION_EXPIRED";
     public const string BusinessRuleInvitationAlreadyAccepted = "BUSINESS_RULE_INVITATION_ALREADY_ACCEPTED";
     public const string BusinessRuleInvitationAlreadyRejected = "BUSINESS_RULE_INVITATION_ALREADY_REJECTED";
+    /// <summary>MVP-207 (CA-4) — El Workspace emisor anuló la invitación: su enlace ya no sirve.</summary>
+    public const string BusinessRuleInvitationCancelled = "BUSINESS_RULE_INVITATION_CANCELLED";
     public const string BusinessRuleInvitationAlreadyMember = "BUSINESS_RULE_INVITATION_ALREADY_MEMBER";
     // Administración de miembros (MVP-204, CA-8)
     public const string BusinessRuleLastActiveMember = "BUSINESS_RULE_LAST_ACTIVE_MEMBER";
@@ -70,8 +72,13 @@ public static class ErrorCodes
     public const string BusinessRuleWorkspaceOwnershipUnresolved = "BUSINESS_RULE_WORKSPACE_OWNERSHIP_UNRESOLVED";
 
     // Conflictos
-    // Catálogo de tareas (MVP-205): nombre repetido en el mismo Workspace, ignorando mayúsculas.
+    // Nombre repetido dentro del mismo Workspace, ignorando mayúsculas. Cada maestro tiene su propio
+    // código para que la UI pueda explicar el conflicto en los términos del recurso. La guarda nació
+    // en el catálogo de tareas (MVP-205) y MVP-207 la extiende al resto de maestros (CA-2).
     public const string ConflictTaskNameDuplicate = "CONFLICT_TASK_NAME_DUPLICATE";
+    public const string ConflictSeasonNameDuplicate = "CONFLICT_SEASON_NAME_DUPLICATE";
+    public const string ConflictWorkerNameDuplicate = "CONFLICT_WORKER_NAME_DUPLICATE";
+    public const string ConflictPlotNameDuplicate = "CONFLICT_PLOT_NAME_DUPLICATE";
 
     // Resources
     public const string ResourceNotFound = "RESOURCE_NOT_FOUND";

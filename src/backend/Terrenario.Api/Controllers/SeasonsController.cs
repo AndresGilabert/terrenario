@@ -83,6 +83,10 @@ public sealed class SeasonsController(
         {
             return BadRequest(new ApiErrorResponse(ApiError.Validation(ex.ErrorCode, ex.Message)));
         }
+        catch (SeasonConflictException ex)
+        {
+            return Conflict(new ApiErrorResponse(ApiError.Validation(ex.ErrorCode, ex.Message)));
+        }
     }
 
     /// <summary>
@@ -132,6 +136,10 @@ public sealed class SeasonsController(
         catch (SeasonValidationException ex)
         {
             return BadRequest(new ApiErrorResponse(ApiError.Validation(ex.ErrorCode, ex.Message)));
+        }
+        catch (SeasonConflictException ex)
+        {
+            return Conflict(new ApiErrorResponse(ApiError.Validation(ex.ErrorCode, ex.Message)));
         }
     }
 

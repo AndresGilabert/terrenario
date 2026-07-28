@@ -60,6 +60,15 @@ public sealed record ResendInvitationResult(
     DateTimeOffset ExpiresAt,
     bool EmailSent);
 
+/// <summary>
+/// Anulación de una invitación pendiente por parte del Workspace emisor (MVP-207, HU-2/CA-4). El
+/// Workspace y quien actúa se resuelven en servidor, igual que en el reenvío.
+/// </summary>
+public sealed record CancelInvitationCommand(
+    Guid WorkspaceId,
+    Guid ActingUserId,
+    Guid InvitationId);
+
 public sealed record AcceptInvitationCommand(Guid UserId, string Token);
 
 /// <summary>
@@ -86,6 +95,8 @@ public static class InvitationViewerReasons
     public const string Expired = "expired";
     public const string AlreadyUsed = "already_used";
     public const string AlreadyRejected = "already_rejected";
+    /// <summary>MVP-207 (CA-4): el Workspace emisor retiró la invitación antes de que se aceptara.</summary>
+    public const string Cancelled = "cancelled";
     /// <summary>Sí puede "entrar": aceptar es idempotente y sitúa la sesión en el Workspace.</summary>
     public const string AlreadyMember = "already_member";
 }

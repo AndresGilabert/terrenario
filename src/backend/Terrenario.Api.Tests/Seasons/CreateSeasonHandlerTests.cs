@@ -2,6 +2,7 @@ using FluentAssertions;
 using NSubstitute;
 using Terrenario.Api.Application.Seasons;
 using Terrenario.Api.Application.Seasons.Commands;
+using Terrenario.Api.Common.Errors;
 using Terrenario.Api.Domain.Seasons;
 
 namespace Terrenario.Api.Tests.Seasons;
@@ -55,5 +56,48 @@ public class CreateSeasonHandlerTests
         await act.Should().ThrowAsync<SeasonValidationException>();
         await _seasonRepository.DidNotReceive().ActivateExclusivelyAsync(
             Arg.Any<Season>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Deberia_ComprobarDuplicadosConElNombreYaNormalizado()
+    {
+        // MVP-207 (CA-2) — la guarda se consulta con el texto que se persistiría, no con el crudo.
+        var sut = CreateSut();
+
+        await sut.HandleAsync(CommandWith("  Campaña 2026  ", new DateOnly(2026, 1, 1), null));
+
+        await _seasonRepository.Received(1).ExistsWithNameAsync(
+            WorkspaceId, "Campaña 2026", null, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Deberia_RechazarNombreDuplicado_SinPersistir()
+    {
+        // MVP-207 (CA-2) — dos campañas «2025/2026» son indistinguibles en pantalla.
+        _seasonRepository.ExistsWithNameAsync(
+                WorkspaceId, "2025/2026", null, Arg.Any<CancellationToken>())
+            .Returns(true);
+        var sut = CreateSut();
+
+        var act = () => sut.HandleAsync(CommandWith("2025/2026", new DateOnly(2025, 9, 1), null));
+
+        (await act.Should().ThrowAsync<SeasonConflictException>())
+            .Which.ErrorCode.Should().Be(ErrorCodes.ConflictSeasonNameDuplicate);
+        await _seasonRepository.DidNotReceive().ActivateExclusivelyAsync(
+            Arg.Any<Season>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Deberia_RechazarNombreInvalido_AntesDeConsultarDuplicados()
+    {
+        // El 400 de validación va antes que el 409 de conflicto.
+        var sut = CreateSut();
+
+        var act = () => sut.HandleAsync(CommandWith("   ", new DateOnly(2026, 1, 1), null));
+
+        (await act.Should().ThrowAsync<SeasonValidationException>())
+            .Which.ErrorCode.Should().Be(ErrorCodes.ValidationRequiredSeasonName);
+        await _seasonRepository.DidNotReceive().ExistsWithNameAsync(
+            Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<Guid?>(), Arg.Any<CancellationToken>());
     }
 }

@@ -138,6 +138,7 @@ builder.Services.AddScoped<IWorkspaceLifecycleEmailSender, SmtpWorkspaceLifecycl
 builder.Services.AddScoped<CreateInvitationHandler>();
 builder.Services.AddScoped<ListWorkspaceInvitationsHandler>();
 builder.Services.AddScoped<ResendInvitationHandler>();
+builder.Services.AddScoped<CancelInvitationHandler>();
 builder.Services.AddScoped<PreviewInvitationHandler>();
 builder.Services.AddScoped<AcceptInvitationHandler>();
 builder.Services.AddScoped<RejectInvitationHandler>();

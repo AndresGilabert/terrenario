@@ -25,6 +25,8 @@ public sealed class WorkspaceInvitation
     public Guid? AcceptedByUserId { get; private set; }
     public DateTimeOffset? RejectedAt { get; private set; }
     public Guid? RejectedByUserId { get; private set; }
+    public DateTimeOffset? CancelledAt { get; private set; }
+    public Guid? CancelledByUserId { get; private set; }
 
     private WorkspaceInvitation() { }
 
@@ -115,6 +117,12 @@ public sealed class WorkspaceInvitation
                 ErrorCodes.BusinessRuleInvitationAlreadyAccepted,
                 "Esta invitación ya se ha utilizado.");
 
+        // Ya la retiró el Workspace emisor (MVP-207): no se sobrescribe su estado con un rechazo.
+        if (Status == InvitationStatuses.Cancelled)
+            throw new InvitationException(
+                ErrorCodes.BusinessRuleInvitationCancelled,
+                "Esta invitación se ha anulado y ya no está disponible.");
+
         // El desajuste de email se comprueba antes de la idempotencia: un tercero con el correo
         // reenviado no debe poder declinar la invitación de otra persona.
         if (!IsAddressedTo(userEmail))
@@ -127,6 +135,27 @@ public sealed class WorkspaceInvitation
         Status = InvitationStatuses.Rejected;
         RejectedAt = moment;
         RejectedByUserId = userId;
+    }
+
+    /// <summary>
+    /// Anula la invitación desde el Workspace emisor (MVP-207, HU-2/CA-4): se invitó a la persona
+    /// equivocada y su enlace debe dejar de servir <b>ya</b>, sin esperar a que caduque. Es la
+    /// contrapartida del rechazo (MVP-107), que ejecuta la persona invitada.
+    ///
+    /// Solo se anula lo que sigue pendiente: una invitación ya aceptada creó membresía y se deshace
+    /// revocando el acceso (MVP-204, CA-7), no anulando el enlace. Anular una invitación caducada se
+    /// permite: retira de la lista de personas a alguien que ya no iba a entrar. Es idempotente ante
+    /// una segunda anulación (doble clic).
+    /// </summary>
+    public void Cancel(Guid userId, DateTimeOffset moment)
+    {
+        if (Status == InvitationStatuses.Cancelled) return;
+
+        EnsurePending();
+
+        Status = InvitationStatuses.Cancelled;
+        CancelledAt = moment;
+        CancelledByUserId = userId;
     }
 
     /// <summary>
@@ -161,6 +190,12 @@ public sealed class WorkspaceInvitation
             throw new InvitationException(
                 ErrorCodes.BusinessRuleInvitationAlreadyRejected,
                 "Esta invitación se ha rechazado y ya no está disponible.");
+
+        // Anulada por el Workspace emisor (MVP-207, CA-4): el enlace deja de permitir la aceptación.
+        if (Status == InvitationStatuses.Cancelled)
+            throw new InvitationException(
+                ErrorCodes.BusinessRuleInvitationCancelled,
+                "Esta invitación se ha anulado y ya no está disponible.");
     }
 
     private static string Canonicalize(string? email) => (email ?? string.Empty).Trim().ToLowerInvariant();

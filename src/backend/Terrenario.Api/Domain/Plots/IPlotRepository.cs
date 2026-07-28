@@ -21,5 +21,17 @@ public interface IPlotRepository
         bool? isActive,
         CancellationToken ct = default);
 
+    /// <summary>
+    /// ¿Hay ya un terreno con ese nombre en el Workspace, ignorando mayúsculas? (MVP-207, CA-2). Cubre
+    /// todo el maestro, también los inactivos: inactivar no libera el nombre. El alias no entra en la
+    /// comparación: es un apodo libre y puede repetirse.
+    /// </summary>
+    /// <param name="excludePlotId">Terreno que se excluye de la comparación (el que se renombra).</param>
+    Task<bool> ExistsWithNameAsync(
+        Guid workspaceId,
+        string name,
+        Guid? excludePlotId = null,
+        CancellationToken ct = default);
+
     Task SaveChangesAsync(CancellationToken ct = default);
 }

@@ -10,6 +10,7 @@ const REASON_MESSAGES: Record<InvitationViewerReason, string> = {
   expired: 'Esta invitación ha caducado. Pide una nueva a quien te invitó.',
   already_used: 'Esta invitación ya se ha utilizado.',
   already_rejected: 'Esta invitación se ha rechazado y ya no está disponible.',
+  cancelled: 'Quien te invitó ha anulado esta invitación. Pídele una nueva si sigues necesitando acceso.',
   already_member: 'Ya formas parte de este Workspace.',
 };
 

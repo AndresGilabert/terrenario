@@ -25,6 +25,10 @@ const STATUS_LABEL: Record<WorkspaceMemberStatus, string> = {
  * Administración de personas del Workspace (MVP-204, HU-3/HU-4/HU-5). Lista unificada con el estado
  * de cada persona (activo/invitado/revocado), revocación de acceso (CA-7/CA-8) y reenvío de
  * invitaciones pendientes por email o por enlace (CA-6). Invitar reutiliza el flujo de MVP-103.
+ *
+ * MVP-207 (CA-4) completa la simetría de la pantalla: además de reenviar, ahora se puede **anular**
+ * una invitación pendiente. Antes, invitar a un email equivocado no tenía marcha atrás: la única
+ * acción de retirada (revocar) solo existía para quien ya había entrado.
  */
 export const MiembrosView: React.FC = () => {
   const http = useApiClient();
@@ -37,6 +41,7 @@ export const MiembrosView: React.FC = () => {
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirmingRevoke, setConfirmingRevoke] = useState<string | null>(null);
+  const [confirmingCancel, setConfirmingCancel] = useState<string | null>(null);
   const [resendResults, setResendResults] = useState<Record<string, ResendInvitationResult>>({});
   const [copiedInvitationId, setCopiedInvitationId] = useState<string | null>(null);
 
@@ -94,6 +99,27 @@ export const MiembrosView: React.FC = () => {
     }
   };
 
+  /**
+   * Anula una invitación pendiente (CA-4). Tras anularla, el enlace deja de servir y la persona
+   * desaparece de la lista, así que basta con recargar: no hay estado que conservar en pantalla.
+   */
+  const cancelInvitation = async (person: WorkspacePerson) => {
+    if (!person.invitation_id) return;
+    setBusyId(person.invitation_id);
+    setActionError(null);
+    try {
+      await memberService.cancelInvitation(person.invitation_id);
+      setConfirmingCancel(null);
+      await reload();
+    } catch (error) {
+      setActionError(
+        error instanceof HttpError ? error.message : 'No se pudo anular la invitación. Inténtalo de nuevo.'
+      );
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const copyLink = async (invitationId: string, url: string) => {
     try {
       await navigator.clipboard.writeText(url);
@@ -111,7 +137,7 @@ export const MiembrosView: React.FC = () => {
           <h2 className="font-headline font-extrabold text-xl text-[#1c1c19]">Miembros y accesos</h2>
           <p className="text-xs text-[#76786b]">
             Quién forma parte del Workspace y en qué estado. Cualquier miembro puede invitar, reenviar
-            una invitación o retirar el acceso a otro.
+            o anular una invitación, y retirar el acceso a otro.
           </p>
         </div>
         <button
@@ -231,24 +257,60 @@ export const MiembrosView: React.FC = () => {
 
                 {person.status === 'invitado' && (
                   <div className="mt-3 pt-3 border-t border-[#f0ede8] space-y-3">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs text-[#76786b]">Reenviar invitación:</span>
-                      <button
-                        onClick={() => void resend(person, true)}
-                        disabled={isBusy}
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#f0ede8] hover:bg-[#ebe8e3] text-[#33450d] flex items-center gap-1 disabled:opacity-60"
-                      >
-                        <span className="material-symbols-outlined text-sm" aria-hidden="true">mail</span>
-                        Por email
-                      </button>
-                      <button
-                        onClick={() => void resend(person, false)}
-                        disabled={isBusy}
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#f0ede8] hover:bg-[#ebe8e3] text-[#33450d] flex items-center gap-1 disabled:opacity-60"
-                      >
-                        <span className="material-symbols-outlined text-sm" aria-hidden="true">link</span>
-                        Obtener enlace
-                      </button>
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs text-[#76786b]">Reenviar invitación:</span>
+                        <button
+                          onClick={() => void resend(person, true)}
+                          disabled={isBusy}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#f0ede8] hover:bg-[#ebe8e3] text-[#33450d] flex items-center gap-1 disabled:opacity-60"
+                        >
+                          <span className="material-symbols-outlined text-sm" aria-hidden="true">mail</span>
+                          Por email
+                        </button>
+                        <button
+                          onClick={() => void resend(person, false)}
+                          disabled={isBusy}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#f0ede8] hover:bg-[#ebe8e3] text-[#33450d] flex items-center gap-1 disabled:opacity-60"
+                        >
+                          <span className="material-symbols-outlined text-sm" aria-hidden="true">link</span>
+                          Obtener enlace
+                        </button>
+                      </div>
+
+                      {/* Anulación (MVP-207, CA-4): misma mecánica de confirmación en línea que
+                          «Retirar acceso», para que retirar a un invitado y a un miembro se hagan
+                          igual. */}
+                      {confirmingCancel === person.invitation_id ? (
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="text-[#45483c]">¿Anular esta invitación?</span>
+                          <button
+                            onClick={() => void cancelInvitation(person)}
+                            disabled={isBusy}
+                            className="px-3 py-1.5 rounded-lg bg-[#ba1a1a] hover:bg-[#a01515] text-white font-semibold disabled:opacity-60"
+                          >
+                            {isBusy ? 'Anulando…' : 'Sí, anular'}
+                          </button>
+                          <button
+                            onClick={() => setConfirmingCancel(null)}
+                            disabled={isBusy}
+                            className="px-3 py-1.5 rounded-lg text-[#45483c] hover:bg-[#f0ede8] font-semibold"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setConfirmingCancel(person.invitation_id ?? null);
+                            setActionError(null);
+                          }}
+                          className="text-xs font-semibold text-[#ba1a1a] hover:underline flex items-center gap-1"
+                        >
+                          <span className="material-symbols-outlined text-base" aria-hidden="true">cancel</span>
+                          Anular invitación
+                        </button>
+                      )}
                     </div>
 
                     {resendResult && (

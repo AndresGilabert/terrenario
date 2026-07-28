@@ -2,6 +2,7 @@ using FluentAssertions;
 using NSubstitute;
 using Terrenario.Api.Application.Plots;
 using Terrenario.Api.Application.Plots.Commands;
+using Terrenario.Api.Common.Errors;
 using Terrenario.Api.Domain.Plots;
 
 namespace Terrenario.Api.Tests.Plots;
@@ -46,5 +47,50 @@ public class CreatePlotHandlerTests
         await act.Should().ThrowAsync<PlotValidationException>();
         await _plotRepository.DidNotReceive().AddAsync(Arg.Any<Plot>(), Arg.Any<CancellationToken>());
         await _plotRepository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Deberia_ComprobarDuplicadosConElNombreYaNormalizado()
+    {
+        // MVP-207 (CA-2) — la guarda se consulta con el texto que se persistiría, no con el crudo.
+        var sut = CreateSut();
+
+        await sut.HandleAsync(new CreatePlotCommand(
+            WorkspaceId, "  La Hoya  ", PlotOwnershipTypes.Propia, null, null, null, null, null));
+
+        await _plotRepository.Received(1).ExistsWithNameAsync(
+            WorkspaceId, "La Hoya", null, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Deberia_RechazarNombreDuplicado_SinPersistir()
+    {
+        // MVP-207 (CA-2) — dos parcelas «Prueba» hacen ambiguo todo lo que se impute después (RN-001).
+        _plotRepository.ExistsWithNameAsync(
+                WorkspaceId, "La Hoya", null, Arg.Any<CancellationToken>())
+            .Returns(true);
+        var sut = CreateSut();
+
+        var act = () => sut.HandleAsync(new CreatePlotCommand(
+            WorkspaceId, "La Hoya", PlotOwnershipTypes.Propia, null, null, null, null, null));
+
+        (await act.Should().ThrowAsync<PlotConflictException>())
+            .Which.ErrorCode.Should().Be(ErrorCodes.ConflictPlotNameDuplicate);
+        await _plotRepository.DidNotReceive().AddAsync(Arg.Any<Plot>(), Arg.Any<CancellationToken>());
+        await _plotRepository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Deberia_RechazarDatosInvalidos_AntesDeConsultarDuplicados()
+    {
+        // El 400 de validación va antes que el 409 de conflicto.
+        var sut = CreateSut();
+
+        var act = () => sut.HandleAsync(new CreatePlotCommand(
+            WorkspaceId, "La Hoya", "arrendada", null, null, null, null, null));
+
+        await act.Should().ThrowAsync<PlotValidationException>();
+        await _plotRepository.DidNotReceive().ExistsWithNameAsync(
+            Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<Guid?>(), Arg.Any<CancellationToken>());
     }
 }

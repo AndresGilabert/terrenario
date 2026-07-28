@@ -3,6 +3,7 @@ using NSubstitute;
 using Terrenario.Api.Application.Seasons;
 using Terrenario.Api.Application.Seasons.Commands;
 using Terrenario.Api.Common;
+using Terrenario.Api.Common.Errors;
 using Terrenario.Api.Domain.Seasons;
 
 namespace Terrenario.Api.Tests.Seasons;
@@ -85,5 +86,67 @@ public class UpdateSeasonHandlerTests
         // Assert
         result.Should().BeNull();
         await _seasonRepository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Deberia_RechazarRenombrado_Cuando_ElNombreYaExiste_DejandoLaTemporadaIntacta()
+    {
+        // MVP-207 (CA-2) — renombrar tampoco puede dejar dos campañas con el mismo nombre.
+        var season = Season.Create(WorkspaceId, "Campaña 2026", new DateOnly(2026, 1, 1), null);
+        Seed(season);
+        _seasonRepository.ExistsWithNameAsync(
+                WorkspaceId, "2025/2026", season.Id, Arg.Any<CancellationToken>())
+            .Returns(true);
+        var sut = CreateSut();
+
+        var act = () => sut.HandleAsync(new UpdateSeasonCommand(
+            WorkspaceId, season.Id,
+            FieldUpdate<string>.Set("2025/2026"),
+            FieldUpdate<DateOnly>.Absent,
+            FieldUpdate<DateOnly?>.Absent,
+            FieldUpdate<bool>.Absent));
+
+        (await act.Should().ThrowAsync<SeasonConflictException>())
+            .Which.ErrorCode.Should().Be(ErrorCodes.ConflictSeasonNameDuplicate);
+        season.Name.Should().Be("Campaña 2026");
+        await _seasonRepository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Deberia_ExcluirLaPropiaTemporada_AlComprobarDuplicados()
+    {
+        // Cambiar solo las mayúsculas del propio nombre no es un conflicto consigo misma.
+        var season = Season.Create(WorkspaceId, "Campaña 2026", new DateOnly(2026, 1, 1), null);
+        Seed(season);
+        var sut = CreateSut();
+
+        await sut.HandleAsync(new UpdateSeasonCommand(
+            WorkspaceId, season.Id,
+            FieldUpdate<string>.Set("CAMPAÑA 2026"),
+            FieldUpdate<DateOnly>.Absent,
+            FieldUpdate<DateOnly?>.Absent,
+            FieldUpdate<bool>.Absent));
+
+        await _seasonRepository.Received(1).ExistsWithNameAsync(
+            WorkspaceId, "CAMPAÑA 2026", season.Id, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Deberia_NoConsultarDuplicados_Cuando_ElPatchNoTraeNombre()
+    {
+        // Regresión del PATCH parcial: cerrar una temporada no es un renombrado.
+        var season = Season.Create(WorkspaceId, "Campaña 2026", new DateOnly(2026, 1, 1), null);
+        Seed(season);
+        var sut = CreateSut();
+
+        await sut.HandleAsync(new UpdateSeasonCommand(
+            WorkspaceId, season.Id,
+            FieldUpdate<string>.Absent,
+            FieldUpdate<DateOnly>.Absent,
+            FieldUpdate<DateOnly?>.Absent,
+            FieldUpdate<bool>.Set(true)));
+
+        await _seasonRepository.DidNotReceive().ExistsWithNameAsync(
+            Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<Guid?>(), Arg.Any<CancellationToken>());
     }
 }

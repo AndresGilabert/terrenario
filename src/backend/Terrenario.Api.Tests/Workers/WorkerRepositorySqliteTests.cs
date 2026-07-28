@@ -93,6 +93,44 @@ public sealed class WorkerRepositorySqliteTests : IDisposable
         found.Should().BeNull();
     }
 
+    [Fact]
+    public async Task ExistsWithNameAsync_Deberia_IgnorarMayusculas_Y_AcotarPorWorkspace()
+    {
+        // MVP-207 (CA-2) — mismo criterio que el índice único ux_workers_workspace_name.
+        var mine = await SeedWorkspaceAsync("-dup-a");
+        var other = await SeedWorkspaceAsync("-dup-b");
+        _db.Workers.Add(Worker.Create(mine.Id, "Juan Pérez"));
+        await _db.SaveChangesAsync();
+
+        var repository = new WorkerRepository(_db);
+
+        (await repository.ExistsWithNameAsync(mine.Id, "Juan Pérez", null, default)).Should().BeTrue();
+        (await repository.ExistsWithNameAsync(mine.Id, "juan pérez", null, default)).Should().BeTrue();
+        (await repository.ExistsWithNameAsync(mine.Id, "JUAN PÉREZ", null, default)).Should().BeTrue();
+        (await repository.ExistsWithNameAsync(mine.Id, "Antonio", null, default)).Should().BeFalse();
+        // El maestro de otro Workspace no genera conflicto (aislamiento multi-tenant).
+        (await repository.ExistsWithNameAsync(other.Id, "Juan Pérez", null, default)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ExistsWithNameAsync_Deberia_ExcluirElPropioTrabajador_Y_VerLosInactivos()
+    {
+        var workspace = await SeedWorkspaceAsync("-dup-c");
+        var propio = Worker.Create(workspace.Id, "Juan Pérez");
+        var inactivo = Worker.Create(workspace.Id, "Antonio");
+        inactivo.SetActive(false);
+        _db.Workers.AddRange(propio, inactivo);
+        await _db.SaveChangesAsync();
+
+        var repository = new WorkerRepository(_db);
+
+        // Cambiar solo las mayúsculas del propio nombre no es un conflicto consigo mismo.
+        (await repository.ExistsWithNameAsync(workspace.Id, "JUAN PÉREZ", propio.Id, default)).Should().BeFalse();
+        // Un trabajador inactivo sigue ocupando su nombre: se reactiva, no se duplica.
+        (await repository.ExistsWithNameAsync(workspace.Id, "antonio", null, default)).Should().BeTrue();
+    }
+
+
     public void Dispose()
     {
         _db.Dispose();

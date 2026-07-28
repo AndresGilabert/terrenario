@@ -162,6 +162,61 @@ public sealed class SeasonRepositorySqliteTests : IDisposable
         list[1].IsClosed.Should().BeTrue();
     }
 
+    /// <summary>Segundo Workspace (otro titular) para comprobar el aislamiento multi-tenant.</summary>
+    private async Task<Workspace> SeedOtherWorkspaceAsync()
+    {
+        await using var db = NewDb();
+        var user = User.Create("google-sub-otro", "Otra", "otra@ejemplo.com");
+        db.Users.Add(user);
+        var workspace = Workspace.Create(user.Id, "Finca Ajena");
+        db.Workspaces.Add(workspace);
+        await db.SaveChangesAsync();
+        return workspace;
+    }
+
+    [Fact]
+    public async Task ExistsWithNameAsync_Deberia_IgnorarMayusculas_Y_AcotarPorWorkspace()
+    {
+        // MVP-207 (CA-2) — mismo criterio que el índice único ux_seasons_workspace_name.
+        var mine = await SeedWorkspaceAsync();
+        var other = await SeedOtherWorkspaceAsync();
+        await using (var seed = NewDb())
+        {
+            seed.Seasons.Add(Season.Create(mine.Id, "2025/2026", new DateOnly(2025, 9, 1), null));
+            await seed.SaveChangesAsync();
+        }
+
+        await using var db = NewDb();
+        var repository = new SeasonRepository(db);
+
+        (await repository.ExistsWithNameAsync(mine.Id, "2025/2026", null, default)).Should().BeTrue();
+        (await repository.ExistsWithNameAsync(mine.Id, "Campaña 2026", null, default)).Should().BeFalse();
+        // El maestro de otro Workspace no genera conflicto (aislamiento multi-tenant).
+        (await repository.ExistsWithNameAsync(other.Id, "2025/2026", null, default)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ExistsWithNameAsync_Deberia_ExcluirLaPropiaTemporada_Y_VerLasCerradas()
+    {
+        var workspace = await SeedWorkspaceAsync();
+        var propia = Season.Create(workspace.Id, "Campaña 2026", new DateOnly(2026, 1, 1), null);
+        var cerrada = Season.Create(workspace.Id, "Campaña 2025", new DateOnly(2025, 1, 1), null);
+        cerrada.Close();
+        await using (var seed = NewDb())
+        {
+            seed.Seasons.AddRange(propia, cerrada);
+            await seed.SaveChangesAsync();
+        }
+
+        await using var db = NewDb();
+        var repository = new SeasonRepository(db);
+
+        // Cambiar solo las mayúsculas del propio nombre no es un conflicto consigo misma.
+        (await repository.ExistsWithNameAsync(workspace.Id, "CAMPAÑA 2026", propia.Id, default)).Should().BeFalse();
+        // Cerrar una temporada no libera su nombre: la guarda cubre todo el maestro.
+        (await repository.ExistsWithNameAsync(workspace.Id, "campaña 2025", null, default)).Should().BeTrue();
+    }
+
     public void Dispose()
     {
         _connection.Dispose();

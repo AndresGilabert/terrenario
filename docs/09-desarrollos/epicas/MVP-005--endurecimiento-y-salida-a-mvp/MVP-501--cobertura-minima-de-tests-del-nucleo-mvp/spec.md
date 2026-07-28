@@ -85,3 +85,15 @@ Cubrir el núcleo funcional del MVP con la batería mínima de tests requerida p
 ## Notas y decisiones
 
 - Esta historia define el mínimo obligatorio, no una cobertura idealizada.
+- **Puntos de `MVP-999` asignados aquí** (3ª pasada de `MVP-299`, 2026-07-28):
+  - **`P-012` + `P-023`** — el frontend sigue **sin arnés de tests unitarios** (`vitest`/`jest`) desde
+    `MVP-106`. Toda la lógica de decisión acumulada en las vistas de `MVP-104`/`MVP-107`/`MVP-204`/
+    `MVP-208` (combinación de listados, gating por `can_revoke`/`is_self`, modo de la oferta de
+    temporada, aptitud de invitaciones) está cubierta solo por tipado, build, lint y QA manual. Son el
+    mismo punto registrado dos veces: se tratan como uno.
+  - **`P-031`** — EF Core con SQLite no traduce `ORDER BY` sobre `DateTimeOffset`, lo que ya obligó a
+    ordenar en memoria en cuatro consultas de `MVP-204` y `MVP-206`: se está degradando la consulta de
+    producción para que el arnés la pueda ejercitar. Al montar la cobertura contra PostgreSQL hay que
+    decidir un criterio único y revertir los órdenes en memoria que solo existan por el test.
+  - La cobertura de **integración contra PostgreSQL** es además la que habría cazado `P-014` (el 500
+    de `GET /workspaces`), que pasó 130 tests con repositorios mockeados.

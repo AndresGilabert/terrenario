@@ -201,6 +201,15 @@ se aplica a cada Workspace del que sea propietario único):
 
 ## Notas y decisiones
 
+- **Corregido en la 3ª pasada de `MVP-299` (2026-07-28): la reasignación de CA-5 y el maestro de
+  responsables.** Al ceder el Workspace, la membresía de quien sale pasa a `revocado`, pero
+  `CloseWorkspaceHandler.ReassignAsync` no retiraba su fila del maestro de `workers` que materializó
+  `MVP-208`, así que seguía apareciendo como responsable seleccionable —y como «MIEMBRO» activo en
+  Trabajadores— de un Workspace al que ya no pertenece. Es la costura entre esta historia y `MVP-208`:
+  hay **dos** vías que revocan una membresía y solo la de `RevokeMemberHandler` mantenía el maestro
+  alineado. Hallazgo `R-25`, corregido en `MVP-299` (CA-4) con dos tests de regresión. El
+  comportamiento de esta historia no cambia: la baja lógica (`deleted`) no revoca a nadie y sigue sin
+  tocar el maestro.
 - **Reglas de negocio nuevas a formalizar** en `docs/01-producto/reglas-de-negocio.md` al refinar
   (propuesta): «un Workspace nunca queda sin propietario»; «la baja de Workspace es lógica, no
   física»; «la salida del propietario resuelve siempre la propiedad (traspaso o baja)». Se dejan

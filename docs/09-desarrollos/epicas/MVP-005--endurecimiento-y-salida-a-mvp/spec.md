@@ -6,7 +6,7 @@ estado: borrador
 prioridad: alta
 hito: "Hito E — Salida controlada a MVP"
 tickets: []
-historias: ["MVP-501", "MVP-502", "MVP-503", "MVP-504", "MVP-599"]
+historias: ["MVP-501", "MVP-502", "MVP-503", "MVP-504", "MVP-505", "MVP-599"]
 depende_de: ["MVP-001", "MVP-002", "MVP-003", "MVP-004"]
 bloquea: ["MVP-006"]
 relacionado_con: []
@@ -44,6 +44,9 @@ Llevar el núcleo funcional del MVP a un estado desplegable con riesgo controlad
 - Cobertura mínima de tests unitarios, de integración y smoke E2E según estrategia definida.
 - Hardening de seguridad en autenticación, autorización, validación y gestión de PII.
 - Revisión de checklist RGPD/LOPDGDD para flujos del MVP.
+- **Cumplimiento funcional de salida**: páginas legales y consentimiento, baja de cuenta (derecho de
+  supresión) y política de retención y expurgo, sin los cuales el checklist anterior no puede darse
+  por cumplido. Absorbido en la revisión de cierre de `MVP-002`; ver Notas.
 - Criterios de salida y checklist final de despliegue a staging/producción.
 - Cierre de deuda bloqueante detectada durante construcción del núcleo MVP.
 
@@ -67,6 +70,7 @@ Llevar el núcleo funcional del MVP a un estado desplegable con riesgo controlad
 - `MVP-502` — Hardening de seguridad y validación de PII.
 - `MVP-503` — Checklist de cumplimiento RGPD/LOPDGDD del MVP.
 - `MVP-504` — Gate final de release y salida controlada a staging/producción.
+- `MVP-505` — Cumplimiento funcional de salida: páginas legales, consentimiento y baja de cuenta.
 - `MVP-599` — Revision epica.
 
 ## Vinculacion con prototipo (fuente visual)
@@ -91,8 +95,23 @@ Matriz historia -> utilidad del prototipo:
 | MVP-502 | [prototype/terrenario-mvp/src/components/LoginPage.tsx](../../../../prototype/terrenario-mvp/src/components/LoginPage.tsx), [prototype/terrenario-mvp/src/components/AjustesView.tsx](../../../../prototype/terrenario-mvp/src/components/AjustesView.tsx) | Referencia de pantallas sensibles; hardening real de seguridad no implementado |
 | MVP-503 | [prototype/terrenario-mvp/src/types.ts](../../../../prototype/terrenario-mvp/src/types.ts) | Referencia para inventario de datos en UI; cumplimiento legal debe definirse en KB y backend |
 | MVP-504 | [prototype/terrenario-mvp/README.md](../../../../prototype/terrenario-mvp/README.md) | Referencia para run local; gate de release debe seguir criterios de KB |
+| MVP-505 | [prototype/terrenario-mvp/src/components/LoginPage.tsx](../../../../prototype/terrenario-mvp/src/components/LoginPage.tsx), [prototype/terrenario-mvp/src/components/AjustesView.tsx](../../../../prototype/terrenario-mvp/src/components/AjustesView.tsx) | No cubierto: el prototipo no contempla paginas legales, consentimiento de cookies ni baja de cuenta |
 
 ## Notas y decisiones
 
 - Esta épica no debe usarse para introducir nuevas capacidades funcionales salvo correcciones bloqueantes.
 - La finalidad es estabilizar, no ensanchar alcance.
+- **Alcance absorbido (decisión del PO, 2026-07-28, 3ª pasada de `MVP-299`): `MVP-505`.** La revisión
+  de cierre de `MVP-002` repasó los puntos transversales de `MVP-999` y encontró que tres de ellos
+  —`P-008` (páginas legales y consentimiento de cookies), `P-024` (baja de cuenta / derecho de
+  supresión) y `P-033` (retención y expurgo)— estaban registrados con destino a esta épica **sin
+  encajar en ninguna de sus historias**: `MVP-501` son tests, `MVP-502` es hardening técnico,
+  `MVP-503` es revisión documental con «nuevas políticas» explícitamente fuera de alcance y `MVP-504`
+  es el gate. Sin historia que los construya, `MVP-503` habría detectado el incumplimiento y `MVP-504`
+  habría bloqueado la salida sin remedio. Entran como **corrección bloqueante**, que es la excepción
+  que esta épica ya se reservaba, y no como ensanche de alcance.
+- **Orden interno**: `MVP-505` debe entregarse **antes** de `MVP-503`, porque esa historia verifica lo
+  que esta construye.
+- **`P-027` y `P-043` se resuelven en `MVP-502`** (validación en bordes API) y `P-012`/`P-023`/`P-031`
+  en `MVP-501`, retargeteados en la misma revisión: ya estaban señalados hacia esta épica y ahora
+  tienen historia concreta.

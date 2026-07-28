@@ -251,3 +251,10 @@ códigos de error que devuelve cada ruta,
   `/app`, con `P-025`/`P-037`).
 - **Cierre de la épica.** `MVP-002` no cierra hasta entregar esta historia y hacer la tercera pasada
   de verificación en `MVP-299`, donde se marcarán los CA-1, CA-3 y CA-4 de la épica.
+- **Completado en la 3ª pasada de `MVP-299` (2026-07-28): la segunda vía de revocación del CA-4.** El
+  CA-4 se implementó sobre `RevokeMemberHandler`, que es la vía de retirar el acceso a mano, pero hay
+  **otra** que revoca una membresía: la baja de Workspace con copropietarios
+  (`CloseWorkspaceHandler.ReassignAsync`, `MVP-206` CA-5), que dejaba la fila de `workers` activa.
+  Hallazgo `R-25`, verificado end-to-end y corregido en `MVP-299` (CA-4) por ser una corrección menor
+  de lo que esta historia ya prometía. Lo mismo con las cinco filas del contrato del alta que el CA-9
+  no llegó a revisar (`R-24`, corregido en `MVP-299` CA-5).

@@ -153,6 +153,7 @@ erDiagram
         decimal hours
         string task
         decimal manual_cost
+        string description
         uuid created_by FK
         timestamp created_at
         uuid updated_by FK
@@ -164,6 +165,7 @@ erDiagram
     PURCHASE {
         uuid id PK
         uuid workspace_id FK
+        uuid season_id FK
         string product
         decimal total_quantity
         decimal total_cost
@@ -182,7 +184,11 @@ erDiagram
         uuid workspace_id FK
         uuid purchase_id FK
         uuid plot_id FK
+        uuid season_id FK
+        date date
+        string product
         decimal consumed_quantity
+        decimal proportional_cost
         timestamp created_at
     }
 
@@ -207,8 +213,10 @@ erDiagram
     PLOT ||--o{ PURCHASE_CONSUMPTION : consume
     SEASON ||--o{ HARVEST : agrupa
     SEASON ||--o{ ACTIVITY : agrupa
+    SEASON ||--o{ PURCHASE : agrupa
+    SEASON ||--o{ PURCHASE_CONSUMPTION : agrupa
     WORKER ||--o{ ACTIVITY : ejecuta
-    PURCHASE ||--o{ PURCHASE_CONSUMPTION : reparte
+    PURCHASE ||--o| PURCHASE_CONSUMPTION : reparte
 ```
 
 ---
@@ -352,8 +360,10 @@ espacio de identificadores, que es lo que permite que `ACTIVITY.worker_id` siga 
 (cierre de `P-034`):
 
 - **Miembros del Workspace** (`user_account_id` no nulo): la fila nace al crearse el Workspace y al
-  aceptarse una invitacion, y se inactiva al revocarse el acceso. Su `name` llega de la identidad de
-  Google (RN-036) y se resincroniza cuando cambia alli; no se edita en el maestro.
+  aceptarse una invitacion, y se inactiva al revocarse el acceso —por las **dos** vias que lo
+  revocan: retirarlo a mano y ceder el Workspace en la baja con copropietarios (MVP-299, `R-25`)—.
+  Su `name` llega de la identidad de Google (RN-036) y se resincroniza cuando cambia alli; no se
+  edita en el maestro.
 - **Cuadrilla sin cuenta** (`user_account_id` nulo): alta, edicion e inactivacion manuales (MVP-204).
 
 Cuando el nombre de una cuenta choca con el de una fila existente, el desempate es asimetrico: la
@@ -403,21 +413,36 @@ materializa la entidad de actividad.
 |-------|------|-------------|-------------|
 | `hours` | decimal(5,2) | Si | Debe ser `> 0` en MVP |
 | `manual_cost` | decimal(10,2) | Si | Obligatorio en MVP. Se permite sugerir valor por tarifa y editar manualmente |
-| `version` | bigint | Si | Control de concurrencia optimista para `If-Match` |
+| `description` | string (nullable) | No | Nota libre de la actividad. Ya contratada como `description?` en `contratos-api.md` §5 y ausente de este ER hasta la 3a pasada de MVP-299 (hallazgo `G-6`); la materializa MVP-301 |
+| `version` | bigint | Si | Control de concurrencia optimista para `If-Match` (ADR-0005) |
 
 ### PURCHASE
 
 | Campo | Tipo | Obligatorio | Descripcion |
 |-------|------|-------------|-------------|
+| `season_id` | uuid FK | Si | Temporada a la que se imputa la compra (RN-021). **Añadido en la 3a pasada de MVP-299** (`P-050`): `contratos-api.md` ya lo exigia como `season_id*` y el ER no lo declaraba. Lo materializa MVP-303 |
 | `total_quantity` | decimal(10,2) | Si | Cantidad total comprada |
 | `total_cost` | decimal(10,2) | Si | Coste total pagado |
 | `unit_price` | decimal(10,4) | Si | Derivado de `total_cost / total_quantity` y persistido para trazabilidad |
+| `product` | string | Si | Material comprado, en **texto libre** (RN-031). No hay catalogo cerrado: la UI sugiere valores del historico del Workspace |
 
 ### PURCHASE_CONSUMPTION
 
 | Campo | Tipo | Obligatorio | Descripcion |
 |-------|------|-------------|-------------|
+| `purchase_id` | uuid FK | **No** | Compra de la que sale el material. Es **anulable** por RN-032: se puede registrar consumo sin compra previa, y entonces el coste imputado es `0`. Registrar la compra despues no recalcula lo ya guardado |
+| `date` | date | Si | Fecha de negocio del consumo, distinta de `created_at`: el diario ordena por ella (RN-033) |
+| `season_id` | uuid FK | Si | Temporada del consumo (RN-021). Al imputar sobre una compra se hereda de ella |
+| `product` | string | Solo sin compra | Con compra se hereda de ella; sin compra hay que informarlo (texto libre, RN-031) |
 | `consumed_quantity` | decimal(10,2) | Si | Cantidad imputada al terreno |
+| `proportional_cost` | decimal(10,2) | Si | Coste proporcional derivado del `unit_price` de la compra; **`0` cuando no hay compra previa** |
+
+> Los cuatro campos anteriores (`purchase_id` anulable, `date`, `season_id`, `product`) y
+> `proportional_cost` se anadieron en la **3a pasada de MVP-299** (hallazgos `G-2` y `G-3`): el ER
+> declaraba la imputacion como una fila colgada obligatoriamente de una compra y sin fecha propia, lo
+> que hacia irrealizables el CA-3 de la epica MVP-003 y el diario cronologico de MVP-305. El
+> **mecanismo** (columna anulable sobre esta entidad frente a entidad de consumo propia) lo cierra el
+> `tech-design` de **MVP-304**; lo que queda fijado aqui son los requisitos que debe cumplir.
 
 ---
 
@@ -430,8 +455,8 @@ materializa la entidad de actividad.
 | Idioma de identificadores | Ingles, segun ADR-0009 |
 | Claves primarias | UUID |
 | Trazabilidad minima | `created_by`, `created_at`, `updated_by`, `updated_at` |
-| Concurrencia | `version` por registro operativo + `If-Match` |
-| Borrado en entidades operativas | Logico mediante `deleted_at` |
+| Concurrencia | `version` por registro operativo + `If-Match` en `PATCH`/`DELETE`, con `409 CONFLICT_VERSION_MISMATCH` (ADR-0005). Las entidades criticas son `ACTIVITY`, `HARVEST` y `PURCHASE`/`PURCHASE_CONSUMPTION`; lo implementan MVP-301/303/304 y MVP-401. Los maestros de MVP-002 no llevan `version`: su edicion no concurre sobre el mismo registro con la misma frecuencia y su invariante la protegen los indices unicos |
+| Borrado en entidades operativas | Logico mediante `deleted_at`, con confirmacion explicita en la UI (RN-037, reformulada en la 3a pasada de MVP-299: decia «fisico» y contradecia a esta convencion). No hay papelera ni restauracion en el MVP; la purga se decide con la politica de retencion (`P-033`) |
 | Aislamiento multi-tenant | `workspace_id` obligatorio en entidades operativas |
 | Booleanos persistidos | Prefijo `is_` (`is_active`, `is_closed`) |
 

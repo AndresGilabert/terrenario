@@ -2,7 +2,7 @@
 id: "MVP-002"
 tipo: epica
 titulo: "Maestros operativos y onboarding"
-estado: borrador
+estado: completado
 prioridad: alta
 hito: "Hito B — Base operativa preparada"
 tickets: []
@@ -67,11 +67,12 @@ Dejar cada Workspace preparado para empezar a registrar actividad real en pocos 
 
 ## Criterios de aceptación de la épica
 
-- [ ] **CA-1**: Todas las historias de la épica están en estado `completado`.
-- [ ] **CA-2**: Un Workspace nuevo puede arrancar con primera temporada y los maestros mínimos necesarios sin configuración técnica adicional.
-- [ ] **CA-3**: Actividades, compras y cosechas pueden depender exclusivamente de estos maestros sin recurrir a texto libre salvo donde el MVP lo permite explícitamente. Incluye al **responsable**: tanto un miembro del Workspace como un trabajador sin cuenta se identifican con un único tipo de referencia y pueden guardarse (`MVP-208`).
-- [ ] **CA-4**: Los maestros son una referencia estable: dentro de un Workspace no conviven dos registros del mismo maestro con el mismo nombre —tampoco a través de la frontera miembro/cuadrilla del maestro de responsables—, y su contrato publicado describe la API realmente entregada, tanto en el alta como en la edición.
-- [ ] **CA-5**: El Workspace que sostiene esos maestros tiene su ciclo de vida cerrado: se puede renombrar y dar de baja de forma reversible, y nunca queda sin propietario (RN-038/RN-039/RN-040).
+- [x] **CA-1**: Todas las historias de la épica están en estado `completado`. _(9/9 en `_indice.md`
+  tras cerrar `MVP-299` en su 3ª pasada.)_
+- [x] **CA-2**: Un Workspace nuevo puede arrancar con primera temporada y los maestros mínimos necesarios sin configuración técnica adicional. _(Verificado en la 1ª pasada sobre un Workspace creado para la prueba y ratificado en la 3ª.)_
+- [x] **CA-3**: Actividades, compras y cosechas pueden depender exclusivamente de estos maestros sin recurrir a texto libre salvo donde el MVP lo permite explícitamente. Incluye al **responsable**: tanto un miembro del Workspace como un trabajador sin cuenta se identifican con un único tipo de referencia y pueden guardarse (`MVP-208`). _(3ª pasada: `GET /workers` devuelve un único espacio de identificadores con `kind`, y todo miembro activo tiene su `workers.id`, así que `ACTIVITY.worker_id` sigue siendo una FK simple. El texto libre que queda —producto de compra (RN-031)— está permitido explícitamente; el producto y el destino de cosecha son catálogo global fijo (RN-030/RN-012), alcance de `MVP-402`.)_
+- [x] **CA-4**: Los maestros son una referencia estable: dentro de un Workspace no conviven dos registros del mismo maestro con el mismo nombre —tampoco a través de la frontera miembro/cuadrilla del maestro de responsables—, y su contrato publicado describe la API realmente entregada, tanto en el alta como en la edición. _(3ª pasada: `409` verificado en los cuatro maestros y cruzando miembro/cuadrilla, con mayúsculas y espacios sobrantes, garantizado por los índices únicos; contrato verificado fila a fila contra la API tras cerrar `R-18` en `MVP-208` y `R-24` en `MVP-299`.)_
+- [x] **CA-5**: El Workspace que sostiene esos maestros tiene su ciclo de vida cerrado: se puede renombrar y dar de baja de forma reversible, y nunca queda sin propietario (RN-038/RN-039/RN-040). _(Verificado end-to-end en la 1ª pasada; la incoherencia que la rama de reasignación dejaba en el maestro de responsables (`R-25`) se corrigió en la 3ª.)_
 
 ## Historias de esta épica
 
@@ -143,5 +144,15 @@ Matriz historia -> pantallas/componentes:
   cierra a la vez el CA-3 y la parte de `R-16` del CA-4. `MVP-208` recoge además el resto de defectos
   de la 2ª pasada (`R-15`, `R-17`, `R-18` documental, `R-20`, `R-21`). El objetivo, el alcance y los
   criterios de aceptación se ampliaron aquí para reflejarlo, con el mismo criterio con el que se
-  documentó lo absorbido por `MVP-206`. **La épica no cierra hasta entregar `MVP-208` y hacer la
-  tercera pasada de verificación en `MVP-299`.**
+  documentó lo absorbido por `MVP-206`.
+- **Cierre de la épica (3ª pasada de `MVP-299`, 2026-07-28).** Las ocho historias quedan entregadas y
+  verificadas contra la API real y la UI conducida, y los **cinco criterios de la épica se cumplen**.
+  La pasada encontró dos defectos de lo entregado —`R-25`, la baja de Workspace con copropietarios
+  revocaba el acceso sin retirar a esa persona del maestro de responsables, y `R-24`, cinco filas del
+  contrato del alta que la API no cumplía— y, **por ser correcciones menores de lo ya prometido por
+  `MVP-208`, el PO decide resolverlas en la propia `MVP-299`** en vez de abrir una novena historia,
+  con criterios de aceptación propios (`CA-4`/`CA-5` de esa historia) para que queden verificadas. Lo
+  demás se difiere a `MVP-999`: `P-048` (un miembro no propietario no puede abandonar un Workspace),
+  `P-049` (`can_revoke` frente a la guarda real con varios propietarios) y `P-050` (el ER de
+  `PURCHASE` sin `season_id`, con destino `MVP-303`). Ninguno rompe un criterio de esta épica ni
+  bloquea a `MVP-003`/`MVP-004`.

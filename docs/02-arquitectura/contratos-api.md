@@ -116,6 +116,7 @@ Reglas de contexto:
 | `mode` de `GET /active/closure` (MVP-206) | `auto_transfer` (hay copropietarios: la baja reasigna y el solicitante sale), `choose` (propietario único: hay que decidir), `only_delete` (propietario único sin nadie más), `not_owner` |
 | La baja es **lógica** (RN-039) | `deleted_at`; el Workspace deja de resolver contexto y de aparecer en el selector, y si era el activo la sesión cae al Workspace por defecto. Ningún dato se borra |
 | `outcome` de la baja (MVP-206) | `transferred` (el Workspace sigue vivo con otra persona propietaria) o `deleted` (baja lógica con aviso al resto de miembros) |
+| `transferred` revoca a quien lo pidió (MVP-299, `R-25`) | Su membresía pasa a `revocado` **y su fila de `workers` se inactiva**, igual que al retirarle el acceso a mano: deja de ser responsable seleccionable sin invalidar lo que ya la referencie (MVP-208, CA-4). La baja `deleted` no revoca a nadie, así que no toca el maestro |
 | `is_clear: false` en obligaciones de propiedad (MVP-206) | La baja de cuenta no puede completarse: hay Workspaces de propiedad única sin resolver (RN-038, CA-9). El flujo completo de baja de cuenta es alcance posterior (`MVP-999`, P-024) |
 
 ### 0.b bis) Reactivación de un Workspace dado de baja (MVP-206)
@@ -248,10 +249,10 @@ esta sección):
 | Regla | Alta (`POST`) | Edición (`PATCH`) |
 |---|---|---|
 | `name` ausente o nulo | `VALIDATION_REQUIRED` (400) | — (omitirlo mantiene el valor) |
-| `name` en blanco | `VALIDATION_REQUIRED_NAME` (400) | `VALIDATION_REQUIRED_NAME` (400) |
+| `name` en blanco | `VALIDATION_REQUIRED` (400) | `VALIDATION_REQUIRED_NAME` (400) |
 | `name` demasiado largo (> 150) | `VALIDATION_REQUIRED` (400) | `VALIDATION_PLOT_NAME_LENGTH` (400) |
 | `ownership_type` ausente o nulo (RN-028) | `VALIDATION_REQUIRED` (400) | — (omitirlo mantiene el valor) |
-| `ownership_type` en blanco | `VALIDATION_REQUIRED_PLOT_OWNERSHIP_TYPE` (400) | `VALIDATION_REQUIRED_PLOT_OWNERSHIP_TYPE` (400) |
+| `ownership_type` en blanco | `VALIDATION_REQUIRED` (400) | `VALIDATION_REQUIRED_PLOT_OWNERSHIP_TYPE` (400) |
 | `ownership_type` fuera de `plot_ownership_type` | `VALIDATION_PLOT_OWNERSHIP_TYPE_INVALID` (400) | `VALIDATION_PLOT_OWNERSHIP_TYPE_INVALID` (400) |
 | `tree_count >= 0` (entero) | `VALIDATION_RANGE_TREE_COUNT` (400) | `VALIDATION_RANGE_TREE_COUNT` (400) |
 | Alias, propietario, referencia catastral o ubicación demasiado largos | `VALIDATION_PLOT_*_LENGTH` (400) | `VALIDATION_PLOT_*_LENGTH` (400) |
@@ -270,13 +271,15 @@ Reglas de contexto (MVP-202):
 | `PATCH` de campos parciales | Un campo ausente mantiene su valor; presente (incluido vacío) lo asigna/limpia |
 | `location` | Texto libre. Coordenadas/mapas y `soil_metadata` quedan fuera de alcance del MVP |
 
-> **Códigos del alta frente a los de la edición** (MVP-208, CA-9; aplica igual a terrenos, temporadas,
-> tareas y trabajadores). En el `POST`, todo lo que rechaza el enlace de modelo —campos obligatorios
-> ausentes y longitudes máximas anotadas— se colapsa hoy en `VALIDATION_REQUIRED`, con el motivo
-> concreto en `message`; solo lo que llega al dominio emite su código propio. En el `PATCH` no hay
-> anotaciones, así que valida siempre el dominio y el código es específico. Un cliente no puede, por
-> tanto, distinguir «falta» de «demasiado largo» en el alta. Unificarlo es transversal a toda la API y
-> está en `MVP-999` (`P-043`, con `P-027`); este contrato describe lo que la API hace hoy.
+> **Códigos del alta frente a los de la edición** (MVP-208, CA-9; corregido en la 3ª pasada de
+> `MVP-299`, hallazgo `R-24`; aplica igual a terrenos, temporadas, tareas y trabajadores). En el
+> `POST`, todo lo que rechaza el enlace de modelo se colapsa hoy en `VALIDATION_REQUIRED`, con el
+> motivo concreto en `message`: campos obligatorios **ausentes**, **en blanco** —`[Required]` no
+> admite cadenas vacías, así que el valor no llega al dominio— y longitudes máximas anotadas. Solo lo
+> que llega al dominio emite su código propio. En el `PATCH` no hay anotaciones, así que valida
+> siempre el dominio y el código es específico. Un cliente no puede, por tanto, distinguir «falta» de
+> «en blanco» ni de «demasiado largo» en el alta. Unificarlo es transversal a toda la API y está en
+> `MVP-999` (`P-043`, con `P-027`); este contrato describe lo que la API hace hoy.
 
 ### 2) Seasons (temporadas)
 
@@ -299,7 +302,7 @@ sección de terrenos):
 | Regla | Alta (`POST`) | Edición (`PATCH`) |
 |---|---|---|
 | `name` ausente o nulo | `VALIDATION_REQUIRED` (400) | — (omitirlo mantiene el valor) |
-| `name` en blanco | `VALIDATION_REQUIRED_SEASON_NAME` (400) | `VALIDATION_REQUIRED_SEASON_NAME` (400) |
+| `name` en blanco | `VALIDATION_REQUIRED` (400) | `VALIDATION_REQUIRED_SEASON_NAME` (400) |
 | `name` demasiado largo (> 120) | `VALIDATION_REQUIRED` (400) | `VALIDATION_SEASON_NAME_LENGTH` (400) |
 | `start_date` ausente o con formato no válido (`YYYY-MM-DD`) | `VALIDATION_REQUIRED` (400) | `VALIDATION_SEASON_DATE_RANGE` (400) |
 | `start_date <= end_date` | `VALIDATION_SEASON_DATE_RANGE` (400) | `VALIDATION_SEASON_DATE_RANGE` (400) |
@@ -338,7 +341,7 @@ sección de terrenos):
 | Regla | Alta (`POST`) | Edición (`PATCH`) |
 |---|---|---|
 | `name` ausente o nulo | `VALIDATION_REQUIRED` (400) | — (omitirlo mantiene el valor) |
-| `name` en blanco | `VALIDATION_REQUIRED_TASK_NAME` (400) | `VALIDATION_REQUIRED_TASK_NAME` (400) |
+| `name` en blanco | `VALIDATION_REQUIRED` (400) | `VALIDATION_REQUIRED_TASK_NAME` (400) |
 | `name` demasiado largo (> 120) | `VALIDATION_REQUIRED` (400) | `VALIDATION_TASK_NAME_LENGTH` (400) |
 | Nombre ya usado en el Workspace, ignorando mayúsculas | `CONFLICT_TASK_NAME_DUPLICATE` (409) | `CONFLICT_TASK_NAME_DUPLICATE` (409) |
 | Tarea inexistente o de otro Workspace | — | `RESOURCE_NOT_FOUND` (404) |
@@ -373,7 +376,7 @@ un solo espacio de identificadores, que es lo que permite que `ACTIVITY.worker_i
 
 | `kind` | Quién es | Cómo entra y sale del maestro |
 |---|---|---|
-| `member` | Miembro del Workspace, con cuenta (`user_account_id` no nulo) | Entra al crearse el Workspace o al aceptarse su invitación (RN-027); sale al revocarse su acceso, que **inactiva** su fila sin borrarla |
+| `member` | Miembro del Workspace, con cuenta (`user_account_id` no nulo) | Entra al crearse el Workspace o al aceptarse su invitación (RN-027); sale al revocarse su acceso —a mano o al ceder el Workspace en la baja con copropietarios—, que **inactiva** su fila sin borrarla |
 | `crew` | Cuadrilla sin cuenta (`user_account_id` nulo) | Alta, edición e inactivación manuales en este maestro (MVP-204) |
 
 Validaciones clave. El **alta y la edición no devuelven los mismos códigos** (ver el aviso de la
@@ -382,7 +385,7 @@ sección de terrenos):
 | Regla | Alta (`POST`) | Edición (`PATCH`) |
 |---|---|---|
 | `name` ausente o nulo | `VALIDATION_REQUIRED` (400) | — (omitirlo mantiene el valor) |
-| `name` en blanco | `VALIDATION_REQUIRED_NAME` (400) | `VALIDATION_REQUIRED_NAME` (400) |
+| `name` en blanco | `VALIDATION_REQUIRED` (400) | `VALIDATION_REQUIRED_NAME` (400) |
 | `name` demasiado largo (> 150) | `VALIDATION_REQUIRED` (400) | `VALIDATION_WORKER_NAME_LENGTH` (400) |
 | `hourly_rate >= 0` y numérico (opcional, de referencia) | `VALIDATION_RANGE_HOURLY_RATE` (400) | `VALIDATION_RANGE_HOURLY_RATE` (400) |
 | Nombre ya usado en el Workspace, ignorando mayúsculas (MVP-207) | `CONFLICT_WORKER_NAME_DUPLICATE` (409) | `CONFLICT_WORKER_NAME_DUPLICATE` (409) |
@@ -441,8 +444,9 @@ Validaciones y reglas:
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
-| Alta actividad | `POST /api/v1/activities` | `date*`, `plot_id*`, `season_id*`, `worker_id*`, `task_id?`, `task_text?`, `hours*`, `manual_cost*`, `description?` | `201 { id, ...activity }` |
-| Editar actividad | `PATCH /api/v1/activities/{activityId}` | campos parciales | `200 { ...activity }` |
+| Alta actividad | `POST /api/v1/activities` | `date*`, `plot_id*`, `season_id*`, `worker_id*`, `task_id?`, `task_text?`, `hours*`, `manual_cost*`, `description?` | `201 { id, version, ...activity }` |
+| Editar actividad | `PATCH /api/v1/activities/{activityId}` | campos parciales · `If-Match: <version>` | `200 { ...activity }` |
+| Eliminar actividad | `DELETE /api/v1/activities/{activityId}` | `If-Match: <version>` | `204` |
 | Listado actividades | `GET /api/v1/activities` | `from?`, `to?`, `plot_id?`, `season_id?`, `worker_id?` | `200 { data, meta }` |
 
 Validaciones clave:
@@ -454,17 +458,28 @@ Validaciones clave:
 | `hours > 0` | `VALIDATION_ACTIVITY_HOURS_RANGE` |
 | `manual_cost >= 0` | `VALIDATION_ACTIVITY_COST_RANGE` |
 | Integridad de workspace en FKs | `FOREIGN_KEY_WORKSPACE_MISMATCH` |
+| Edición o borrado con versión desfasada (ADR-0005) | `CONFLICT_VERSION_MISMATCH` (409) |
 
 `worker_id` es un `workers.id` cualquiera de `GET /api/v1/workers`, sin distinguir clase: desde
 MVP-208 los miembros del Workspace también son filas de ese maestro, así que no hacen falta campos
 alternativos ni un responsable polimórfico (P-034).
 
+> **Concurrencia y borrado de los registros operativos** (aplica igual a actividades, cosechas,
+> compras e imputaciones). Las tres entidades operativas son las **entidades críticas** de `ADR-0005`:
+> exponen `version`, exigen `If-Match` en `PATCH`/`DELETE` y responden `409 CONFLICT_VERSION_MISMATCH`
+> si la versión enviada no es la vigente. El `DELETE` es una **baja lógica** (`deleted_at`, RN-037):
+> el registro desaparece del diario, de los listados y del dashboard, pero no se borra físicamente, y
+> la UI exige confirmación explícita antes de invocarlo. No hay papelera ni restauración en el MVP.
+> Alcance de implementación: `MVP-301`/`MVP-303`/`MVP-304` para actividades, compras e imputaciones, y
+> `MVP-401` para cosechas.
+
 ### 6) Harvests (cosechas)
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
-| Alta cosecha | `POST /api/v1/harvests` | `date*`, `plot_id*`, `season_id*`, `product*`, `kgs*`, `destination*`, `yield?`, `liters?` | `201 { id, ...harvest }` |
-| Editar cosecha | `PATCH /api/v1/harvests/{harvestId}` | campos parciales | `200 { ...harvest }` |
+| Alta cosecha | `POST /api/v1/harvests` | `date*`, `plot_id*`, `season_id*`, `product*`, `kgs*`, `destination*`, `yield?`, `liters?` | `201 { id, version, ...harvest }` |
+| Editar cosecha | `PATCH /api/v1/harvests/{harvestId}` | campos parciales · `If-Match: <version>` | `200 { ...harvest }` |
+| Eliminar cosecha | `DELETE /api/v1/harvests/{harvestId}` | `If-Match: <version>` | `204` |
 | Listado cosechas | `GET /api/v1/harvests` | `from?`, `to?`, `plot_id?`, `season_id?`, `destination?` | `200 { data, meta }` |
 
 Validaciones clave:
@@ -475,15 +490,23 @@ Validaciones clave:
 | `kgs` obligatorio y > 0 | `VALIDATION_HARVEST_KGS_REQUIRED` |
 | `yield` y `liters` no pueden coexistir | `VALIDATION_HARVEST_XOR_YIELD_LITERS` |
 | destino en catálogo cerrado | `VALIDATION_DESTINATION_INVALID` |
+| Edición o borrado con versión desfasada (ADR-0005) | `CONFLICT_VERSION_MISMATCH` (409) |
+
+La cosecha se registra por fecha, así que **también entra en el diario cronológico** de `MVP-305`
+(RN-033), que hasta `MVP-004` solo puede mostrar actividades, compras y consumos. Encenderla en el
+diario es alcance de `MVP-401`.
 
 ### 7) Purchases (compras)
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
-| Alta compra | `POST /api/v1/purchases` | `purchase_date*`, `product*`, `total_quantity*`, `total_cost*`, `season_id*` | `201 { id, unit_price, ... }` |
-| Editar compra | `PATCH /api/v1/purchases/{purchaseId}` | campos parciales | `200 { ...purchase }` |
+| Alta compra | `POST /api/v1/purchases` | `purchase_date*`, `product*`, `total_quantity*`, `total_cost*`, `season_id*` | `201 { id, version, unit_price, ... }` |
+| Editar compra | `PATCH /api/v1/purchases/{purchaseId}` | campos parciales · `If-Match: <version>` | `200 { ...purchase }` |
+| Eliminar compra | `DELETE /api/v1/purchases/{purchaseId}` | `If-Match: <version>` | `204` |
 | Listado compras | `GET /api/v1/purchases` | `product?`, `season_id?` | `200 { data, meta }` |
-| Imputar compra a terreno | `POST /api/v1/purchases/{purchaseId}/consumptions` | `plot_id*`, `quantity*` | `201 { id, purchase_id, plot_id, quantity, proportional_cost }` |
+| Imputar compra a terreno | `POST /api/v1/purchases/{purchaseId}/consumptions` | `date*`, `plot_id*`, `quantity*` | `201 { id, purchase_id, plot_id, date, quantity, proportional_cost }` |
+| Registrar consumo **sin compra previa** (RN-032) | `POST /api/v1/consumptions` | `date*`, `plot_id*`, `season_id*`, `product*`, `quantity*` | `201 { id, purchase_id: null, proportional_cost: 0, ... }` |
+| Listado de consumos | `GET /api/v1/consumptions` | `from?`, `to?`, `plot_id?`, `season_id?` | `200 { data, meta }` |
 
 Validaciones clave:
 
@@ -491,6 +514,25 @@ Validaciones clave:
 |---|---|
 | `total_quantity > 0` y `total_cost > 0` | `VALIDATION_PURCHASE_TOTALS_RANGE` |
 | suma imputaciones <= cantidad total | `VALIDATION_CONSUMPTION_OVERFLOW` |
+| `quantity > 0` en la imputación y en el consumo | `VALIDATION_CONSUMPTION_QUANTITY_RANGE` |
+| Edición o borrado con versión desfasada (ADR-0005) | `CONFLICT_VERSION_MISMATCH` (409) |
+
+> **El consumo sin compra previa necesita sitio propio** (`MVP-299`, 3ª pasada, hallazgo `G-2`).
+> `RN-032` y el CA-3 de la épica `MVP-003` obligan a que la ausencia de compra **nunca** bloquee el
+> registro del consumo, pero hasta esta revisión la única ruta contratada colgaba de una compra
+> (`POST /purchases/{id}/consumptions`) y el ER declaraba `purchase_id` obligatorio: la excepción más
+> importante de la épica no tenía dónde vivir. Requisitos que el modelo debe cumplir, cerrados aquí;
+> **el mecanismo concreto lo elige el `tech-design` de `MVP-304`** (columna `purchase_id` anulable
+> sobre la entidad existente frente a entidad de consumo propia):
+>
+> - `purchase_id` es **opcional**. Sin compra, `proportional_cost` es `0` y la respuesta lo señala
+>   para que la UI pueda avisar (RN-032). Registrar la compra después **no** recalcula lo ya guardado.
+> - El consumo tiene **fecha propia** (`date`) y **temporada** (`season_id`), no solo `created_at`
+>   (hallazgo `G-3`): el diario lo ordena por fecha de negocio junto a actividades y compras (RN-033)
+>   y `RN-021` exige temporada en toda la operativa. Al imputar sobre una compra, la temporada se
+>   hereda de ella.
+> - Sin compra previa hace falta `product` (texto libre, RN-031) porque no hay compra de la que
+>   heredarlo.
 
 ### 8) Dashboard
 

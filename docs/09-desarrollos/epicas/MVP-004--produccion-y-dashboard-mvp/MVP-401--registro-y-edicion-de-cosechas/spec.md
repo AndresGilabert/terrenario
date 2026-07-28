@@ -54,6 +54,10 @@ Permitir registrar y editar cosechas con un modelo simple, consistente y alinead
 - Edición de cosechas existentes.
 - Autoselección de temporada activa en el formulario.
 - Aviso no bloqueante si la fecha cae fuera del rango de la temporada seleccionada.
+- **La cosecha entra en el diario cronológico** de `MVP-305` como tercer tipo de entrada, que es lo
+  que completa `RN-033`. Ver Notas.
+- Concurrencia optimista y eliminación lógica de la cosecha, con el patrón que fija `MVP-301`
+  (`version` + `If-Match` + `409`; `deleted_at` con confirmación explícita por RN-037).
 
 ## Fuera de alcance (out-of-scope)
 
@@ -66,6 +70,8 @@ Permitir registrar y editar cosechas con un modelo simple, consistente y alinead
 - [ ] **CA-1**: Un usuario puede registrar una cosecha con todos los campos obligatorios definidos para MVP.
 - [ ] **CA-2**: El sistema permite editar cosechas existentes manteniendo coherencia de Workspace, terreno y temporada.
 - [ ] **CA-3**: Si la fecha queda fuera del rango de temporada, el sistema avisa pero no bloquea el guardado.
+- [ ] **CA-4**: Las cosechas aparecen en el diario cronológico junto a actividades, compras y consumos, ordenadas por su fecha de negocio, con lo que la vista principal cumple ya `RN-033` completa.
+- [ ] **CA-5**: Editar o eliminar una cosecha con una versión desfasada responde `409 CONFLICT_VERSION_MISMATCH`, y la eliminación es lógica y con confirmación explícita (`ADR-0005`, RN-037).
 
 ## Maquetas y referencias visuales
 
@@ -85,3 +91,11 @@ Permitir registrar y editar cosechas con un modelo simple, consistente y alinead
 ## Notas y decisiones
 
 - Esta historia entrega la base de datos sobre la que se apoyará el dashboard.
+- **Añadido en la revisión previa de MVP-003 (3ª pasada de `MVP-299`, 2026-07-28), hallazgo `G-4`.**
+  `RN-033` define el diario como la mezcla de actividades, **cosechas** y compras/consumos, pero
+  `MVP-305` lo construye cuando `HARVEST` todavía no existe y **ninguna historia de esta épica
+  mencionaba el diario**: la vista principal se habría quedado permanentemente sin cosechas. Encender
+  la cosecha en el diario pasa a ser alcance de esta historia, que es quien crea la entidad.
+- **Hereda el patrón de entidad operativa de `MVP-301`** (hallazgos `G-1`/`G-5`): `version` con
+  `If-Match` y `409 CONFLICT_VERSION_MISMATCH` (`ADR-0005`), y eliminación **lógica** con confirmación
+  explícita (`RN-037`, reformulada en esa misma revisión). No se reinventa aquí: se reutiliza.

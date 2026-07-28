@@ -1,3 +1,4 @@
+using Terrenario.Api.Application.Workers;
 using Terrenario.Api.Application.Workspaces.Commands;
 using Terrenario.Api.Common.Errors;
 using Terrenario.Api.Domain.Workspaces;
@@ -19,12 +20,17 @@ namespace Terrenario.Api.Application.Workspaces;
 /// </list>
 /// La invariante rectora es que el Workspace <b>nunca queda sin propietario</b>: o lo hereda alguien
 /// o queda dado de baja con quien lo dio de baja como única persona capaz de devolverlo (CA-10).
+///
+/// MVP-299 (3ª pasada, CA-4 · hallazgo <c>R-25</c>) — La rama de reasignación revoca una membresía,
+/// así que debe retirar también a esa persona de los responsables seleccionables, igual que hace
+/// <see cref="RevokeMemberHandler"/>: es la misma transición de acceso por otra puerta.
 /// </summary>
 public sealed class CloseWorkspaceHandler(
     IWorkspaceRepository workspaceRepository,
     IWorkspaceReactivationRequestRepository reactivationRepository,
     IOneTimeTokenService tokenService,
     IWorkspaceLifecycleEmailSender emailSender,
+    MemberRosterService memberRoster,
     IOptions<WorkspaceLifecycleOptions> options,
     ILogger<CloseWorkspaceHandler> logger)
 {
@@ -64,6 +70,11 @@ public sealed class CloseWorkspaceHandler(
         actingMember.DemoteToMember();
         actingMember.Revoke();
 
+        // R-25 — Quien sale deja de ser responsable seleccionable, sin borrar su fila: si no, seguiría
+        // apareciendo como «MIEMBRO» activo en el maestro de un Workspace al que ya no pertenece.
+        await memberRoster.SuspendMemberAsync(workspace.Id, actingMember.UserId, ct);
+
+        // Membresía, propiedad y fila de responsable comparten el DbContext de la petición.
         await workspaceRepository.SaveChangesAsync(ct);
 
         var successorName = (await workspaceRepository.ListMembersAsync(workspace.Id, ct))

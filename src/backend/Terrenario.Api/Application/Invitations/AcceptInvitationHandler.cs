@@ -1,4 +1,5 @@
 using Terrenario.Api.Application.Invitations.Commands;
+using Terrenario.Api.Application.Workers;
 using Terrenario.Api.Application.Workspaces.Commands;
 using Terrenario.Api.Common.Errors;
 using Terrenario.Api.Domain.Users;
@@ -11,11 +12,16 @@ namespace Terrenario.Api.Application.Invitations;
 /// <summary>
 /// MVP-103 — Convierte una invitación válida en membresía activa del Workspace y deja la sesión
 /// situada en él (CA-2 y CA-3).
+///
+/// MVP-208 (CA-4) — Al aceptarse, la persona aparece además como responsable seleccionable: se
+/// materializa su fila del maestro de trabajadores (RN-027). Quien vuelve tras una revocación
+/// recupera la suya en vez de duplicarla.
 /// </summary>
 public sealed class AcceptInvitationHandler(
     IWorkspaceInvitationRepository invitationRepository,
     IWorkspaceRepository workspaceRepository,
     IUserRepository userRepository,
+    MemberRosterService memberRoster,
     IInvitationTokenService tokenService,
     IJwtService jwtService)
 {
@@ -76,6 +82,11 @@ public sealed class AcceptInvitationHandler(
 
         if (!alreadyMember)
             await workspaceRepository.AddMemberAsync(WorkspaceMember.CreateMember(workspace.Id, user.Id), ct);
+
+        // RN-027 — entrar al Workspace es aparecer como responsable seleccionable (MVP-208, CA-4). Se
+        // hace también en la reaceptación: es idempotente y, si la persona había sido revocada y
+        // vuelve, recupera su fila en vez de crear una segunda.
+        await memberRoster.EnsureMemberAsync(workspace.Id, user.Id, user.DisplayName, ct);
 
         // El Workspace recién aceptado queda como activo persistido para no perderlo en la
         // siguiente renovación de sesión (MVP-104).

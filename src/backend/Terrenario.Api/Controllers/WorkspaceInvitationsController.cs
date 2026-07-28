@@ -63,10 +63,11 @@ public sealed class WorkspaceInvitationsController(
     }
 
     /// <summary>
-    /// MVP-204 (HU-5/CA-6) — Reenvía una invitación por email pendiente a una persona en estado
-    /// <c>invitado</c>. Rota el token (un solo uso) y renueva la caducidad, igual que la emisión
-    /// original. <c>deliver_email: false</c> hace el reenvío "por enlace": no reenvía el correo y solo
-    /// devuelve el nuevo <c>accept_url</c> para compartirlo por otro medio.
+    /// MVP-204 (HU-5/CA-6) — Reemite una invitación pendiente. Rota el token (un solo uso) y renueva
+    /// la caducidad, igual que la emisión original. <c>deliver_email: false</c> hace el reenvío "por
+    /// enlace": no reenvía el correo y solo devuelve el nuevo <c>accept_url</c> para compartirlo por
+    /// otro medio. Desde MVP-208 (CA-7) cubre también el canal <c>enlace</c>, que no tiene
+    /// destinatario: allí <c>email_sent</c> es siempre <c>false</c>.
     /// </summary>
     [HttpPost("{invitationId:guid}/resend")]
     public async Task<IActionResult> Resend(
@@ -91,6 +92,7 @@ public sealed class WorkspaceInvitationsController(
             return Ok(new
             {
                 id = result.Id,
+                channel = result.Channel,
                 email = result.Email,
                 accept_url = result.AcceptUrl,
                 expires_at = result.ExpiresAt,

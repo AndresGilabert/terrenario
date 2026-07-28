@@ -41,6 +41,14 @@ public sealed class WorkerRepositorySqliteTests : IDisposable
         return workspace;
     }
 
+    private async Task<User> SeedUserAsync(string suffix, string displayName)
+    {
+        var user = User.Create($"google-sub{suffix}", displayName, $"cuenta{suffix}@ejemplo.com");
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync();
+        return user;
+    }
+
     [Fact]
     public async Task ListByWorkspaceAsync_Deberia_AislarPorWorkspace()
     {
@@ -130,6 +138,91 @@ public sealed class WorkerRepositorySqliteTests : IDisposable
         (await repository.ExistsWithNameAsync(workspace.Id, "antonio", null, default)).Should().BeTrue();
     }
 
+    // ── MVP-208 · el maestro es la unión miembro + cuadrilla ───────────────────────────────────
+
+    [Fact]
+    public async Task ExistsWithNameAsync_Deberia_VerTambienALosMiembros()
+    {
+        // CA-3 (hallazgo R-16) — antes la guarda era por tabla y el miembro no estaba en ella, así que
+        // dar de alta cuadrilla con su mismo nombre respondía 201 y dejaba dos personas indistinguibles.
+        var workspace = await SeedWorkspaceAsync("-union");
+        var cuenta = await SeedUserAsync("-union-m", "Andrés Gilabert");
+        _db.Workers.Add(Worker.CreateForMember(workspace.Id, cuenta.Id, "Andrés Gilabert"));
+        await _db.SaveChangesAsync();
+
+        var repository = new WorkerRepository(_db);
+
+        (await repository.ExistsWithNameAsync(workspace.Id, "andrés gilabert", null, default))
+            .Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task FindByUserAccountAsync_Deberia_AcotarPorWorkspace()
+    {
+        var mine = await SeedWorkspaceAsync("-acc-a");
+        var other = await SeedWorkspaceAsync("-acc-b");
+        var cuenta = await SeedUserAsync("-acc", "Bruno");
+        _db.Workers.Add(Worker.CreateForMember(mine.Id, cuenta.Id, "Bruno"));
+        await _db.SaveChangesAsync();
+
+        var repository = new WorkerRepository(_db);
+
+        (await repository.FindByUserAccountAsync(mine.Id, cuenta.Id, default)).Should().NotBeNull();
+        (await repository.FindByUserAccountAsync(other.Id, cuenta.Id, default)).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ListByUserAccountAsync_Deberia_DevolverTodasSusFilas()
+    {
+        // La resincronización del nombre de Google (RN-036) afecta a todos sus Workspaces a la vez.
+        var uno = await SeedWorkspaceAsync("-sync-a");
+        var dos = await SeedWorkspaceAsync("-sync-b");
+        var cuenta = await SeedUserAsync("-sync", "Clara");
+        _db.Workers.Add(Worker.CreateForMember(uno.Id, cuenta.Id, "Clara"));
+        _db.Workers.Add(Worker.CreateForMember(dos.Id, cuenta.Id, "Clara"));
+        _db.Workers.Add(Worker.Create(uno.Id, "Cuadrilla sin cuenta"));
+        await _db.SaveChangesAsync();
+
+        var repository = new WorkerRepository(_db);
+
+        var filas = await repository.ListByUserAccountAsync(cuenta.Id, default);
+
+        filas.Should().HaveCount(2);
+        filas.Should().OnlyContain(w => w.UserAccountId == cuenta.Id);
+    }
+
+    [Fact]
+    public async Task FindByNameAsync_Deberia_DevolverAlOcupante_ParaSaberSiEsMiembroOCuadrilla()
+    {
+        // El desempate necesita saber **quién** ocupa el nombre: la fila que se renombra es la de
+        // cuadrilla, nunca la del miembro.
+        var workspace = await SeedWorkspaceAsync("-ocupante");
+        var cuadrilla = Worker.Create(workspace.Id, "Andrés Gilabert");
+        _db.Workers.Add(cuadrilla);
+        await _db.SaveChangesAsync();
+
+        var repository = new WorkerRepository(_db);
+
+        var ocupante = await repository.FindByNameAsync(workspace.Id, "ANDRÉS GILABERT", null, default);
+
+        ocupante.Should().NotBeNull();
+        ocupante!.Id.Should().Be(cuadrilla.Id);
+        ocupante.HasAccount.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ElIndiceUnico_Deberia_ImpedirDosFilasParaLaMismaCuenta()
+    {
+        // CA-1 — `user_account_id` es una identidad, no una etiqueta: ux_workers_workspace_user_account.
+        var workspace = await SeedWorkspaceAsync("-idx");
+        var cuenta = await SeedUserAsync("-idx-cuenta", "Diego");
+        _db.Workers.Add(Worker.CreateForMember(workspace.Id, cuenta.Id, "Diego"));
+        _db.Workers.Add(Worker.CreateForMember(workspace.Id, cuenta.Id, "Diego bis"));
+
+        var act = async () => await _db.SaveChangesAsync();
+
+        await act.Should().ThrowAsync<DbUpdateException>();
+    }
 
     public void Dispose()
     {

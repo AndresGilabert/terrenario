@@ -28,15 +28,19 @@ public class WorkspaceInvitationReissueTests
     }
 
     [Fact]
-    public void Reissue_Deberia_Rechazar_CanalEnlace()
+    public void Reissue_Deberia_RotarElToken_TambienEnElCanalEnlace()
     {
+        // MVP-208 (CA-7) — antes se rechazaba. Renovar un enlace compartible es la misma operación, y
+        // era la mitad que faltaba para que la superficie única ofrezca lo mismo en los dos canales.
         var link = WorkspaceInvitation.Create(
             WorkspaceId, InviterId, InvitationChannels.Link, null, "hash", TimeSpan.FromDays(7));
 
-        var act = () => link.Reissue("hash-nuevo", TimeSpan.FromDays(7));
+        link.Reissue("hash-nuevo", TimeSpan.FromDays(7));
 
-        act.Should().Throw<InvitationException>()
-            .Which.ErrorCode.Should().Be(ErrorCodes.InvitationNotFound);
+        link.TokenHash.Should().Be("hash-nuevo");
+        link.Channel.Should().Be(InvitationChannels.Link);
+        link.Email.Should().BeNull();
+        link.Status.Should().Be(InvitationStatuses.Pending);
     }
 
     [Fact]

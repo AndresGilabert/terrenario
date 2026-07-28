@@ -2,7 +2,7 @@
 id: "MVP-208"
 tipo: feature
 titulo: "Identidad del responsable y correcciones finales de la épica de maestros"
-estado: borrador
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito B — Base operativa preparada"
@@ -163,35 +163,35 @@ códigos de error que devuelve cada ruta,
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Todo miembro activo del Workspace tiene una fila propia en `workers` vinculada a su
+- [x] **CA-1**: Todo miembro activo del Workspace tiene una fila propia en `workers` vinculada a su
   cuenta, de modo que cualquier responsable seleccionable —miembro o cuadrilla— se identifica con un
   `workers.id` y puede guardarse en `ACTIVITY.worker_id` sin campos alternativos ni texto libre.
-- [ ] **CA-2**: `GET /api/v1/workers` devuelve el maestro completo de responsables con una señal que
+- [x] **CA-2**: `GET /api/v1/workers` devuelve el maestro completo de responsables con una señal que
   distingue a quien tiene cuenta de la cuadrilla sin ella, y la pantalla de Trabajadores se construye
   desde ese único listado.
-- [ ] **CA-3**: Dentro de un mismo Workspace no se puede crear ni renombrar un trabajador de cuadrilla
+- [x] **CA-3**: Dentro de un mismo Workspace no se puede crear ni renombrar un trabajador de cuadrilla
   con el nombre de un miembro, ignorando mayúsculas; el intento responde `409
   CONFLICT_WORKER_NAME_DUPLICATE` y la invariante la garantiza en base de datos el índice
   `ux_workers_workspace_name` ya existente.
-- [ ] **CA-4**: El maestro sigue a la membresía sin intervención manual: al aceptarse una invitación
+- [x] **CA-4**: El maestro sigue a la membresía sin intervención manual: al aceptarse una invitación
   la persona aparece como responsable, al revocarse su acceso deja de ser seleccionable sin invalidar
   los registros que la referencian, y su nombre no se puede editar ni borrar desde el maestro
   (RN-036).
-- [ ] **CA-5**: La migración materializa a los miembros existentes sin perder datos: si un trabajador
+- [x] **CA-5**: La migración materializa a los miembros existentes sin perder datos: si un trabajador
   de cuadrilla ocupaba el nombre de un miembro, el miembro conserva el nombre y la fila de cuadrilla
   se renombra con sufijo, con el mismo criterio que `MVP-207`.
-- [ ] **CA-6**: Una invitación pendiente de canal `enlace` se puede anular desde la aplicación; tras
+- [x] **CA-6**: Una invitación pendiente de canal `enlace` se puede anular desde la aplicación; tras
   anularla, el enlace deja de permitir la aceptación y la invitación desaparece de la lista de
   pendientes.
-- [ ] **CA-7**: Las invitaciones pendientes se administran desde una sola superficie, con las mismas
+- [x] **CA-7**: Las invitaciones pendientes se administran desde una sola superficie, con las mismas
   acciones disponibles para los dos canales; no quedan dos listas del mismo concepto con reglas
   distintas.
-- [ ] **CA-8**: En un Workspace con temporadas pero ninguna activa, la pantalla de oferta no afirma
+- [x] **CA-8**: En un Workspace con temporadas pero ninguna activa, la pantalla de oferta no afirma
   que no haya ninguna y permite **activar** una existente además de crear una nueva; la píldora de
   cabecera conduce a la misma decisión.
-- [ ] **CA-9**: Las secciones Plots, Seasons, Workers y Tasks de `contratos-api.md` describen los
+- [x] **CA-9**: Las secciones Plots, Seasons, Workers y Tasks de `contratos-api.md` describen los
   códigos de error que devuelve realmente cada ruta, distinguiendo el alta de la edición.
-- [ ] **CA-10**: El bloque de preparación del Home no marca como pendiente un maestro que RN-027 ya
+- [x] **CA-10**: El bloque de preparación del Home no marca como pendiente un maestro que RN-027 ya
   da por poblado, y ningún texto de la pantalla contradice el estado real.
 
 ## Maquetas y referencias visuales
@@ -208,11 +208,11 @@ códigos de error que devuelve cada ruta,
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| TrabajadoresView | RN-027, RN-036 | pendiente | Un solo listado de responsables (miembros + cuadrilla) con identificadores homogéneos; 409 al repetir el nombre de un miembro (CA-1/CA-2/CA-3/CA-4) |
-| ActivityModal | RN-002, RN-027 | pendiente | El selector de responsable de `MVP-301` podrá guardar `worker_id` para cualquier persona de la lista; aquí se verifica que el identificador existe y es único (CA-1) |
-| Miembros y accesos (sin prototipo) | RN-034, RN-035 | pendiente | Anular una invitación de canal `enlace` desde la UI; superficie única de pendientes (CA-6/CA-7) |
-| TemporadasView · oferta de temporada | RN-021, RN-022 | pendiente | Workspace con temporadas y ninguna activa: copy correcto y opción de activar una existente (CA-8) |
-| Home del área operativa (sin prototipo) | RN-021, RN-027 | pendiente | El paso «Trabajadores» refleja RN-027 (CA-10) |
+| TrabajadoresView | RN-027, RN-036 | cubierto | UI conducida: la pantalla se pinta desde `GET /workers` (miembros con `MIEMBRO`/«Editar tarifa»/«Gestionar acceso» y cuadrilla con «Inactivar»/«Editar»); alta con el nombre de un miembro → 409 mostrado en el modal sin perder lo tecleado; `PATCH` de nombre o `is_active` sobre un miembro → 422 (CA-1/CA-2/CA-3/CA-4) |
+| ActivityModal | RN-002, RN-027 | cubierto | `GET /workers` devuelve un único espacio de identificadores: `meta:{total, members, crew}` y `kind` por fila, con `ux_workers_workspace_user_account` garantizando una fila por cuenta (CA-1) |
+| Miembros y accesos (sin prototipo) | RN-034, RN-035 | cubierto | La lista incluye la invitación de canal `enlace` con «Generar enlace nuevo» y «Anular enlace»; anularla la retira y el preview del enlace pasa a `anulada/reason:"cancelled"`; `/app/invitations` deja de duplicar la lista (CA-6/CA-7) |
+| TemporadasView · oferta de temporada | RN-021, RN-022 | cubierto | Workspace con dos temporadas y ninguna activa: «tiene 2 temporadas, pero ninguna activa», botón «Activar» por temporada, nombre sugerido libre («Campaña 2027») y píldora «Sin temporada activa · Elegir» (CA-8) |
+| Home del área operativa (sin prototipo) | RN-021, RN-027 | cubierto | Tras la materialización, el paso «Trabajadores» aparece **hecho** con su recuento y su ayuda deja de contradecirlo (CA-10) |
 
 ## Notas y decisiones
 

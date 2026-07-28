@@ -1,7 +1,9 @@
 using FluentAssertions;
 using NSubstitute;
+using Terrenario.Api.Application.Workers;
 using Terrenario.Api.Application.Workspaces;
 using Terrenario.Api.Common.Errors;
+using Terrenario.Api.Domain.Workers;
 using Terrenario.Api.Domain.Workspaces;
 
 namespace Terrenario.Api.Tests.Workspaces;
@@ -14,10 +16,13 @@ namespace Terrenario.Api.Tests.Workspaces;
 public class RevokeMemberHandlerTests
 {
     private readonly IWorkspaceRepository _workspaceRepository = Substitute.For<IWorkspaceRepository>();
+    // MVP-208 (CA-4): revocar retira a la persona de los responsables seleccionables.
+    private readonly IWorkerRepository _workerRepository = Substitute.For<IWorkerRepository>();
     private static readonly Guid WorkspaceId = Guid.NewGuid();
     private static readonly Guid TargetUserId = Guid.NewGuid();
 
-    private RevokeMemberHandler CreateSut() => new(_workspaceRepository);
+    private RevokeMemberHandler CreateSut() =>
+        new(_workspaceRepository, new MemberRosterService(_workerRepository));
 
     [Fact]
     public async Task Deberia_RevocarMiembroActivo_Y_Persistir()
@@ -36,6 +41,27 @@ public class RevokeMemberHandlerTests
         member.Status.Should().Be(WorkspaceMemberStatuses.Revoked);
         member.IsActive.Should().BeFalse();
         await _workspaceRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Deberia_RetirarloDeLosResponsablesSeleccionables_SinBorrarSuFila()
+    {
+        // MVP-208 (CA-4) — contrapartida de CA-7 en el maestro: la fila se inactiva, así que deja de
+        // ser elegible pero los registros que ya la referencian siguen siendo válidos.
+        var member = WorkspaceMember.CreateMember(WorkspaceId, TargetUserId);
+        _workspaceRepository.FindActiveMemberAsync(WorkspaceId, TargetUserId, Arg.Any<CancellationToken>())
+            .Returns(member);
+        _workspaceRepository.CountActiveMembersAsync(WorkspaceId, Arg.Any<CancellationToken>()).Returns(2);
+
+        var worker = Worker.CreateForMember(WorkspaceId, TargetUserId, "Bruno");
+        _workerRepository.FindByUserAccountAsync(WorkspaceId, TargetUserId, Arg.Any<CancellationToken>())
+            .Returns(worker);
+        var sut = CreateSut();
+
+        await sut.HandleAsync(WorkspaceId, TargetUserId);
+
+        worker.IsActive.Should().BeFalse();
+        worker.Name.Should().Be("Bruno");
     }
 
     [Fact]

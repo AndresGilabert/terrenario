@@ -6,9 +6,12 @@ using Terrenario.Api.Domain.Workspaces;
 namespace Terrenario.Api.Tests.Workspaces;
 
 /// <summary>
-/// Tests de la vista de personas del Workspace (MVP-204, HU-3/CA-4/CA-5). Verifica que combina
-/// membresías reales (activo/revocado) con invitaciones por email pendientes (invitado) y que marca
+/// Tests de la vista de personas y accesos del Workspace (MVP-204, HU-3/CA-4/CA-5). Verifica que
+/// combina membresías reales (activo/revocado) con invitaciones pendientes (invitado) y que marca
 /// las caducadas para sugerir el reenvío.
+///
+/// MVP-208 (CA-7): proyecta los dos canales, porque esta es la superficie única de administración de
+/// invitaciones pendientes y un enlace compartible también hay que poder retirarlo.
 /// </summary>
 public class ListWorkspacePeopleHandlerTests
 {
@@ -23,7 +26,8 @@ public class ListWorkspacePeopleHandlerTests
     [Fact]
     public async Task Deberia_CombinarMiembrosEInvitaciones_Y_MarcarCaducadas()
     {
-        // Arrange — un activo, un revocado y dos invitaciones por email (una vigente, otra caducada)
+        // Arrange — un activo, un revocado, dos invitaciones por email (una vigente, otra caducada)
+        // y un enlace compartible sin destinatario
         var members = new List<WorkspaceMemberDetail>
         {
             new(Guid.NewGuid(), "Andrés", "andres@ejemplo.com", WorkspaceRoles.Owner, WorkspaceMemberStatuses.Active, DateTimeOffset.UtcNow),
@@ -35,8 +39,10 @@ public class ListWorkspacePeopleHandlerTests
             WorkspaceId, InviterId, InvitationChannels.Email, "nuevo@ejemplo.com", "hash-1", TimeSpan.FromDays(7));
         var caducada = WorkspaceInvitation.Create(
             WorkspaceId, InviterId, InvitationChannels.Email, "tarde@ejemplo.com", "hash-2", TimeSpan.FromDays(-1));
-        _invitationRepository.ListPendingEmailAsync(WorkspaceId, Arg.Any<CancellationToken>())
-            .Returns(new List<WorkspaceInvitation> { vigente, caducada });
+        var enlace = WorkspaceInvitation.Create(
+            WorkspaceId, InviterId, InvitationChannels.Link, null, "hash-3", TimeSpan.FromDays(7));
+        _invitationRepository.ListPendingAsync(WorkspaceId, Arg.Any<CancellationToken>())
+            .Returns(new List<WorkspaceInvitation> { vigente, caducada, enlace });
 
         var sut = CreateSut();
 
@@ -45,8 +51,14 @@ public class ListWorkspacePeopleHandlerTests
 
         // Assert
         result.Members.Should().HaveCount(2);
-        result.Invited.Should().HaveCount(2);
+        result.Invited.Should().HaveCount(3);
         result.Invited.Single(i => i.Email == "nuevo@ejemplo.com").IsExpired.Should().BeFalse();
         result.Invited.Single(i => i.Email == "tarde@ejemplo.com").IsExpired.Should().BeTrue();
+
+        // CA-7 — el enlace compartible viaja con su canal y sin destinatario: no es una persona, pero
+        // sí un acceso vivo que la pantalla tiene que poder anular.
+        var link = result.Invited.Single(i => i.Channel == InvitationChannels.Link);
+        link.Email.Should().BeNull();
+        link.InvitationId.Should().Be(enlace.Id);
     }
 }

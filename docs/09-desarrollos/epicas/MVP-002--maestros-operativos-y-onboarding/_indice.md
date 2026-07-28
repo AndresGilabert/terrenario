@@ -1,6 +1,6 @@
 ﻿# Índice — MVP-002--maestros-operativos-y-onboarding: Maestros operativos y onboarding
 
-> **Progreso**: 7/9 completadas · **Hito**: Hito B — Base operativa preparada
+> **Progreso**: 8/9 completadas · **Hito**: Hito B — Base operativa preparada
 > _Generado automáticamente por `validar_kb.py`. No editar manualmente._
 
 | Historia | Título | Estado | Responsable | Prioridad |
@@ -12,5 +12,5 @@
 | [MVP-205](./MVP-205--catalogo-de-tareas-por-workspace/spec.md) | Catálogo de tareas por Workspace | ✔️ completado | @andres | alta |
 | [MVP-206](./MVP-206--ciclo-de-vida-del-workspace/spec.md) | Ciclo de vida del Workspace: renombrar, baja lógica y traspaso de propiedad | ✔️ completado | @andres | alta |
 | [MVP-207](./MVP-207--correcciones-de-cierre-de-maestros/spec.md) | Correcciones de cierre de la épica de maestros | ✔️ completado | @andres | alta |
-| [MVP-208](./MVP-208--identidad-del-responsable-y-correcciones-finales/spec.md) | Identidad del responsable y correcciones finales de la épica de maestros | 📝 borrador | @andres | alta |
+| [MVP-208](./MVP-208--identidad-del-responsable-y-correcciones-finales/spec.md) | Identidad del responsable y correcciones finales de la épica de maestros | ✔️ completado | @andres | alta |
 | [MVP-299](./MVP-299--revision-epica/spec.md) | Revision epica | 🔄 en-progreso | @andres | alta |

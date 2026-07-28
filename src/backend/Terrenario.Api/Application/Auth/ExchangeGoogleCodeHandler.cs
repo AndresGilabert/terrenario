@@ -1,4 +1,5 @@
 using Terrenario.Api.Application.Auth.Commands;
+using Terrenario.Api.Application.Workers;
 using Terrenario.Api.Application.Workspaces;
 using Terrenario.Api.Domain.Users;
 using Terrenario.Api.Infrastructure.Auth;
@@ -13,6 +14,7 @@ public sealed class ExchangeGoogleCodeHandler
     private readonly IJwtService _jwtService;
     private readonly IRefreshTokenStore _refreshTokenStore;
     private readonly IActiveWorkspaceResolver _activeWorkspaceResolver;
+    private readonly MemberRosterService _memberRoster;
     private readonly ILoginTelemetry _telemetry;
 
     public ExchangeGoogleCodeHandler(
@@ -21,6 +23,7 @@ public sealed class ExchangeGoogleCodeHandler
         IJwtService jwtService,
         IRefreshTokenStore refreshTokenStore,
         IActiveWorkspaceResolver activeWorkspaceResolver,
+        MemberRosterService memberRoster,
         ILoginTelemetry telemetry)
     {
         _googleOidc = googleOidc;
@@ -28,6 +31,7 @@ public sealed class ExchangeGoogleCodeHandler
         _jwtService = jwtService;
         _refreshTokenStore = refreshTokenStore;
         _activeWorkspaceResolver = activeWorkspaceResolver;
+        _memberRoster = memberRoster;
         _telemetry = telemetry;
     }
 
@@ -60,7 +64,14 @@ public sealed class ExchangeGoogleCodeHandler
         }
         else
         {
+            var previousDisplayName = user.DisplayName;
             user.UpdateProfile(identity.DisplayName, identity.Email);
+
+            // RN-036 — el nombre de un responsable con cuenta es el de su cuenta de Google, así que un
+            // cambio de nombre de display se propaga al maestro de todos sus Workspaces (MVP-208,
+            // CA-4). Solo cuando cambia de verdad: en el login normal no hay nada que resincronizar.
+            if (!string.Equals(previousDisplayName, user.DisplayName, StringComparison.Ordinal))
+                await _memberRoster.SyncIdentityAsync(user.Id, user.DisplayName, ct);
         }
 
         await _userRepository.SaveChangesAsync(ct);

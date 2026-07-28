@@ -25,9 +25,13 @@ public sealed class WorkspaceMembersController(
     IWorkspaceContext workspaceContext) : ControllerBase
 {
     /// <summary>
-    /// Lista unificada de personas del Workspace con su estado (<c>activo</c>, <c>invitado</c>,
-    /// <c>revocado</c>). Los miembros activos son también los responsables seleccionables (RN-027).
-    /// El orden agrupa: primero activos, luego invitados y por último revocados.
+    /// Lista unificada de personas y accesos pendientes del Workspace con su estado (<c>activo</c>,
+    /// <c>invitado</c>, <c>revocado</c>). El orden agrupa: primero activos, luego invitados y por
+    /// último revocados.
+    ///
+    /// MVP-208 — Los responsables seleccionables ya no salen de aquí, sino de <c>GET /workers</c>
+    /// (CA-2). Esta sigue siendo la superficie de <b>accesos</b>, y desde CA-7 la única de
+    /// invitaciones pendientes: incluye los dos canales, con <c>channel</c> para distinguirlos.
     /// </summary>
     [HttpGet]
     public async Task<IActionResult> List(CancellationToken ct)
@@ -97,6 +101,9 @@ public sealed class WorkspaceMembersController(
         invitation_id = invited.InvitationId,
         name = (string?)null,
         email = invited.Email,
+        // MVP-208 (CA-7): el canal viaja para que la UI distinga a quién se invitó (email) de un
+        // enlace compartible sin destinatario, y ofrezca en cada caso las acciones que aplican.
+        channel = invited.Channel,
         invited_at = invited.CreatedAt,
         expires_at = invited.ExpiresAt,
         is_expired = invited.IsExpired

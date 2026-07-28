@@ -65,6 +65,7 @@ y se mantienen en español.
 | `harvest_product` | catálogo global fijo gobernado por sistema |
 | `season_status` | `planificada`, `activa`, `cerrada` |
 | `worker_member_status` | `invitado`, `activo`, `revocado` |
+| `worker_kind` | `member`, `crew` (identificador de clase de responsable; derivado de `user_account_id`) |
 | `invitation_channel` | `email`, `enlace` |
 | `invitation_status` | `pendiente`, `aceptada`, `rechazada`, `anulada` |
 | `reactivation_request_status` | `pendiente`, `solicitada`, `autorizada`, `denegada`, `cerrada` |
@@ -157,7 +158,7 @@ Reglas de contexto:
 |---|---|---|---|
 | Emitir invitación | `POST /api/v1/workspaces/invitations` | `channel*`, `email?` | `201 { id, channel, email, status, accept_url, expires_at, email_sent }` |
 | Invitaciones pendientes (emitidas) | `GET /api/v1/workspaces/invitations` | — | `200 { data, meta: { total } }` |
-| Reenviar invitación por email (MVP-204) | `POST /api/v1/workspaces/invitations/{id}/resend` | `deliver_email?` (def. `true`) | `200 { id, email, accept_url, expires_at, email_sent }` |
+| Reemitir invitación (MVP-204 · MVP-208) | `POST /api/v1/workspaces/invitations/{id}/resend` | `deliver_email?` (def. `true`) | `200 { id, channel, email, accept_url, expires_at, email_sent }` |
 | Anular invitación pendiente (MVP-207) | `POST /api/v1/workspaces/invitations/{id}/cancel` | — | `204` |
 | Ver invitación por enlace | `GET /api/v1/invitations/{token}` | — | `200 { id, channel, status, workspace, invited_by, expires_at, is_expired, viewer: { can_accept, reason } }` |
 | Aceptar invitación por enlace | `POST /api/v1/invitations/{token}/accept` | — | `200 { workspace, access_token, expires_in, already_member }` |
@@ -194,7 +195,7 @@ Reglas de contexto:
 | La invitación por email va dirigida a una cuenta | Solo la acepta ese email; el canal `enlace` acepta a cualquier usuario autenticado |
 | Aceptar reemite la sesión | Devuelve un `access_token` nuevo ya situado en el Workspace de la invitación |
 | `email_sent: false` | La invitación es válida pero el proveedor de email falló; el enlace se comparte por otro medio |
-| Reenvío (MVP-204, HU-5/CA-6) | Solo invitaciones por email **pendientes** del Workspace activo. Rota el token (un solo uso) y renueva la caducidad, igual que la emisión original; la persona sigue `invitado`. `deliver_email:false` es el reenvío "por enlace" (no reenvía el correo, solo devuelve el nuevo `accept_url`). Cualquier invitación inexistente, de otro Workspace, de canal `enlace` o no pendiente responde `INVITATION_NOT_FOUND` (404) |
+| Reemisión (MVP-204, HU-5/CA-6 · MVP-208, CA-7) | Cualquier invitación **pendiente** del Workspace activo, de **los dos canales**. Rota el token (un solo uso) y renueva la caducidad, igual que la emisión original; la persona sigue `invitado` y el enlace anterior deja de servir. `deliver_email:false` es el reenvío "por enlace" (no reenvía el correo, solo devuelve el nuevo `accept_url`); en el canal `enlace` no hay destinatario, así que `email` es `null` y `email_sent` siempre `false`. Cualquier invitación inexistente, de otro Workspace o no pendiente responde `INVITATION_NOT_FOUND` (404) |
 | Anulación (MVP-207, HU-2/CA-4) | Solo invitaciones **pendientes** del Workspace activo, de **cualquier canal** (a diferencia del reenvío: un enlace compartible que se ha ido de las manos es justo el caso en que hace falta retirarlo). Transita a `anulada`: el enlace deja de permitir la aceptación y la persona desaparece de la lista de personas del Workspace. Idempotente en el dominio, pero una segunda llamada responde `INVITATION_NOT_FOUND` (404) porque ya no está pendiente. Cualquier invitación inexistente, de otro Workspace o no pendiente responde igualmente 404 |
 | Anular frente a rechazar frente a revocar | `anulada` la fija el **Workspace emisor** sobre quien aún no ha entrado; `rechazada` (MVP-107) la fija la **persona invitada**; revocar (MVP-204, CA-7) retira a quien **ya es miembro**. Una invitación ya aceptada no se anula: se revoca el acceso |
 | `viewer.can_accept` / `viewer.reason` (MVP-107) | Aptitud de la cuenta autenticada calculada antes de aceptar; `reason` ∈ `email_mismatch`, `expired`, `already_used`, `already_rejected`, `cancelled`, `already_member`. No revela el email destinatario |
@@ -241,17 +242,22 @@ se resuelve en servidor desde el claim `workspace_id` (RN-034) y **nunca** viaja
 | Editar terreno | `PATCH /api/v1/plots/{plotId}` | campos parciales permitidos | `200 { ...plot }` |
 | Listado terrenos | `GET /api/v1/plots` | filtros: `search?`, `is_active?` | `200 { data, meta }` |
 
-Validaciones clave:
+Validaciones clave. El **alta y la edición no devuelven los mismos códigos** (ver el aviso al final de
+esta sección):
 
-| Regla | Código error |
-|---|---|
-| `name` obligatorio y longitud válida | `VALIDATION_REQUIRED_NAME` (400) |
-| `ownership_type` obligatorio (RN-028) | `VALIDATION_REQUIRED` / `VALIDATION_REQUIRED_PLOT_OWNERSHIP_TYPE` (400) |
-| `ownership_type` dentro de `plot_ownership_type` | `VALIDATION_PLOT_OWNERSHIP_TYPE_INVALID` (400) |
-| `tree_count >= 0` (entero) | `VALIDATION_RANGE_TREE_COUNT` (400) |
-| Nombre ya usado en el Workspace, ignorando mayúsculas (MVP-207) | `CONFLICT_PLOT_NAME_DUPLICATE` (409) |
-| `workspace_id` implícito desde token | `AUTH_WORKSPACE_SCOPE_REQUIRED` (403) |
-| Terreno inexistente o de otro Workspace | `RESOURCE_NOT_FOUND` (404) |
+| Regla | Alta (`POST`) | Edición (`PATCH`) |
+|---|---|---|
+| `name` ausente o nulo | `VALIDATION_REQUIRED` (400) | — (omitirlo mantiene el valor) |
+| `name` en blanco | `VALIDATION_REQUIRED_NAME` (400) | `VALIDATION_REQUIRED_NAME` (400) |
+| `name` demasiado largo (> 150) | `VALIDATION_REQUIRED` (400) | `VALIDATION_PLOT_NAME_LENGTH` (400) |
+| `ownership_type` ausente o nulo (RN-028) | `VALIDATION_REQUIRED` (400) | — (omitirlo mantiene el valor) |
+| `ownership_type` en blanco | `VALIDATION_REQUIRED_PLOT_OWNERSHIP_TYPE` (400) | `VALIDATION_REQUIRED_PLOT_OWNERSHIP_TYPE` (400) |
+| `ownership_type` fuera de `plot_ownership_type` | `VALIDATION_PLOT_OWNERSHIP_TYPE_INVALID` (400) | `VALIDATION_PLOT_OWNERSHIP_TYPE_INVALID` (400) |
+| `tree_count >= 0` (entero) | `VALIDATION_RANGE_TREE_COUNT` (400) | `VALIDATION_RANGE_TREE_COUNT` (400) |
+| Alias, propietario, referencia catastral o ubicación demasiado largos | `VALIDATION_PLOT_*_LENGTH` (400) | `VALIDATION_PLOT_*_LENGTH` (400) |
+| Nombre ya usado en el Workspace, ignorando mayúsculas (MVP-207) | `CONFLICT_PLOT_NAME_DUPLICATE` (409) | `CONFLICT_PLOT_NAME_DUPLICATE` (409) |
+| `workspace_id` implícito desde token | `AUTH_WORKSPACE_SCOPE_REQUIRED` (403) | `AUTH_WORKSPACE_SCOPE_REQUIRED` (403) |
+| Terreno inexistente o de otro Workspace | — | `RESOURCE_NOT_FOUND` (404) |
 
 Reglas de contexto (MVP-202):
 
@@ -263,6 +269,14 @@ Reglas de contexto (MVP-202):
 | Inactivación con histórico (CA-3) | `PATCH { is_active:false }`; reversible. No hay borrado físico de terrenos |
 | `PATCH` de campos parciales | Un campo ausente mantiene su valor; presente (incluido vacío) lo asigna/limpia |
 | `location` | Texto libre. Coordenadas/mapas y `soil_metadata` quedan fuera de alcance del MVP |
+
+> **Códigos del alta frente a los de la edición** (MVP-208, CA-9; aplica igual a terrenos, temporadas,
+> tareas y trabajadores). En el `POST`, todo lo que rechaza el enlace de modelo —campos obligatorios
+> ausentes y longitudes máximas anotadas— se colapsa hoy en `VALIDATION_REQUIRED`, con el motivo
+> concreto en `message`; solo lo que llega al dominio emite su código propio. En el `PATCH` no hay
+> anotaciones, así que valida siempre el dominio y el código es específico. Un cliente no puede, por
+> tanto, distinguir «falta» de «demasiado largo» en el alta. Unificarlo es transversal a toda la API y
+> está en `MVP-999` (`P-043`, con `P-027`); este contrato describe lo que la API hace hoy.
 
 ### 2) Seasons (temporadas)
 
@@ -279,17 +293,23 @@ Todas exigen `[RequireWorkspaceScope]`. La representación de una temporada es
 el valor **derivado** del catálogo `season_status` (`planificada`/`activa`/`cerrada`), no una columna:
 `cerrada` ≡ `is_closed`; `activa` ≡ `is_active` y no cerrada; `planificada` ≡ ninguna de las dos.
 
-Validaciones clave:
+Validaciones clave. El **alta y la edición no devuelven los mismos códigos** (ver el aviso de la
+sección de terrenos):
 
-| Regla | Código error |
-|---|---|
-| `name` ausente o en blanco en el alta | `VALIDATION_REQUIRED` (400) |
-| `name` en blanco al editar | `VALIDATION_REQUIRED_SEASON_NAME` (400) |
-| `name` de longitud válida (≤ 120) | `VALIDATION_SEASON_NAME_LENGTH` (400) |
-| `start_date <= end_date`; fecha con formato válido (`YYYY-MM-DD`) | `VALIDATION_SEASON_DATE_RANGE` (400) |
-| Nombre ya usado en el Workspace, ignorando mayúsculas (MVP-207) | `CONFLICT_SEASON_NAME_DUPLICATE` (409) |
-| Temporada inexistente o de otro Workspace | `SEASON_NOT_FOUND` (404) |
-| `workspace_id` implícito desde token | `AUTH_WORKSPACE_SCOPE_REQUIRED` (403) |
+| Regla | Alta (`POST`) | Edición (`PATCH`) |
+|---|---|---|
+| `name` ausente o nulo | `VALIDATION_REQUIRED` (400) | — (omitirlo mantiene el valor) |
+| `name` en blanco | `VALIDATION_REQUIRED_SEASON_NAME` (400) | `VALIDATION_REQUIRED_SEASON_NAME` (400) |
+| `name` demasiado largo (> 120) | `VALIDATION_REQUIRED` (400) | `VALIDATION_SEASON_NAME_LENGTH` (400) |
+| `start_date` ausente o con formato no válido (`YYYY-MM-DD`) | `VALIDATION_REQUIRED` (400) | `VALIDATION_SEASON_DATE_RANGE` (400) |
+| `start_date <= end_date` | `VALIDATION_SEASON_DATE_RANGE` (400) | `VALIDATION_SEASON_DATE_RANGE` (400) |
+| Nombre ya usado en el Workspace, ignorando mayúsculas (MVP-207) | `CONFLICT_SEASON_NAME_DUPLICATE` (409) | `CONFLICT_SEASON_NAME_DUPLICATE` (409) |
+| Temporada inexistente o de otro Workspace | — | `SEASON_NOT_FOUND` (404) |
+| `workspace_id` implícito desde token | `AUTH_WORKSPACE_SCOPE_REQUIRED` (403) | `AUTH_WORKSPACE_SCOPE_REQUIRED` (403) |
+
+`POST /seasons/{id}/activate` y `GET /seasons/active` comparten los códigos de la columna de edición:
+`SEASON_NOT_FOUND` (404) y `AUTH_WORKSPACE_SCOPE_REQUIRED` (403). Un `start_date` mal formado en el
+alta devuelve además el mensaje por defecto de ASP.NET **en inglés**; está registrado en `P-043`.
 
 Reglas de contexto (MVP-201 · MVP-203 · MVP-207):
 
@@ -312,16 +332,17 @@ Reglas de contexto (MVP-201 · MVP-203 · MVP-207):
 | Editar tarea | `PATCH /api/v1/tasks/{taskId}` | `name?`, `is_active?` | `200 { ...task }` |
 | Listado tareas | `GET /api/v1/tasks` | `is_active?` | `200 { data, meta }` |
 
-Validaciones clave:
+Validaciones clave. El **alta y la edición no devuelven los mismos códigos** (ver el aviso de la
+sección de terrenos):
 
-| Regla | Código error |
-|---|---|
-| `name` ausente o en blanco en el alta | `VALIDATION_REQUIRED` (400) |
-| `name` en blanco al editar | `VALIDATION_REQUIRED_TASK_NAME` (400) |
-| `name` de longitud válida (≤ 120) | `VALIDATION_TASK_NAME_LENGTH` (400) |
-| Nombre ya usado en el Workspace, ignorando mayúsculas | `CONFLICT_TASK_NAME_DUPLICATE` (409) |
-| Tarea inexistente o de otro Workspace | `RESOURCE_NOT_FOUND` (404) |
-| `workspace_id` implícito desde token | `AUTH_WORKSPACE_SCOPE_REQUIRED` (403) |
+| Regla | Alta (`POST`) | Edición (`PATCH`) |
+|---|---|---|
+| `name` ausente o nulo | `VALIDATION_REQUIRED` (400) | — (omitirlo mantiene el valor) |
+| `name` en blanco | `VALIDATION_REQUIRED_TASK_NAME` (400) | `VALIDATION_REQUIRED_TASK_NAME` (400) |
+| `name` demasiado largo (> 120) | `VALIDATION_REQUIRED` (400) | `VALIDATION_TASK_NAME_LENGTH` (400) |
+| Nombre ya usado en el Workspace, ignorando mayúsculas | `CONFLICT_TASK_NAME_DUPLICATE` (409) | `CONFLICT_TASK_NAME_DUPLICATE` (409) |
+| Tarea inexistente o de otro Workspace | — | `RESOURCE_NOT_FOUND` (404) |
+| `workspace_id` implícito desde token | `AUTH_WORKSPACE_SCOPE_REQUIRED` (403) | `AUTH_WORKSPACE_SCOPE_REQUIRED` (403) |
 
 Reglas de contexto (MVP-205):
 
@@ -334,32 +355,53 @@ Reglas de contexto (MVP-205):
 | Orden del listado | Activas primero y luego por nombre. La operativa diaria pedirá `is_active=true` |
 | Tarea en la actividad (RN-025) | La tarea es obligatoria y puede venir del catálogo (`task_id`) o de texto libre (`task_text`); guardar una tarea libre en el catálogo es alcance de MVP-302 y reutiliza esta guarda de duplicados |
 
-### 4) Workers (trabajadores)
+### 4) Workers (responsables: miembros y cuadrilla)
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
-| Alta trabajador | `POST /api/v1/workers` | `name*`, `hourly_rate?` | `201 { id, workspace_id, name, hourly_rate, is_active }` |
+| Alta de cuadrilla | `POST /api/v1/workers` | `name*`, `hourly_rate?` | `201 { ...worker }` |
 | Editar trabajador | `PATCH /api/v1/workers/{workerId}` | `name?`, `hourly_rate?`, `is_active?` | `200 { ...worker }` |
-| Listado trabajadores | `GET /api/v1/workers` | `is_active?` | `200 { data, meta }` |
+| Listado de responsables | `GET /api/v1/workers` | `is_active?` | `200 { data, meta: { total, members, crew } }` |
 
-Validaciones clave:
+La representación de un responsable es
+`{ id, workspace_id, name, hourly_rate, is_active, kind, user_account_id }`, donde `kind` es el
+catálogo cerrado `worker_kind` (`member`/`crew`), **derivado** de `user_account_id`, no una columna.
 
-| Regla | Código error |
-|---|---|
-| `name` obligatorio | `VALIDATION_REQUIRED_NAME` (400) |
-| `name` de longitud válida (≤ 150) | `VALIDATION_WORKER_NAME_LENGTH` (400) |
-| `hourly_rate >= 0` (opcional, de referencia) | `VALIDATION_RANGE_HOURLY_RATE` (400) |
-| Nombre ya usado en el Workspace, ignorando mayúsculas (MVP-207) | `CONFLICT_WORKER_NAME_DUPLICATE` (409) |
-| trabajador inexistente o de otro Workspace | `RESOURCE_NOT_FOUND` (404) |
+Es el maestro **único** de responsables (MVP-208, CA-1/CA-2): devuelve las dos clases de persona con
+un solo espacio de identificadores, que es lo que permite que `ACTIVITY.worker_id` sea una FK simple a
+`workers` para cualquiera de ellas.
 
-Reglas de contexto (MVP-204):
+| `kind` | Quién es | Cómo entra y sale del maestro |
+|---|---|---|
+| `member` | Miembro del Workspace, con cuenta (`user_account_id` no nulo) | Entra al crearse el Workspace o al aceptarse su invitación (RN-027); sale al revocarse su acceso, que **inactiva** su fila sin borrarla |
+| `crew` | Cuadrilla sin cuenta (`user_account_id` nulo) | Alta, edición e inactivación manuales en este maestro (MVP-204) |
+
+Validaciones clave. El **alta y la edición no devuelven los mismos códigos** (ver el aviso de la
+sección de terrenos):
+
+| Regla | Alta (`POST`) | Edición (`PATCH`) |
+|---|---|---|
+| `name` ausente o nulo | `VALIDATION_REQUIRED` (400) | — (omitirlo mantiene el valor) |
+| `name` en blanco | `VALIDATION_REQUIRED_NAME` (400) | `VALIDATION_REQUIRED_NAME` (400) |
+| `name` demasiado largo (> 150) | `VALIDATION_REQUIRED` (400) | `VALIDATION_WORKER_NAME_LENGTH` (400) |
+| `hourly_rate >= 0` y numérico (opcional, de referencia) | `VALIDATION_RANGE_HOURLY_RATE` (400) | `VALIDATION_RANGE_HOURLY_RATE` (400) |
+| Nombre ya usado en el Workspace, ignorando mayúsculas (MVP-207) | `CONFLICT_WORKER_NAME_DUPLICATE` (409) | `CONFLICT_WORKER_NAME_DUPLICATE` (409) |
+| Renombrar a un responsable con cuenta (RN-036) | — | `BUSINESS_RULE_WORKER_IDENTITY_MANAGED` (422) |
+| Inactivar o reactivar a mano a un responsable con cuenta (RN-027) | — | `BUSINESS_RULE_WORKER_MEMBERSHIP_MANAGED` (422) |
+| Trabajador inexistente o de otro Workspace | — | `RESOURCE_NOT_FOUND` (404) |
+| `workspace_id` implícito desde token | `AUTH_WORKSPACE_SCOPE_REQUIRED` (403) | `AUTH_WORKSPACE_SCOPE_REQUIRED` (403) |
+
+Reglas de contexto (MVP-204 · MVP-208):
 
 | Regla | Comportamiento |
 |---|---|
-| Alcance del maestro | Solo trabajadores **sin cuenta vinculada** (cuadrilla). Los miembros del Workspace se exponen como seleccionables aparte (RN-027), desde `GET /workspace-members` |
-| `hourly_rate` | Opcional y de referencia; no automatiza el coste (RN-003). `PATCH { hourly_rate: null }` la limpia |
-| Duplicados (MVP-207) | Un Workspace no admite dos trabajadores con el mismo nombre ignorando mayúsculas y espacios sobrantes (índice único `(workspace_id, lower(name))`). Los **inactivos también ocupan su nombre**. No hay normalización de acentos: «Perez» y «Pérez» conviven |
-| Inactivación con histórico (CA-3) | `PATCH { is_active:false }`; reversible. No hay borrado físico de trabajadores |
+| Alcance del maestro (RN-027) | Todas las personas seleccionables como responsables. El `POST` crea siempre `crew`: un miembro entra por su membresía, no por este endpoint |
+| Qué se edita de un `member` (CA-4) | Solo `hourly_rate`. Su `name` llega de la identidad de Google (RN-036) y se resincroniza solo cuando cambia allí; su disponibilidad la gobierna la membresía, así que tampoco se inactiva a mano |
+| `hourly_rate` | Opcional y de referencia; no automatiza el coste (RN-003). `PATCH { hourly_rate: null }` la limpia. Aplica a las dos clases: es dato operativo del Workspace |
+| Duplicados (MVP-207 · MVP-208) | Un Workspace no admite dos responsables con el mismo nombre ignorando mayúsculas y espacios sobrantes (índice único `(workspace_id, lower(name))`), **tampoco cruzando la frontera miembro/cuadrilla**. Los **inactivos también ocupan su nombre**. No hay normalización de acentos: «Perez» y «Pérez» conviven |
+| Desempate de nombres (CA-5) | Si el nombre que trae una cuenta ya lo ocupa una fila de cuadrilla, la cuadrilla se renombra con sufijo « (2)» y el miembro conserva el suyo. Si lo ocupa **otro miembro** —dos cuentas homónimas—, el sufijo lo toma quien llega después: ninguno de los dos es renombrable |
+| Una fila por cuenta y Workspace (CA-1) | Invariante de datos: índice único parcial `ux_workers_workspace_user_account`. Readmitir a alguien revocado reactiva su fila, no crea una segunda |
+| Inactivación con histórico (CA-3) | `PATCH { is_active:false }` en cuadrilla; reversible. No hay borrado físico de trabajadores |
 | `PATCH` de campos parciales | Un campo ausente mantiene su valor; presente (incluido vacío) lo asigna/limpia |
 
 ### 4.b) Workspace members (personas del Workspace, MVP-204)
@@ -371,11 +413,18 @@ Reglas de contexto (MVP-204):
 
 `GET /workspace-members` devuelve una **lista unificada** con el estado de membresía
 (`worker_member_status`): las membresías reales (`activo`/`revocado`, `kind: "member"`) más las
-invitaciones por email pendientes proyectadas como `invitado` (`kind: "invitation"`). El estado
-`invitado` **no** es una fila de `workspace_members`: se combina desde `workspace_invitations` (el
-canal `enlace` no tiene destinatario, así que no genera persona). Orden: activos, invitados,
-revocados. Cada persona incluye señales de UI: `is_self` y `can_revoke` (miembros), `is_expired`
-(invitaciones).
+invitaciones pendientes proyectadas como `invitado` (`kind: "invitation"`). El estado `invitado`
+**no** es una fila de `workspace_members`: se combina desde `workspace_invitations`. Orden: activos,
+invitados, revocados. Cada entrada incluye señales de UI: `is_self` y `can_revoke` (miembros),
+`channel` e `is_expired` (invitaciones).
+
+Desde MVP-208 (CA-7) es la **superficie única de invitaciones pendientes** y proyecta los **dos
+canales**: una invitación de canal `enlace` viaja con `email: null` —no tiene destinatario, así que no
+es una persona— pero sí es un acceso vivo, y por tanto se puede renovar y anular desde aquí. Antes
+solo aparecía en una lista de solo lectura y no había forma de retirarla.
+
+Lo que **ya no** sale de este endpoint son los responsables seleccionables: eso es
+`GET /workers` (MVP-208, CA-2). Esta sigue siendo la superficie de **accesos**.
 
 Validaciones y reglas:
 
@@ -385,8 +434,8 @@ Validaciones y reglas:
 | La persona no es un miembro activo del Workspace | `RESOURCE_NOT_FOUND` (404) |
 | No se puede revocar al propietario único (CA-8) | `BUSINESS_RULE_CANNOT_REVOKE_OWNER` (422) |
 | No se puede revocar al último miembro activo (CA-8) | `BUSINESS_RULE_LAST_ACTIVE_MEMBER` (422) |
-| Revocar (CA-7) | La membresía pasa a `revocado`: deja de resolver contexto y de aparecer en el selector (MVP-104), sin borrar el vínculo ni los registros que ese usuario creó |
-| Reingreso de un revocado | Por una invitación nueva (MVP-103); no hay reactivación directa |
+| Revocar (CA-7) | La membresía pasa a `revocado`: deja de resolver contexto y de aparecer en el selector (MVP-104), sin borrar el vínculo ni los registros que ese usuario creó. Desde MVP-208 **inactiva además su fila de `workers`**, así que deja de ser seleccionable como responsable sin invalidar lo que ya la referencia |
+| Reingreso de un revocado | Por una invitación nueva (MVP-103); no hay reactivación directa. Al aceptarla recupera su fila de responsable, no se duplica |
 
 ### 5) Activities (actividades)
 
@@ -405,6 +454,10 @@ Validaciones clave:
 | `hours > 0` | `VALIDATION_ACTIVITY_HOURS_RANGE` |
 | `manual_cost >= 0` | `VALIDATION_ACTIVITY_COST_RANGE` |
 | Integridad de workspace en FKs | `FOREIGN_KEY_WORKSPACE_MISMATCH` |
+
+`worker_id` es un `workers.id` cualquiera de `GET /api/v1/workers`, sin distinguir clase: desde
+MVP-208 los miembros del Workspace también son filas de ese maestro, así que no hacen falta campos
+alternativos ni un responsable polimórfico (P-034).
 
 ### 6) Harvests (cosechas)
 

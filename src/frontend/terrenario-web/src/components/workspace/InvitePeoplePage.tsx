@@ -3,11 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { invitationService, InvitationServiceError } from '../../services/invitation.service';
-import type {
-  CreatedInvitation,
-  InvitationChannel,
-  PendingInvitation,
-} from '../../types/invitation.types';
+import type { CreatedInvitation, InvitationChannel } from '../../types/invitation.types';
 
 const EMAIL_MAX_LENGTH = 320;
 
@@ -28,7 +24,8 @@ export const InvitePeoplePage: React.FC = () => {
   const [channel, setChannel] = useState<InvitationChannel>('email');
   const [email, setEmail] = useState('');
   const [createdInvitation, setCreatedInvitation] = useState<CreatedInvitation | null>(null);
-  const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([]);
+  // Solo el recuento: la administración de pendientes vive en «Miembros y accesos» (CA-7).
+  const [pendingCount, setPendingCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
@@ -38,10 +35,10 @@ export const InvitePeoplePage: React.FC = () => {
     if (!accessToken) return;
 
     try {
-      setPendingInvitations(await invitationService.listPendingInvitations(accessToken));
+      setPendingCount((await invitationService.listPendingInvitations(accessToken)).length);
     } catch {
-      // La lista es informativa: si falla, la pantalla sigue permitiendo invitar.
-      setPendingInvitations([]);
+      // El recuento es informativo: si falla, la pantalla sigue permitiendo invitar.
+      setPendingCount(0);
     }
   }, [getAccessToken]);
 
@@ -238,33 +235,31 @@ export const InvitePeoplePage: React.FC = () => {
           </div>
         )}
 
-        <div className="bg-white p-6 rounded-2xl border border-[#e5e2dd] shadow-xs space-y-3">
-          <h2 className="font-bold text-base text-[#1c1c19] border-b border-[#f0ede8] pb-2">
-            Invitaciones pendientes
-          </h2>
-
-          {pendingInvitations.length === 0 ? (
-            <p className="text-xs text-[#76786b]">No hay invitaciones pendientes ahora mismo.</p>
-          ) : (
-            <ul className="divide-y divide-[#f0ede8]">
-              {pendingInvitations.map((invitation) => (
-                <li key={invitation.id} className="py-3 flex items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-[#1c1c19] truncate">
-                      {invitation.email ?? 'Enlace compartible'}
-                    </p>
-                    <p className="text-xs text-[#76786b]">
-                      {CHANNEL_LABELS[invitation.channel]} · caduca el{' '}
-                      {formatDate(invitation.expires_at)}
-                    </p>
-                  </div>
-                  <span className="shrink-0 px-3 py-1 rounded-full bg-[#f0ede8] text-[#45483c] text-xs font-bold">
-                    {invitation.status}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+        {/* MVP-208 (CA-7) — La lista de pendientes vivía aquí en solo lectura y también, con otras
+            reglas, en «Miembros y accesos»: dos superficies del mismo concepto (hallazgo R-21). La
+            administración se queda donde están las acciones; aquí solo se conduce hasta ella. */}
+        <div className="bg-white p-6 rounded-2xl border border-[#e5e2dd] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <h2 className="font-bold text-base text-[#1c1c19]">
+              {pendingCount === 0
+                ? 'No hay invitaciones pendientes'
+                : pendingCount === 1
+                  ? 'Hay 1 invitación pendiente'
+                  : `Hay ${pendingCount} invitaciones pendientes`}
+            </h2>
+            <p className="text-xs text-[#76786b]">
+              Las invitaciones en circulación —por email y por enlace— se renuevan y se anulan desde
+              «Miembros y accesos».
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/app/miembros')}
+            className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-[#c6c8b8] bg-[#f6f3ee] hover:bg-[#f0ede8] text-[#33450d] text-xs font-semibold transition-colors"
+          >
+            <span className="material-symbols-outlined text-base" aria-hidden="true">group</span>
+            Ver miembros y accesos
+          </button>
         </div>
     </div>
   );

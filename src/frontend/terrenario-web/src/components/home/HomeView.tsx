@@ -37,7 +37,7 @@ interface SetupStep {
 export const HomeView: React.FC = () => {
   const { user } = useAuth();
   const { activeWorkspace } = useWorkspace();
-  const { activeSeason } = useSeason();
+  const { activeSeason, seasons } = useSeason();
   const navigate = useNavigate();
   const http = useApiClient();
 
@@ -81,7 +81,8 @@ export const HomeView: React.FC = () => {
           icon: 'calendar_today',
           hint: 'Toda actividad, cosecha y compra se agrupa por campaña.',
           to: '/app/temporadas',
-          cta: 'Crear temporada',
+          // Con temporadas pero ninguna activa, lo que falta es elegir, no crear (MVP-208, CA-8/CA-10).
+          cta: seasons.length > 0 ? 'Activar temporada' : 'Crear temporada',
           done: activeSeason !== null,
         },
         {
@@ -95,10 +96,14 @@ export const HomeView: React.FC = () => {
           count: counts.plots,
         },
         {
+          // MVP-208 (CA-10) — El paso contaba solo la cuadrilla mientras su propia ayuda decía que
+          // los miembros cuentan, así que aparecía pendiente en un Workspace que por RN-027 ya tiene
+          // responsables. Ahora `GET /workers` devuelve el maestro completo y el recuento coincide
+          // con lo que el usuario ve: el paso está hecho por construcción, y lo que queda es opcional.
           key: 'workers',
           label: 'Trabajadores',
           icon: 'group',
-          hint: 'Quién hace cada labor. Los miembros del Workspace ya cuentan.',
+          hint: 'Quién hace cada labor. Los miembros del Workspace ya cuentan; añade a la cuadrilla sin cuenta.',
           to: '/app/trabajadores',
           cta: 'Añadir trabajadores',
           done: counts.workers > 0,

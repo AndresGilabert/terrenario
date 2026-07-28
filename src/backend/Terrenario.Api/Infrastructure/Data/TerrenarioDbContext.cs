@@ -302,15 +302,25 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
             // MVP-207 (CA-3) — nombre único por Workspace ignorando mayúsculas
             // (ux_workers_workspace_name, UNIQUE sobre (workspace_id, lower(name))), creado en la
             // migración con SQL por ser un índice sobre una expresión. Misma comparación que
-            // WorkerRepository.ExistsWithNameAsync.
+            // WorkerRepository.ExistsWithNameAsync. Desde MVP-208 cubre la unión miembro/cuadrilla,
+            // que es la que RN-027 define como maestro de responsables (hallazgo R-16).
+
+            // MVP-208 (CA-1) — una cuenta tiene como mucho una fila de responsable por Workspace: es
+            // lo que hace de `user_account_id` una identidad y no una etiqueta. Índice parcial: la
+            // cuadrilla sin cuenta (NULL) no entra.
+            entity.HasIndex(w => new { w.WorkspaceId, w.UserAccountId })
+                .IsUnique()
+                .HasFilter("user_account_id IS NOT NULL")
+                .HasDatabaseName("ux_workers_workspace_user_account");
 
             entity.HasOne<Workspace>()
                 .WithMany()
                 .HasForeignKey(w => w.WorkspaceId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // user_account_id es reservado (modelo canónico); no se materializa el vínculo en MVP-204,
-            // pero se declara la FK opcional a users para no reabrir el esquema al usarlo más adelante.
+            // MVP-208 — el vínculo con la cuenta ya se materializa (cerraba P-034): cada miembro
+            // activo tiene su fila. `SET NULL` al borrar la cuenta deja la fila como cuadrilla en vez
+            // de perder al responsable de los registros históricos que lo referencian.
             entity.HasOne<User>()
                 .WithMany()
                 .HasForeignKey(w => w.UserAccountId)

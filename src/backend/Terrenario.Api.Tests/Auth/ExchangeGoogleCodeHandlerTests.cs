@@ -3,9 +3,11 @@ using NSubstitute.ExceptionExtensions;
 using FluentAssertions;
 using Terrenario.Api.Application.Auth;
 using Terrenario.Api.Application.Auth.Commands;
+using Terrenario.Api.Application.Workers;
 using Terrenario.Api.Application.Workspaces;
 using Terrenario.Api.Application.Workspaces.Commands;
 using Terrenario.Api.Domain.Users;
+using Terrenario.Api.Domain.Workers;
 using Terrenario.Api.Infrastructure.Auth;
 using Terrenario.Api.Infrastructure.Telemetry;
 using Terrenario.Api.Common.Errors;
@@ -20,9 +22,17 @@ public class ExchangeGoogleCodeHandlerTests
     private readonly IRefreshTokenStore _refreshTokenStore = Substitute.For<IRefreshTokenStore>();
     private readonly IActiveWorkspaceResolver _activeWorkspaceResolver = Substitute.For<IActiveWorkspaceResolver>();
     private readonly ILoginTelemetry _telemetry = Substitute.For<ILoginTelemetry>();
+    // MVP-208: el login resincroniza el nombre del responsable si Google devuelve otro (RN-036).
+    private readonly IWorkerRepository _workerRepository = Substitute.For<IWorkerRepository>();
 
     private ExchangeGoogleCodeHandler CreateSut() => new(
-        _googleOidc, _userRepository, _jwtService, _refreshTokenStore, _activeWorkspaceResolver, _telemetry);
+        _googleOidc,
+        _userRepository,
+        _jwtService,
+        _refreshTokenStore,
+        _activeWorkspaceResolver,
+        new MemberRosterService(_workerRepository),
+        _telemetry);
 
     private static readonly ExchangeGoogleCodeCommand ValidCommand = new(
         Code: "auth-code",

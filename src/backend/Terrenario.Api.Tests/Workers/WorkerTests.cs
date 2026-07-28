@@ -107,4 +107,94 @@ public sealed class WorkerTests
         worker.SetActive(true);
         worker.IsActive.Should().BeTrue();
     }
+
+    // ── MVP-208 · el responsable con cuenta ────────────────────────────────────────────────────
+
+    [Fact]
+    public void CreateForMember_Deberia_NacerActivo_ConCuentaVinculada_Y_SinTarifa()
+    {
+        var userId = Guid.NewGuid();
+
+        var worker = Worker.CreateForMember(WorkspaceId, userId, "  Andrés Gilabert  ");
+
+        worker.UserAccountId.Should().Be(userId);
+        worker.HasAccount.Should().BeTrue();
+        worker.Name.Should().Be("Andrés Gilabert");
+        worker.HourlyRate.Should().BeNull();
+        worker.IsActive.Should().BeTrue();
+        WorkerKinds.Of(worker).Should().Be(WorkerKinds.Member);
+    }
+
+    [Fact]
+    public void Update_Deberia_RechazarRenombrarUnMiembro()
+    {
+        // CA-4 — el nombre llega de la identidad de Google (RN-036), no del maestro.
+        var worker = Worker.CreateForMember(WorkspaceId, Guid.NewGuid(), "Andrés Gilabert");
+
+        var act = () => worker.Update("Otro Nombre", hourlyRate: null);
+
+        act.Should().Throw<WorkerBusinessRuleException>()
+            .Which.ErrorCode.Should().Be(ErrorCodes.BusinessRuleWorkerIdentityManaged);
+        worker.Name.Should().Be("Andrés Gilabert");
+    }
+
+    [Fact]
+    public void SetActive_Deberia_RechazarInactivarUnMiembro()
+    {
+        // CA-4 — RN-027 obliga a que todo miembro sea seleccionable: la vía de retirarlo es revocar
+        // su acceso, no inactivarlo a mano en el maestro.
+        var worker = Worker.CreateForMember(WorkspaceId, Guid.NewGuid(), "Andrés Gilabert");
+
+        var act = () => worker.SetActive(false);
+
+        act.Should().Throw<WorkerBusinessRuleException>()
+            .Which.ErrorCode.Should().Be(ErrorCodes.BusinessRuleWorkerMembershipManaged);
+        worker.IsActive.Should().BeTrue();
+    }
+
+    [Fact]
+    public void UpdateHourlyRate_Deberia_PermitirseEnUnMiembro()
+    {
+        // CA-4 — la tarifa sí es editable: es dato operativo, no parte de su identidad.
+        var worker = Worker.CreateForMember(WorkspaceId, Guid.NewGuid(), "Andrés Gilabert");
+
+        worker.UpdateHourlyRate(21m);
+
+        worker.HourlyRate.Should().Be(21m);
+        worker.Name.Should().Be("Andrés Gilabert");
+    }
+
+    [Fact]
+    public void SyncMembership_Deberia_SeguirALaMembresia_SinBorrarNada()
+    {
+        var worker = Worker.CreateForMember(WorkspaceId, Guid.NewGuid(), "Andrés Gilabert");
+
+        worker.SyncMembership(false);
+        worker.IsActive.Should().BeFalse();
+
+        worker.SyncMembership(true);
+        worker.IsActive.Should().BeTrue();
+        worker.Name.Should().Be("Andrés Gilabert");
+    }
+
+    [Fact]
+    public void SyncIdentityName_Deberia_AdoptarElNombreDeLaCuenta()
+    {
+        var worker = Worker.CreateForMember(WorkspaceId, Guid.NewGuid(), "Andrés Gilabert");
+
+        worker.SyncIdentityName("Andrés G. Ruiz");
+
+        worker.Name.Should().Be("Andrés G. Ruiz");
+    }
+
+    [Fact]
+    public void WithSuffix_Deberia_RecortarParaNoDesbordarLaColumna()
+    {
+        var largo = new string('x', Worker.NameMaxLength);
+
+        var resultado = Worker.WithSuffix(largo, 2);
+
+        resultado.Should().EndWith(" (2)");
+        resultado.Length.Should().Be(Worker.NameMaxLength);
+    }
 }

@@ -194,6 +194,7 @@ erDiagram
     WORKSPACE ||--o{ WORKSPACE_REACTIVATION_REQUEST : puede_recuperarse_con
     USER ||--o{ WORKSPACE_REACTIVATION_REQUEST : solicita_o_autoriza
     WORKSPACE ||--o{ WORKER : mantiene
+    USER ||--o{ WORKER : se_materializa_como
     WORKSPACE ||--o{ PLOT : contiene
     WORKSPACE ||--o{ SEASON : define
     WORKSPACE ||--o{ TASK : cataloga
@@ -335,16 +336,33 @@ diferido (RU-18/RU-19): en MVP rige "una activa por Workspace".
 | Campo | Tipo | Obligatorio | Descripcion |
 |-------|------|-------------|-------------|
 | `name` | string(150) | Si | Alta minima del maestro (MVP-204): es el unico campo obligatorio |
-| `user_account_id` | UUID (nullable) | No | **Reservado**: vincula un trabajador a una cuenta cuando exista. En MVP-204 no se materializa (los miembros se exponen desde `workspace_members`, no como filas de `workers`) y nace `null`. FK opcional a `users` con `ON DELETE SET NULL` |
-| `hourly_rate` | decimal(10,2) (nullable) | No | Valor de referencia para sugerencia de coste; no sustituye `manual_cost` en actividad (RN-003) |
-| `is_active` | boolean | Si | Estado de actividad. Los trabajadores con historico se inactivan en vez de borrarse (MVP-204, CA-3) |
+| `user_account_id` | UUID (nullable) | No | Cuenta del sistema a la que pertenece el responsable. **Materializado desde MVP-208** (CA-1): cada miembro activo del Workspace tiene su fila. Nulo en la cuadrilla sin cuenta. FK opcional a `users` con `ON DELETE SET NULL`, para que borrar la cuenta degrade la fila a cuadrilla en vez de perder al responsable de los registros que lo referencian |
+| `hourly_rate` | decimal(10,2) (nullable) | No | Valor de referencia para sugerencia de coste; no sustituye `manual_cost` en actividad (RN-003). Editable en las dos clases: es dato operativo del Workspace |
+| `is_active` | boolean | Si | Estado de actividad. Los trabajadores con historico se inactivan en vez de borrarse (MVP-204, CA-3). En un miembro no se toca a mano: lo gobierna su membresia (MVP-208, CA-4) |
 
-Restricciones: indice de apoyo `(workspace_id, is_active)` para el listado del maestro e indice
+Restricciones: indice de apoyo `(workspace_id, is_active)` para el listado del maestro, indice
 **unico** `ux_workers_workspace_name` sobre `(workspace_id, lower(name))` (MVP-207, CA-3), que impide
-dos trabajadores con el mismo nombre en un Workspace ignorando mayusculas; los inactivos siguen
-ocupando su nombre. El maestro `workers` (MVP-204) cubre solo a los trabajadores **sin cuenta**; los miembros del Workspace se
-exponen como seleccionables (RN-027) desde la vista de personas (`workspace_members` union
-`workspace_invitations` pendientes), no como filas de `workers`.
+dos responsables con el mismo nombre en un Workspace ignorando mayusculas —los inactivos siguen
+ocupando su nombre—, e indice **unico parcial** `ux_workers_workspace_user_account` sobre
+`(workspace_id, user_account_id) WHERE user_account_id IS NOT NULL` (MVP-208, CA-1), que hace de la
+cuenta una identidad y no una etiqueta: una cuenta tiene como mucho una fila por Workspace.
+
+`workers` es **el** maestro de responsables (RN-027) y cubre las dos clases de persona con un unico
+espacio de identificadores, que es lo que permite que `ACTIVITY.worker_id` siga siendo una FK simple
+(cierre de `P-034`):
+
+- **Miembros del Workspace** (`user_account_id` no nulo): la fila nace al crearse el Workspace y al
+  aceptarse una invitacion, y se inactiva al revocarse el acceso. Su `name` llega de la identidad de
+  Google (RN-036) y se resincroniza cuando cambia alli; no se edita en el maestro.
+- **Cuadrilla sin cuenta** (`user_account_id` nulo): alta, edicion e inactivacion manuales (MVP-204).
+
+Cuando el nombre de una cuenta choca con el de una fila existente, el desempate es asimetrico: la
+cuadrilla se renombra con sufijo « (2)» y el miembro conserva el suyo; entre dos cuentas homonimas
+—ninguna renombrable— el sufijo lo toma la que llega despues. Es la misma politica de datos
+preexistentes que MVP-207: conservar y renombrar, nunca borrar.
+
+`workspace_members` union `workspace_invitations` pendientes sigue siendo la vista de **accesos**
+(estado de membresia, invitar, revocar), pero ya no es la fuente de responsables.
 
 ### TASK
 
@@ -440,7 +458,7 @@ materializa la entidad de actividad.
 | `WORKSPACE_INVITATION` | implementada | MVP-103 (reenvio en MVP-204: `Reissue` rota token y renueva caducidad) |
 | `SEASON` | implementada | MVP-201 (temporada inicial + `is_active`); maestro completo en MVP-203 (estados `planificada/activa/cerrada` derivados; `active_crop` diferido) |
 | `PLOT` | implementada | MVP-202 (alta minima RN-028, `is_active`; `location` en vez de coordenadas; `soil_metadata` diferido) |
-| `WORKER` | implementada | MVP-204 (alta minima `name`, `hourly_rate` de referencia, `is_active`; `user_account_id` reservado) |
+| `WORKER` | implementada | MVP-204 (alta minima `name`, `hourly_rate` de referencia, `is_active`); MVP-208 materializa `user_account_id`: el maestro pasa a ser el de responsables (miembros + cuadrilla) y cierra `P-034` |
 | `ACTIVITY`, `PURCHASE`, `PURCHASE_CONSUMPTION` | pendiente | MVP-003 |
 | `HARVEST` | pendiente | MVP-004 |
 

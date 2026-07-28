@@ -22,13 +22,19 @@ const STATUS_LABEL: Record<WorkspaceMemberStatus, string> = {
 };
 
 /**
- * Administración de personas del Workspace (MVP-204, HU-3/HU-4/HU-5). Lista unificada con el estado
- * de cada persona (activo/invitado/revocado), revocación de acceso (CA-7/CA-8) y reenvío de
+ * Administración de personas y accesos del Workspace (MVP-204, HU-3/HU-4/HU-5). Lista unificada con
+ * el estado de cada persona (activo/invitado/revocado), revocación de acceso (CA-7/CA-8) y reenvío de
  * invitaciones pendientes por email o por enlace (CA-6). Invitar reutiliza el flujo de MVP-103.
  *
  * MVP-207 (CA-4) completa la simetría de la pantalla: además de reenviar, ahora se puede **anular**
  * una invitación pendiente. Antes, invitar a un email equivocado no tenía marcha atrás: la única
  * acción de retirada (revocar) solo existía para quien ya había entrado.
+ *
+ * MVP-208 (CA-6/CA-7) la convierte en la **superficie única** de invitaciones pendientes: también
+ * lista los enlaces compartibles, que antes solo aparecían en una lista de solo lectura y no se
+ * podían anular desde ninguna pantalla —justo el caso de mayor riesgo si el enlace se filtra
+ * (hallazgo R-15)—. Un enlace no es una persona, así que se presenta como lo que es: un acceso vivo
+ * sin destinatario, con las mismas acciones de renovar y anular.
  */
 export const MiembrosView: React.FC = () => {
   const http = useApiClient();
@@ -136,8 +142,9 @@ export const MiembrosView: React.FC = () => {
         <div>
           <h2 className="font-headline font-extrabold text-xl text-[#1c1c19]">Miembros y accesos</h2>
           <p className="text-xs text-[#76786b]">
-            Quién forma parte del Workspace y en qué estado. Cualquier miembro puede invitar, reenviar
-            o anular una invitación, y retirar el acceso a otro.
+            Quién forma parte del Workspace, en qué estado y qué invitaciones siguen en circulación
+            —por email o por enlace—. Cualquier miembro puede invitar, renovar o anular una invitación,
+            y retirar el acceso a otro.
           </p>
         </div>
         <button
@@ -170,6 +177,13 @@ export const MiembrosView: React.FC = () => {
             const key = person.kind === 'member' ? `m-${person.user_id}` : `i-${person.invitation_id}`;
             const isBusy = busyId === (person.user_id ?? person.invitation_id);
             const resendResult = person.invitation_id ? resendResults[person.invitation_id] : undefined;
+            const isLink = person.kind === 'invitation' && person.channel === 'enlace';
+            const title = isLink ? 'Invitación por enlace' : (person.name ?? person.email ?? 'Sin nombre');
+            const subtitle = isLink
+              ? 'Enlace compartible, sin destinatario'
+              : person.kind === 'member'
+                ? person.email
+                : null;
 
             return (
               <li
@@ -188,14 +202,16 @@ export const MiembrosView: React.FC = () => {
                       }`}
                     >
                       {person.kind === 'invitation' ? (
-                        <span className="material-symbols-outlined text-lg" aria-hidden="true">mail</span>
+                        <span className="material-symbols-outlined text-lg" aria-hidden="true">
+                          {isLink ? 'link' : 'mail'}
+                        </span>
                       ) : (
-                        initials(person.name ?? person.email)
+                        initials(person.name ?? person.email ?? '?')
                       )}
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-[#1c1c19] truncate flex items-center gap-2">
-                        {person.name ?? person.email}
+                        {title}
                         {person.is_self && <span className="text-[10px] text-[#76786b] font-normal">(tú)</span>}
                         {person.role === 'workspace_owner' && (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-[#eef2e0] text-[#33450d]">
@@ -203,7 +219,10 @@ export const MiembrosView: React.FC = () => {
                           </span>
                         )}
                       </p>
-                      <p className="text-xs text-[#76786b] truncate">{person.email}</p>
+                      {/* El email solo se repite debajo cuando aporta algo: en un miembro es el dato
+                          de contacto de su cuenta; en una invitación por email el título ya es el
+                          email (se mostraba dos veces) y en un enlace no hay destinatario. */}
+                      {subtitle && <p className="text-xs text-[#76786b] truncate">{subtitle}</p>}
                     </div>
                   </div>
 
@@ -258,23 +277,29 @@ export const MiembrosView: React.FC = () => {
                 {person.status === 'invitado' && (
                   <div className="mt-3 pt-3 border-t border-[#f0ede8] space-y-3">
                     <div className="flex items-center justify-between gap-3 flex-wrap">
+                      {/* CA-7 — las mismas acciones en los dos canales: renovar el enlace y anular.
+                          Reenviar el correo solo aparece donde hay a quién escribir. */}
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs text-[#76786b]">Reenviar invitación:</span>
-                        <button
-                          onClick={() => void resend(person, true)}
-                          disabled={isBusy}
-                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#f0ede8] hover:bg-[#ebe8e3] text-[#33450d] flex items-center gap-1 disabled:opacity-60"
-                        >
-                          <span className="material-symbols-outlined text-sm" aria-hidden="true">mail</span>
-                          Por email
-                        </button>
+                        <span className="text-xs text-[#76786b]">
+                          {isLink ? 'Renovar enlace:' : 'Reenviar invitación:'}
+                        </span>
+                        {!isLink && (
+                          <button
+                            onClick={() => void resend(person, true)}
+                            disabled={isBusy}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#f0ede8] hover:bg-[#ebe8e3] text-[#33450d] flex items-center gap-1 disabled:opacity-60"
+                          >
+                            <span className="material-symbols-outlined text-sm" aria-hidden="true">mail</span>
+                            Por email
+                          </button>
+                        )}
                         <button
                           onClick={() => void resend(person, false)}
                           disabled={isBusy}
                           className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#f0ede8] hover:bg-[#ebe8e3] text-[#33450d] flex items-center gap-1 disabled:opacity-60"
                         >
                           <span className="material-symbols-outlined text-sm" aria-hidden="true">link</span>
-                          Obtener enlace
+                          {isLink ? 'Generar enlace nuevo' : 'Obtener enlace'}
                         </button>
                       </div>
 
@@ -283,7 +308,9 @@ export const MiembrosView: React.FC = () => {
                           igual. */}
                       {confirmingCancel === person.invitation_id ? (
                         <div className="flex items-center gap-2 text-xs">
-                          <span className="text-[#45483c]">¿Anular esta invitación?</span>
+                          <span className="text-[#45483c]">
+                            {isLink ? '¿Anular este enlace?' : '¿Anular esta invitación?'}
+                          </span>
                           <button
                             onClick={() => void cancelInvitation(person)}
                             disabled={isBusy}
@@ -308,7 +335,7 @@ export const MiembrosView: React.FC = () => {
                           className="text-xs font-semibold text-[#ba1a1a] hover:underline flex items-center gap-1"
                         >
                           <span className="material-symbols-outlined text-base" aria-hidden="true">cancel</span>
-                          Anular invitación
+                          {isLink ? 'Anular enlace' : 'Anular invitación'}
                         </button>
                       )}
                     </div>
@@ -318,7 +345,7 @@ export const MiembrosView: React.FC = () => {
                         <p className="text-xs text-[#45483c]">
                           {resendResult.email_sent
                             ? `Invitación reenviada a ${resendResult.email}. También puedes compartir el enlace.`
-                            : 'Nuevo enlace de un solo uso. Cópialo ahora: por seguridad no volveremos a mostrarlo.'}
+                            : 'Nuevo enlace de un solo uso. Cópialo ahora: por seguridad no volveremos a mostrarlo. El enlace anterior deja de servir.'}
                         </p>
                         <div className="flex flex-col sm:flex-row gap-2">
                           <input

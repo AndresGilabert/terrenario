@@ -104,8 +104,11 @@ builder.Services.AddScoped<IPlotRepository, PlotRepository>();
 builder.Services.AddScoped<CreatePlotHandler>();
 builder.Services.AddScoped<UpdatePlotHandler>();
 builder.Services.AddScoped<ListPlotsHandler>();
-// Maestro de trabajadores y administración de miembros (MVP-204)
+// Maestro de responsables y administración de miembros (MVP-204 · MVP-208)
 builder.Services.AddScoped<IWorkerRepository, WorkerRepository>();
+// Mantiene el maestro alineado con la membresía (MVP-208, CA-1/CA-4). Lo usan la creación de
+// Workspace, la aceptación de invitación, la revocación de acceso y el login (RN-036).
+builder.Services.AddScoped<MemberRosterService>();
 builder.Services.AddScoped<CreateWorkerHandler>();
 builder.Services.AddScoped<UpdateWorkerHandler>();
 builder.Services.AddScoped<ListWorkersHandler>();

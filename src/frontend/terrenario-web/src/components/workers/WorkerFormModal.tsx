@@ -14,10 +14,14 @@ interface WorkerFormModalProps {
 const NAME_MAX = 150;
 
 /**
- * Alta y edición de un trabajador sin cuenta (MVP-204). Solo el nombre es obligatorio (CA-2); la
+ * Alta y edición de un responsable (MVP-204 · MVP-208). Solo el nombre es obligatorio (CA-2); la
  * tarifa horaria es opcional y de referencia (no automatiza el coste, RN-003). No se piden rol ni
  * teléfono: no están en el modelo de datos de la KB (el prototipo los mostraba, pero es solo
  * referencia visual).
+ *
+ * Al editar un **miembro del Workspace** el nombre se muestra en lectura y solo se guarda la tarifa
+ * (CA-4): su nombre llega de su cuenta de Google (RN-036). Se enseña igualmente, en vez de ocultarlo,
+ * para que quede claro a quién se le está poniendo la tarifa.
  */
 export const WorkerFormModal: React.FC<WorkerFormModalProps> = ({
   isOpen,
@@ -28,6 +32,7 @@ export const WorkerFormModal: React.FC<WorkerFormModalProps> = ({
   onSubmit,
 }) => {
   const isEdit = worker !== null;
+  const isMember = worker?.kind === 'member';
 
   const [name, setName] = useState('');
   const [hourlyRate, setHourlyRate] = useState('');
@@ -75,7 +80,7 @@ export const WorkerFormModal: React.FC<WorkerFormModalProps> = ({
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[#33450d] text-xl" aria-hidden="true">badge</span>
             <h3 className="font-headline font-bold text-lg text-[#1c1c19]">
-              {isEdit ? 'Editar trabajador' : 'Añadir trabajador'}
+              {isMember ? 'Tarifa del miembro' : isEdit ? 'Editar trabajador' : 'Añadir trabajador'}
             </h3>
           </div>
           <button
@@ -92,20 +97,31 @@ export const WorkerFormModal: React.FC<WorkerFormModalProps> = ({
         <form onSubmit={handleSubmit} className="p-6 space-y-4 text-sm overflow-y-auto" noValidate>
           <div className="space-y-1.5">
             <label htmlFor="worker-name" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
-              Nombre y apellidos <span className="text-[#ba1a1a]">*</span>
+              Nombre y apellidos {!isMember && <span className="text-[#ba1a1a]">*</span>}
             </label>
             <input
               id="worker-name"
               type="text"
-              required
-              autoFocus
+              required={!isMember}
+              autoFocus={!isMember}
+              readOnly={isMember}
               maxLength={NAME_MAX}
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="ej. Antonio García"
               disabled={isSubmitting}
-              className="w-full px-3.5 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
+              className={`w-full px-3.5 py-2.5 border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none disabled:opacity-60 ${
+                isMember
+                  ? 'bg-[#f0ede8] text-[#76786b] cursor-not-allowed'
+                  : 'bg-[#f6f3ee] focus:border-[#33450d] focus:bg-white'
+              }`}
             />
+            {isMember && (
+              <p className="text-[11px] text-[#76786b] flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-sm" aria-hidden="true">lock</span>
+                Llega de su cuenta de Google: se actualiza solo cuando la persona lo cambia allí.
+              </p>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -120,6 +136,7 @@ export const WorkerFormModal: React.FC<WorkerFormModalProps> = ({
               value={hourlyRate}
               onChange={(e) => setHourlyRate(e.target.value)}
               placeholder="ej. 12.50"
+              autoFocus={isMember}
               disabled={isSubmitting}
               className="w-full px-3.5 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
             />
@@ -149,7 +166,15 @@ export const WorkerFormModal: React.FC<WorkerFormModalProps> = ({
               disabled={!canSubmit}
               className="flex items-center gap-2 px-5 py-2.5 bg-[#33450d] hover:bg-[#4a5d23] text-white font-semibold text-xs rounded-xl shadow-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <span>{isSubmitting ? 'Guardando…' : isEdit ? 'Guardar cambios' : 'Añadir trabajador'}</span>
+              <span>
+                {isSubmitting
+                  ? 'Guardando…'
+                  : isMember
+                    ? 'Guardar tarifa'
+                    : isEdit
+                      ? 'Guardar cambios'
+                      : 'Añadir trabajador'}
+              </span>
               <span className="material-symbols-outlined text-sm" aria-hidden="true">check</span>
             </button>
           </div>

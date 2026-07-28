@@ -2,7 +2,7 @@
 id: "MVP-202"
 tipo: feature
 titulo: "Maestro de terrenos con alta mínima"
-estado: en-progreso
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito B — Base operativa preparada"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "masters", "terrenos"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-27"
+actualizado_en: "2026-07-28"
 ---
 
 # MVP-202 — Maestro de terrenos con alta mínima

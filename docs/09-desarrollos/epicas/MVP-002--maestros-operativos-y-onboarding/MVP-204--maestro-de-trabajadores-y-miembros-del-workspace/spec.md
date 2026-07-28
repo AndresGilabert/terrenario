@@ -2,7 +2,7 @@
 id: "MVP-204"
 tipo: feature
 titulo: "Maestro de trabajadores y miembros del Workspace"
-estado: borrador
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito B — Base operativa preparada"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "masters", "trabajadores"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-25"
+actualizado_en: "2026-07-28"
 ---
 
 # MVP-204 — Maestro de trabajadores y miembros del Workspace

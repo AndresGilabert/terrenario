@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "tareas", "catalogo"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-28"
 ---
 
 # MVP-302 — Guardado de tarea libre en catálogo
@@ -46,7 +46,10 @@ Permitir que una tarea libre registrada durante una actividad se pueda convertir
 
 - Opción de guardar una tarea libre introducida en una actividad.
 - Alta de esa tarea en el catálogo del Workspace activo.
-- Prevención básica de duplicados evidentes dentro del mismo Workspace.
+- **Reutilización** de la guarda de duplicados ya entregada por `MVP-205` (guarda de aplicación más
+  el índice único `ux_tasks_workspace_name` sobre `(workspace_id, lower(name))`): esta historia
+  **no la construye**, solo trata su `409 CONFLICT_TASK_NAME_DUPLICATE` desde el flujo de actividad,
+  ofreciendo reutilizar la tarea ya existente en vez de crear una segunda.
 
 ## Fuera de alcance (out-of-scope)
 
@@ -77,3 +80,7 @@ Permitir que una tarea libre registrada durante una actividad se pueda convertir
 ## Notas y decisiones
 
 - Esta historia mejora consistencia y velocidad, pero no bloquea el registro básico de actividades.
+- **Ajuste de alcance (revisión de cierre de MVP-002, `MVP-299`, hallazgo R-14).** La prevención de
+  duplicados **se adelantó a `MVP-205`** por decisión del PO (`MVP-999`, P-026): la guarda pertenece
+  al catálogo, no al flujo que lo alimenta. Esta historia pasa a **reutilizarla**, no a construirla.
+  La normalización avanzada de nombres (acentos, similitud) sigue fuera de alcance en ambas.

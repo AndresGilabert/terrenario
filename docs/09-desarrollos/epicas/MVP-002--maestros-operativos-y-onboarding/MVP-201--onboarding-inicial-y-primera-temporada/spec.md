@@ -2,7 +2,7 @@
 id: "MVP-201"
 tipo: feature
 titulo: "Onboarding inicial del Workspace y primera temporada"
-estado: en-progreso
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito B — Base operativa preparada"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "onboarding", "temporada"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-27"
+actualizado_en: "2026-07-28"
 ---
 
 # MVP-201 — Onboarding inicial del Workspace y primera temporada

@@ -6,7 +6,7 @@ estado: borrador
 prioridad: alta
 hito: "Hito B — Base operativa preparada"
 tickets: []
-historias: ["MVP-201", "MVP-202", "MVP-203", "MVP-204", "MVP-205", "MVP-206", "MVP-207", "MVP-299"]
+historias: ["MVP-201", "MVP-202", "MVP-203", "MVP-204", "MVP-205", "MVP-206", "MVP-207", "MVP-208", "MVP-299"]
 depende_de: ["MVP-001"]
 bloquea: ["MVP-003", "MVP-004"]
 relacionado_con: []
@@ -32,7 +32,7 @@ Sin este bloque, el diario y las cosechas arrancarían con semántica inestable 
 
 ## Objetivo
 
-Dejar cada Workspace preparado para empezar a registrar actividad real en pocos pasos, con maestros mínimos coherentes y sin configuración avanzada inicial, y con el ciclo de vida del propio Workspace cerrado para que esa preparación no se pierda ni quede huérfana.
+Dejar cada Workspace preparado para empezar a registrar actividad real en pocos pasos, con maestros mínimos coherentes y sin configuración avanzada inicial, con el ciclo de vida del propio Workspace cerrado para que esa preparación no se pierda ni quede huérfana, y con cada maestro **referenciable sin ambigüedad** por la operativa diaria que vendrá después.
 
 ## Requisitos de usuario de alto nivel
 
@@ -48,7 +48,11 @@ Dejar cada Workspace preparado para empezar a registrar actividad real en pocos 
 - Catálogo de tareas editable por Workspace, inicialmente vacío.
 - Política de inactivación de tareas, terrenos y trabajadores con histórico.
 - **Unicidad de nombre por Workspace en los maestros** (nombres no duplicables ignorando
-  mayúsculas), condición para que el maestro cumpla su función de referencia estable.
+  mayúsculas), condición para que el maestro cumpla su función de referencia estable. La unicidad
+  aplica al maestro completo, incluida la frontera miembro/cuadrilla del maestro de responsables.
+- **Identidad única de responsable**: todo miembro del Workspace y todo trabajador sin cuenta
+  comparten un único espacio de identificadores, para que la operativa diaria pueda referenciar a
+  cualquiera de los dos sin campos alternativos. Entregado en `MVP-208`. Ver Notas.
 - **Absorbido durante la épica**: **ciclo de vida del Workspace** (renombrar, baja lógica,
   propiedad y reactivación), entregado en `MVP-206`. Ver Notas.
 
@@ -65,8 +69,8 @@ Dejar cada Workspace preparado para empezar a registrar actividad real en pocos 
 
 - [ ] **CA-1**: Todas las historias de la épica están en estado `completado`.
 - [ ] **CA-2**: Un Workspace nuevo puede arrancar con primera temporada y los maestros mínimos necesarios sin configuración técnica adicional.
-- [ ] **CA-3**: Actividades, compras y cosechas pueden depender exclusivamente de estos maestros sin recurrir a texto libre salvo donde el MVP lo permite explícitamente.
-- [ ] **CA-4**: Los maestros son una referencia estable: dentro de un Workspace no conviven dos registros del mismo maestro con el mismo nombre, y su contrato publicado describe la API realmente entregada.
+- [ ] **CA-3**: Actividades, compras y cosechas pueden depender exclusivamente de estos maestros sin recurrir a texto libre salvo donde el MVP lo permite explícitamente. Incluye al **responsable**: tanto un miembro del Workspace como un trabajador sin cuenta se identifican con un único tipo de referencia y pueden guardarse (`MVP-208`).
+- [ ] **CA-4**: Los maestros son una referencia estable: dentro de un Workspace no conviven dos registros del mismo maestro con el mismo nombre —tampoco a través de la frontera miembro/cuadrilla del maestro de responsables—, y su contrato publicado describe la API realmente entregada, tanto en el alta como en la edición.
 - [ ] **CA-5**: El Workspace que sostiene esos maestros tiene su ciclo de vida cerrado: se puede renombrar y dar de baja de forma reversible, y nunca queda sin propietario (RN-038/RN-039/RN-040).
 
 ## Historias de esta épica
@@ -80,6 +84,7 @@ Dejar cada Workspace preparado para empezar a registrar actividad real en pocos 
 - `MVP-205` — Catálogo de tareas por Workspace.
 - `MVP-206` — Ciclo de vida del Workspace: renombrar, baja lógica y traspaso de propiedad.
 - `MVP-207` — Correcciones de cierre de la épica de maestros.
+- `MVP-208` — Identidad del responsable y correcciones finales de la épica de maestros.
 - `MVP-299` — Revision epica.
 
 ## Vinculacion con prototipo (fuente visual)
@@ -107,6 +112,7 @@ Matriz historia -> pantallas/componentes:
 | MVP-205 | [prototype/terrenario-mvp/src/components/ActivityModal.tsx](../../../../prototype/terrenario-mvp/src/components/ActivityModal.tsx) | No cubierto funcionalmente: no existe catalogo de tareas por Workspace ni inactivacion |
 | MVP-206 | [prototype/terrenario-mvp/src/components/AjustesView.tsx](../../../../prototype/terrenario-mvp/src/components/AjustesView.tsx) | No cubierto: renombrar/baja logica/traspaso de propiedad no existen en el prototipo |
 | MVP-207 | [prototype/terrenario-mvp/src/components/TemporadasView.tsx](../../../../prototype/terrenario-mvp/src/components/TemporadasView.tsx), [prototype/terrenario-mvp/src/components/TrabajadoresView.tsx](../../../../prototype/terrenario-mvp/src/components/TrabajadoresView.tsx) | No aplica: correcciones sobre pantallas ya entregadas por MVP-201..205 |
+| MVP-208 | [prototype/terrenario-mvp/src/components/TrabajadoresView.tsx](../../../../prototype/terrenario-mvp/src/components/TrabajadoresView.tsx), [prototype/terrenario-mvp/src/components/ActivityModal.tsx](../../../../prototype/terrenario-mvp/src/components/ActivityModal.tsx) | No aplica: modelo del maestro de responsables y correcciones sobre pantallas ya entregadas por MVP-201..207 |
 
 ## Notas y decisiones
 
@@ -121,8 +127,21 @@ Matriz historia -> pantallas/componentes:
   alcance y los criterios de aceptación de esta épica se ampliaron en la revisión de cierre
   (`MVP-299`, hallazgo R-03) para reflejarlo, con el mismo criterio con el que `MVP-001` documentó
   lo absorbido por `MVP-107`.
-- **Correcciones de cierre.** La revisión `MVP-299` (2026-07-28) verificó las seis historias contra
-  la API real y la UI conducida: todas conformes. Los defectos detectados sobre lo entregado
-  (contrato de temporadas desalineado, ausencia de guarda de duplicados fuera del catálogo de
-  tareas, invitación pendiente no anulable y dos incoherencias de acceso) se agrupan en `MVP-207`.
-  La épica no cierra hasta entregarla.
+- **Correcciones de cierre (1ª pasada).** La revisión `MVP-299` (2026-07-28) verificó las seis
+  historias contra la API real y la UI conducida: todas conformes. Los defectos detectados sobre lo
+  entregado (contrato de temporadas desalineado, ausencia de guarda de duplicados fuera del catálogo
+  de tareas, invitación pendiente no anulable y dos incoherencias de acceso) se agruparon en
+  `MVP-207`, ya entregada.
+- **Alcance ampliado en la 2ª pasada (trazado, no defecto): la identidad del responsable.** La
+  segunda pasada de `MVP-299` (2026-07-28), sobre `MVP-207` ya entregada, encontró que el **CA-3 de
+  esta épica no se cumplía**: `ACTIVITY.worker_id` es una FK a `workers` pero, por la decisión de
+  `MVP-204`, los miembros del Workspace no son filas de `workers`, así que un miembro elegido como
+  responsable no se podía guardar (`MVP-999`, `P-034`). De la misma decisión salía que la guarda de
+  nombre único de `MVP-207` no cubría la frontera miembro/cuadrilla (hallazgo `R-16`).
+  **Decisión del PO (2026-07-28): no arrastrar la incidencia.** `P-034` se reasigna de `MVP-301` a
+  esta épica y se resuelve en `MVP-208` materializando una fila de `workers` por miembro, lo que
+  cierra a la vez el CA-3 y la parte de `R-16` del CA-4. `MVP-208` recoge además el resto de defectos
+  de la 2ª pasada (`R-15`, `R-17`, `R-18` documental, `R-20`, `R-21`). El objetivo, el alcance y los
+  criterios de aceptación se ampliaron aquí para reflejarlo, con el mismo criterio con el que se
+  documentó lo absorbido por `MVP-206`. **La épica no cierra hasta entregar `MVP-208` y hacer la
+  tercera pasada de verificación en `MVP-299`.**

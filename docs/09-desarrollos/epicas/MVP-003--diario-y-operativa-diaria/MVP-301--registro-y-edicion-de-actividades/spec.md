@@ -87,3 +87,12 @@ Permitir registrar y editar actividades completas del Workspace con la mínima f
 ## Notas y decisiones
 
 - Esta historia es la base operativa de la épica.
+- **La identidad del responsable llega resuelta desde MVP-002.** El punto `P-034` de `MVP-999`
+  («no hay identidad única de responsable») estaba registrado con destino a esta historia. Por
+  decisión del PO (2026-07-28, 2ª pasada de `MVP-299`) se resuelve antes, en `MVP-208`: cada miembro
+  del Workspace pasa a tener su fila en `workers`, de modo que aquí el responsable es siempre un
+  `workers.id` y `ACTIVITY.worker_id` no necesita ser polimórfico. Esta historia **reutiliza** esa
+  identidad y el listado único de `GET /api/v1/workers`; no debe reconstruirla ni combinar en cliente
+  dos orígenes de personas.
+- **Pendiente propio de esta historia**: `P-028`, cómo quedan `task_id?` y `task_text?` en `ACTIVITY`
+  (FK opcional al catálogo de `MVP-205` más texto libre, RN-025) y la actualización del ER.

@@ -11,6 +11,9 @@ public static class ErrorCodes
     public const string AuthWorkspaceForbidden = "AUTH_WORKSPACE_FORBIDDEN";
     public const string AuthWorkspaceScopeRequired = "AUTH_WORKSPACE_SCOPE_REQUIRED";
     public const string AuthInvitationEmailMismatch = "AUTH_INVITATION_EMAIL_MISMATCH";
+    // Ciclo de vida del Workspace (MVP-206): baja y traspaso afectan a la propiedad y se
+    // restringen a workspace_owner, aunque en MVP el resto de permisos sean planos (RN-034).
+    public const string AuthWorkspaceOwnerRequired = "AUTH_WORKSPACE_OWNER_REQUIRED";
 
     // Validation errors
     public const string ValidationRequired = "VALIDATION_REQUIRED";
@@ -44,6 +47,9 @@ public static class ErrorCodes
     public const string ValidationRequiredTaskName = "VALIDATION_REQUIRED_TASK_NAME";
     public const string ValidationTaskNameLength = "VALIDATION_TASK_NAME_LENGTH";
     public const string ValidationRequiredTaskWorkspace = "VALIDATION_REQUIRED_TASK_WORKSPACE";
+    // Ciclo de vida del Workspace (MVP-206)
+    public const string ValidationRequiredReactivationContext = "VALIDATION_REQUIRED_REACTIVATION_CONTEXT";
+    public const string ValidationRequiredNewOwner = "VALIDATION_REQUIRED_NEW_OWNER";
 
     // Business rules
     public const string BusinessRuleInvitationExpired = "BUSINESS_RULE_INVITATION_EXPIRED";
@@ -53,6 +59,15 @@ public static class ErrorCodes
     // Administración de miembros (MVP-204, CA-8)
     public const string BusinessRuleLastActiveMember = "BUSINESS_RULE_LAST_ACTIVE_MEMBER";
     public const string BusinessRuleCannotRevokeOwner = "BUSINESS_RULE_CANNOT_REVOKE_OWNER";
+    // Ciclo de vida del Workspace (MVP-206)
+    public const string BusinessRuleWorkspaceDeleted = "BUSINESS_RULE_WORKSPACE_DELETED";
+    public const string BusinessRuleWorkspaceNotDeleted = "BUSINESS_RULE_WORKSPACE_NOT_DELETED";
+    public const string BusinessRuleOwnershipTransferToSelf = "BUSINESS_RULE_OWNERSHIP_TRANSFER_TO_SELF";
+    public const string BusinessRuleReactivationAlreadyUsed = "BUSINESS_RULE_REACTIVATION_ALREADY_USED";
+    public const string BusinessRuleReactivationExpired = "BUSINESS_RULE_REACTIVATION_EXPIRED";
+    public const string BusinessRuleReactivationNotRequested = "BUSINESS_RULE_REACTIVATION_NOT_REQUESTED";
+    /// <summary>Baja de cuenta con Workspaces de propiedad única sin resolver (CA-9).</summary>
+    public const string BusinessRuleWorkspaceOwnershipUnresolved = "BUSINESS_RULE_WORKSPACE_OWNERSHIP_UNRESOLVED";
 
     // Conflictos
     // Catálogo de tareas (MVP-205): nombre repetido en el mismo Workspace, ignorando mayúsculas.
@@ -63,6 +78,7 @@ public static class ErrorCodes
     public const string WorkspaceNotFound = "WORKSPACE_NOT_FOUND";
     public const string InvitationNotFound = "INVITATION_NOT_FOUND";
     public const string SeasonNotFound = "SEASON_NOT_FOUND";
+    public const string ReactivationRequestNotFound = "REACTIVATION_REQUEST_NOT_FOUND";
 
     // Generic
     public const string InternalError = "INTERNAL_ERROR";

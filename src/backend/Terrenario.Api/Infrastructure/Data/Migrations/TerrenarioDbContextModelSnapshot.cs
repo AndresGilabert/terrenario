@@ -281,6 +281,14 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid?>("DeletedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deleted_by_user_id");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(120)
@@ -296,6 +304,12 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
                         .HasColumnName("updated_at");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DeletedAt")
+                        .HasDatabaseName("ix_workspaces_live")
+                        .HasFilter("deleted_at IS NULL");
+
+                    b.HasIndex("DeletedByUserId");
 
                     b.HasIndex("OwnerId");
 
@@ -422,6 +436,66 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
                     b.ToTable("workspace_members", (string)null);
                 });
 
+            modelBuilder.Entity("Terrenario.Api.Domain.Workspaces.WorkspaceReactivationRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AuthorizerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("authorizer_user_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<Guid>("RecipientUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recipient_user_id");
+
+                    b.Property<DateTimeOffset?>("RequestedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("requested_at");
+
+                    b.Property<DateTimeOffset?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resolved_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("token_hash");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("workspace_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecipientUserId");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("AuthorizerUserId", "Status");
+
+                    b.HasIndex("WorkspaceId", "Status");
+
+                    b.ToTable("workspace_reactivation_requests", (string)null);
+                });
+
             modelBuilder.Entity("Terrenario.Api.Infrastructure.Auth.RefreshTokenEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -515,6 +589,11 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
                 {
                     b.HasOne("Terrenario.Api.Domain.Users.User", null)
                         .WithMany()
+                        .HasForeignKey("DeletedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Terrenario.Api.Domain.Users.User", null)
+                        .WithMany()
                         .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -551,6 +630,27 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Terrenario.Api.Domain.Workspaces.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Terrenario.Api.Domain.Workspaces.WorkspaceReactivationRequest", b =>
+                {
+                    b.HasOne("Terrenario.Api.Domain.Users.User", null)
+                        .WithMany()
+                        .HasForeignKey("AuthorizerUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Terrenario.Api.Domain.Users.User", null)
+                        .WithMany()
+                        .HasForeignKey("RecipientUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Terrenario.Api.Domain.Workspaces.Workspace", null)

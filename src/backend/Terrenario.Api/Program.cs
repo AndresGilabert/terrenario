@@ -22,8 +22,10 @@ using Terrenario.Api.Domain.Workspaces;
 using Terrenario.Api.Infrastructure.Auth;
 using Terrenario.Api.Infrastructure.Data;
 using Terrenario.Api.Infrastructure.Data.Repositories;
+using Terrenario.Api.Infrastructure.Email;
 using Terrenario.Api.Infrastructure.Invitations;
 using Terrenario.Api.Infrastructure.Telemetry;
+using Terrenario.Api.Infrastructure.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,6 +40,8 @@ builder.Services.Configure<InvitationOptions>(
     builder.Configuration.GetSection(InvitationOptions.SectionName));
 builder.Services.Configure<EmailOptions>(
     builder.Configuration.GetSection(EmailOptions.SectionName));
+builder.Services.Configure<WorkspaceLifecycleOptions>(
+    builder.Configuration.GetSection(WorkspaceLifecycleOptions.SectionName));
 
 // ── Database ─────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<TerrenarioDbContext>(options =>
@@ -111,9 +115,26 @@ builder.Services.AddScoped<UpdateTaskHandler>();
 builder.Services.AddScoped<ListTasksHandler>();
 builder.Services.AddScoped<ListWorkspacePeopleHandler>();
 builder.Services.AddScoped<RevokeMemberHandler>();
+// Ciclo de vida del Workspace (MVP-206): renombrar, baja lógica, traspaso y reactivación
+builder.Services.AddScoped<IWorkspaceReactivationRequestRepository, WorkspaceReactivationRequestRepository>();
+builder.Services.AddScoped<RenameWorkspaceHandler>();
+builder.Services.AddScoped<GetWorkspaceClosureOptionsHandler>();
+builder.Services.AddScoped<CloseWorkspaceHandler>();
+builder.Services.AddScoped<TransferWorkspaceOwnershipHandler>();
+builder.Services.AddScoped<WorkspaceOwnershipGuard>();
+builder.Services.AddScoped<PreviewReactivationHandler>();
+builder.Services.AddScoped<RequestReactivationHandler>();
+builder.Services.AddScoped<ListReactivationRequestsHandler>();
+builder.Services.AddScoped<ResolveReactivationHandler>();
+builder.Services.AddScoped<ReopenWorkspaceHandler>();
 builder.Services.AddScoped<IWorkspaceInvitationRepository, WorkspaceInvitationRepository>();
-builder.Services.AddScoped<IInvitationTokenService, InvitationTokenService>();
+builder.Services.AddScoped<InvitationTokenService>();
+builder.Services.AddScoped<IInvitationTokenService>(sp => sp.GetRequiredService<InvitationTokenService>());
+// Mismo esquema de token para los dos enlaces de un solo uso del producto: invitación y reactivación.
+builder.Services.AddScoped<IOneTimeTokenService>(sp => sp.GetRequiredService<InvitationTokenService>());
+builder.Services.AddScoped<SmtpMailer>();
 builder.Services.AddScoped<IInvitationEmailSender, SmtpInvitationEmailSender>();
+builder.Services.AddScoped<IWorkspaceLifecycleEmailSender, SmtpWorkspaceLifecycleEmailSender>();
 builder.Services.AddScoped<CreateInvitationHandler>();
 builder.Services.AddScoped<ListWorkspaceInvitationsHandler>();
 builder.Services.AddScoped<ResendInvitationHandler>();

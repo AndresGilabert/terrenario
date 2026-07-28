@@ -28,6 +28,11 @@ public sealed record ApiError(string Code, string Message)
     public static ApiError WorkspaceForbidden(string? message = null) =>
         new(ErrorCodes.AuthWorkspaceForbidden, message ?? "No tienes acceso a este recurso en tu Workspace activo.");
 
+    /// <summary>MVP-206 — La baja y el traspaso afectan a la propiedad: solo el propietario (CA-3).</summary>
+    public static ApiError WorkspaceOwnerRequired() =>
+        new(ErrorCodes.AuthWorkspaceOwnerRequired,
+            "Solo el propietario del Workspace puede dar de baja o traspasar la propiedad.");
+
     public static ApiError SeasonNotFound() =>
         new(ErrorCodes.SeasonNotFound, "Tu Workspace todavía no tiene una temporada activa.");
 

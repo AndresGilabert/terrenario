@@ -26,7 +26,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Tareas', icon: 'checklist', to: '/app/tareas' },
   { label: 'Miembros y accesos', icon: 'manage_accounts', to: '/app/miembros' },
   { label: 'Compras', icon: 'receipt_long' },
-  { label: 'Ajustes', icon: 'settings' },
+  { label: 'Ajustes', icon: 'settings', to: '/app/ajustes' },
 ];
 
 function initials(name: string | undefined): string {

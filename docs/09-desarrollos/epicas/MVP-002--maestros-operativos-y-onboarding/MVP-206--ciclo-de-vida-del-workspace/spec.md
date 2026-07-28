@@ -176,7 +176,10 @@ se aplica a cada Workspace del que sea propietario único):
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| AjustesView (referencia) | RN-034 + reglas nuevas de propiedad | falta | Pendiente de implementación |
+| AjustesView · datos del Workspace | RN-034 (renombrar lo puede hacer cualquier miembro) | cubierto | `/app/ajustes`: renombrado por propietario y por miembro no propietario verificado en API y UI; nombre reflejado en selector y cabecera sin recrear sesión (CA-1) |
+| AjustesView · zona nueva de propiedad y baja | RN-038 / RN-039 / RN-040 | cubierto | Diálogo por caso (`auto_transfer`/`choose`/`only_delete`), confirmación deshabilitada hasta decidir (CA-3), traspaso y baja verificados en API + base de datos + UI |
+| Pantallas nuevas de reactivación (no existen en el prototipo) | RN-040 | cubierto | `/reactivations/:token` (solicitar, un solo uso) y `/reactivations` (autorizar/denegar y reabrir) verificadas end-to-end |
+| AjustesView · «Perfil del titular» | RN-036 (identidad de Google, no editable) | fuera de alcance | No se porta; registrado como P-032 en `MVP-999` |
 
 ## Notas y decisiones
 
@@ -184,6 +187,9 @@ se aplica a cada Workspace del que sea propietario único):
   (propuesta): «un Workspace nunca queda sin propietario»; «la baja de Workspace es lógica, no
   física»; «la salida del propietario resuelve siempre la propiedad (traspaso o baja)». Se dejan
   enunciadas aquí para no tocar el catálogo global hasta el refinamiento.
+  **Formalizadas al implementar** como **RN-038** (un Workspace nunca queda sin propietario, incluida
+  la no-orfandad en la baja de cuenta), **RN-039** (la baja es lógica, nunca física) y **RN-040** (la
+  reactivación la autoriza quien dio de baja).
 - **Modelo de datos previsto** (a cerrar en el `tech-design`): `workspaces` gana `deleted_at`
   (timestamptz, nullable) y `deleted_by_user_id`; el traspaso actualiza `workspaces.owner_id` y los
   roles de `workspace_members`. La reactivación se modela con una entidad de **solicitud** con
@@ -193,10 +199,16 @@ se aplica a cada Workspace del que sea propietario único):
   miembro. Las acciones de **baja** y **traspaso** afectan a la propiedad, por lo que se restringen a
   `workspace_owner`. **Decisión de refinamiento pendiente con el PO**: ¿renombrar lo puede hacer
   cualquier miembro (coherente con RN-034 y con la revocación de MVP-204) o solo el propietario?
+  **Decisión del PO (2026-07-28): cualquier miembro activo**, por la literalidad de HU-1 y por
+  coherencia con RN-034 y con la revocación de MVP-204.
 - **Usabilidad — «dar de baja» con varios propietarios.** Con copropietarios, la acción no elimina el
   Workspace sino que lo reasigna y saca al solicitante; conviene que la UI **nombre la acción con
   claridad** (p. ej. «Salir y ceder mi propiedad») para no dar a entender un borrado. A decidir en el
-  `tech-design`.
+  `tech-design`. **Decisión del PO (2026-07-28)**: con copropietarios el solicitante **sale del
+  Workspace** (cede la propiedad y su membresía pasa a `revocado`), y la UI llama a la acción «Salir
+  y ceder mi propiedad» anunciando a quién pasa. En cambio, el **traspaso explícito** del propietario
+  único **no expulsa**: quien traspasa se queda como miembro normal (para irse está la retirada de
+  acceso de MVP-204). Las acciones operan siempre sobre el **Workspace activo**, desde «Ajustes».
 - **Edge — el que dio de baja borra su cuenta.** Si quien tiene que autorizar la reactivación ya no
   existe, la solicitud no puede autorizarse por esa vía. Por eso la baja de cuenta del propietario
   único **no** usa la vía de baja-lógica-con-reactivación por defecto, sino que **fuerza el traspaso**

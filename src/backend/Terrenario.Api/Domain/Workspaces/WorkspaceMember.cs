@@ -35,6 +35,18 @@ public sealed class WorkspaceMember
     /// </summary>
     public void Revoke() => Status = WorkspaceMemberStatuses.Revoked;
 
+    /// <summary>
+    /// MVP-206 (CA-4/CA-5/CA-7) — Convierte la membresía en propietaria al recibir el traspaso.
+    /// Idempotente: promover a quien ya es propietario no cambia nada.
+    /// </summary>
+    public void PromoteToOwner() => Role = WorkspaceRoles.Owner;
+
+    /// <summary>
+    /// MVP-206 (CA-4/CA-5) — Retira el rol de propietario dejando la membresía como miembro normal.
+    /// En MVP los permisos son planos (RN-034), así que solo afecta a las reglas de propiedad.
+    /// </summary>
+    public void DemoteToMember() => Role = WorkspaceRoles.Member;
+
     private static WorkspaceMember Create(Guid workspaceId, Guid userId, string role) =>
         new()
         {

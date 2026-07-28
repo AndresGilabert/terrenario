@@ -35,6 +35,21 @@ erDiagram
         string name
         timestamp created_at
         timestamp updated_at
+        timestamp deleted_at
+        uuid deleted_by_user_id FK
+    }
+
+    WORKSPACE_REACTIVATION_REQUEST {
+        uuid id PK
+        uuid workspace_id FK
+        uuid recipient_user_id FK
+        uuid authorizer_user_id FK
+        string token_hash
+        string status
+        timestamp expires_at
+        timestamp created_at
+        timestamp requested_at
+        timestamp resolved_at
     }
 
     WORKSPACE_MEMBER {
@@ -176,6 +191,8 @@ erDiagram
     WORKSPACE ||--o{ WORKSPACE_MEMBER : tiene_miembros
     WORKSPACE ||--o{ WORKSPACE_INVITATION : emite
     USER ||--o{ WORKSPACE_INVITATION : invita
+    WORKSPACE ||--o{ WORKSPACE_REACTIVATION_REQUEST : puede_recuperarse_con
+    USER ||--o{ WORKSPACE_REACTIVATION_REQUEST : solicita_o_autoriza
     WORKSPACE ||--o{ WORKER : mantiene
     WORKSPACE ||--o{ PLOT : contiene
     WORKSPACE ||--o{ SEASON : define
@@ -196,6 +213,38 @@ erDiagram
 ---
 
 ## Entidades y reglas clave
+
+### WORKSPACE (ciclo de vida)
+
+| Campo | Tipo | Obligatorio | Descripcion |
+|-------|------|-------------|-------------|
+| `owner_id` | UUID | Si | Persona propietaria actual. El traspaso lo actualiza junto al `role` de las membresias implicadas (MVP-206) |
+| `deleted_at` | timestamptz (nullable) | No | Marca de **baja logica** (RN-039). Nunca hay borrado fisico: un Workspace con `deleted_at` deja de resolver contexto y de aparecer en el selector, pero conserva todos sus datos |
+| `deleted_by_user_id` | UUID (nullable) | No | Quien dio de baja. Es la unica persona que puede autorizar la reactivacion o volver a levantarlo (RN-040), por lo que la FK es `ON DELETE RESTRICT` |
+
+Restricciones: indice de apoyo en `owner_id` e indice parcial `ix_workspaces_live` sobre
+`deleted_at` filtrado por `deleted_at IS NULL`, que es como consulta el 100% de la aplicacion.
+
+El filtro de baja logica vive en el **puerto** `IWorkspaceRepository` (todas sus lecturas excluyen los
+dados de baja salvo `FindIncludingDeletedAsync`), no en un filtro global de EF: los maestros de
+MVP-202/203/204/205 heredan el comportamiento sin cambios porque resuelven su ambito a traves de ese
+mismo puerto.
+
+### WORKSPACE_REACTIVATION_REQUEST
+
+| Campo | Tipo | Obligatorio | Descripcion |
+|-------|------|-------------|-------------|
+| `recipient_user_id` | UUID | Si | Miembro al que se envio el enlace: el unico que puede usarlo |
+| `authorizer_user_id` | UUID | Si | Quien dio de baja el Workspace: la unica persona que puede resolver la solicitud (RN-040) |
+| `token_hash` | string | Si | SHA-256 del token del enlace. El valor en claro solo viaja en el email, como en `WORKSPACE_INVITATION` |
+| `status` | string | Si | Catalogo `reactivation_request_status`: `pendiente`, `solicitada`, `autorizada`, `denegada`, `cerrada` |
+| `expires_at` | timestamptz | Si | La caducidad se deriva de esta fecha; no es un estado persistido |
+| `requested_at` / `resolved_at` | timestamptz (nullable) | No | Trazabilidad de cuando se pidio y cuando se decidio |
+
+Restricciones: indice unico en `token_hash` e indices de apoyo `(authorizer_user_id, status)` y
+`(workspace_id, status)`. Se emite **una solicitud por miembro activo notificado**, no un enlace
+comun: asi el traspaso queda atado a quien lo pide. El estado `cerrada` marca los enlaces que dejan
+de servir porque el Workspace ya volvio por otra via, sin atribuir una decision que no hubo.
 
 ### WORKSPACE_MEMBER
 
@@ -367,8 +416,9 @@ materializa la entidad de actividad.
 | Entidad | Estado | Historia |
 |---|---|---|
 | `USER` | implementada | MVP-101 (contexto activo en MVP-104) |
-| `WORKSPACE` | implementada | MVP-102 |
-| `WORKSPACE_MEMBER` | implementada | MVP-102 (estados de membresia en MVP-104) |
+| `WORKSPACE` | implementada | MVP-102 (ciclo de vida en MVP-206: renombrado, baja logica `deleted_at` y traspaso de `owner_id`) |
+| `WORKSPACE_MEMBER` | implementada | MVP-102 (estados de membresia en MVP-104; promocion/degradacion de `role` por el traspaso en MVP-206) |
+| `WORKSPACE_REACTIVATION_REQUEST` | implementada | MVP-206 (enlace de un solo uso para solicitar traspaso y reactivacion) |
 | `WORKSPACE_INVITATION` | implementada | MVP-103 (reenvio en MVP-204: `Reissue` rota token y renueva caducidad) |
 | `SEASON` | implementada | MVP-201 (temporada inicial + `is_active`); maestro completo en MVP-203 (estados `planificada/activa/cerrada` derivados; `active_crop` diferido) |
 | `PLOT` | implementada | MVP-202 (alta minima RN-028, `is_active`; `location` en vez de coordenadas; `soil_metadata` diferido) |

@@ -72,7 +72,7 @@ public sealed class WorkspaceMembersController(
         }
         catch (WorkspaceMemberException ex)
         {
-            return MapMemberError(ex);
+            return WorkspaceMemberErrorMapper.ToActionResult(ex);
         }
     }
 
@@ -101,17 +101,4 @@ public sealed class WorkspaceMembersController(
         expires_at = invited.ExpiresAt,
         is_expired = invited.IsExpired
     };
-
-    private ObjectResult MapMemberError(WorkspaceMemberException ex)
-    {
-        var statusCode = ex.ErrorCode switch
-        {
-            ErrorCodes.ResourceNotFound => StatusCodes.Status404NotFound,
-            _ when ex.ErrorCode.StartsWith("BUSINESS_RULE_", StringComparison.Ordinal)
-                => StatusCodes.Status422UnprocessableEntity,
-            _ => StatusCodes.Status400BadRequest
-        };
-
-        return StatusCode(statusCode, new ApiErrorResponse(new ApiError(ex.ErrorCode, ex.Message)));
-    }
 }

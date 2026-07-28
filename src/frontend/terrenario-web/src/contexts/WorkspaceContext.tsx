@@ -14,6 +14,12 @@ interface WorkspaceContextValue {
   switchWorkspace: (workspaceId: string) => Promise<Workspace>;
   /** Vuelve a cargar la lista de membresías (p. ej. tras aceptar una invitación). */
   refreshWorkspaces: () => Promise<void>;
+  /**
+   * Resincroniza el contexto completo (Workspace activo + lista) sin recrear la sesión. Lo usa el
+   * ciclo de vida del Workspace (MVP-206): renombrar refresca el nombre en selector y cabecera
+   * (CA-1), y dar de baja o traspasar hace que el activo pase a resolverse de nuevo (CA-8).
+   */
+  refreshContext: () => Promise<void>;
   /** Acepta una invitación por enlace y deja la sesión situada en ese Workspace (MVP-103). */
   acceptInvitation: (token: string) => Promise<Workspace>;
   /** Acepta una invitación recibida por id (bandeja/notificaciones) y sitúa la sesión (MVP-107). */
@@ -89,6 +95,21 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
     };
   }, [isAuthenticated, isAuthLoading, loadWorkspaces]);
+
+  const refreshContext = useCallback(async (): Promise<void> => {
+    const accessToken = await getAccessTokenRef.current();
+    if (!accessToken) return;
+
+    try {
+      // El activo se resuelve siempre en servidor: si el Workspace en el que estábamos se ha dado
+      // de baja, la respuesta ya trae el que pasa a serlo (o `null` si no queda ninguno).
+      setActiveWorkspace(await workspaceService.getActiveWorkspace(accessToken));
+    } catch {
+      setActiveWorkspace(null);
+    }
+
+    await loadWorkspaces(accessToken);
+  }, [loadWorkspaces]);
 
   const createWorkspace = useCallback(
     async (name: string): Promise<Workspace> => {
@@ -170,6 +191,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     createWorkspace,
     switchWorkspace,
     refreshWorkspaces: loadWorkspaces,
+    refreshContext,
     acceptInvitation,
     acceptInvitationById,
   };

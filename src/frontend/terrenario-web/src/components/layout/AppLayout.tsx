@@ -12,6 +12,7 @@ function titleForPath(pathname: string): string {
   if (pathname.startsWith('/app/trabajadores')) return 'Trabajadores';
   if (pathname.startsWith('/app/miembros')) return 'Miembros y accesos';
   if (pathname.startsWith('/app/tareas')) return 'Catálogo de tareas';
+  if (pathname.startsWith('/app/ajustes')) return 'Ajustes del Workspace';
   return 'Inicio';
 }
 

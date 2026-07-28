@@ -58,24 +58,28 @@ function AppRoutes() {
           {/* Oferta de temporada (MVP-201): pantalla de creación, fuera de la guarda para no hacer bucle */}
           <Route path="/app/temporada/nueva" element={<SeasonSetupPage />} />
           <Route element={<AppLayout />}>
-            {/* Maestros de administración (MVP-202/203/204/205): dentro del shell pero FUERA de la
-                guarda de oferta, para que gestionar terrenos, temporadas, trabajadores, accesos y el
-                catálogo de tareas sea siempre accesible aunque el Workspace no tenga temporada
-                activa. Terrenos era el único que quedaba dentro de la guarda: corregido en MVP-207
-                (CA-5), porque preparar la explotación no debe exigir crear antes una temporada (la
-                temporada es un acto cancelable por decisión de producto de MVP-201). */}
+            {/* Administración (MVP-202/203/204/205/206): dentro del shell pero FUERA de la guarda de
+                oferta, para que preparar la explotación —terrenos, temporadas, trabajadores, tareas,
+                personas y ajustes— sea siempre accesible aunque el Workspace no tenga temporada
+                activa. Preparar no debe exigir crear antes una temporada: la temporada es un acto
+                cancelable por decisión de producto de MVP-201.
+                Terrenos era el único maestro que quedaba dentro: corregido en MVP-207 (CA-5). Invitar
+                también estaba dentro (MVP-999, P-038) y producía el mismo desvío al pulsar «Invitar
+                persona» desde Miembros, que sí estaba fuera; se corrige en la misma pasada. */}
             <Route path="/app/terrenos" element={<TerrenosView />} />
             <Route path="/app/temporadas" element={<TemporadasView />} />
             <Route path="/app/trabajadores" element={<TrabajadoresView />} />
             <Route path="/app/miembros" element={<MiembrosView />} />
             <Route path="/app/tareas" element={<TareasView />} />
+            <Route path="/app/invitations" element={<InvitePeoplePage />} />
             {/* Ciclo de vida del Workspace (MVP-206): renombrar y dar de baja no dependen de que
                 haya temporada activa. */}
             <Route path="/app/ajustes" element={<AjustesView />} />
-            {/* Resto de operativa: si el Workspace activo no tiene temporada, se ofrece crearla (cancelable) */}
+            {/* Arranque de la aplicación: si el Workspace activo no tiene temporada, se ofrece
+                crearla (cancelable). Es el único destino que sigue tras la guarda, que es donde
+                MVP-201 la quería: al entrar, no al administrar. */}
             <Route element={<RequireSeasonOffer />}>
               <Route path="/app" element={<HomeView />} />
-              <Route path="/app/invitations" element={<InvitePeoplePage />} />
               <Route path="/app/*" element={<HomeView />} />
             </Route>
           </Route>

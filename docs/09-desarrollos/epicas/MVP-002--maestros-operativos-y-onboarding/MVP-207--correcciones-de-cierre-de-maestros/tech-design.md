@@ -35,7 +35,7 @@ Las cinco correcciones y su naturaleza:
 | CA-1 | Contrato de temporadas reconciliado con la API entregada | Solo documentación (`contratos-api.md`) |
 | CA-2 / CA-3 | Guarda de nombre único por Workspace en `seasons`, `workers` y `plots` | Backend + migración + UI |
 | CA-4 | Anulación de una invitación pendiente | Backend + migración + UI |
-| CA-5 | `/app/terrenos` fuera de la guarda de oferta de temporada | Solo routing (frontend) |
+| CA-5 | `/app/terrenos` y `/app/invitations` fuera de la guarda de oferta de temporada | Solo routing (frontend) |
 | CA-6 | Home que conduce a los maestros pendientes | Frontend |
 
 La pieza con más superficie (CA-2/CA-3) **no inventa patrón**: replica exactamente el de MVP-205
@@ -49,8 +49,14 @@ vacía).
   dirección que ya proponía el spec y la coherente con MVP-203/204/205: un maestro se administra
   aunque el Workspace no tenga temporada. La alternativa —meter todos los maestros dentro de la
   guarda— haría que preparar la explotación exigiera crear antes una temporada, en contra de la
-  decisión de MVP-201 de que la temporada sea un acto **cancelable**. La guarda sigue cubriendo el
-  Home y la operativa (`/app/invitations` y lo que llegue en MVP-003/004).
+  decisión de MVP-201 de que la temporada sea un acto **cancelable**.
+- **`/app/invitations` sale también** (decisión del PO sobre P-038, tomada al revisar la historia).
+  Se detectó al mover Terrenos: invitar no es un maestro, así que quedaba fuera de la letra de CA-5,
+  pero producía el mismo desvío al pulsar «Invitar persona» desde «Miembros y accesos», que sí estaba
+  fuera de la guarda. Corregirlo en la misma pasada evita arrastrar media incoherencia. Tras el
+  cambio, el **único** destino detrás de `RequireSeasonOffer` es el Home (`/app`), que es donde
+  MVP-201 quería la oferta: al entrar, no al administrar. Lo que llegue en MVP-003/004 decidirá por
+  su cuenta si entra o no en la guarda, ahora que el criterio es explícito.
 - **La migración renombra los duplicados preexistentes; no los borra ni los inactiva** (decisión del
   PO, CA-3). Se conserva intacto el registro más antiguo de cada grupo y el resto recibe un sufijo
   «&nbsp;(2)», «&nbsp;(3)»… por orden de `created_at`. Alternativas descartadas: **inactivarlos** no resuelve
@@ -135,7 +141,7 @@ sequenceDiagram
 | Componente | Tipo de cambio | Descripción |
 | ---------- | -------------- | ----------- |
 | `components/home/HomeView.tsx` | nuevo | Home con checklist de preparación y copy corregido (CA-6) |
-| `App.tsx` | modificado | `/app/terrenos` fuera de la guarda de oferta (CA-5); `AppHome` sustituido por `HomeView` |
+| `App.tsx` | modificado | `/app/terrenos` y `/app/invitations` fuera de la guarda de oferta (CA-5 y P-038); `AppHome` sustituido por `HomeView` |
 | `components/members/MiembrosView.tsx` | modificado | Acción «Anular invitación» con confirmación en línea (CA-4) |
 | `services/member.service.ts` | modificado | `cancelInvitation` |
 | `types/invitation.types.ts` · `lib/invitation-ui.ts` | modificado | Estado `anulada`, motivo `cancelled` y su mensaje |
@@ -222,9 +228,11 @@ estaba implementado: esta historia lo implementa en lugar de retirarlo.
 
 ### Cliente (frontend)
 
-- **CA-5** es un cambio de una línea de routing: `/app/terrenos` pasa del bloque `RequireSeasonOffer`
-  al bloque de maestros de administración, junto a temporadas, trabajadores, tareas, miembros y
-  ajustes. El comentario del `App.tsx` ya afirmaba esa regla; ahora el código la cumple.
+- **CA-5** es un cambio de routing: `/app/terrenos` y `/app/invitations` pasan del bloque
+  `RequireSeasonOffer` al bloque de administración, junto a temporadas, trabajadores, tareas,
+  miembros y ajustes. El comentario del `App.tsx` ya afirmaba la regla para los maestros; ahora el
+  código la cumple y el criterio queda escrito entero: **administrar** el Workspace nunca exige
+  temporada activa; **entrar** a la aplicación sigue ofreciendo crearla.
 - **CA-2 en la UI** no requiere código nuevo en los formularios: los modales de terreno, temporada y
   trabajador ya mostraban el `errorMessage` que les pasa la vista y ya conservaban lo tecleado (no se
   cierran al fallar el envío). El mensaje del 409 llega del contrato y se muestra tal cual, igual que
@@ -262,15 +270,17 @@ estaba implementado: esta historia lo implementa en lugar de retirarlo.
 | Carrera entre dos altas simultáneas | baja | Índice único + traducción de la violación a 409 en los tres repositorios, incluido el camino `ActivateExclusivelyAsync` de temporadas |
 | Discrepancia entre la guarda de aplicación y el índice | baja | Ambos comparan `lower(name)`; tests SQLite del criterio y verificación del índice en PostgreSQL real |
 | Regresión del `PATCH` parcial al añadir la guarda | baja | Test por maestro: un `PATCH` sin `name` no consulta duplicados y conserva los campos omitidos |
-| Sacar Terrenos de la guarda deja al usuario sin temporada al registrar | nula hoy | El registro operativo no existe todavía (MVP-003); cuando llegue, la temporada la exige la propia actividad (RN-021), no el acceso al maestro |
+| Sacar Terrenos e Invitar de la guarda deja al usuario sin temporada al registrar | nula hoy | El registro operativo no existe todavía (MVP-003); cuando llegue, la temporada la exige la propia actividad (RN-021), no el acceso al maestro. La oferta sigue viva en el Home, que es el destino por defecto al entrar |
 | Un rechazo tardío sobrescribe una invitación anulada | baja | `Reject` comprueba el estado `anulada` antes de la idempotencia; test de dominio |
 | El Home añade tres peticiones al arranque | baja | Se lanzan en paralelo y solo en `/app`; si fallan, el bloque no se pinta y la pantalla sigue siendo útil |
 
 ## Impacto en la usabilidad
 
-- **Terrenos deja de tener un desvío que ningún otro maestro tiene.** Un Workspace sin temporada
-  activa ya no manda a crear una al entrar en Terrenos: los seis destinos de administración se
-  comportan igual. Es una fricción menos, no una función menos.
+- **Terrenos e Invitar dejan de tener un desvío que el resto de la administración no tiene.** Un
+  Workspace sin temporada activa ya no manda a crear una al entrar en Terrenos ni al pulsar «Invitar
+  persona» desde Miembros —que era el más desconcertante, porque la pantalla de origen sí cargaba—.
+  Los siete destinos de administración se comportan igual. Es una fricción menos, no una función
+  menos: la oferta de temporada sigue apareciendo al entrar en la aplicación.
 - **El error de duplicado es informativo, no un callejón**: dice qué registro ya existe, el modal
   sigue abierto y lo tecleado se conserva, así que corregir es cambiar una palabra y reenviar.
 - **Anular una invitación es simétrico a retirar el acceso**: misma posición, mismo color, misma
@@ -316,7 +326,9 @@ estaba implementado: esta historia lo implementa en lugar de retirarlo.
     Workspace → 404; sin token → 401; la persona desaparece de `GET /workspace-members`
     (`invited: 1` → `invited: 0`).
   - UI conducida: `/app/terrenos` **carga** en un Workspace sin temporada activa (antes desviaba a
-    `/app/temporada/nueva`); el modal de terreno muestra «Ya existe un terreno «la via» en este
+    `/app/temporada/nueva`); «Invitar persona» desde «Miembros y accesos» abre la pantalla de invitar
+    en el mismo Workspace sin temporada (P-038), mientras `/app` **sigue** ofreciendo crearla, que es
+    la regresión que había que descartar; el modal de terreno muestra «Ya existe un terreno «la via» en este
     Workspace», sigue abierto y conserva nombre y propietario tecleados, y al corregir el nombre crea
     y cierra; el Home muestra «Prepara tu explotación · 2/4» con CTA a los pendientes y navega al
     maestro correcto; «Anular invitación» pide confirmación y la persona desaparece de la lista. Sin
@@ -339,6 +351,7 @@ errores nuevos.
   terrenos y trabajadores, endpoint de anulación y catálogo `invitation_status` corregido
 - [x] Modelo de datos actualizado (tres índices únicos, columnas de anulación y estados de la
   invitación)
-- [x] Puntos de coherencia registrados en `MVP-999`
+- [x] Puntos de coherencia registrados en `MVP-999` (P-038 y P-042 resueltos aquí; P-039, P-040 y
+  P-041 pendientes con destino)
 - [x] Verificación end-to-end real (API + PostgreSQL + UI conducida)
 - [x] Sin `TODO` sin resolver en este documento

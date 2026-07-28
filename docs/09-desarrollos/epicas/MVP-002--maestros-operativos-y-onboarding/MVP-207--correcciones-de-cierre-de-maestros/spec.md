@@ -101,7 +101,9 @@ a continuación,
   accesos». La invitación anulada deja de ser aceptable por su enlace y desaparece de la lista de
   personas del Workspace.
 - **Coherencia de la guarda de oferta de temporada**: `/app/terrenos` pasa a comportarse como el
-  resto de maestros de administración (ver decisión en Notas).
+  resto de maestros de administración (ver decisión en Notas). Se incluye también `/app/invitations`,
+  que producía el mismo desvío desde «Miembros y accesos» (`MVP-999`, P-038; decisión del PO de
+  corregirlo aquí para no arrastrarlo).
 - **Arranque de la aplicación**: el Home conduce a los maestros pendientes de poblar y su copy deja
   de anunciar como «por habilitar» módulos que ya están encendidos.
 
@@ -133,7 +135,9 @@ a continuación,
   personas del Workspace.
 - [x] **CA-5**: Todos los maestros de administración se comportan igual respecto de la oferta de
   temporada: entrar a Terrenos en un Workspace sin temporada activa no produce un desvío que los
-  demás maestros no producen.
+  demás maestros no producen. Se extiende a `/app/invitations` (P-038), que producía ese mismo desvío
+  al pulsar «Invitar persona» desde «Miembros y accesos»: toda la administración queda fuera de la
+  guarda y el Home es el único destino que la conserva.
 - [x] **CA-6**: Tras el primer acceso, el Home ofrece un camino explícito a los maestros que faltan
   por poblar y ningún texto de la pantalla contradice los módulos realmente disponibles en el menú.
 
@@ -177,9 +181,12 @@ a continuación,
   comentario de `App.tsx` y lo coherente con MVP-203/204/205 (un maestro se administra aunque el
   Workspace no tenga temporada). La alternativa —meter todos los maestros dentro de la guarda— haría
   que preparar la explotación exigiera antes crear una temporada, en contra de la decisión de
-  producto de MVP-201 de que la temporada sea un acto cancelable. **`/app/invitations` sigue dentro
-  de la guarda** y produce el mismo desvío al pulsar «Invitar persona» desde Miembros: no es un
-  maestro, así que queda fuera de la letra de CA-5 y se registra en `MVP-999` (P-038).
+  producto de MVP-201 de que la temporada sea un acto cancelable. **`/app/invitations` entra en la
+  misma corrección** (P-038): no es un maestro, así que quedaba fuera de la letra de CA-5, pero
+  producía exactamente el mismo desvío al pulsar «Invitar persona» desde «Miembros y accesos», que sí
+  estaba fuera de la guarda. Decisión del PO: corregirlo aquí para no arrastrar el error. Tras el
+  cambio, el **único** destino detrás de la guarda es el Home (`/app`): la oferta de temporada vuelve
+  a estar donde MVP-201 la quería, al entrar y no al administrar.
 - **Anulación frente a rechazo.** El rechazo (`POST /invitations/{token}/reject`, MVP-107) lo
   ejecuta la persona invitada; la anulación de esta historia la ejecuta el Workspace emisor. Son
   dos transiciones distintas sobre `workspace_invitations` y ambas dejan la invitación inservible.
@@ -188,6 +195,6 @@ a continuación,
   `pendiente, aceptada` pese a que MVP-107 añadió `rechazada`. Se corrige al añadir `anulada`, por
   ser la misma tabla y la misma clase de deriva que R-05; registrado en `MVP-999` (P-042).
 - **Puntos nuevos abiertos por esta historia**, en `MVP-999`: P-038 (`/app/invitations` dentro de la
-  guarda de temporada), P-039 (no se avisa a la persona invitada de que su invitación se anuló),
-  P-040 (encaje del bloque de preparación del Home con la Visión General de MVP-004) y P-041
-  (los duplicados renombrados no se pueden fusionar).
+  guarda de temporada, **resuelto aquí**), P-039 (no se avisa a la persona invitada de que su
+  invitación se anuló), P-040 (encaje del bloque de preparación del Home con la Visión General de
+  MVP-004) y P-041 (los duplicados renombrados no se pueden fusionar).

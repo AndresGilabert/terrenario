@@ -67,6 +67,7 @@ y se mantienen en español.
 | `worker_member_status` | `invitado`, `activo`, `revocado` |
 | `invitation_channel` | `email`, `enlace` |
 | `invitation_status` | `pendiente`, `aceptada` |
+| `reactivation_request_status` | `pendiente`, `solicitada`, `autorizada`, `denegada`, `cerrada` |
 
 ---
 
@@ -80,6 +81,11 @@ y se mantienen en español.
 | Mis workspaces | `GET /api/v1/workspaces` | — | `200 { data:[{ id, name, role, status, is_active, joined_at }], meta:{ total, active_workspace_id } }` |
 | Workspace activo | `GET /api/v1/workspaces/active` | — | `200 { id, name }` |
 | Cambiar workspace activo | `PUT /api/v1/workspaces/active` | `workspace_id*` | `200 { workspace: { id, name }, access_token, expires_in }` |
+| Renombrar workspace activo (MVP-206) | `PATCH /api/v1/workspaces/active` | `name*` | `200 { id, name }` |
+| Opciones de baja del activo (MVP-206) | `GET /api/v1/workspaces/active/closure` | — | `200 { workspace, is_owner, mode, active_owners, successor_name, candidates[] }` |
+| Dar de baja el workspace activo (MVP-206) | `POST /api/v1/workspaces/active/closure` | — | `200 { outcome, workspace, new_owner_name, notified_members, emails_sent }` |
+| Traspasar la propiedad (MVP-206) | `POST /api/v1/workspaces/active/transfer-ownership` | `new_owner_user_id*` | `200 { outcome: "transferred", workspace, new_owner_name }` |
+| Propiedades unicas sin resolver (MVP-206) | `GET /api/v1/workspaces/ownership-obligations` | — | `200 { data:[{ workspace_id, name, other_active_members, can_transfer }], meta:{ total, is_clear } }` |
 
 Validaciones clave:
 
@@ -90,6 +96,10 @@ Validaciones clave:
 | El usuario todavía no tiene ningún Workspace | `WORKSPACE_NOT_FOUND` (404) |
 | `workspace_id` obligatorio al cambiar de activo | `VALIDATION_REQUIRED` (400) |
 | Activar un Workspace sin membresía activa | `AUTH_WORKSPACE_FORBIDDEN` (403) |
+| Dar de baja o traspasar sin ser propietario (MVP-206) | `AUTH_WORKSPACE_OWNER_REQUIRED` (403) |
+| Traspasar a quien no es miembro activo (MVP-206) | `RESOURCE_NOT_FOUND` (404) |
+| Traspasar la propiedad a uno mismo (MVP-206) | `BUSINESS_RULE_OWNERSHIP_TRANSFER_TO_SELF` (422) |
+| Operar sobre un Workspace dado de baja (MVP-206) | `BUSINESS_RULE_WORKSPACE_DELETED` (422) |
 
 Reglas de contexto:
 
@@ -100,6 +110,46 @@ Reglas de contexto:
 | `POST /workspaces` reemite la sesión | Devuelve un `access_token` nuevo ya situado en el Workspace creado |
 | `PUT /workspaces/active` reemite la sesión | Valida membresía activa, persiste el activo (`users.active_workspace_id`) y devuelve un `access_token` nuevo situado en el destino (MVP-104) |
 | `GET /workspaces` solo lista membresías `activo` | Las `revocado` quedan fuera; `is_active` marca el que ejecuta las operaciones |
+| Renombrar lo puede hacer cualquier miembro activo (MVP-206) | Permisos planos en MVP por RN-034. No reemite la sesión: el nombre no viaja en el token |
+| Dar de baja y traspasar se restringen al propietario (MVP-206) | Afectan a la propiedad (RN-038), a diferencia del resto de operaciones planas |
+| `mode` de `GET /active/closure` (MVP-206) | `auto_transfer` (hay copropietarios: la baja reasigna y el solicitante sale), `choose` (propietario único: hay que decidir), `only_delete` (propietario único sin nadie más), `not_owner` |
+| La baja es **lógica** (RN-039) | `deleted_at`; el Workspace deja de resolver contexto y de aparecer en el selector, y si era el activo la sesión cae al Workspace por defecto. Ningún dato se borra |
+| `outcome` de la baja (MVP-206) | `transferred` (el Workspace sigue vivo con otra persona propietaria) o `deleted` (baja lógica con aviso al resto de miembros) |
+| `is_clear: false` en obligaciones de propiedad (MVP-206) | La baja de cuenta no puede completarse: hay Workspaces de propiedad única sin resolver (RN-038, CA-9). El flujo completo de baja de cuenta es alcance posterior (`MVP-999`, P-024) |
+
+### 0.b bis) Reactivación de un Workspace dado de baja (MVP-206)
+
+| Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
+|---|---|---|---|
+| Ver enlace de reactivación | `GET /api/v1/workspaces/reactivations/{token}` | — | `200 { id, workspace, closed_by, status, expires_at, is_expired, can_request }` |
+| Solicitar traspaso y reactivación | `POST /api/v1/workspaces/reactivations/{token}/request` | — | `200 { ...misma forma, status: "solicitada" }` |
+| Solicitudes pendientes de mi decisión | `GET /api/v1/workspaces/reactivations` | — | `200 { data:[{ id, workspace, requested_by, requested_at, expires_at }], meta:{ total } }` |
+| Autorizar traspaso y reactivación | `POST /api/v1/workspaces/reactivations/{id}/authorize` | — | `200 { workspace, new_owner_user_id }` |
+| Denegar | `POST /api/v1/workspaces/reactivations/{id}/deny` | — | `204` |
+| Workspaces que di de baja | `GET /api/v1/workspaces/reactivations/closed` | — | `200 { data:[{ id, name, closed_at }], meta:{ total } }` |
+| Volver a levantar uno propio | `POST /api/v1/workspaces/reactivations/closed/{id}/reopen` | — | `200 { id, name }` |
+
+Validaciones clave:
+
+| Regla | Código error |
+|---|---|
+| Enlace inexistente o dirigido a otra persona | `REACTIVATION_REQUEST_NOT_FOUND` (404) |
+| Solicitud que no es de un Workspace que diera de baja quien la resuelve | `REACTIVATION_REQUEST_NOT_FOUND` (404) |
+| Enlace ya utilizado | `BUSINESS_RULE_REACTIVATION_ALREADY_USED` (422) |
+| Enlace caducado | `BUSINESS_RULE_REACTIVATION_EXPIRED` (422) |
+| Resolver una solicitud que no se ha pedido o ya se resolvió | `BUSINESS_RULE_REACTIVATION_NOT_REQUESTED` (422) |
+| Solicitar sobre un Workspace que ya está activo | `BUSINESS_RULE_WORKSPACE_NOT_DELETED` (422) |
+
+Reglas de contexto:
+
+| Regla | Comportamiento |
+|---|---|
+| Estas rutas **no** exigen Workspace activo | El Workspace está dado de baja: no resuelve contexto y puede ser el único que tuvieran las personas implicadas |
+| Un enlace por persona notificada | Se emite una solicitud por miembro activo al darse de baja; el traspaso queda atado a quien lo pide, no al enlace |
+| El enlace es de un solo uso y caduca | Vigencia por configuración (`WorkspaceLifecycle:ReactivationLifetimeDays`, 7 días en MVP). En base de datos vive solo el hash |
+| Solo autoriza quien dio de baja (RN-040) | Para cualquier otra cuenta la solicitud no existe (404 uniforme) |
+| Al autorizar | El Workspace se reactiva y su propiedad pasa al solicitante en la misma transacción; el resto de enlaces vivos pasan a `cerrada` |
+| Reapertura directa | Quien dio de baja puede levantarlo sin solicitud previa; es la única vía cuando no había más miembros a los que avisar |
 
 ### 0.b) Invitaciones a Workspace
 
@@ -425,6 +475,7 @@ Regla: `yield` y `liters` son opcionales, pero no se permite informar ambos a la
 | 401 | `AUTH_UNAUTHENTICATED` | Token ausente/inválido |
 | 403 | `AUTH_WORKSPACE_FORBIDDEN` | Acceso fuera de workspace |
 | 403 | `AUTH_WORKSPACE_SCOPE_REQUIRED` | Operación que exige Workspace activo en la sesión |
+| 403 | `AUTH_WORKSPACE_OWNER_REQUIRED` | Operación reservada al propietario del Workspace (baja y traspaso, RN-038) |
 | 404 | `RESOURCE_NOT_FOUND` | Recurso inexistente |
 | 409 | `CONFLICT_VERSION_MISMATCH` | Colisión de versión por edición concurrente |
 | 422 | `BUSINESS_RULE_*` | Regla de negocio incumplida |

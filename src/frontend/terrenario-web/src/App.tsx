@@ -18,6 +18,9 @@ import { TemporadasView } from './components/seasons/TemporadasView';
 import { TrabajadoresView } from './components/workers/TrabajadoresView';
 import { TareasView } from './components/tasks/TareasView';
 import { MiembrosView } from './components/members/MiembrosView';
+import { AjustesView } from './components/settings/AjustesView';
+import { ReactivationRequestPage } from './components/workspace/ReactivationRequestPage';
+import { ReactivationInboxPage } from './components/workspace/ReactivationInboxPage';
 import { AppLayout } from './components/layout/AppLayout';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { RequireWorkspace } from './routes/RequireWorkspace';
@@ -41,6 +44,12 @@ function AppRoutes() {
         {/* Aceptar invitación no exige Workspace previo: es la vía de entrada al primero (MVP-103) */}
         <Route path="/invitations/:token" element={<AcceptInvitationPage />} />
 
+        {/* Vuelta de un Workspace dado de baja (MVP-206). Fuera de la guarda de Workspace a
+            propósito: el Workspace de estas pantallas no resuelve contexto (CA-8) y puede ser el
+            único que tuvieran las personas implicadas. */}
+        <Route path="/reactivations" element={<ReactivationInboxPage />} />
+        <Route path="/reactivations/:token" element={<ReactivationRequestPage />} />
+
         {/* Operativa: exige Workspace activo (MVP-102). El layout aporta cabecera y modal (MVP-107) */}
         <Route element={<RequireWorkspace />}>
           {/* Alta de un Workspace adicional desde la app (MVP-107): pantalla completa, sin cabecera */}
@@ -55,6 +64,9 @@ function AppRoutes() {
             <Route path="/app/trabajadores" element={<TrabajadoresView />} />
             <Route path="/app/miembros" element={<MiembrosView />} />
             <Route path="/app/tareas" element={<TareasView />} />
+            {/* Ciclo de vida del Workspace (MVP-206): renombrar y dar de baja no dependen de que
+                haya temporada activa. */}
+            <Route path="/app/ajustes" element={<AjustesView />} />
             {/* Resto de operativa: si el Workspace activo no tiene temporada, se ofrece crearla (cancelable) */}
             <Route element={<RequireSeasonOffer />}>
               <Route path="/app" element={<AppHome />} />

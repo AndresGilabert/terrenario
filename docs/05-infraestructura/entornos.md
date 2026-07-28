@@ -77,6 +77,8 @@ docker compose up --build
 | `OIDC_CLIENT_ID` | secreto | secreto | secreto | Cliente OIDC |
 | `SENTRY_DSN` | secreto | secreto | secreto | Error tracking |
 | `Invitations__AcceptBaseUrl` | URL del front dev | URL del front staging | `https://app.terrenario.com/invitations` | Base pública del enlace de invitación |
+| `WorkspaceLifecycle__ReactivationBaseUrl` | URL del front dev | URL del front staging | `https://app.terrenario.com/reactivations` | Base pública del enlace de reactivación de Workspace (MVP-206) |
+| `WorkspaceLifecycle__ReactivationLifetimeDays` | `7` | `7` | `7` | Vigencia del enlace de reactivación, de un solo uso |
 | `Email__Host` | secreto | secreto | secreto | Servidor SMTP. Vacío = no se envían invitaciones |
 | `Email__Port` | `587` | `587` | `587` | `465` si se usa TLS implícito |
 | `Email__SecurityMode` | `starttls` | `starttls` | `starttls` | `ssl`, `none` o `auto` según servidor |

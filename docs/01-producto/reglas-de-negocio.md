@@ -409,6 +409,49 @@ El MVP sale con Google OIDC como único proveedor real de autenticación. Otros 
 
 El MVP permite borrado físico de registros operativos, pero la UI debe exigir confirmación explícita antes de ejecutar la acción.
 
+Esta regla aplica a **registros operativos**, no al Workspace: su baja es lógica por RN-039.
+
+---
+
+### RN-038 — Un Workspace nunca queda sin propietario
+
+**Estado**: activa
+**Fuente**: producto
+**Módulos afectados**: workspaces, autorizacion
+
+Todo Workspace vivo tiene en todo momento al menos una persona propietaria con acceso. La salida de
+quien lo es debe resolver la propiedad antes de completarse: si hay otras personas propietarias, el
+Workspace se reasigna automaticamente; si es la unica, se le exige decidir entre traspasar la
+propiedad a un miembro activo o dar de baja el Workspace. La baja de una cuenta que sea propietaria
+unica de algun Workspace no puede completarse hasta resolverlos todos.
+
+---
+
+### RN-039 — La baja de un Workspace es logica, nunca fisica
+
+**Estado**: activa
+**Fuente**: producto
+**Módulos afectados**: workspaces
+
+Dar de baja un Workspace lo marca como eliminado (`deleted_at`) sin borrar ningun dato. Un Workspace
+dado de baja deja de resolver contexto activo y de aparecer en el selector, y sus recursos con ambito
+de Workspace dejan de ser accesibles, pero siguen intactos en base de datos. La retencion o purga
+posterior de los Workspaces dados de baja queda fuera del MVP.
+
+---
+
+### RN-040 — La reactivacion de un Workspace la autoriza quien lo dio de baja
+
+**Estado**: activa
+**Fuente**: producto
+**Módulos afectados**: workspaces, notificaciones
+
+Al darse de baja un Workspace, sus miembros activos reciben un enlace de un solo uso y con caducidad
+para solicitar su traspaso y reactivacion. La solicitud solo la puede autorizar la persona que dio de
+baja el Workspace; al autorizarla, el Workspace vuelve a estar activo y su propiedad pasa a quien lo
+solicito. Quien dio de baja el Workspace puede ademas volver a levantarlo por su cuenta en cualquier
+momento.
+
 ## Reglas obsoletas
 
 | ID | Nombre | Motivo de obsolescencia | Fecha |

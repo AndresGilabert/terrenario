@@ -16,6 +16,7 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
     public DbSet<Workspace> Workspaces => Set<Workspace>();
     public DbSet<WorkspaceMember> WorkspaceMembers => Set<WorkspaceMember>();
     public DbSet<WorkspaceInvitation> WorkspaceInvitations => Set<WorkspaceInvitation>();
+    public DbSet<WorkspaceReactivationRequest> WorkspaceReactivationRequests => Set<WorkspaceReactivationRequest>();
     public DbSet<Season> Seasons => Set<Season>();
     public DbSet<Plot> Plots => Set<Plot>();
     public DbSet<Worker> Workers => Set<Worker>();
@@ -73,12 +74,28 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
             entity.Property(w => w.Name).HasColumnName("name").HasMaxLength(Workspace.NameMaxLength).IsRequired();
             entity.Property(w => w.CreatedAt).HasColumnName("created_at");
             entity.Property(w => w.UpdatedAt).HasColumnName("updated_at");
+            // Baja lógica (MVP-206, CA-2): nunca se borra la fila.
+            entity.Property(w => w.DeletedAt).HasColumnName("deleted_at");
+            entity.Property(w => w.DeletedByUserId).HasColumnName("deleted_by_user_id");
+            entity.Ignore(w => w.IsDeleted);
 
             entity.HasIndex(w => w.OwnerId);
+
+            // Todas las lecturas filtran por "vivo": índice parcial sobre las filas no dadas de baja.
+            entity.HasIndex(w => w.DeletedAt)
+                .HasFilter("deleted_at IS NULL")
+                .HasDatabaseName("ix_workspaces_live");
 
             entity.HasOne<User>()
                 .WithMany()
                 .HasForeignKey(w => w.OwnerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Quien dio de baja es la única persona que puede autorizar la reactivación (CA-10):
+            // la referencia se protege igual que la de emisor de invitación.
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(w => w.DeletedByUserId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -151,6 +168,44 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
             entity.HasOne<User>()
                 .WithMany()
                 .HasForeignKey(i => i.RejectedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<WorkspaceReactivationRequest>(entity =>
+        {
+            entity.ToTable("workspace_reactivation_requests");
+            entity.HasKey(r => r.Id);
+            entity.Property(r => r.Id).HasColumnName("id");
+            entity.Property(r => r.WorkspaceId).HasColumnName("workspace_id").IsRequired();
+            entity.Property(r => r.RecipientUserId).HasColumnName("recipient_user_id").IsRequired();
+            entity.Property(r => r.AuthorizerUserId).HasColumnName("authorizer_user_id").IsRequired();
+            entity.Property(r => r.TokenHash).HasColumnName("token_hash").IsRequired();
+            entity.Property(r => r.Status).HasColumnName("status").HasMaxLength(20).IsRequired();
+            entity.Property(r => r.ExpiresAt).HasColumnName("expires_at");
+            entity.Property(r => r.CreatedAt).HasColumnName("created_at");
+            entity.Property(r => r.RequestedAt).HasColumnName("requested_at");
+            entity.Property(r => r.ResolvedAt).HasColumnName("resolved_at");
+
+            // El enlace es de un solo uso (CA-10) y se busca siempre por hash: el token en claro
+            // solo viaja en el email, igual que en las invitaciones (MVP-103).
+            entity.HasIndex(r => r.TokenHash).IsUnique();
+            // La bandeja de quien tiene que autorizar filtra por autorizador + estado (HU-6).
+            entity.HasIndex(r => new { r.AuthorizerUserId, r.Status });
+            entity.HasIndex(r => new { r.WorkspaceId, r.Status });
+
+            entity.HasOne<Workspace>()
+                .WithMany()
+                .HasForeignKey(r => r.WorkspaceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(r => r.RecipientUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(r => r.AuthorizerUserId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

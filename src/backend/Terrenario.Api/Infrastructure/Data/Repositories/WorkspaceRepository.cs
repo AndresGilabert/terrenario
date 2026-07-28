@@ -5,6 +5,14 @@ namespace Terrenario.Api.Infrastructure.Data.Repositories;
 
 public sealed class WorkspaceRepository(TerrenarioDbContext db) : IWorkspaceRepository
 {
+    /// <summary>
+    /// Base de todas las lecturas del puerto: un Workspace dado de baja (MVP-206, CA-2) deja de
+    /// existir para el resto de la aplicación —no resuelve contexto ni aparece en el selector—
+    /// aunque sus datos sigan íntegros en base de datos. El único acceso que lo ve es
+    /// <see cref="FindIncludingDeletedAsync"/>, que usa la reactivación.
+    /// </summary>
+    private IQueryable<Workspace> LiveWorkspaces => db.Workspaces.Where(w => w.DeletedAt == null);
+
     public async Task AddAsync(Workspace workspace, WorkspaceMember ownerMembership, CancellationToken ct = default)
     {
         await db.Workspaces.AddAsync(workspace, ct);
@@ -12,7 +20,7 @@ public sealed class WorkspaceRepository(TerrenarioDbContext db) : IWorkspaceRepo
     }
 
     public Task<Workspace?> FindForMemberAsync(Guid workspaceId, Guid userId, CancellationToken ct = default)
-        => db.Workspaces
+        => LiveWorkspaces
             .Where(w => w.Id == workspaceId)
             .Where(w => db.WorkspaceMembers.Any(m =>
                 m.WorkspaceId == w.Id
@@ -20,14 +28,22 @@ public sealed class WorkspaceRepository(TerrenarioDbContext db) : IWorkspaceRepo
                 && m.Status == WorkspaceMemberStatuses.Active))
             .FirstOrDefaultAsync(ct);
 
-    public Task<Workspace?> FindDefaultForUserAsync(Guid userId, CancellationToken ct = default)
-        => db.WorkspaceMembers
+    // El orden por joined_at se resuelve en memoria (un usuario tiene pocas membresías): EF+SQLite
+    // no traduce ORDER BY sobre DateTimeOffset y dejaba sin cobertura de SQL real la caída al
+    // Workspace por defecto, que es justo lo que sostiene CA-8 cuando el activo se da de baja.
+    public async Task<Workspace?> FindDefaultForUserAsync(Guid userId, CancellationToken ct = default)
+        => (await db.WorkspaceMembers
             .Where(m => m.UserId == userId && m.Status == WorkspaceMemberStatuses.Active)
-            .OrderByDescending(m => m.JoinedAt)
-            .Join(db.Workspaces, m => m.WorkspaceId, w => w.Id, (_, w) => w)
-            .FirstOrDefaultAsync(ct);
+            .Join(LiveWorkspaces, m => m.WorkspaceId, w => w.Id, (m, w) => new { Member = m, Workspace = w })
+            .ToListAsync(ct))
+            .OrderByDescending(x => x.Member.JoinedAt)
+            .Select(x => x.Workspace)
+            .FirstOrDefault();
 
     public Task<Workspace?> FindByIdAsync(Guid workspaceId, CancellationToken ct = default)
+        => LiveWorkspaces.FirstOrDefaultAsync(w => w.Id == workspaceId, ct);
+
+    public Task<Workspace?> FindIncludingDeletedAsync(Guid workspaceId, CancellationToken ct = default)
         => db.Workspaces.FirstOrDefaultAsync(w => w.Id == workspaceId, ct);
 
     public async Task<IReadOnlyList<WorkspaceMembership>> ListActiveMembershipsAsync(
@@ -39,7 +55,7 @@ public sealed class WorkspaceRepository(TerrenarioDbContext db) : IWorkspaceRepo
         => await db.WorkspaceMembers
             .Where(m => m.UserId == userId && m.Status == WorkspaceMemberStatuses.Active)
             .Join(
-                db.Workspaces,
+                LiveWorkspaces,
                 m => m.WorkspaceId,
                 w => w.Id,
                 (m, w) => new { Member = m, Workspace = w })
@@ -53,10 +69,12 @@ public sealed class WorkspaceRepository(TerrenarioDbContext db) : IWorkspaceRepo
             .ToListAsync(ct);
 
     public Task<bool> HasActiveMembershipAsync(Guid workspaceId, Guid userId, CancellationToken ct = default)
-        => db.WorkspaceMembers.AnyAsync(
-            m => m.WorkspaceId == workspaceId
-                && m.UserId == userId
-                && m.Status == WorkspaceMemberStatuses.Active,
+        => LiveWorkspaces.AnyAsync(
+            w => w.Id == workspaceId
+                && db.WorkspaceMembers.Any(m =>
+                    m.WorkspaceId == w.Id
+                    && m.UserId == userId
+                    && m.Status == WorkspaceMemberStatuses.Active),
             ct);
 
     public async Task<IReadOnlyList<WorkspaceMemberDetail>> ListMembersAsync(
@@ -99,6 +117,54 @@ public sealed class WorkspaceRepository(TerrenarioDbContext db) : IWorkspaceRepo
                 && m.Status == WorkspaceMemberStatuses.Active
                 && m.Role == WorkspaceRoles.Owner,
             ct);
+
+    // Sucesor determinista del traspaso automático (CA-5): el copropietario activo más antiguo. El
+    // orden se hace en memoria (son unos pocos) porque EF+SQLite no traduce comparaciones sobre
+    // DateTimeOffset y rompería los tests de repositorio, aunque PostgreSQL sí las soporte.
+    public async Task<WorkspaceMember?> FindOtherActiveOwnerAsync(
+        Guid workspaceId,
+        Guid excludingUserId,
+        CancellationToken ct = default)
+        => (await db.WorkspaceMembers
+            .Where(m => m.WorkspaceId == workspaceId
+                && m.UserId != excludingUserId
+                && m.Status == WorkspaceMemberStatuses.Active
+                && m.Role == WorkspaceRoles.Owner)
+            .ToListAsync(ct))
+            .OrderBy(m => m.JoinedAt)
+            .FirstOrDefault();
+
+    public async Task<IReadOnlyList<SoleOwnedWorkspace>> ListSoleOwnedAsync(
+        Guid userId,
+        CancellationToken ct = default)
+        // Orden por la columna real del Workspace ANTES de proyectar (lección de P-014). Los
+        // contadores van como subconsultas correlacionadas para resolverlo en una sola ida a la BD.
+        => await db.WorkspaceMembers
+            .Where(m => m.UserId == userId
+                && m.Status == WorkspaceMemberStatuses.Active
+                && m.Role == WorkspaceRoles.Owner)
+            .Join(LiveWorkspaces, m => m.WorkspaceId, w => w.Id, (_, w) => w)
+            .Where(w => db.WorkspaceMembers.Count(m =>
+                m.WorkspaceId == w.Id
+                && m.Status == WorkspaceMemberStatuses.Active
+                && m.Role == WorkspaceRoles.Owner) == 1)
+            .OrderBy(w => w.Name)
+            .Select(w => new SoleOwnedWorkspace(
+                w.Id,
+                w.Name,
+                db.WorkspaceMembers.Count(m =>
+                    m.WorkspaceId == w.Id
+                    && m.Status == WorkspaceMemberStatuses.Active
+                    && m.UserId != userId)))
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<Workspace>> ListClosedByAsync(
+        Guid userId,
+        CancellationToken ct = default)
+        => await db.Workspaces
+            .Where(w => w.DeletedAt != null && w.DeletedByUserId == userId)
+            .OrderBy(w => w.Name)
+            .ToListAsync(ct);
 
     public async Task AddMemberAsync(WorkspaceMember member, CancellationToken ct = default)
         => await db.WorkspaceMembers.AddAsync(member, ct);

@@ -21,6 +21,17 @@ public interface ISeasonRepository
     Task<IReadOnlyList<Season>> ListByWorkspaceAsync(Guid workspaceId, CancellationToken ct = default);
 
     /// <summary>
+    /// ¿Hay ya una temporada con ese nombre en el Workspace, ignorando mayúsculas? (MVP-207, CA-2).
+    /// Cubre todo el maestro, también las cerradas: cerrar no libera el nombre.
+    /// </summary>
+    /// <param name="excludeSeasonId">Temporada que se excluye de la comparación (la que se renombra).</param>
+    Task<bool> ExistsWithNameAsync(
+        Guid workspaceId,
+        string name,
+        Guid? excludeSeasonId = null,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Persiste <paramref name="season"/> como la <b>única</b> temporada activa del Workspace,
     /// desactivando cualquier otra activa (RN-022, MVP-203 HU-2). Es la operación de "cambiar de
     /// temporada activa" y también la de "crear una nueva que pasa a ser la activa".

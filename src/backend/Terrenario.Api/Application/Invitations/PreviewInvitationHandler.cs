@@ -67,6 +67,10 @@ public sealed class PreviewInvitationHandler(
         if (invitation.Status == InvitationStatuses.Rejected)
             return (false, InvitationViewerReasons.AlreadyRejected);
 
+        // Anulada por el Workspace emisor (MVP-207, CA-4): el enlace ya no permite aceptar.
+        if (invitation.Status == InvitationStatuses.Cancelled)
+            return (false, InvitationViewerReasons.Cancelled);
+
         if (invitation.IsExpiredAt(DateTimeOffset.UtcNow))
             return (false, InvitationViewerReasons.Expired);
 

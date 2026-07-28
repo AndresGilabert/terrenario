@@ -71,6 +71,10 @@ public sealed class PlotsController(
         {
             return BadRequest(new ApiErrorResponse(ApiError.Validation(ex.ErrorCode, ex.Message)));
         }
+        catch (PlotConflictException ex)
+        {
+            return Conflict(new ApiErrorResponse(ApiError.Validation(ex.ErrorCode, ex.Message)));
+        }
     }
 
     /// <summary>
@@ -122,6 +126,10 @@ public sealed class PlotsController(
         catch (PlotValidationException ex)
         {
             return BadRequest(new ApiErrorResponse(ApiError.Validation(ex.ErrorCode, ex.Message)));
+        }
+        catch (PlotConflictException ex)
+        {
+            return Conflict(new ApiErrorResponse(ApiError.Validation(ex.ErrorCode, ex.Message)));
         }
     }
 

@@ -111,10 +111,7 @@ public sealed class Plot
         string? location,
         int? treeCount)
     {
-        Name = NormalizeRequired(
-            name, NameMaxLength,
-            ErrorCodes.ValidationRequiredName, "El nombre del terreno es obligatorio.",
-            ErrorCodes.ValidationPlotNameLength, $"El nombre del terreno no puede superar {NameMaxLength} caracteres.");
+        Name = NormalizeName(name);
 
         var normalizedOwnership = (ownershipType ?? string.Empty).Trim();
         if (normalizedOwnership.Length == 0)
@@ -146,6 +143,16 @@ public sealed class Plot
                 "El número de árboles no puede ser negativo.");
         TreeCount = treeCount;
     }
+
+    /// <summary>
+    /// Normaliza y valida el nombre del terreno <b>sin mutar</b> ningún agregado. Se expone para que
+    /// la comprobación de duplicados del maestro (MVP-207, CA-2) trabaje sobre el mismo texto que
+    /// acabará persistido (mismo recorte de espacios) y pueda hacerse antes de tocar la entidad.
+    /// </summary>
+    public static string NormalizeName(string name) => NormalizeRequired(
+        name, NameMaxLength,
+        ErrorCodes.ValidationRequiredName, "El nombre del terreno es obligatorio.",
+        ErrorCodes.ValidationPlotNameLength, $"El nombre del terreno no puede superar {NameMaxLength} caracteres.");
 
     private static string NormalizeRequired(
         string? value, int maxLength,

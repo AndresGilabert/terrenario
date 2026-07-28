@@ -3,6 +3,7 @@ using NSubstitute;
 using Terrenario.Api.Application.Workers;
 using Terrenario.Api.Application.Workers.Commands;
 using Terrenario.Api.Common;
+using Terrenario.Api.Common.Errors;
 using Terrenario.Api.Domain.Workers;
 
 namespace Terrenario.Api.Tests.Workers;
@@ -75,5 +76,42 @@ public class UpdateWorkerHandlerTests
         result!.Name.Should().Be("Antonio Podador");
         result.HourlyRate.Should().Be(18m);
         await _workerRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Deberia_RechazarRenombrado_Cuando_ElNombreYaExiste_DejandoElTrabajadorIntacto()
+    {
+        // MVP-207 (CA-2)
+        var worker = Worker.Create(WorkspaceId, "Antonio", hourlyRate: 10m);
+        _workerRepository.FindByIdAsync(WorkspaceId, worker.Id, Arg.Any<CancellationToken>()).Returns(worker);
+        _workerRepository.ExistsWithNameAsync(
+                WorkspaceId, "Juan Pérez", worker.Id, Arg.Any<CancellationToken>())
+            .Returns(true);
+        var sut = CreateSut();
+
+        var act = () => sut.HandleAsync(new UpdateWorkerCommand(
+            WorkspaceId, worker.Id,
+            FieldUpdate<string>.Set("Juan Pérez"),
+            FieldUpdate<decimal?>.Absent,
+            FieldUpdate<bool>.Absent));
+
+        (await act.Should().ThrowAsync<WorkerConflictException>())
+            .Which.ErrorCode.Should().Be(ErrorCodes.ConflictWorkerNameDuplicate);
+        worker.Name.Should().Be("Antonio");
+        await _workerRepository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Deberia_NoConsultarDuplicados_Cuando_ElPatchNoTraeNombre()
+    {
+        // Regresión del PATCH parcial: inactivar no es un renombrado.
+        var worker = Worker.Create(WorkspaceId, "Antonio", hourlyRate: 10m);
+        _workerRepository.FindByIdAsync(WorkspaceId, worker.Id, Arg.Any<CancellationToken>()).Returns(worker);
+        var sut = CreateSut();
+
+        await sut.HandleAsync(ActiveOnly(worker.Id, isActive: false));
+
+        await _workerRepository.DidNotReceive().ExistsWithNameAsync(
+            Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<Guid?>(), Arg.Any<CancellationToken>());
     }
 }

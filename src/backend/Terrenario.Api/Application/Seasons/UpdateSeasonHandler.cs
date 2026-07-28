@@ -8,6 +8,8 @@ namespace Terrenario.Api.Application.Seasons;
 /// (RN-024). El cambio de temporada activa NO se hace aquí (es <see cref="ActivateSeasonHandler"/>),
 /// porque implica desbancar a la anterior. La temporada se busca acotada al Workspace: si no existe en
 /// él, devuelve <c>null</c> y el borde de transporte responde 404.
+///
+/// MVP-207 (CA-2): renombrar tampoco puede dejar dos temporadas con el mismo nombre.
 /// </summary>
 public sealed class UpdateSeasonHandler(ISeasonRepository seasonRepository)
 {
@@ -15,6 +17,16 @@ public sealed class UpdateSeasonHandler(ISeasonRepository seasonRepository)
     {
         var season = await seasonRepository.FindByIdAsync(command.WorkspaceId, command.SeasonId, ct);
         if (season is null) return null;
+
+        // El nombre se normaliza y valida primero (400) y solo después se comprueba el duplicado
+        // (409), sin tocar el agregado hasta que ambas guardas pasan. Se excluye la propia temporada:
+        // cambiar solo las mayúsculas de su nombre no es un conflicto consigo misma.
+        if (command.Name.Present)
+        {
+            var normalized = Season.NormalizeName(command.Name.Value!);
+            await CreateSeasonHandler.EnsureNameIsFreeAsync(
+                seasonRepository, command.WorkspaceId, normalized, season.Id, ct);
+        }
 
         // Edición parcial: los campos ausentes conservan su valor actual.
         season.UpdateDetails(

@@ -144,6 +144,9 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
             entity.Property(i => i.AcceptedByUserId).HasColumnName("accepted_by_user_id");
             entity.Property(i => i.RejectedAt).HasColumnName("rejected_at");
             entity.Property(i => i.RejectedByUserId).HasColumnName("rejected_by_user_id");
+            // Anulación por el Workspace emisor (MVP-207, CA-4): quién la retiró y cuándo.
+            entity.Property(i => i.CancelledAt).HasColumnName("cancelled_at");
+            entity.Property(i => i.CancelledByUserId).HasColumnName("cancelled_by_user_id");
 
             entity.HasIndex(i => i.TokenHash).IsUnique();
             entity.HasIndex(i => new { i.WorkspaceId, i.Status });
@@ -168,6 +171,11 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
             entity.HasOne<User>()
                 .WithMany()
                 .HasForeignKey(i => i.RejectedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(i => i.CancelledByUserId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -231,6 +239,11 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
                 .HasFilter("is_active")
                 .HasDatabaseName("ux_seasons_workspace_active");
 
+            // MVP-207 (CA-3) — nombre único por Workspace ignorando mayúsculas
+            // (ux_seasons_workspace_name, UNIQUE sobre (workspace_id, lower(name))). Es un índice sobre
+            // una expresión, que EF Core no sabe declarar en el modelo: se crea en la migración con SQL
+            // y se documenta aquí. Misma comparación que SeasonRepository.ExistsWithNameAsync.
+
             entity.HasOne<Workspace>()
                 .WithMany()
                 .HasForeignKey(s => s.WorkspaceId)
@@ -258,6 +271,11 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
             // estado de actividad: índice de apoyo (workspace_id, is_active).
             entity.HasIndex(p => new { p.WorkspaceId, p.IsActive });
 
+            // MVP-207 (CA-3) — nombre único por Workspace ignorando mayúsculas
+            // (ux_plots_workspace_name, UNIQUE sobre (workspace_id, lower(name))), creado en la
+            // migración con SQL por ser un índice sobre una expresión. El alias no entra: es un apodo
+            // libre. Misma comparación que PlotRepository.ExistsWithNameAsync.
+
             entity.HasOne<Workspace>()
                 .WithMany()
                 .HasForeignKey(p => p.WorkspaceId)
@@ -280,6 +298,11 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
             // El maestro consulta por Workspace (aislamiento multi-tenant) y filtra por estado de
             // actividad: índice de apoyo (workspace_id, is_active), coherente con plots (MVP-202).
             entity.HasIndex(w => new { w.WorkspaceId, w.IsActive });
+
+            // MVP-207 (CA-3) — nombre único por Workspace ignorando mayúsculas
+            // (ux_workers_workspace_name, UNIQUE sobre (workspace_id, lower(name))), creado en la
+            // migración con SQL por ser un índice sobre una expresión. Misma comparación que
+            // WorkerRepository.ExistsWithNameAsync.
 
             entity.HasOne<Workspace>()
                 .WithMany()

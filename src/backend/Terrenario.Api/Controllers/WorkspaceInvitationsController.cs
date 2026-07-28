@@ -25,6 +25,7 @@ public sealed class WorkspaceInvitationsController(
     CreateInvitationHandler createInvitationHandler,
     ListWorkspaceInvitationsHandler listWorkspaceInvitationsHandler,
     ResendInvitationHandler resendInvitationHandler,
+    CancelInvitationHandler cancelInvitationHandler,
     IWorkspaceContext workspaceContext) : ControllerBase
 {
     [HttpPost]
@@ -95,6 +96,32 @@ public sealed class WorkspaceInvitationsController(
                 expires_at = result.ExpiresAt,
                 email_sent = result.EmailSent
             });
+        }
+        catch (InvitationException ex)
+        {
+            return InvitationErrorMapper.ToActionResult(ex);
+        }
+    }
+
+    /// <summary>
+    /// MVP-207 (HU-2/CA-4) — Anula una invitación pendiente del Workspace activo: su enlace deja de
+    /// permitir la aceptación y la persona desaparece de la lista de personas. Es la contrapartida de
+    /// «retirar acceso» para quien todavía no ha entrado, y del rechazo de MVP-107 (que ejecuta la
+    /// persona invitada, no el Workspace emisor). Cualquier miembro puede hacerlo (RN-034).
+    /// </summary>
+    [HttpPost("{invitationId:guid}/cancel")]
+    public async Task<IActionResult> Cancel(Guid invitationId, CancellationToken ct)
+    {
+        try
+        {
+            await cancelInvitationHandler.HandleAsync(
+                new CancelInvitationCommand(
+                    workspaceContext.WorkspaceId,
+                    User.GetUserId()!.Value,
+                    invitationId),
+                ct);
+
+            return NoContent();
         }
         catch (InvitationException ex)
         {

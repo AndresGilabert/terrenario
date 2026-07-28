@@ -274,12 +274,20 @@ membresias reales, sin cambio de esquema.
 | `channel` | string | Si | Catalogo `invitation_channel`: `email` o `enlace` |
 | `email` | string(320) | No | Solo en el canal `email`. El enlace compartible no tiene destinatario |
 | `token_hash` | string | Si | SHA-256 del token de invitacion. El valor en claro no se persiste |
-| `status` | string | Si | Catalogo `invitation_status`: `pendiente` o `aceptada` |
+| `status` | string | Si | Catalogo `invitation_status`: `pendiente`, `aceptada`, `rechazada` (MVP-107) o `anulada` (MVP-207) |
 | `expires_at` | timestamptz | Si | La caducidad se deriva de esta fecha; no es un estado persistido |
 | `accepted_by_user_id` | UUID (nullable) | No | Trazabilidad de quien entro con la invitacion |
+| `rejected_at` / `rejected_by_user_id` | timestamptz / UUID (nullable) | No | La **persona invitada** declino la invitacion (MVP-107) |
+| `cancelled_at` / `cancelled_by_user_id` | timestamptz / UUID (nullable) | No | El **Workspace emisor** retiro la invitacion pendiente (MVP-207, CA-4) |
 
 Restricciones: indice unico en `token_hash` e indice de apoyo `(workspace_id, status)`. La
 invitacion es de un solo uso: al aceptarse pasa a `aceptada` y no vuelve a ser valida.
+
+Los tres estados terminales se distinguen por **quien** cerro la invitacion, porque las acciones de
+recuperacion son distintas: `aceptada` creo membresia (se deshace revocando el acceso, MVP-204 CA-7),
+`rechazada` la cerro la persona invitada y `anulada` la cerro el Workspace emisor. Solo se anula lo
+que sigue `pendiente`; anular una caducada se permite (retira de la lista de personas a alguien que
+ya no iba a entrar).
 
 ### PLOT
 
@@ -295,8 +303,11 @@ invitacion es de un solo uso: al aceptarse pasa a `aceptada` y no vuelve a ser v
 | `is_active` | boolean | Si | Estado de actividad. Los terrenos con historico se inactivan en vez de borrarse (MVP-202, CA-3). Anadido en MVP-202 (no estaba en el ER original) |
 
 Restricciones: indice de apoyo `(workspace_id, is_active)` para el listado del maestro (filtra por
-Workspace y estado). Introducida en MVP-202. `latitude`/`longitude` y `soil_metadata` (JSONB) del ER
-canonico **no se materializan** en el MVP: coordenadas/mapas y metadatos de suelo quedan diferidos
+Workspace y estado) e indice **unico** `ux_plots_workspace_name` sobre `(workspace_id, lower(name))`
+(MVP-207, CA-3), que impide dos terrenos con el mismo nombre en un Workspace ignorando mayusculas.
+Los terrenos inactivos siguen ocupando su nombre; el `alias` no entra en la unicidad. Introducida en
+MVP-202. `latitude`/`longitude` y `soil_metadata` (JSONB) del ER canonico **no se materializan** en
+el MVP: coordenadas/mapas y metadatos de suelo quedan diferidos
 (ver MVP-999, P-019).
 
 ### SEASON
@@ -309,7 +320,10 @@ canonico **no se materializan** en el MVP: coordenadas/mapas y metadatos de suel
 | `active_crop` | string (nullable) | No | Reservado para la evolucion por cultivo (RU-18/RU-19). No materializado en MVP-201 |
 
 Restricciones: indice unico parcial `(workspace_id) WHERE is_active` (`ux_seasons_workspace_active`)
-que materializa RN-022 en la base de datos. Introducida en MVP-201 (creacion explicita y cancelable;
+que materializa RN-022 en la base de datos, e indice **unico** `ux_seasons_workspace_name` sobre
+`(workspace_id, lower(name))` (MVP-207, CA-3), que impide dos campanas con el mismo nombre en un
+Workspace ignorando mayusculas. Las temporadas cerradas siguen ocupando su nombre: cerrar no lo
+libera. Introducida en MVP-201 (creacion explicita y cancelable;
 no se siembra por defecto). El maestro completo (estados `planificada/activa/cerrada`, derivados de
 `is_active`/`is_closed` sin columna de estado ni cambio de esquema; alta de varias, edicion,
 cierre/reapertura y cambio de temporada activa) se entrega en MVP-203. El cambio de activa desbanca a
@@ -325,8 +339,10 @@ diferido (RU-18/RU-19): en MVP rige "una activa por Workspace".
 | `hourly_rate` | decimal(10,2) (nullable) | No | Valor de referencia para sugerencia de coste; no sustituye `manual_cost` en actividad (RN-003) |
 | `is_active` | boolean | Si | Estado de actividad. Los trabajadores con historico se inactivan en vez de borrarse (MVP-204, CA-3) |
 
-Restricciones: indice de apoyo `(workspace_id, is_active)` para el listado del maestro. El maestro
-`workers` (MVP-204) cubre solo a los trabajadores **sin cuenta**; los miembros del Workspace se
+Restricciones: indice de apoyo `(workspace_id, is_active)` para el listado del maestro e indice
+**unico** `ux_workers_workspace_name` sobre `(workspace_id, lower(name))` (MVP-207, CA-3), que impide
+dos trabajadores con el mismo nombre en un Workspace ignorando mayusculas; los inactivos siguen
+ocupando su nombre. El maestro `workers` (MVP-204) cubre solo a los trabajadores **sin cuenta**; los miembros del Workspace se
 exponen como seleccionables (RN-027) desde la vista de personas (`workspace_members` union
 `workspace_invitations` pendientes), no como filas de `workers`.
 
@@ -345,6 +361,8 @@ Restricciones: indice de apoyo `(workspace_id, is_active)` para el listado del m
 **unico** `ux_tasks_workspace_name` sobre `(workspace_id, lower(name))`, que impide dos tareas con el
 mismo nombre en un Workspace ignorando mayusculas (prevencion de duplicados evidentes; la usara
 tambien el guardado de tarea libre de MVP-302). Las tareas inactivas siguen ocupando su nombre.
+Es el patron que **MVP-207 extiende** a `seasons`, `workers` y `plots`, de modo que los cuatro
+maestros de la epica se comportan igual frente a los nombres repetidos.
 
 Relacion con `ACTIVITY`: RN-025 admite tarea **del catalogo o en texto libre**, por lo que el
 contrato de actividad preve `task_id?` + `task_text?`. La reconciliacion de esos campos con el

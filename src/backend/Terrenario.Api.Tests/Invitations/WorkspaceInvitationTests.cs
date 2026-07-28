@@ -275,4 +275,72 @@ public class WorkspaceInvitationTests
         // Act & Assert
         invitation.IsAddressedTo("cualquiera@ejemplo.com").Should().BeTrue();
     }
+
+    [Fact]
+    public void Deberia_ImpedirAceptar_Cuando_LaInvitacionEstaAnulada()
+    {
+        // MVP-207 (CA-4) — anulada por el Workspace emisor: el enlace deja de permitir la aceptación.
+        var invitation = CreateEmailInvitation();
+        invitation.Cancel(InviterId, DateTimeOffset.UtcNow);
+
+        var act = () => invitation.Accept(Guid.NewGuid(), "antonio@ejemplo.com", DateTimeOffset.UtcNow);
+
+        act.Should().Throw<InvitationException>()
+            .Which.ErrorCode.Should().Be(ErrorCodes.BusinessRuleInvitationCancelled);
+        invitation.Status.Should().Be(InvitationStatuses.Cancelled);
+    }
+
+    [Fact]
+    public void Deberia_ImpedirRechazar_Cuando_LaInvitacionEstaAnulada()
+    {
+        // El rechazo no debe sobrescribir el estado que fijó el Workspace emisor.
+        var invitation = CreateEmailInvitation();
+        invitation.Cancel(InviterId, DateTimeOffset.UtcNow);
+
+        var act = () => invitation.Reject(Guid.NewGuid(), "antonio@ejemplo.com", DateTimeOffset.UtcNow);
+
+        act.Should().Throw<InvitationException>()
+            .Which.ErrorCode.Should().Be(ErrorCodes.BusinessRuleInvitationCancelled);
+        invitation.Status.Should().Be(InvitationStatuses.Cancelled);
+    }
+
+    [Fact]
+    public void Deberia_ImpedirAnular_Cuando_LaInvitacionYaSeAcepto()
+    {
+        // Una invitación aceptada ya creó membresía: se deshace revocando el acceso, no anulándola.
+        var invitation = CreateEmailInvitation();
+        invitation.Accept(Guid.NewGuid(), "antonio@ejemplo.com", DateTimeOffset.UtcNow);
+
+        var act = () => invitation.Cancel(InviterId, DateTimeOffset.UtcNow);
+
+        act.Should().Throw<InvitationException>()
+            .Which.ErrorCode.Should().Be(ErrorCodes.BusinessRuleInvitationAlreadyAccepted);
+    }
+
+    [Fact]
+    public void Deberia_SerIdempotente_AnteUnaSegundaAnulacion()
+    {
+        // Doble clic en «Anular»: no vuelve a marcar ni cambia quién la anuló.
+        var invitation = CreateEmailInvitation();
+        invitation.Cancel(InviterId, DateTimeOffset.UtcNow);
+        var firstMoment = invitation.CancelledAt;
+
+        invitation.Cancel(Guid.NewGuid(), DateTimeOffset.UtcNow.AddMinutes(1));
+
+        invitation.Status.Should().Be(InvitationStatuses.Cancelled);
+        invitation.CancelledAt.Should().Be(firstMoment);
+        invitation.CancelledByUserId.Should().Be(InviterId);
+    }
+
+    [Fact]
+    public void Deberia_PermitirAnularUnaInvitacionCaducada()
+    {
+        // Anular una caducada retira de la lista de personas a alguien que ya no iba a entrar.
+        var invitation = WorkspaceInvitation.Create(
+            WorkspaceId, InviterId, InvitationChannels.Email, "antonio@ejemplo.com", "hash", TimeSpan.FromDays(-1));
+
+        invitation.Cancel(InviterId, DateTimeOffset.UtcNow);
+
+        invitation.Status.Should().Be(InvitationStatuses.Cancelled);
+    }
 }

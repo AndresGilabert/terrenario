@@ -99,6 +99,46 @@ public sealed class PlotRepositorySqliteTests : IDisposable
         found.Should().BeNull();
     }
 
+    [Fact]
+    public async Task ExistsWithNameAsync_Deberia_IgnorarMayusculas_Y_AcotarPorWorkspace()
+    {
+        // MVP-207 (CA-2) — mismo criterio que el índice único ux_plots_workspace_name.
+        var mine = await SeedWorkspaceAsync("-dup-a");
+        var other = await SeedWorkspaceAsync("-dup-b");
+        _db.Plots.Add(Plot.Create(mine.Id, "La Hoya", PlotOwnershipTypes.Propia));
+        await _db.SaveChangesAsync();
+
+        var repository = new PlotRepository(_db);
+
+        (await repository.ExistsWithNameAsync(mine.Id, "La Hoya", null, default)).Should().BeTrue();
+        (await repository.ExistsWithNameAsync(mine.Id, "la hoya", null, default)).Should().BeTrue();
+        (await repository.ExistsWithNameAsync(mine.Id, "LA HOYA", null, default)).Should().BeTrue();
+        (await repository.ExistsWithNameAsync(mine.Id, "El Cerro", null, default)).Should().BeFalse();
+        // El maestro de otro Workspace no genera conflicto (aislamiento multi-tenant).
+        (await repository.ExistsWithNameAsync(other.Id, "La Hoya", null, default)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ExistsWithNameAsync_Deberia_ExcluirElPropioTerreno_VerLosInactivos_Y_NoMirarElAlias()
+    {
+        var workspace = await SeedWorkspaceAsync("-dup-c");
+        var propio = Plot.Create(workspace.Id, "La Hoya", PlotOwnershipTypes.Propia, alias: "El Cerro");
+        var inactivo = Plot.Create(workspace.Id, "El Llano", PlotOwnershipTypes.Cedida);
+        inactivo.SetActive(false);
+        _db.Plots.AddRange(propio, inactivo);
+        await _db.SaveChangesAsync();
+
+        var repository = new PlotRepository(_db);
+
+        // Cambiar solo las mayúsculas del propio nombre no es un conflicto consigo mismo.
+        (await repository.ExistsWithNameAsync(workspace.Id, "LA HOYA", propio.Id, default)).Should().BeFalse();
+        // Un terreno inactivo sigue ocupando su nombre.
+        (await repository.ExistsWithNameAsync(workspace.Id, "el llano", null, default)).Should().BeTrue();
+        // El alias es un apodo libre: no entra en la comparación.
+        (await repository.ExistsWithNameAsync(workspace.Id, "El Cerro", null, default)).Should().BeFalse();
+    }
+
+
     public void Dispose()
     {
         _db.Dispose();

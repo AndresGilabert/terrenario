@@ -2,7 +2,7 @@
 id: "MVP-207"
 tipo: feature
 titulo: "Correcciones de cierre de la épica de maestros"
-estado: borrador
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito B — Base operativa preparada"
@@ -118,23 +118,23 @@ a continuación,
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: La sección de temporadas de `contratos-api.md` describe exactamente la API
+- [x] **CA-1**: La sección de temporadas de `contratos-api.md` describe exactamente la API
   entregada: rutas existentes (incluidas `GET /seasons/active` y `POST /seasons/{id}/activate`),
   obligatoriedad real de cada campo, estado con el que nace la temporada creada y códigos de error
   que existen en `ErrorCodes`.
-- [ ] **CA-2**: Dentro de un mismo Workspace no se pueden crear ni renombrar dos temporadas, dos
+- [x] **CA-2**: Dentro de un mismo Workspace no se pueden crear ni renombrar dos temporadas, dos
   trabajadores ni dos terrenos con el mismo nombre ignorando mayúsculas; el intento responde `409`
   con un código de error propio del recurso y la UI lo explica sin perder lo tecleado.
-- [ ] **CA-3**: La invariante de CA-2 está garantizada también en base de datos con un índice único
+- [x] **CA-3**: La invariante de CA-2 está garantizada también en base de datos con un índice único
   sobre `(workspace_id, lower(name))`, de modo que la guarda de aplicación y los datos no puedan
   discrepar.
-- [ ] **CA-4**: Un miembro puede anular una invitación pendiente desde «Miembros y accesos»; tras
+- [x] **CA-4**: Un miembro puede anular una invitación pendiente desde «Miembros y accesos»; tras
   anularla, el enlace deja de permitir la aceptación y la persona desaparece de la lista de
   personas del Workspace.
-- [ ] **CA-5**: Todos los maestros de administración se comportan igual respecto de la oferta de
+- [x] **CA-5**: Todos los maestros de administración se comportan igual respecto de la oferta de
   temporada: entrar a Terrenos en un Workspace sin temporada activa no produce un desvío que los
   demás maestros no producen.
-- [ ] **CA-6**: Tras el primer acceso, el Home ofrece un camino explícito a los maestros que faltan
+- [x] **CA-6**: Tras el primer acceso, el Home ofrece un camino explícito a los maestros que faltan
   por poblar y ningún texto de la pantalla contradice los módulos realmente disponibles en el menú.
 
 ## Maquetas y referencias visuales
@@ -150,11 +150,11 @@ a continuación,
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| TemporadasView | RN-022 | falta | Guarda de nombre duplicado y contrato reconciliado (CA-1/CA-2/CA-3) |
-| TrabajadoresView | RN-027 | falta | Guarda de nombre duplicado en `workers` (CA-2/CA-3) |
-| TerrenosView | RN-028 | falta | Guarda de nombre duplicado en `plots` (CA-2/CA-3) y coherencia de acceso (CA-5) |
-| Miembros y accesos (sin prototipo) | RN-034, RN-035 | falta | Anulación de invitación pendiente (CA-4) |
-| Home del área operativa (sin prototipo) | RN-021 | falta | Camino a los maestros y copy coherente (CA-6) |
+| TemporadasView | RN-022 | cubierto | 409 `CONFLICT_SEASON_NAME_DUPLICATE` en alta y renombrado (incluidas las cerradas) verificado contra la API real; sección de temporadas de `contratos-api.md` reescrita (CA-1/CA-2/CA-3) |
+| TrabajadoresView | RN-027 | cubierto | 409 `CONFLICT_WORKER_NAME_DUPLICATE` verificado con «Juan Perez»/«juan PEREZ»; índice `ux_workers_workspace_name` creado (CA-2/CA-3) |
+| TerrenosView | RN-028 | cubierto | 409 `CONFLICT_PLOT_NAME_DUPLICATE` con aviso en el modal sin perder lo tecleado; `/app/terrenos` carga sin temporada activa en UI conducida (CA-2/CA-3/CA-5) |
+| Miembros y accesos (sin prototipo) | RN-034, RN-035 | cubierto | «Anular invitación» con confirmación: la persona desaparece de la lista y el enlace responde `viewer.reason: "cancelled"` / 422 al aceptar (CA-4) |
+| Home del área operativa (sin prototipo) | RN-021 | cubierto | Bloque «Prepara tu explotación · 2/4» con CTA a cada maestro pendiente y copy alineado con el menú (CA-6) |
 
 ## Notas y decisiones
 
@@ -164,17 +164,30 @@ a continuación,
   activos, igual que `ux_tasks_workspace_name` en MVP-205: inactivar «Poda» no libera el nombre.
   Es la opción coherente con el motivo por el que se inactiva en vez de borrar (no romper el
   histórico que referencia ese nombre).
-- **Datos preexistentes.** El índice único no se puede crear sobre un maestro que ya contenga
-  duplicados. La migración debe resolverlo antes de crear el índice; a cerrar en el `tech-design`
-  con el PO si se quiere renombrar los duplicados (sufijo) o inactivarlos. En el entorno de
-  desarrollo actual no hay duplicados reales, y el producto todavía no tiene datos de producción.
-- **Decisión pendiente de confirmar con el PO (CA-5).** Propuesta: sacar `/app/terrenos` **fuera**
-  de la guarda de oferta de temporada, junto al resto de maestros de administración. Es lo que ya
-  afirma el comentario de `App.tsx` y lo coherente con MVP-203/204/205 (un maestro se administra
-  aunque el Workspace no tenga temporada). La alternativa —meter todos los maestros dentro de la
-  guarda— haría que preparar la explotación exigiera antes crear una temporada, en contra de la
-  decisión de producto de MVP-201 de que la temporada sea un acto cancelable.
+- **Datos preexistentes — decisión del PO (2026-07-28): renombrar.** El índice único no se puede
+  crear sobre un maestro que ya contenga duplicados, así que la migración los resuelve antes:
+  conserva intacto el registro más antiguo de cada grupo y renombra el resto con sufijo «&nbsp;(2)»,
+  «&nbsp;(3)»… por orden de `created_at`. No se pierde nada y el usuario los renombra o inactiva después
+  desde la UI. **Inactivarlos se descartó** porque no resuelve el problema (la guarda cubre todo el
+  maestro, así que las filas inactivas siguen ocupando su nombre) y **hacer fallar la migración**
+  también, porque la API migra al arrancar y dejaría sin levantar cualquier entorno con datos sucios.
+  Que no queden filas fusionables se registra en `MVP-999` (P-041, con P-036).
+- **Decisión del PO (2026-07-28) sobre CA-5: `/app/terrenos` sale de la guarda.** Se confirma la
+  propuesta: Terrenos pasa junto al resto de maestros de administración. Es lo que ya afirma el
+  comentario de `App.tsx` y lo coherente con MVP-203/204/205 (un maestro se administra aunque el
+  Workspace no tenga temporada). La alternativa —meter todos los maestros dentro de la guarda— haría
+  que preparar la explotación exigiera antes crear una temporada, en contra de la decisión de
+  producto de MVP-201 de que la temporada sea un acto cancelable. **`/app/invitations` sigue dentro
+  de la guarda** y produce el mismo desvío al pulsar «Invitar persona» desde Miembros: no es un
+  maestro, así que queda fuera de la letra de CA-5 y se registra en `MVP-999` (P-038).
 - **Anulación frente a rechazo.** El rechazo (`POST /invitations/{token}/reject`, MVP-107) lo
   ejecuta la persona invitada; la anulación de esta historia la ejecuta el Workspace emisor. Son
   dos transiciones distintas sobre `workspace_invitations` y ambas dejan la invitación inservible.
 - **Sin impacto en MVP-206.** Ninguna de estas correcciones toca el ciclo de vida del Workspace.
+- **Deriva corregida de paso.** El catálogo cerrado `invitation_status` seguía declarando solo
+  `pendiente, aceptada` pese a que MVP-107 añadió `rechazada`. Se corrige al añadir `anulada`, por
+  ser la misma tabla y la misma clase de deriva que R-05; registrado en `MVP-999` (P-042).
+- **Puntos nuevos abiertos por esta historia**, en `MVP-999`: P-038 (`/app/invitations` dentro de la
+  guarda de temporada), P-039 (no se avisa a la persona invitada de que su invitación se anuló),
+  P-040 (encaje del bloque de preparación del Home con la Visión General de MVP-004) y P-041
+  (los duplicados renombrados no se pueden fusionar).

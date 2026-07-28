@@ -32,6 +32,17 @@ export function createMemberService(http: HttpClient) {
         { method: 'POST', body: { deliver_email: deliverEmail } }
       );
     },
+
+    /**
+     * Anula una invitación pendiente (MVP-207, CA-4): su enlace deja de permitir la aceptación y la
+     * persona desaparece de la lista. Es «retirar acceso» para quien todavía no ha entrado.
+     */
+    async cancelInvitation(invitationId: string): Promise<void> {
+      await http.request<void>(
+        `/api/v1/workspaces/invitations/${invitationId}/cancel`,
+        { method: 'POST' }
+      );
+    },
   };
 }
 

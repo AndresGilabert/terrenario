@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BrowserRouter, Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { WorkspaceProvider, useWorkspace } from './contexts/WorkspaceContext';
 import { ApiProvider } from './contexts/ApiContext';
@@ -21,6 +21,7 @@ import { MiembrosView } from './components/members/MiembrosView';
 import { AjustesView } from './components/settings/AjustesView';
 import { ReactivationRequestPage } from './components/workspace/ReactivationRequestPage';
 import { ReactivationInboxPage } from './components/workspace/ReactivationInboxPage';
+import { HomeView } from './components/home/HomeView';
 import { AppLayout } from './components/layout/AppLayout';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { RequireWorkspace } from './routes/RequireWorkspace';
@@ -57,9 +58,13 @@ function AppRoutes() {
           {/* Oferta de temporada (MVP-201): pantalla de creación, fuera de la guarda para no hacer bucle */}
           <Route path="/app/temporada/nueva" element={<SeasonSetupPage />} />
           <Route element={<AppLayout />}>
-            {/* Maestros de administración (MVP-203/204/205): dentro del shell pero FUERA de la
-                guarda de oferta, para que gestionar temporadas, trabajadores, accesos y el catálogo
-                de tareas sea siempre accesible aunque el Workspace no tenga temporada activa. */}
+            {/* Maestros de administración (MVP-202/203/204/205): dentro del shell pero FUERA de la
+                guarda de oferta, para que gestionar terrenos, temporadas, trabajadores, accesos y el
+                catálogo de tareas sea siempre accesible aunque el Workspace no tenga temporada
+                activa. Terrenos era el único que quedaba dentro de la guarda: corregido en MVP-207
+                (CA-5), porque preparar la explotación no debe exigir crear antes una temporada (la
+                temporada es un acto cancelable por decisión de producto de MVP-201). */}
+            <Route path="/app/terrenos" element={<TerrenosView />} />
             <Route path="/app/temporadas" element={<TemporadasView />} />
             <Route path="/app/trabajadores" element={<TrabajadoresView />} />
             <Route path="/app/miembros" element={<MiembrosView />} />
@@ -69,10 +74,9 @@ function AppRoutes() {
             <Route path="/app/ajustes" element={<AjustesView />} />
             {/* Resto de operativa: si el Workspace activo no tiene temporada, se ofrece crearla (cancelable) */}
             <Route element={<RequireSeasonOffer />}>
-              <Route path="/app" element={<AppHome />} />
-              <Route path="/app/terrenos" element={<TerrenosView />} />
+              <Route path="/app" element={<HomeView />} />
               <Route path="/app/invitations" element={<InvitePeoplePage />} />
-              <Route path="/app/*" element={<AppHome />} />
+              <Route path="/app/*" element={<HomeView />} />
             </Route>
           </Route>
         </Route>
@@ -127,46 +131,6 @@ function RequireSeasonOffer() {
   if (!activeSeason && !offerDismissed) return <Navigate to="/app/temporada/nueva" replace />;
 
   return <Outlet />;
-}
-
-function AppHome() {
-  const { user } = useAuth();
-  const { activeWorkspace } = useWorkspace();
-  const navigate = useNavigate();
-
-  return (
-    <div className="space-y-6">
-      {/* El selector, la campanita, la navegación y el cierre de sesión viven en el shell (MVP-107). */}
-      <div className="bg-white rounded-2xl border border-[#e5e2dd] p-8 ambient-shadow space-y-4">
-        <div className="w-14 h-14 rounded-2xl bg-[#33450d] text-white flex items-center justify-center">
-          <span className="material-symbols-outlined fill text-3xl" aria-hidden="true">eco</span>
-        </div>
-        <div className="space-y-1">
-          <h1 className="font-headline font-bold text-2xl text-[#1c1c19]">
-            ¡Bienvenido, {user?.displayName ?? 'usuario'}!
-          </h1>
-          {activeWorkspace && (
-            <p className="text-sm font-semibold text-[#33450d]">
-              Estás trabajando en «{activeWorkspace.name}».
-            </p>
-          )}
-        </div>
-        <p className="text-[#45483c] text-sm max-w-lg">
-          Tu espacio de trabajo está listo. Los módulos de gestión (diario, terrenos, cosechas…)
-          aparecerán en el menú lateral a medida que se vayan habilitando.
-        </p>
-        <div className="flex flex-col sm:flex-row items-start gap-3 pt-1">
-          <button
-            onClick={() => navigate('/app/invitations')}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#33450d] hover:bg-[#4a5d23] text-white text-sm font-semibold transition-colors"
-          >
-            <span className="material-symbols-outlined text-lg" aria-hidden="true">person_add</span>
-            Invitar a alguien
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function App() {

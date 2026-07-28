@@ -66,6 +66,10 @@ public sealed class WorkersController(
         {
             return BadRequest(new ApiErrorResponse(ApiError.Validation(ex.ErrorCode, ex.Message)));
         }
+        catch (WorkerConflictException ex)
+        {
+            return Conflict(new ApiErrorResponse(ApiError.Validation(ex.ErrorCode, ex.Message)));
+        }
     }
 
     /// <summary>
@@ -112,6 +116,10 @@ public sealed class WorkersController(
         catch (WorkerValidationException ex)
         {
             return BadRequest(new ApiErrorResponse(ApiError.Validation(ex.ErrorCode, ex.Message)));
+        }
+        catch (WorkerConflictException ex)
+        {
+            return Conflict(new ApiErrorResponse(ApiError.Validation(ex.ErrorCode, ex.Message)));
         }
     }
 

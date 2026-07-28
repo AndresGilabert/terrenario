@@ -142,7 +142,12 @@ public sealed class Season
                 "La fecha de fin no puede ser anterior a la fecha de inicio.");
     }
 
-    private static string NormalizeName(string name)
+    /// <summary>
+    /// Normaliza y valida un nombre de temporada <b>sin mutar</b> ningún agregado. Se expone para que
+    /// la comprobación de duplicados del maestro (MVP-207, CA-2) trabaje sobre el mismo texto que
+    /// acabará persistido (mismo recorte de espacios) y pueda hacerse antes de tocar la entidad.
+    /// </summary>
+    public static string NormalizeName(string name)
     {
         var normalizedName = (name ?? string.Empty).Trim();
 

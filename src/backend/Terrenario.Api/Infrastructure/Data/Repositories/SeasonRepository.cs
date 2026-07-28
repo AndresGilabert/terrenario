@@ -1,10 +1,20 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
+using Terrenario.Api.Common.Errors;
 using Terrenario.Api.Domain.Seasons;
 
 namespace Terrenario.Api.Infrastructure.Data.Repositories;
 
 public sealed class SeasonRepository(TerrenarioDbContext db) : ISeasonRepository
 {
+    /// <summary>
+    /// Índice único (workspace_id, lower(name)) creado en la migración
+    /// <c>AddMasterNameUniqueIndexes</c>. Es la invariante de base de datos que respalda la guarda de
+    /// duplicados del maestro (MVP-207, CA-3). No confundir con <c>ux_seasons_workspace_active</c>,
+    /// que materializa RN-022 (una sola activa por Workspace).
+    /// </summary>
+    public const string UniqueNameIndexName = "ux_seasons_workspace_name";
+
     public async Task AddAsync(Season season, CancellationToken ct = default)
         => await db.Seasons.AddAsync(season, ct);
 
@@ -52,10 +62,50 @@ public sealed class SeasonRepository(TerrenarioDbContext db) : ISeasonRepository
         if (isNew)
             await db.Seasons.AddAsync(season, ct);
 
-        await db.SaveChangesAsync(ct);
+        // El alta pasa por aquí, así que la traducción del nombre duplicado también tiene que estar
+        // en este camino: sin ella, una carrera entre dos altas devolvería 500 en vez de 409.
+        await PersistAsync(ct);
         await tx.CommitAsync(ct);
     }
 
-    public Task SaveChangesAsync(CancellationToken ct = default)
-        => db.SaveChangesAsync(ct);
+    public Task<bool> ExistsWithNameAsync(
+        Guid workspaceId,
+        string name,
+        Guid? excludeSeasonId = null,
+        CancellationToken ct = default)
+    {
+        // Comparación insensible a mayúsculas con `ToLower()`, que tanto Npgsql como SQLite traducen
+        // a `lower(...)`: es el mismo criterio del índice único `ux_seasons_workspace_name`, así que
+        // la guarda de aplicación y la invariante de base de datos no pueden discrepar.
+        var normalized = name.ToLower();
+
+        var query = db.Seasons.Where(s => s.WorkspaceId == workspaceId && s.Name.ToLower() == normalized);
+
+        if (excludeSeasonId is { } excluded)
+            query = query.Where(s => s.Id != excluded);
+
+        return query.AnyAsync(ct);
+    }
+
+    public Task SaveChangesAsync(CancellationToken ct = default) => PersistAsync(ct);
+
+    private async Task PersistAsync(CancellationToken ct)
+    {
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (IsDuplicateSeasonName(ex))
+        {
+            // Dos altas simultáneas con el mismo nombre pasan la guarda de aplicación y chocan aquí:
+            // se traduce a la misma respuesta 409 en lugar de a un 500.
+            throw new SeasonConflictException(
+                ErrorCodes.ConflictSeasonNameDuplicate,
+                "Ya existe una temporada con ese nombre en este Workspace.");
+        }
+    }
+
+    private static bool IsDuplicateSeasonName(DbUpdateException ex)
+        => ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } pg
+           && pg.ConstraintName == UniqueNameIndexName;
 }

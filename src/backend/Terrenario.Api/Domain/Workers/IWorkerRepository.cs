@@ -20,5 +20,16 @@ public interface IWorkerRepository
         bool? isActive,
         CancellationToken ct = default);
 
+    /// <summary>
+    /// ¿Hay ya un trabajador con ese nombre en el Workspace, ignorando mayúsculas? (MVP-207, CA-2).
+    /// Cubre todo el maestro, también los inactivos: inactivar no libera el nombre.
+    /// </summary>
+    /// <param name="excludeWorkerId">Trabajador que se excluye de la comparación (el que se renombra).</param>
+    Task<bool> ExistsWithNameAsync(
+        Guid workspaceId,
+        string name,
+        Guid? excludeWorkerId = null,
+        CancellationToken ct = default);
+
     Task SaveChangesAsync(CancellationToken ct = default);
 }

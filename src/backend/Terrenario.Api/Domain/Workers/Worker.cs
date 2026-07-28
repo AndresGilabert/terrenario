@@ -85,7 +85,12 @@ public sealed class Worker
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 
-    private void Apply(string name, decimal? hourlyRate)
+    /// <summary>
+    /// Normaliza y valida un nombre de trabajador <b>sin mutar</b> ningún agregado. Se expone para que
+    /// la comprobación de duplicados del maestro (MVP-207, CA-2) trabaje sobre el mismo texto que
+    /// acabará persistido (mismo recorte de espacios) y pueda hacerse antes de tocar la entidad.
+    /// </summary>
+    public static string NormalizeName(string name)
     {
         var normalized = (name ?? string.Empty).Trim();
         if (normalized.Length == 0)
@@ -95,7 +100,13 @@ public sealed class Worker
             throw new WorkerValidationException(
                 ErrorCodes.ValidationWorkerNameLength,
                 $"El nombre del trabajador no puede superar {NameMaxLength} caracteres.");
-        Name = normalized;
+
+        return normalized;
+    }
+
+    private void Apply(string name, decimal? hourlyRate)
+    {
+        Name = NormalizeName(name);
 
         if (hourlyRate is < 0)
             throw new WorkerValidationException(

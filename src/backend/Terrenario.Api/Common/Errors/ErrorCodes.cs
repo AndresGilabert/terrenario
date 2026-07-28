@@ -40,6 +40,10 @@ public static class ErrorCodes
     public const string ValidationWorkerNameLength = "VALIDATION_WORKER_NAME_LENGTH";
     public const string ValidationRangeHourlyRate = "VALIDATION_RANGE_HOURLY_RATE";
     public const string ValidationRequiredWorkerWorkspace = "VALIDATION_REQUIRED_WORKER_WORKSPACE";
+    // Tasks (catálogo de tareas, MVP-205)
+    public const string ValidationRequiredTaskName = "VALIDATION_REQUIRED_TASK_NAME";
+    public const string ValidationTaskNameLength = "VALIDATION_TASK_NAME_LENGTH";
+    public const string ValidationRequiredTaskWorkspace = "VALIDATION_REQUIRED_TASK_WORKSPACE";
 
     // Business rules
     public const string BusinessRuleInvitationExpired = "BUSINESS_RULE_INVITATION_EXPIRED";
@@ -49,6 +53,10 @@ public static class ErrorCodes
     // Administración de miembros (MVP-204, CA-8)
     public const string BusinessRuleLastActiveMember = "BUSINESS_RULE_LAST_ACTIVE_MEMBER";
     public const string BusinessRuleCannotRevokeOwner = "BUSINESS_RULE_CANNOT_REVOKE_OWNER";
+
+    // Conflictos
+    // Catálogo de tareas (MVP-205): nombre repetido en el mismo Workspace, ignorando mayúsculas.
+    public const string ConflictTaskNameDuplicate = "CONFLICT_TASK_NAME_DUPLICATE";
 
     // Resources
     public const string ResourceNotFound = "RESOURCE_NOT_FOUND";

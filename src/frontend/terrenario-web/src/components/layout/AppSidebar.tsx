@@ -23,6 +23,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Cosechas', icon: 'agriculture' },
   { label: 'Temporadas', icon: 'calendar_today', to: '/app/temporadas' },
   { label: 'Trabajadores', icon: 'group', to: '/app/trabajadores' },
+  { label: 'Tareas', icon: 'checklist', to: '/app/tareas' },
   { label: 'Miembros y accesos', icon: 'manage_accounts', to: '/app/miembros' },
   { label: 'Compras', icon: 'receipt_long' },
   { label: 'Ajustes', icon: 'settings' },

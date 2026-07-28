@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "masters", "tareas"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-28"
 ---
 
 # MVP-205 — Catálogo de tareas por Workspace
@@ -63,9 +63,9 @@ Permitir que cada Workspace mantenga su propio catálogo de tareas reutilizables
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Cada Workspace puede mantener su propio catálogo de tareas sin afectar al de otros Workspaces.
-- [ ] **CA-2**: El catálogo arranca vacío y puede poblarse sin configuración externa adicional.
-- [ ] **CA-3**: Las tareas con histórico pueden inactivarse sin invalidar registros que ya las utilicen.
+- [x] **CA-1**: Cada Workspace puede mantener su propio catálogo de tareas sin afectar al de otros Workspaces.
+- [x] **CA-2**: El catálogo arranca vacío y puede poblarse sin configuración externa adicional.
+- [x] **CA-3**: Las tareas con histórico pueden inactivarse sin invalidar registros que ya las utilicen.
 
 ## Maquetas y referencias visuales
 
@@ -79,9 +79,12 @@ Permitir que cada Workspace mantenga su propio catálogo de tareas reutilizables
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| ActivityModal | RN-025 | parcial | Entrada de actividad y titulo disponibles |
-| Catalogo tareas workspace | RN-026 | falta | No existe pantalla/catalogo de tareas reutilizable |
+| Catalogo tareas workspace (nuevo, sin prototipo) | RN-026 | cubierto | `/app/tareas`: alta y renombrado en linea, busqueda, filtro e inactivacion; verificado E2E (API+DB+UI) |
+| ActivityModal | RN-025 | parcial | El catalogo reutilizable ya existe; la seleccion de tarea al registrar actividad es alcance de MVP-301 |
 
 ## Notas y decisiones
 
 - La opción de guardar una tarea libre desde una actividad se implementará en la épica operativa, pero este maestro debe estar listo antes.
+- **La prevención de duplicados se adelanta a esta historia** (decisión del PO, 2026-07-28). `MVP-302` la lleva en su alcance, pero la guarda pertenece al catálogo y no al flujo que lo alimenta: un maestro que admite «Poda» y «poda» contradice el motivo por el que existe (RN-026), y añadir el índice único después obligaría a una migración con limpieza de datos. Se implementa en dos niveles (guarda de aplicación + índice único sobre `(workspace_id, lower(name))`) y **MVP-302 la reutiliza** en vez de construirla. La normalización avanzada de nombres (acentos, similitud) sigue fuera de alcance en ambas.
+- **Nueva entrada «Tareas» en el menú lateral** (decisión del PO, 2026-07-28), en `/app/tareas` y fuera de la guarda de oferta de temporada, como el resto de maestros de administración. La agrupación del menú por secciones queda registrada en `MVP-999` (P-025).
+- El alta y el renombrado son **en línea**, sin modal: una tarea es un solo campo y poblar el catálogo consiste en escribir varias seguidas (ver `tech-design.md`).

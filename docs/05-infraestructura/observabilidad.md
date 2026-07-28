@@ -1,7 +1,7 @@
 ﻿---
 bloque: 05-infraestructura
 documento: observabilidad
-actualizado_en: "2026-06-30"
+actualizado_en: "2026-07-18"
 ---
 
 # Observabilidad — Monitoring, Alertas y SLOs
@@ -12,10 +12,12 @@ actualizado_en: "2026-06-30"
 
 | Herramienta | Propósito |
 |------------|-----------|
-| TODO (Datadog / Grafana / etc.) | Métricas y dashboards |
-| TODO (PagerDuty / OpsGenie) | Gestión de alertas y on-call |
-| TODO (Sentry / Rollbar) | Error tracking |
-| TODO (ELK / Loki) | Logs centralizados |
+| Logs estructurados + request-id | Diagnóstico base de errores y trazabilidad E2E |
+| Sentry | Error tracking de aplicación |
+| Métricas operativas básicas | Disponibilidad, 5xx y latencia p95 |
+
+Estado fase A: stack liviano y coste controlado.
+Escalado a stack completo: al entrar en fase B o antes si hay 2 meses seguidos con alertas críticas recurrentes.
 
 ---
 
@@ -37,25 +39,22 @@ actualizado_en: "2026-06-30"
 | Tasa de abandono login | <= 15% | Rolling 7 dias |
 | Tiempo medio de login exitoso | <= 45s | Rolling 7 dias |
 
-### Servicio o módulo crítico (ejemplo)
-
-| SLI | SLO | Ventana de medición |
-|-----|-----|---------------------|
-| Disponibilidad | 99.95% | Rolling 30 días |
-| Latencia P99 de la operación crítica | < 2s | Rolling 7 días |
-
 ---
 
 ## Alertas activas
 
 | Alerta | Condición | Severidad | Canal | Runbook |
 |--------|-----------|-----------|-------|---------|
-| `HighErrorRate` | Tasa 5xx > 1% durante 5min | 🔴 crítica | PagerDuty | TODO |
-| `HighLatency` | P95 > 500ms durante 10min | 🟡 warning | Slack | TODO |
-| `ServiceDown` | Health check falla > 1min | 🔴 crítica | PagerDuty | TODO |
-| `CriticalFlowFailureSpike` | Tasa de fallo del flujo crítico > 5% | 🔴 crítica | PagerDuty | TODO |
-| `LoginAbandonmentSpike` | Abandono login > 25% durante 30min | 🟠 alta | Slack + on-call | TODO |
-| `LoginSuccessDrop` | Conversion login < 70% durante 30min | 🟠 alta | Slack + on-call | TODO |
+| `HighErrorRate` | Tasa 5xx fuera de umbral operativo | critica | canal de incidentes | `runbooks/` |
+| `HighLatency` | P95 fuera de umbral operativo | warning | canal de incidentes | `runbooks/` |
+| `ServiceDown` | Health check falla > 1min | critica | canal de incidentes | `runbooks/` |
+| `LoginAbandonmentSpike` | Abandono login > 25% durante 30min | 🟠 alta | canal privado interno de incidentes | `../08-procesos/gestion-incidentes.md` |
+| `LoginSuccessDrop` | Conversion login < 70% durante 30min | 🟠 alta | canal privado interno de incidentes | `../08-procesos/gestion-incidentes.md` |
+
+## Regla de umbrales
+
+1. Baseline inicial de 4 semanas.
+2. Revisión mensual de umbrales.
 
 ---
 
@@ -63,10 +62,17 @@ actualizado_en: "2026-06-30"
 
 | Dashboard | URL | Audiencia |
 |-----------|-----|-----------|
-| Overview del sistema | TODO | Todos |
-| Servicio o módulo crítico | TODO | Equipo owner |
-| Infraestructura | TODO | DevOps / SRE |
-| Autenticacion | TODO | Producto + Ingenieria |
+| Overview del sistema | N/A en fase C (revision manual de logs y metricas) | Todos |
+| Infraestructura | N/A en fase C (revision manual de logs y metricas) | DevOps / SRE |
+| Autenticacion | N/A en fase C (revision manual de embudo login) | Producto + Ingenieria |
+
+## Monitoreo de negocio mínimo (fase A)
+
+Revisión semanal de 15 minutos sobre:
+
+1. `logins_activos_semana`
+2. `registros_creados_semana`
+3. `tasa_error_funcional_visible`
 
 ## Telemetria del login (obligatoria)
 
@@ -103,7 +109,7 @@ Todo log de producción debe incluir:
 {
   "timestamp": "2025-06-01T10:00:00.000Z",
   "level": "info",
-  "service": "core-service",
+  "service": "terrenario-api",
   "trace_id": "uuid",
   "span_id": "uuid",
   "message": "Descripción",
@@ -116,3 +122,9 @@ Todo log de producción debe incluir:
 
 **No loguear nunca**: datos de tarjeta, contraseñas, tokens, PII sin anonimizar.
 Ver `../07-seguridad/privacidad-datos.md`.
+
+## Trazabilidad KB
+
+1. KPIs y objetivos de uso: `../01-producto/kpis.md`
+2. Seguridad y privacidad de logs: `../07-seguridad/modelo-seguridad.md`
+3. Arquitectura y evolución post-MVP: `../02-arquitectura/vision-general.md`

@@ -1,14 +1,14 @@
 ﻿---
 bloque: 05-infraestructura
 documento: ci-cd
-actualizado_en: ""
+actualizado_en: "2026-07-18"
 ---
 
 # Pipeline de CI/CD
 
 ---
 
-## Diagrama del pipeline
+## Diagrama del pipeline (fase A)
 
 ```mermaid
 flowchart LR
@@ -18,18 +18,19 @@ flowchart LR
         tests_unit --> tests_int[Tests integración]
         tests_int --> kb_val[Validación KB]
     end
-    CI --> MERGE[Merge a main]
-    MERGE --> CD_STG
-    subgraph CD_STG["CD — Deploy a Staging"]
-        build_stg[Build imagen] --> deploy_stg[Deploy staging]
-        deploy_stg --> smoke_stg[Smoke tests]
+    CI --> MERGE[Merge a develop]
+    MERGE --> CD_DEV
+    subgraph CD_DEV["CD — Deploy a dev"]
+        build_dev[Build imagen] --> deploy_dev[Deploy dev automático]
+        deploy_dev --> smoke_dev[Smoke tests]
     end
-    CD_STG --> RELEASE[Tag de release]
+    CD_DEV --> RELEASE[Release candidate]
     RELEASE --> CD_PROD
     subgraph CD_PROD["CD — Deploy a Producción"]
         approval[Aprobación manual] --> build_prod[Build imagen]
         build_prod --> deploy_prod[Deploy producción]
         deploy_prod --> smoke_prod[Smoke tests]
+        smoke_prod --> rollback[Rollback semiautomático si falla]
     end
 ```
 
@@ -41,30 +42,31 @@ flowchart LR
 
 | Stage | Herramienta | Falla el PR si... |
 |-------|------------|------------------|
-| Linting | TODO | Hay errores de linting |
-| Tests unitarios | TODO | Algún test falla o cobertura < 80% |
-| Tests de integración | TODO | Algún test falla |
+| Linting | ESLint / analyzers | Hay errores de linting |
+| Tests unitarios | xUnit | Algún test falla o cobertura < 80% |
+| Tests de integración | xUnit + Testcontainers | Algún test falla |
 | Validación de KB | `validar_kb.py --validar` | Frontmatter inválido o estructura rota |
 | Linting de Markdown | markdownlint | Errores de formato en `docs/` |
 
-### CD — Staging
+### CD — dev
 
-Trigger: merge a `main`
+Trigger: merge a `develop`
 
 1. Build de imagen Docker con tag del commit SHA
 2. Push a registry
-3. Deploy a staging via TODO (Helm / ArgoCD / etc.)
+3. Deploy automático a `dev`
 4. Smoke tests automáticos
 
 ### CD — Producción
 
-Trigger: tag semántico `v*.*.*` en `main`
+Trigger: PR aprobado de `develop` a `main`
 
-1. Aprobación manual requerida (TODO: quién)
-2. Build de imagen con tag de release
-3. Deploy a producción con canary / blue-green (TODO)
-4. Smoke tests
-5. Rollback automático si los smoke tests fallan
+1. Revisión manual requerida (puede ser auto-revisión si no hay otro revisor disponible)
+2. Merge de `develop` a `main`
+3. Build de imagen con tag de release
+4. Deploy a producción
+5. Smoke tests obligatorios (gate de calidad)
+6. Rollback semiautomático vía script/pipeline si los smoke tests fallan
 
 ---
 
@@ -73,8 +75,8 @@ Trigger: tag semántico `v*.*.*` en `main`
 En caso de incidente post-deploy:
 
 ```bash
-# Rollback al deployment anterior
-TODO: comando de rollback
+# Rollback al deployment anterior (ejemplo)
+./scripts/release/rollback-prod.ps1
 ```
 
 Ver proceso completo en `../08-procesos/proceso-release.md`.
@@ -85,6 +87,19 @@ Ver proceso completo en `../08-procesos/proceso-release.md`.
 
 | Artefacto | Dónde se almacena | Retención |
 |-----------|------------------|-----------|
-| Imágenes Docker | TODO (ECR / GCR / etc.) | 30 días los no productivos |
-| Logs de CI | TODO | 90 días |
-| Reportes de cobertura | TODO | 30 días |
+| Imágenes Docker | Registry del proveedor cloud | 30 días no productivos |
+| Logs de CI | GitHub Actions | 90 días |
+| Reportes de cobertura | Artefactos de CI | 30 días |
+
+## Reglas operativas
+
+1. Pipeline único por servicio.
+2. Deploy automático a `dev`.
+3. Deploy a `prod` solo con gate manual.
+4. Migraciones de esquema con ejecución manual aprobada.
+
+## Trazabilidad KB
+
+1. Flujo Git y promoción: `../04-ingenieria/flujo-git.md`
+2. Reglas de release: `../08-procesos/proceso-release.md`
+3. Gate de testing: `../04-ingenieria/estrategia-testing.md`

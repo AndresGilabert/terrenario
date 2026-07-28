@@ -1,15 +1,13 @@
 ﻿---
 bloque: 03-modulos
 documento: vision-general
-actualizado_en: "2026-07-16"
+actualizado_en: "2026-07-13"
 ---
 
 # Módulos del Sistema — Visión General
 
 > Este documento es el mapa de Bounded Contexts del sistema (DDD).
 > Cada módulo es un dominio funcional autónomo con su propia documentación.
-> En esta plantilla, el directorio `modulo-ejemplo/` se mantiene solo como contenedor de ejemplo estructural.
-> No debe tratarse como un módulo real del proyecto y debe eliminarse al crear el primer módulo real.
 
 ---
 
@@ -35,8 +33,7 @@ flowchart TD
 
 | Módulo | Descripción | Owner | Estado | Ruta |
 |--------|-------------|-------|--------|------|
-| `modulo-ejemplo` | Ejemplo de estructura documental neutra | plantilla | ejemplo | [03-modulos/modulo-ejemplo/](./modulo-ejemplo/README.md) |
-| _(añadir módulos aquí)_ | | | | |
+| _(sin módulos definidos todavía)_ | Definir tras cierre de arquitectura | | | |
 
 ---
 

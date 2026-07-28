@@ -1,7 +1,7 @@
 ﻿---
 bloque: 08-procesos
 documento: gestion-incidentes
-actualizado_en: ""
+actualizado_en: "2026-07-13"
 ---
 
 # Gestión de Incidentes
@@ -13,9 +13,9 @@ actualizado_en: ""
 | Nivel | Criterio | Tiempo de respuesta | Comunicación |
 |-------|---------|--------------------|-|
 | **SEV-1** | Producción caída para todos los usuarios | < 15 min | Inmediata (PagerDuty + canal #incidents) |
-| **SEV-2** | Funcionalidad critica degradada (ej: flujo principal fallando) | < 30 min | Canal #incidents |
-| **SEV-3** | Funcionalidad no crítica afectada | < 2 horas | Ticket en Jira |
-| **SEV-4** | Problema menor, workaround disponible | Siguiente día hábil | Ticket en Jira |
+| **SEV-2** | Funcionalidad crítica degradada (ej: pagos fallando) | < 30 min | Canal #incidents |
+| **SEV-3** | Funcionalidad no crítica afectada | < 2 horas | Ticket en sistema de trabajo |
+| **SEV-4** | Problema menor, workaround disponible | Siguiente día hábil | Ticket en sistema de trabajo |
 
 ---
 
@@ -35,15 +35,14 @@ actualizado_en: ""
    └── Actualizar página de status si aplica
 
 4. RESOLUCIÓN
-   ├── Diagnosticar (usar runbooks reales de 05-infraestructura/runbooks/ o crear uno desde `../00-meta/plantillas/runbook.md`)
+   ├── Diagnosticar (usar runbooks de 05-infraestructura/runbooks/)
    ├── Aplicar fix o rollback
    └── Verificar con smoke tests
 
 5. CIERRE
    ├── Confirmar resolución en #incidents
    └── Programar postmortem (SEV-1/2 obligatorio)
-```
-
+```text
 ---
 
 ## On-call
@@ -72,13 +71,11 @@ Obligatorio para SEV-1 y SEV-2. Opcional pero recomendado para SEV-3.
 ## Qué salió bien
 ## Qué mejorar
 ## Acciones de seguimiento (con owner y fecha)
-```
-
+```text
 **Principio**: los postmortems son **blameless** — el objetivo es mejorar el sistema, no señalar personas.
 
 ---
 
 ## Runbooks disponibles
 
-Ver `../05-infraestructura/runbooks/` para los procedimientos operacionales reales.
-Si todavía no existe un runbook aplicable, crear uno desde `../00-meta/plantillas/runbook.md`.
+Ver `../05-infraestructura/runbooks/` para los procedimientos operacionales.

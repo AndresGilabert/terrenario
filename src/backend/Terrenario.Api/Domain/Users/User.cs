@@ -1,0 +1,61 @@
+namespace Terrenario.Api.Domain.Users;
+
+public sealed class User
+{
+    public Guid Id { get; private set; }
+    public string GoogleSub { get; private set; } = string.Empty;
+    public string DisplayName { get; private set; } = string.Empty;
+    public string Email { get; private set; } = string.Empty;
+    public bool IsActive { get; private set; }
+
+    /// <summary>
+    /// Último Workspace que el usuario dejó activo. Es lo que mantiene el contexto entre
+    /// renovaciones de sesión y nuevos logins (MVP-104), donde el claim ya no viaja.
+    /// </summary>
+    public Guid? ActiveWorkspaceId { get; private set; }
+
+    public DateTimeOffset CreatedAt { get; private set; }
+    public DateTimeOffset UpdatedAt { get; private set; }
+
+    private User() { }
+
+    public static User Create(string googleSub, string displayName, string email)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(googleSub);
+        ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(email);
+
+        return new User
+        {
+            Id = Guid.NewGuid(),
+            GoogleSub = googleSub,
+            DisplayName = displayName,
+            Email = email,
+            IsActive = true,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+    }
+
+    public void UpdateProfile(string displayName, string email)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(email);
+
+        DisplayName = displayName;
+        Email = email;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Recuerda el Workspace sobre el que opera el usuario. La pertenencia se valida antes de
+    /// llamar aquí: el agregado solo guarda la preferencia, no concede acceso.
+    /// </summary>
+    public void SetActiveWorkspace(Guid workspaceId)
+    {
+        if (ActiveWorkspaceId == workspaceId) return;
+
+        ActiveWorkspaceId = workspaceId;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+}

@@ -1,7 +1,7 @@
 ﻿---
 bloque: 08-procesos
 documento: definition-of-ready
-actualizado_en: "2026-06-30"
+actualizado_en: "2026-07-24"
 ---
 
 # Definition of Ready (DoR)
@@ -16,13 +16,12 @@ actualizado_en: "2026-06-30"
 ### Documentación
 
 - [ ] Existe `spec.md` en `docs/09-desarrollos/epicas/{epica}/{ticket}/`
-- [ ] El nombre de carpeta de épica/historia sigue la derivación automática de slug desde el título del desarrollo o ticket fuente
-- [ ] Los nombres y rutas cumplen los límites de longitud definidos en `docs/00-meta/convenciones.md`
+- [ ] El nombre de carpeta de épica/historia sigue la derivación automática de slug desde ticket fuente
 - [ ] El `spec.md` tiene estado `aprobado` en el frontmatter
 - [ ] El frontmatter YAML está completo y válido
 - [ ] El módulo afectado está identificado en `ai_context.modulo_path`
-- [ ] Si existe ticket externo, el `spec.md` incluye trazabilidad completa (sistema, ID o URL, fecha, campos importados, pendientes)
-- [ ] Los campos no recuperables de la fuente externa están marcados como pendientes, sin contenido inventado
+- [ ] Si existe ticket fuente, está referenciado en `tickets.*`
+- [ ] Los campos no recuperables automáticamente están marcados como pendientes, sin contenido inventado
 
 ### Especificación
 
@@ -36,6 +35,13 @@ actualizado_en: "2026-06-30"
 
 - [ ] Las dependencias con otros tickets están identificadas en `depende_de`
 - [ ] Si depende de trabajo aún no completado, está marcado y acordado con el equipo
+
+### Regla de cierre de épicas
+
+- [ ] Cada épica incluye su historia de cierre `MVP-x99` con título `Revision epica`
+- [ ] La historia `MVP-x99` depende de todas las historias funcionales previas de su épica
+- [ ] El `spec.md` de la épica lista `MVP-x99` como última historia en `historias`
+- [ ] Los puntos detectados durante desarrollo que no caben en historias activas se registran en la revisión de épica o en `MVP-999`
 
 ### Cumplimiento normativo (obligatorio)
 

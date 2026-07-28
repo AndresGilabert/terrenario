@@ -1,0 +1,6 @@
+{
+  "name": "Terrenario",
+  "description": "Gestión agrícola moderna para parcelas, terrenos, cosechas, labores y diario de campo.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

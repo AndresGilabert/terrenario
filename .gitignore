@@ -13,3 +13,25 @@ $RECYCLE.BIN/
 
 # Obsidian vault files
 .obsidian/
+
+### .NET / C#
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+
+### Node / Frontend
+node_modules/
+dist/
+dist-ssr/
+.env
+.env.local
+.env.*.local
+
+### JetBrains IDEs
+.idea/
+
+### macOS
+.DS_Store

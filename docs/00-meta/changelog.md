@@ -15,10 +15,21 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/).
 - Migración documentada de plantilla `v1.0.0 -> v1.1.0`
 - Script `sync_template_core.py` para planificar y aplicar sincronización del núcleo de plantilla
 - Plantilla específica para notas de release (`release-notes.md`)
+- Estructura real de `docs/09-desarrollos/epicas/` con seis épicas MVP alineadas con el roadmap aprobado
+- Historias iniciales de la épica `MVP-001` para dejar definido el Hito A del MVP
+- Historias iniciales de la épica `MVP-002` para dejar definido el Hito B del MVP
+- Historias iniciales de la épica `MVP-003` para dejar definido el Hito C del MVP
+- Historias iniciales de la épica `MVP-004` para dejar definido el Hito D del MVP
+- Historias iniciales de las épicas `MVP-005` y `MVP-006` para cerrar la salida controlada y la operación medible del MVP
+- Historias de cierre `Revision epica` (`MVP-x99`) en todas las épicas MVP activas (`MVP-001` a `MVP-006`)
+- Nueva épica `MVP-999` para pendientes transversales y diferidos fuera de encaje en épicas activas
 
 ### Cambiado
 
+- Cerrada la historia `MVP-104` (membresía y selector de Workspace activo): estados de membresía por catálogo `worker_member_status`, contexto activo persistido en `users.active_workspace_id`, endpoints `GET /api/v1/workspaces` y `PUT /api/v1/workspaces/active`, y selector de Workspace en la UI. Actualizados modelo de datos y contratos de API.
+- Registrados los puntos `P-002` (administración/revocación de miembros) y `P-003` (materialización del estado `invitado`) en `MVP-999` como pendientes de coherencia detectados durante `MVP-104`.
 - Actualizada documentacion de producto para reflejar definicion funcional confirmada del dashboard MVP (alcance, reglas, journeys y KPIs iniciales).
+- Actualizada la KB para cerrar decisiones funcionales del MVP y convertir el roadmap en una propuesta por bloques ejecutables con dependencias explícitas.
 - Definido marco de cumplimiento obligatorio de proteccion de datos (RGPD + LOPDGDD), con clasificacion de obligatorio vs condicionado vs recomendado y criterios de enforcement en DoR/DoD.
 - Definida estrategia de autenticacion para MVP (Google Login), Passkeys en fase futura y trazabilidad obligatoria del embudo de login para detectar abandono.
 - Marcado `docs/03-modulos/modulo-ejemplo/` como módulo de ejemplo no vinculante y excluido del contexto funcional real del proyecto.
@@ -27,6 +38,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/).
 - Eliminada `docs/09-desarrollos/epicas/PROJ-100--checkout-refactor/` por ser una épica de ejemplo, manteniendo `docs/09-desarrollos/_plantilla/` como base para desarrollos reales.
 - Definido un modelo de actualización por versión + núcleo sincronizable para proyectos consumidores de la plantilla.
 - Actualizado el flujo Git para usar `develop` como rama de integración previa a `main` y hacer opcional la aprobación externa en proyectos unipersonales.
+- Actualizados DoR, DoD y flujo Git para institucionalizar la revisión final por épica (`MVP-x99`) y el uso de `MVP-999`.
 
 ---
 

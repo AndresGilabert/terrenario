@@ -1,0 +1,90 @@
+﻿---
+id: "MVP-104"
+tipo: feature
+titulo: "Membresía y selector de Workspace activo"
+estado: completado
+prioridad: alta
+sprint: ""
+hito: "Hito A — Base segura y multiusuario"
+esfuerzo_estimado: "3d"
+tickets: []
+epica: "MVP-001--identidad-y-contexto-seguro"
+depende_de: ["MVP-101", "MVP-102", "MVP-103"]
+bloquea: ["MVP-105", "MVP-002"]
+relacionado_con: []
+responsable: "@andres"
+revisores: []
+ai_context:
+  dominios: ["workspaces", "membresia", "contexto-activo"]
+  modulo_path: "03-modulos/"
+  componentes: ["workspace-members", "workspace-selector", "ui-shell"]
+  etiquetas: ["mvp", "workspace", "membership"]
+  nivel_riesgo: medio
+creado_en: "2026-07-20"
+actualizado_en: "2026-07-25"
+---
+
+# MVP-104 — Membresía y selector de Workspace activo
+
+## Contexto
+
+Un usuario puede pertenecer a varios Workspaces y el producto debe hacer visible en todo momento sobre cuál está operando. Sin un selector claro y un modelo mínimo de membresía, la multi-explotación queda confusa y propensa a errores de contexto.
+
+## Objetivo
+
+Permitir que el usuario vea sus Workspaces disponibles, cambie el Workspace activo y mantenga ese contexto durante la navegación del MVP.
+
+## Requisitos de usuario
+
+### HU-1 — Ver mis Workspaces disponibles
+
+**Como** usuario con acceso a varios Workspaces,
+**quiero** ver la lista de Workspaces a los que pertenezco,
+**para** saber entre cuáles puedo alternar.
+
+### HU-2 — Cambiar el Workspace activo
+
+**Como** usuario multi-Workspace,
+**quiero** seleccionar el Workspace activo desde la interfaz,
+**para** operar sobre el contexto correcto sin ambigüedad.
+
+## Alcance (in-scope)
+
+- Listado de membresías activas del usuario.
+- Selector visible de Workspace activo.
+- Persistencia razonable del Workspace activo durante la sesión.
+- Cambio de contexto sin mezcla de datos entre Workspaces.
+- Estados mínimos de membresía (`invitado`, `activo`, `revocado`) reflejados en el flujo.
+
+## Fuera de alcance (out-of-scope)
+
+- Jerarquías de Workspaces.
+- Favoritos, agrupaciones o filtros avanzados de Workspaces.
+- Administración avanzada de miembros más allá del alcance base.
+
+## Criterios de aceptación
+
+- [x] **CA-1**: Un usuario puede ver todos sus Workspaces disponibles y distinguir el activo.
+- [x] **CA-2**: Al cambiar de Workspace, la aplicación actualiza el contexto sin mostrar datos cruzados del Workspace anterior.
+- [x] **CA-3**: El contexto activo queda disponible para las operaciones posteriores del MVP.
+
+## Maquetas y referencias visuales
+
+- Prototipo base ejecutable: [prototype/terrenario-mvp/README.md](../../../../../prototype/terrenario-mvp/README.md)
+- Referencia UI: [prototype/terrenario-mvp/src/components/Sidebar.tsx](../../../../../prototype/terrenario-mvp/src/components/Sidebar.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/components/TopNavbar.tsx](../../../../../prototype/terrenario-mvp/src/components/TopNavbar.tsx)
+- Referencia UI: [prototype/terrenario-mvp/src/App.tsx](../../../../../prototype/terrenario-mvp/src/App.tsx)
+
+> El prototipo se usa solo como referencia visual y de flujo. La fuente de verdad funcional y de requisitos es la KB.
+
+## Checklist de implementacion (prototipo + KB)
+
+| Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
+|---|---|---|---|
+| Sidebar | RN-034 | cubierto | `WorkspaceSwitcher` lista Workspaces y alterna el activo reemitiendo la sesión |
+| TopNavbar | RN-034 | cubierto | El activo se resuelve en servidor y se muestra sobre la operativa de `/app` |
+
+## Notas y decisiones
+
+- Esta historia es condición práctica para que los siguientes módulos sean realmente Workspace-first.
+- No introduce permisos granulares; solo hace visible y operativo el contexto activo.

@@ -9,7 +9,7 @@ hito: "Hito E — Salida controlada a MVP"
 esfuerzo_estimado: "2d"
 tickets: []
 epica: "MVP-005--endurecimiento-y-salida-a-mvp"
-depende_de: ["MVP-502"]
+depende_de: ["MVP-505", "MVP-502"]
 bloquea: ["MVP-504"]
 relacionado_con: []
 responsable: "@andres"
@@ -79,3 +79,8 @@ Dejar verificada y documentada la evidencia mínima de cumplimiento necesaria pa
 ## Notas y decisiones
 
 - Esta historia es de gobernanza mínima, no de burocracia adicional fuera del MVP.
+- **Depende de `MVP-505`** (3ª pasada de `MVP-299`, 2026-07-28). Esta historia **verifica**
+  cumplimiento; no lo construye —«nuevas políticas» está en su fuera de alcance—. Las tres piezas que
+  necesita verificar (páginas legales y consentimiento, baja de cuenta y política de retención) no
+  existían en ninguna historia del roadmap: se crean en `MVP-505`, que debe entregarse antes. Sin ese
+  orden, el checklist saldría en rojo sin nadie a quien devolvérselo.

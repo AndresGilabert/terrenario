@@ -53,8 +53,11 @@ Permitir registrar compras operativas del Workspace con el mínimo de datos nece
 - Alta, edición y listado de compras del Workspace.
 - Producto/material como texto libre.
 - Sugerencias de valores desde histórico del Workspace.
-- Asociación de compra a temporada.
+- Asociación de compra a temporada (`season_id`, RN-021). Materializa `P-050`: el contrato ya lo
+  exigía y el ER no lo declaraba.
 - Validaciones de cantidad y coste positivos.
+- Concurrencia optimista y eliminación lógica de la compra, con el patrón que fija `MVP-301`
+  (`version` + `If-Match` + `409`; `deleted_at` por RN-037).
 
 ## Fuera de alcance (out-of-scope)
 
@@ -86,3 +89,10 @@ Permitir registrar compras operativas del Workspace con el mínimo de datos nece
 ## Notas y decisiones
 
 - Esta historia prepara el dato de compra; no resuelve aún el consumo o la imputación.
+- **Revisión previa (3ª pasada de `MVP-299`, 2026-07-28).** Dos ajustes antes de arrancar:
+  - `PURCHASE` gana `season_id` en el ER (`P-050`, hallazgo `R-28`): `RN-021` lo exige y
+    `contratos-api.md` §7 ya lo contrataba como `season_id*`, pero el ER solo referenciaba
+    `workspace_id`. Es el equivalente para la compra de lo que `P-028` registra para la tarea.
+  - El **modelo del consumo condiciona a esta historia**: `MVP-304` necesita que un consumo pueda
+    existir sin compra (RN-032), así que la decisión de si `purchase_id` es una columna anulable o una
+    entidad propia debe tomarse **antes** de cerrar el modelo de compras, no después. Ver `MVP-304`.

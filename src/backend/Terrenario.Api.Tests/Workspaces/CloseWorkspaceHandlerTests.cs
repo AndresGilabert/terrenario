@@ -2,9 +2,11 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using Terrenario.Api.Application.Workers;
 using Terrenario.Api.Application.Workspaces;
 using Terrenario.Api.Application.Workspaces.Commands;
 using Terrenario.Api.Common.Errors;
+using Terrenario.Api.Domain.Workers;
 using Terrenario.Api.Domain.Workspaces;
 using Terrenario.Api.Infrastructure.Email;
 using Terrenario.Api.Infrastructure.Tokens;
@@ -25,6 +27,8 @@ public class CloseWorkspaceHandlerTests
     private readonly IOneTimeTokenService _tokenService = Substitute.For<IOneTimeTokenService>();
     private readonly IWorkspaceLifecycleEmailSender _emailSender =
         Substitute.For<IWorkspaceLifecycleEmailSender>();
+    // MVP-299 (3ª pasada, R-25): la reasignación revoca un acceso, así que toca el maestro.
+    private readonly IWorkerRepository _workerRepository = Substitute.For<IWorkerRepository>();
 
     private static readonly Guid OwnerId = Guid.NewGuid();
     private static readonly Guid CoOwnerId = Guid.NewGuid();
@@ -43,6 +47,7 @@ public class CloseWorkspaceHandlerTests
             _reactivationRepository,
             _tokenService,
             _emailSender,
+            new MemberRosterService(_workerRepository),
             Options.Create(new WorkspaceLifecycleOptions
             {
                 ReactivationLifetimeDays = 7,
@@ -114,6 +119,51 @@ public class CloseWorkspaceHandlerTests
         acting.Status.Should().Be(WorkspaceMemberStatuses.Revoked);
         await _reactivationRepository.DidNotReceiveWithAnyArgs()
             .AddRangeAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task AlReasignar_Deberia_RetirarAlSolicitanteDeLosResponsablesSeleccionables()
+    {
+        // MVP-299 (3ª pasada, R-25) — la reasignación revoca la membresía del solicitante, así que su
+        // fila del maestro debe inactivarse igual que al revocar el acceso a mano (MVP-208, CA-4). Sin
+        // esto seguía apareciendo como «MIEMBRO» activo en Trabajadores de un Workspace ajeno.
+        var acting = WorkspaceMember.CreateOwner(_workspace.Id, OwnerId);
+        GivenActingMember(acting);
+        _workspaceRepository.FindOtherActiveOwnerAsync(_workspace.Id, OwnerId, Arg.Any<CancellationToken>())
+            .Returns(WorkspaceMember.CreateOwner(_workspace.Id, CoOwnerId));
+        GivenMembers(Detail(CoOwnerId, "Marta", WorkspaceRoles.Owner));
+
+        var worker = Worker.CreateForMember(_workspace.Id, OwnerId, "Antonio");
+        _workerRepository.FindByUserAccountAsync(_workspace.Id, OwnerId, Arg.Any<CancellationToken>())
+            .Returns(worker);
+        var sut = CreateSut();
+
+        await sut.HandleAsync(Command());
+
+        // La fila se inactiva, nunca se borra: lo que ya la referencie sigue siendo válido.
+        worker.IsActive.Should().BeFalse();
+        worker.Name.Should().Be("Antonio");
+        worker.UserAccountId.Should().Be(OwnerId);
+    }
+
+    [Fact]
+    public async Task ComoPropietarioUnico_NoDeberia_TocarElMaestroDeResponsables()
+    {
+        // La baja lógica no revoca a nadie: los miembros conservan su acceso para poder pedir la
+        // reactivación (CA-7 de MVP-206), así que el maestro no se toca.
+        GivenActingMember(WorkspaceMember.CreateOwner(_workspace.Id, OwnerId));
+        _workspaceRepository.FindOtherActiveOwnerAsync(_workspace.Id, OwnerId, Arg.Any<CancellationToken>())
+            .Returns((WorkspaceMember?)null);
+        GivenMembers(Detail(OwnerId, "Antonio", WorkspaceRoles.Owner));
+
+        var worker = Worker.CreateForMember(_workspace.Id, OwnerId, "Antonio");
+        _workerRepository.FindByUserAccountAsync(_workspace.Id, OwnerId, Arg.Any<CancellationToken>())
+            .Returns(worker);
+        var sut = CreateSut();
+
+        await sut.HandleAsync(Command());
+
+        worker.IsActive.Should().BeTrue();
     }
 
     [Fact]

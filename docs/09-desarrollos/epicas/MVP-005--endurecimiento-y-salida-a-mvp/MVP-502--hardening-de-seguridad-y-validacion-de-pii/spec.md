@@ -86,3 +86,20 @@ Reducir el riesgo operativo del MVP reforzando controles de autenticación, auto
 ## Notas y decisiones
 
 - Esta historia endurece el MVP ya construido; no debe introducir cambios funcionales de producto salvo los bloqueantes.
+- **Puntos de `MVP-999` asignados aquí** (3ª pasada de `MVP-299`, 2026-07-28). Los dos viven en el
+  **mismo borde de transporte** y deben resolverse en una sola pasada, con un helper común de lectura
+  de cuerpo:
+  - **`P-027`** — los `PATCH` de campos parciales de los maestros responden **500** ante un cuerpo
+    JSON con bytes no UTF-8: el patrón `[FromBody] Dictionary<string, JsonElement>` acepta los bytes y
+    revienta después en `GetString()`. Debe devolver `400`. Afecta a `PlotsController`,
+    `WorkersController` y `TasksController`.
+  - **`P-043`** — `InvalidModelStateResponseFactory` colapsa toda la validación de alta a
+    `VALIDATION_REQUIRED`, así que un cliente no puede distinguir «falta» de «en blanco» ni de
+    «demasiado largo» en el `POST` de los cuatro maestros, mientras el `PATCH` sí emite el código
+    específico. Además filtra el mensaje por defecto de ASP.NET **en inglés** («The request field is
+    required.»), que la UI muestra tal cual al usuario. La corrección **documental** ya se aplicó
+    (`MVP-208` CA-9 y `MVP-299` CA-5): el contrato describe hoy lo que la API hace; lo que queda es
+    unificar el comportamiento.
+  - Estaban registrados con destino «`MVP-999` o `MVP-501`». Se asignan aquí porque «revisión de
+    validación de entrada en bordes API» es literalmente el alcance de esta historia; `MVP-501` aporta
+    los tests que lo verifican, no el arreglo.

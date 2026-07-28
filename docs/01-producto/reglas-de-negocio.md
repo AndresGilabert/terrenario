@@ -401,15 +401,17 @@ El MVP sale con Google OIDC como único proveedor real de autenticación. Otros 
 
 ---
 
-### RN-037 — Borrado fisico con confirmacion explicita
+### RN-037 — Borrado de registro operativo con confirmacion explicita
 
 **Estado**: activa
 **Fuente**: producto
 **Módulos afectados**: actividades, produccion, compras-consumo
 
-El MVP permite borrado físico de registros operativos, pero la UI debe exigir confirmación explícita antes de ejecutar la acción.
+El MVP permite eliminar registros operativos, pero la UI debe exigir **confirmación explícita** antes de ejecutar la acción, y el registro eliminado deja de aparecer en el diario, en los listados y en el dashboard.
 
-Esta regla aplica a **registros operativos**, no al Workspace: su baja es lógica por RN-039.
+La eliminación es **lógica** (`deleted_at`), no física: el mismo criterio que la baja de Workspace (RN-039). Un borrado accidental sobre operativa ya capturada es recuperable, y el MVP no expone ninguna vía de restauración —papelera o deshacer— porque no la necesita para cumplir la regla: basta con que el dato no se pierda. La purga real de lo eliminado se decide junto a la política de retención (`MVP-999`, P-033).
+
+Enunciado anterior («el MVP permite borrado **físico**») corregido en la revisión de cierre de MVP-002 (`MVP-299`, 3ª pasada, hallazgo `G-1`): contradecía al modelo de datos, que declara `deleted_at` en `ACTIVITY`, `HARVEST` y `PURCHASE` y fija el borrado lógico como convención de persistencia de las entidades operativas. Decisión del PO (2026-07-28).
 
 ---
 

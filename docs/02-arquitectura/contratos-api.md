@@ -1,7 +1,7 @@
 ﻿---
 bloque: 02-arquitectura
 documento: contratos-api
-actualizado_en: "2026-07-24"
+actualizado_en: "2026-07-28"
 ---
 
 # Contratos de API
@@ -228,7 +228,7 @@ Validaciones clave:
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
-| Alta tarea | `POST /api/v1/tasks` | `name*`, `is_active?` | `201 { id, name, is_active }` |
+| Alta tarea | `POST /api/v1/tasks` | `name*`, `is_active?` | `201 { id, workspace_id, name, is_active }` |
 | Editar tarea | `PATCH /api/v1/tasks/{taskId}` | `name?`, `is_active?` | `200 { ...task }` |
 | Listado tareas | `GET /api/v1/tasks` | `is_active?` | `200 { data, meta }` |
 
@@ -236,8 +236,23 @@ Validaciones clave:
 
 | Regla | Código error |
 |---|---|
-| `name` obligatorio | `VALIDATION_REQUIRED_TASK_NAME` |
-| tarea pertenece al workspace activo | `AUTH_WORKSPACE_FORBIDDEN` |
+| `name` ausente o en blanco en el alta | `VALIDATION_REQUIRED` (400) |
+| `name` en blanco al editar | `VALIDATION_REQUIRED_TASK_NAME` (400) |
+| `name` de longitud válida (≤ 120) | `VALIDATION_TASK_NAME_LENGTH` (400) |
+| Nombre ya usado en el Workspace, ignorando mayúsculas | `CONFLICT_TASK_NAME_DUPLICATE` (409) |
+| Tarea inexistente o de otro Workspace | `RESOURCE_NOT_FOUND` (404) |
+| `workspace_id` implícito desde token | `AUTH_WORKSPACE_SCOPE_REQUIRED` (403) |
+
+Reglas de contexto (MVP-205):
+
+| Regla | Comportamiento |
+|---|---|
+| Catálogo por Workspace (RN-026) | Arranca **vacío** y es editable por cualquier miembro activo (RN-034). El aislamiento por Workspace lo garantiza `[RequireWorkspaceScope]`: el catálogo de un Workspace no afecta al de otro |
+| Duplicados | Un Workspace no admite dos tareas con el mismo nombre ignorando mayúsculas y espacios sobrantes (índice único `(workspace_id, lower(name))`). Las **inactivas también ocupan su nombre**: se reactivan, no se duplican. No hay normalización de acentos: «Poda» y «Podá» conviven |
+| Inactivación con histórico (CA-3) | `PATCH { is_active:false }`; reversible. No hay borrado físico de tareas |
+| `PATCH` de campos parciales | Un campo ausente mantiene su valor |
+| Orden del listado | Activas primero y luego por nombre. La operativa diaria pedirá `is_active=true` |
+| Tarea en la actividad (RN-025) | La tarea es obligatoria y puede venir del catálogo (`task_id`) o de texto libre (`task_text`); guardar una tarea libre en el catálogo es alcance de MVP-302 y reutiliza esta guarda de duplicados |
 
 ### 4) Workers (trabajadores)
 

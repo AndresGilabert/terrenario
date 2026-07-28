@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Terrenario.Api.Domain.Plots;
 using Terrenario.Api.Domain.Seasons;
+using Terrenario.Api.Domain.Tasks;
 using Terrenario.Api.Domain.Users;
 using Terrenario.Api.Domain.Workers;
 using Terrenario.Api.Domain.Workspaces;
@@ -18,6 +19,7 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
     public DbSet<Season> Seasons => Set<Season>();
     public DbSet<Plot> Plots => Set<Plot>();
     public DbSet<Worker> Workers => Set<Worker>();
+    public DbSet<TaskItem> Tasks => Set<TaskItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -235,6 +237,33 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
                 .WithMany()
                 .HasForeignKey(w => w.UserAccountId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<TaskItem>(entity =>
+        {
+            entity.ToTable("tasks");
+            entity.HasKey(t => t.Id);
+            entity.Property(t => t.Id).HasColumnName("id");
+            entity.Property(t => t.WorkspaceId).HasColumnName("workspace_id").IsRequired();
+            entity.Property(t => t.Name).HasColumnName("name").HasMaxLength(TaskItem.NameMaxLength).IsRequired();
+            entity.Property(t => t.IsActive).HasColumnName("is_active");
+            entity.Property(t => t.CreatedAt).HasColumnName("created_at");
+            entity.Property(t => t.UpdatedAt).HasColumnName("updated_at");
+
+            // El catálogo consulta por Workspace (aislamiento multi-tenant, CA-1) y filtra por estado
+            // de actividad: índice de apoyo (workspace_id, is_active), coherente con plots y workers.
+            entity.HasIndex(t => new { t.WorkspaceId, t.IsActive });
+
+            // La unicidad de nombre por Workspace ignorando mayúsculas
+            // (ux_tasks_workspace_name, UNIQUE sobre (workspace_id, lower(name))) se crea en la
+            // migración con SQL: EF Core no sabe declarar índices sobre expresiones. Es la misma
+            // comparación que hace TaskRepository.ExistsWithNameAsync, para que la guarda de
+            // aplicación y la invariante de base de datos no puedan discrepar.
+
+            entity.HasOne<Workspace>()
+                .WithMany()
+                .HasForeignKey(t => t.WorkspaceId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

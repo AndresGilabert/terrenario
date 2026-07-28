@@ -39,6 +39,9 @@ public sealed record ApiError(string Code, string Message)
 
     public static ApiError WorkerNotFound() =>
         new(ErrorCodes.ResourceNotFound, "El trabajador no existe en tu Workspace activo.");
+
+    public static ApiError TaskNotFound() =>
+        new(ErrorCodes.ResourceNotFound, "La tarea no existe en el catálogo de tu Workspace activo.");
 }
 
 public sealed record ApiErrorResponse(ApiError Error);

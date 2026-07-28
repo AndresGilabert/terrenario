@@ -16,6 +16,7 @@ import { InvitePeoplePage } from './components/workspace/InvitePeoplePage';
 import { TerrenosView } from './components/plots/TerrenosView';
 import { TemporadasView } from './components/seasons/TemporadasView';
 import { TrabajadoresView } from './components/workers/TrabajadoresView';
+import { TareasView } from './components/tasks/TareasView';
 import { MiembrosView } from './components/members/MiembrosView';
 import { AppLayout } from './components/layout/AppLayout';
 import { ProtectedRoute } from './routes/ProtectedRoute';
@@ -47,12 +48,13 @@ function AppRoutes() {
           {/* Oferta de temporada (MVP-201): pantalla de creación, fuera de la guarda para no hacer bucle */}
           <Route path="/app/temporada/nueva" element={<SeasonSetupPage />} />
           <Route element={<AppLayout />}>
-            {/* Maestros de administración (MVP-203/204): dentro del shell pero FUERA de la guarda de
-                oferta, para que gestionar temporadas, trabajadores y accesos sea siempre accesible
-                aunque el Workspace no tenga temporada activa. */}
+            {/* Maestros de administración (MVP-203/204/205): dentro del shell pero FUERA de la
+                guarda de oferta, para que gestionar temporadas, trabajadores, accesos y el catálogo
+                de tareas sea siempre accesible aunque el Workspace no tenga temporada activa. */}
             <Route path="/app/temporadas" element={<TemporadasView />} />
             <Route path="/app/trabajadores" element={<TrabajadoresView />} />
             <Route path="/app/miembros" element={<MiembrosView />} />
+            <Route path="/app/tareas" element={<TareasView />} />
             {/* Resto de operativa: si el Workspace activo no tiene temporada, se ofrece crearla (cancelable) */}
             <Route element={<RequireSeasonOffer />}>
               <Route path="/app" element={<AppHome />} />

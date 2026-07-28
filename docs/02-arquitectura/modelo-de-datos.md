@@ -1,7 +1,7 @@
 ﻿---
 bloque: 02-arquitectura
 documento: modelo-de-datos
-actualizado_en: "2026-07-24"
+actualizado_en: "2026-07-28"
 ---
 
 # Modelo de Datos Global - Terrenario MVP
@@ -83,6 +83,15 @@ erDiagram
         decimal longitude
         integer tree_count
         jsonb soil_metadata
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    TASK {
+        uuid id PK
+        uuid workspace_id FK
+        string name
+        boolean is_active
         timestamp created_at
         timestamp updated_at
     }
@@ -170,6 +179,7 @@ erDiagram
     WORKSPACE ||--o{ WORKER : mantiene
     WORKSPACE ||--o{ PLOT : contiene
     WORKSPACE ||--o{ SEASON : define
+    WORKSPACE ||--o{ TASK : cataloga
     WORKSPACE ||--o{ HARVEST : registra
     WORKSPACE ||--o{ ACTIVITY : registra
     WORKSPACE ||--o{ PURCHASE : registra
@@ -270,6 +280,27 @@ Restricciones: indice de apoyo `(workspace_id, is_active)` para el listado del m
 `workers` (MVP-204) cubre solo a los trabajadores **sin cuenta**; los miembros del Workspace se
 exponen como seleccionables (RN-027) desde la vista de personas (`workspace_members` union
 `workspace_invitations` pendientes), no como filas de `workers`.
+
+### TASK
+
+Entidad **anadida en MVP-205**: el ER no la declaraba (la tarea aparecia solo como el campo
+`task` de `ACTIVITY`) pese a que RN-026 exige un catalogo por Workspace y `contratos-api.md`
+ya contrataba el recurso `/api/v1/tasks`.
+
+| Campo | Tipo | Obligatorio | Descripcion |
+|-------|------|-------------|-------------|
+| `name` | string(120) | Si | Unico campo obligatorio del alta. El catalogo arranca **vacio** por Workspace (MVP-205, CA-2) |
+| `is_active` | boolean | Si | Estado de actividad. Las tareas con historico se inactivan en vez de borrarse (MVP-205, CA-3) |
+
+Restricciones: indice de apoyo `(workspace_id, is_active)` para el listado del maestro e indice
+**unico** `ux_tasks_workspace_name` sobre `(workspace_id, lower(name))`, que impide dos tareas con el
+mismo nombre en un Workspace ignorando mayusculas (prevencion de duplicados evidentes; la usara
+tambien el guardado de tarea libre de MVP-302). Las tareas inactivas siguen ocupando su nombre.
+
+Relacion con `ACTIVITY`: RN-025 admite tarea **del catalogo o en texto libre**, por lo que el
+contrato de actividad preve `task_id?` + `task_text?`. La reconciliacion de esos campos con el
+`task` (string) que hoy declara `ACTIVITY` en este ER corresponde a **MVP-301**, que es quien
+materializa la entidad de actividad.
 
 ### HARVEST
 

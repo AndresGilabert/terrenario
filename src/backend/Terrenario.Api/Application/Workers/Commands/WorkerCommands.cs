@@ -3,15 +3,21 @@ using Terrenario.Api.Common;
 namespace Terrenario.Api.Application.Workers.Commands;
 
 /// <summary>
-/// Vista de un trabajador para el maestro (MVP-204). La tarifa horaria viaja como referencia; el
-/// coste operativo se sigue registrando a mano (RN-003).
+/// Vista de un responsable para el maestro (MVP-204 · MVP-208). La tarifa horaria viaja como
+/// referencia; el coste operativo se sigue registrando a mano (RN-003).
+///
+/// <paramref name="Kind"/> es la señal que distingue a quien tiene cuenta de la cuadrilla sin ella
+/// (CA-2), y <paramref name="UserAccountId"/> permite cruzar la fila con la vista de accesos
+/// (<c>GET /workspace-members</c>) sin que el cliente tenga que combinar dos listados.
 /// </summary>
 public sealed record WorkerSummary(
     Guid Id,
     Guid WorkspaceId,
     string Name,
     decimal? HourlyRate,
-    bool IsActive);
+    bool IsActive,
+    string Kind,
+    Guid? UserAccountId);
 
 /// <summary>
 /// Alta de trabajador (MVP-204). El Workspace nunca viaja como parámetro de negocio: se resuelve en

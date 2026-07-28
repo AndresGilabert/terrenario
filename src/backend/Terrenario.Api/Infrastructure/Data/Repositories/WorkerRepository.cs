@@ -10,9 +10,15 @@ public sealed class WorkerRepository(TerrenarioDbContext db) : IWorkerRepository
     /// <summary>
     /// Índice único (workspace_id, lower(name)) creado en la migración
     /// <c>AddMasterNameUniqueIndexes</c>. Es la invariante de base de datos que respalda la guarda de
-    /// duplicados del maestro (MVP-207, CA-3).
+    /// duplicados del maestro (MVP-207, CA-3). Desde MVP-208 cubre también la unión miembro/cuadrilla.
     /// </summary>
     public const string UniqueNameIndexName = "ux_workers_workspace_name";
+
+    /// <summary>
+    /// Índice único parcial (workspace_id, user_account_id) creado en <c>AddMemberWorkers</c>
+    /// (MVP-208): una cuenta tiene como mucho una fila de responsable por Workspace.
+    /// </summary>
+    public const string UniqueUserAccountIndexName = "ux_workers_workspace_user_account";
 
     public async Task AddAsync(Worker worker, CancellationToken ct = default)
         => await db.Workers.AddAsync(worker, ct);
@@ -20,6 +26,20 @@ public sealed class WorkerRepository(TerrenarioDbContext db) : IWorkerRepository
     public Task<Worker?> FindByIdAsync(Guid workspaceId, Guid workerId, CancellationToken ct = default)
         => db.Workers
             .FirstOrDefaultAsync(w => w.Id == workerId && w.WorkspaceId == workspaceId, ct);
+
+    public Task<Worker?> FindByUserAccountAsync(
+        Guid workspaceId,
+        Guid userAccountId,
+        CancellationToken ct = default)
+        => db.Workers
+            .FirstOrDefaultAsync(w => w.WorkspaceId == workspaceId && w.UserAccountId == userAccountId, ct);
+
+    public async Task<IReadOnlyList<Worker>> ListByUserAccountAsync(
+        Guid userAccountId,
+        CancellationToken ct = default)
+        => await db.Workers
+            .Where(w => w.UserAccountId == userAccountId)
+            .ToListAsync(ct);
 
     public async Task<IReadOnlyList<Worker>> ListByWorkspaceAsync(
         Guid workspaceId,
@@ -44,19 +64,14 @@ public sealed class WorkerRepository(TerrenarioDbContext db) : IWorkerRepository
         string name,
         Guid? excludeWorkerId = null,
         CancellationToken ct = default)
-    {
-        // Comparación insensible a mayúsculas con `ToLower()`, que tanto Npgsql como SQLite traducen
-        // a `lower(...)`: es el mismo criterio del índice único `ux_workers_workspace_name`, así que
-        // la guarda de aplicación y la invariante de base de datos no pueden discrepar.
-        var normalized = name.ToLower();
+        => WithName(workspaceId, name, excludeWorkerId).AnyAsync(ct);
 
-        var query = db.Workers.Where(w => w.WorkspaceId == workspaceId && w.Name.ToLower() == normalized);
-
-        if (excludeWorkerId is { } excluded)
-            query = query.Where(w => w.Id != excluded);
-
-        return query.AnyAsync(ct);
-    }
+    public Task<Worker?> FindByNameAsync(
+        Guid workspaceId,
+        string name,
+        Guid? excludeWorkerId = null,
+        CancellationToken ct = default)
+        => WithName(workspaceId, name, excludeWorkerId).FirstOrDefaultAsync(ct);
 
     public async Task SaveChangesAsync(CancellationToken ct = default)
     {
@@ -72,6 +87,23 @@ public sealed class WorkerRepository(TerrenarioDbContext db) : IWorkerRepository
                 ErrorCodes.ConflictWorkerNameDuplicate,
                 "Ya existe un trabajador con ese nombre en este Workspace.");
         }
+    }
+
+    /// <summary>
+    /// Comparación insensible a mayúsculas con <c>ToLower()</c>, que tanto Npgsql como SQLite traducen
+    /// a <c>lower(...)</c>: es el mismo criterio del índice único <c>ux_workers_workspace_name</c>, así
+    /// que la guarda de aplicación y la invariante de base de datos no pueden discrepar.
+    /// </summary>
+    private IQueryable<Worker> WithName(Guid workspaceId, string name, Guid? excludeWorkerId)
+    {
+        var normalized = name.ToLower();
+
+        var query = db.Workers.Where(w => w.WorkspaceId == workspaceId && w.Name.ToLower() == normalized);
+
+        if (excludeWorkerId is { } excluded)
+            query = query.Where(w => w.Id != excluded);
+
+        return query;
     }
 
     private static bool IsDuplicateWorkerName(DbUpdateException ex)

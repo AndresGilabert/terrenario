@@ -52,10 +52,12 @@ public sealed record ResendInvitationCommand(
 /// <summary>
 /// Resultado del reenvío. <paramref name="AcceptUrl"/> es la única vez que el enlace nuevo existe en
 /// claro (en base de datos solo queda su hash), igual que en la emisión original.
+/// <paramref name="Email"/> es nulo en el canal <c>enlace</c>, que no tiene destinatario (MVP-208).
 /// </summary>
 public sealed record ResendInvitationResult(
     Guid Id,
-    string Email,
+    string Channel,
+    string? Email,
     string AcceptUrl,
     DateTimeOffset ExpiresAt,
     bool EmailSent);

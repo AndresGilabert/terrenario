@@ -5,18 +5,26 @@ import { useApiClient } from './ApiContext';
 import { useWorkspace } from './WorkspaceContext';
 
 interface SeasonContextValue {
-  /** Temporada activa del Workspace en curso; `null` si aún no tiene ninguna. */
+  /** Temporada activa del Workspace en curso; `null` si ninguna lo está (RN-022). */
   activeSeason: Season | null;
+  /**
+   * Todas las temporadas del Workspace en curso. Se necesita para no mentir cuando **hay**
+   * temporadas pero ninguna activa —estado alcanzable desde MVP-203 al cerrar la activa— y para
+   * poder ofrecer activar una existente en vez de solo crear otra (MVP-208, CA-8).
+   */
+  seasons: Season[];
   isLoading: boolean;
-  /** El usuario ya rechazó la oferta de crear temporada para el Workspace activo en esta sesión. */
+  /** El usuario ya rechazó la oferta de temporada para el Workspace activo en esta sesión. */
   offerDismissed: boolean;
   /** Crea la temporada activa del Workspace en curso (MVP-201). */
   createSeason: (payload: CreateSeasonPayload) => Promise<Season>;
+  /** Activa una temporada existente del Workspace en curso (MVP-203, RN-022). */
+  activateSeason: (seasonId: string) => Promise<Season>;
   /** Descarta la oferta de temporada para el Workspace activo (no crea ninguna). */
   dismissOffer: () => void;
   /**
-   * Resincroniza la temporada activa desde el servidor. Lo usa el maestro (MVP-203) tras activar,
-   * cerrar o editar una temporada, para que la cabecera y la autoselección queden coherentes.
+   * Resincroniza las temporadas desde el servidor. Lo usa el maestro (MVP-203) tras activar, cerrar
+   * o editar una temporada, para que la cabecera y la autoselección queden coherentes.
    */
   refresh: () => Promise<void>;
 }
@@ -24,25 +32,30 @@ interface SeasonContextValue {
 const SeasonContext = createContext<SeasonContextValue | null>(null);
 
 /**
- * Mantiene la temporada activa del Workspace en curso (MVP-201). El resto de la app decide con
- * `activeSeason` si debe ofrecer crear una temporada (cancelable). No se crea nada por defecto: la
- * temporada es siempre un acto explícito del usuario.
+ * Mantiene las temporadas del Workspace en curso (MVP-201 · MVP-203). El resto de la app decide con
+ * `activeSeason` si debe ofrecer temporada (oferta cancelable) y con `seasons` **qué** ofrecer: crear
+ * la primera, o activar una de las que ya hay. No se crea nada por defecto: la temporada es siempre
+ * un acto explícito del usuario.
+ *
+ * Se carga con un único `GET /seasons` en vez de `GET /seasons/active`: la lista ya trae cuál está
+ * activa (`is_active`), así que informar de las dos cosas no cuesta una petición más.
  */
 export function SeasonProvider({ children }: { children: React.ReactNode }) {
   const http = useApiClient();
   const { activeWorkspace } = useWorkspace();
   const seasonService = useMemo(() => createSeasonService(http), [http]);
 
-  const [activeSeason, setActiveSeason] = useState<Season | null>(null);
+  const [seasons, setSeasons] = useState<Season[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   // Workspaces cuya oferta de temporada se rechazó en esta sesión (en memoria; se reofrece al recargar).
   const [dismissedWorkspaces, setDismissedWorkspaces] = useState<ReadonlySet<string>>(new Set());
 
   const workspaceId = activeWorkspace?.id ?? null;
+  const activeSeason = useMemo(() => seasons.find((s) => s.is_active) ?? null, [seasons]);
 
   useEffect(() => {
     if (!workspaceId) {
-      setActiveSeason(null);
+      setSeasons([]);
       setIsLoading(false);
       return;
     }
@@ -52,10 +65,10 @@ export function SeasonProvider({ children }: { children: React.ReactNode }) {
 
     (async () => {
       try {
-        const season = await seasonService.getActiveSeason();
-        if (!cancelled) setActiveSeason(season);
+        const list = await seasonService.listSeasons();
+        if (!cancelled) setSeasons(list);
       } catch {
-        if (!cancelled) setActiveSeason(null);
+        if (!cancelled) setSeasons([]);
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -66,13 +79,33 @@ export function SeasonProvider({ children }: { children: React.ReactNode }) {
     };
   }, [workspaceId, seasonService]);
 
+  const refresh = useCallback(async () => {
+    if (!workspaceId) return;
+    try {
+      setSeasons(await seasonService.listSeasons());
+    } catch {
+      setSeasons([]);
+    }
+  }, [workspaceId, seasonService]);
+
   const createSeason = useCallback(
     async (payload: CreateSeasonPayload): Promise<Season> => {
       const season = await seasonService.createSeason(payload);
-      setActiveSeason(season);
+      // La nueva nace activa y desbanca a la anterior (P-017): se recarga la lista entera para que
+      // el estado de las demás quede al día, no solo el de la creada.
+      await refresh();
       return season;
     },
-    [seasonService]
+    [seasonService, refresh]
+  );
+
+  const activateSeason = useCallback(
+    async (seasonId: string): Promise<Season> => {
+      const season = await seasonService.activateSeason(seasonId);
+      await refresh();
+      return season;
+    },
+    [seasonService, refresh]
   );
 
   const dismissOffer = useCallback(() => {
@@ -84,21 +117,13 @@ export function SeasonProvider({ children }: { children: React.ReactNode }) {
     });
   }, [workspaceId]);
 
-  const refresh = useCallback(async () => {
-    if (!workspaceId) return;
-    try {
-      const season = await seasonService.getActiveSeason();
-      setActiveSeason(season);
-    } catch {
-      setActiveSeason(null);
-    }
-  }, [workspaceId, seasonService]);
-
   const value: SeasonContextValue = {
     activeSeason,
+    seasons,
     isLoading,
     offerDismissed: workspaceId ? dismissedWorkspaces.has(workspaceId) : false,
     createSeason,
+    activateSeason,
     dismissOffer,
     refresh,
   };

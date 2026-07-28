@@ -13,15 +13,14 @@ public interface IWorkspaceInvitationRepository
     /// </summary>
     Task<WorkspaceInvitation?> FindByIdAsync(Guid id, CancellationToken ct = default);
 
-    /// <summary>Invitaciones pendientes del Workspace, de la más reciente a la más antigua.</summary>
-    Task<IReadOnlyList<WorkspaceInvitation>> ListPendingAsync(Guid workspaceId, CancellationToken ct = default);
-
     /// <summary>
-    /// Invitaciones por email pendientes del Workspace (MVP-204, HU-3): las personas en estado
-    /// <c>invitado</c> de la vista de personas. El canal <c>enlace</c> no tiene destinatario, así que
-    /// no genera una persona invitada.
+    /// Invitaciones pendientes del Workspace, de <b>cualquier canal</b>. Es la superficie única de
+    /// administración de pendientes que decide MVP-208 (CA-7): antes había dos listados con reglas
+    /// distintas y el canal <c>enlace</c> —el de mayor riesgo si se filtra— se quedaba sin acciones.
+    /// Sin <c>ORDER BY</c> en base de datos: el caso de uso ordena en memoria para no ordenar por
+    /// <c>DateTimeOffset</c>, que EF+SQLite no traduce (aunque PostgreSQL sí).
     /// </summary>
-    Task<IReadOnlyList<WorkspaceInvitation>> ListPendingEmailAsync(Guid workspaceId, CancellationToken ct = default);
+    Task<IReadOnlyList<WorkspaceInvitation>> ListPendingAsync(Guid workspaceId, CancellationToken ct = default);
 
     /// <summary>
     /// Invitaciones por email pendientes dirigidas a un correo (MVP-107, HU-3). El enlace

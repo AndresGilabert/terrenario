@@ -1,9 +1,11 @@
 using FluentAssertions;
 using NSubstitute;
+using Terrenario.Api.Application.Workers;
 using Terrenario.Api.Application.Workspaces;
 using Terrenario.Api.Application.Workspaces.Commands;
 using Terrenario.Api.Common.Errors;
 using Terrenario.Api.Domain.Users;
+using Terrenario.Api.Domain.Workers;
 using Terrenario.Api.Domain.Workspaces;
 using Terrenario.Api.Infrastructure.Auth;
 
@@ -14,8 +16,11 @@ public class CreateWorkspaceHandlerTests
     private readonly IWorkspaceRepository _workspaceRepository = Substitute.For<IWorkspaceRepository>();
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IJwtService _jwtService = Substitute.For<IJwtService>();
+    // MVP-208 (CA-1): crear el Workspace siembra al creador en el maestro de responsables.
+    private readonly IWorkerRepository _workerRepository = Substitute.For<IWorkerRepository>();
 
-    private CreateWorkspaceHandler CreateSut() => new(_workspaceRepository, _userRepository, _jwtService);
+    private CreateWorkspaceHandler CreateSut() => new(
+        _workspaceRepository, _userRepository, new MemberRosterService(_workerRepository), _jwtService);
 
     private static readonly Guid UserId = Guid.NewGuid();
 

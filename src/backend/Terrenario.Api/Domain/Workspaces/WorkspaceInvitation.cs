@@ -159,19 +159,19 @@ public sealed class WorkspaceInvitation
     }
 
     /// <summary>
-    /// Reemite la invitación por email pendiente (MVP-204, HU-5/CA-6): rota el token a uno nuevo de
-    /// un solo uso y renueva la caducidad, con el mismo comportamiento que la emisión original de
-    /// MVP-103. No cambia el destinatario ni el canal, así que la persona sigue en estado
-    /// <c>invitado</c>. El token en claro solo lo ve quien reemite; en base de datos vive el hash.
+    /// Reemite la invitación pendiente (MVP-204, HU-5/CA-6): rota el token a uno nuevo de un solo uso
+    /// y renueva la caducidad, con el mismo comportamiento que la emisión original de MVP-103. No
+    /// cambia el destinatario ni el canal, así que la persona sigue en estado <c>invitado</c>. El
+    /// token en claro solo lo ve quien reemite; en base de datos vive el hash.
+    ///
+    /// MVP-208 (CA-7) — Cubre los dos canales. Renovar un enlace compartible es exactamente la misma
+    /// operación y es lo que permite que la superficie única de invitaciones pendientes ofrezca las
+    /// mismas acciones en ambos; lo único que no aplica al <c>enlace</c> es el envío del correo, que
+    /// decide el caso de uso porque no hay destinatario.
     /// </summary>
     public void Reissue(string newTokenHash, TimeSpan lifetime)
     {
         EnsurePending();
-
-        if (Channel != InvitationChannels.Email)
-            throw new InvitationException(
-                ErrorCodes.InvitationNotFound,
-                "Solo se reenvían invitaciones por email dirigidas a una persona.");
 
         ArgumentException.ThrowIfNullOrWhiteSpace(newTokenHash);
 

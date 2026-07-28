@@ -61,6 +61,10 @@ public static class ErrorCodes
     // Administración de miembros (MVP-204, CA-8)
     public const string BusinessRuleLastActiveMember = "BUSINESS_RULE_LAST_ACTIVE_MEMBER";
     public const string BusinessRuleCannotRevokeOwner = "BUSINESS_RULE_CANNOT_REVOKE_OWNER";
+    // Maestro de responsables (MVP-208, CA-4): lo que un responsable con cuenta no admite editar,
+    // porque lo gobiernan su identidad de Google (RN-036) y su membresía (RN-027), no el maestro.
+    public const string BusinessRuleWorkerIdentityManaged = "BUSINESS_RULE_WORKER_IDENTITY_MANAGED";
+    public const string BusinessRuleWorkerMembershipManaged = "BUSINESS_RULE_WORKER_MEMBERSHIP_MANAGED";
     // Ciclo de vida del Workspace (MVP-206)
     public const string BusinessRuleWorkspaceDeleted = "BUSINESS_RULE_WORKSPACE_DELETED";
     public const string BusinessRuleWorkspaceNotDeleted = "BUSINESS_RULE_WORKSPACE_NOT_DELETED";

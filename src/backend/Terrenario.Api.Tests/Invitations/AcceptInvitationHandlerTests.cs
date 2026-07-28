@@ -3,7 +3,9 @@ using NSubstitute;
 using Terrenario.Api.Application.Invitations;
 using Terrenario.Api.Application.Invitations.Commands;
 using Terrenario.Api.Common.Errors;
+using Terrenario.Api.Application.Workers;
 using Terrenario.Api.Domain.Users;
+using Terrenario.Api.Domain.Workers;
 using Terrenario.Api.Domain.Workspaces;
 using Terrenario.Api.Infrastructure.Auth;
 using Terrenario.Api.Infrastructure.Invitations;
@@ -18,6 +20,8 @@ public class AcceptInvitationHandlerTests
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IInvitationTokenService _tokenService = Substitute.For<IInvitationTokenService>();
     private readonly IJwtService _jwtService = Substitute.For<IJwtService>();
+    // MVP-208 (CA-4): aceptar materializa la fila de responsable de quien entra.
+    private readonly IWorkerRepository _workerRepository = Substitute.For<IWorkerRepository>();
 
     private static readonly User InvitedUser = User.Create("google-sub", "Vecino", "vecino@ejemplo.com");
     private static readonly Workspace TargetWorkspace = Workspace.Create(Guid.NewGuid(), "Finca El Olivar");
@@ -35,6 +39,7 @@ public class AcceptInvitationHandlerTests
             _invitationRepository,
             _workspaceRepository,
             _userRepository,
+            new MemberRosterService(_workerRepository),
             _tokenService,
             _jwtService);
     }
@@ -82,6 +87,43 @@ public class AcceptInvitationHandlerTests
             Arg.Any<CancellationToken>());
         await _invitationRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         _jwtService.Received(1).IssueAccessToken(InvitedUser.Id, "Vecino", TargetWorkspace.Id);
+    }
+
+    [Fact]
+    public async Task Deberia_MaterializarLaFilaDeResponsable_Cuando_SeAcepta()
+    {
+        // MVP-208 (CA-4) — RN-027: entrar al Workspace es aparecer como responsable seleccionable, sin
+        // que nadie tenga que darse de alta a mano en el maestro.
+        GivenPendingInvitation();
+        var sut = CreateSut();
+
+        await sut.HandleAsync(Command());
+
+        await _workerRepository.Received(1).AddAsync(
+            Arg.Is<Worker>(w => w.WorkspaceId == TargetWorkspace.Id
+                && w.UserAccountId == InvitedUser.Id
+                && w.Name == "Vecino"
+                && w.IsActive),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Deberia_RecuperarLaFilaDeResponsable_Cuando_VuelveAlgunRevocado()
+    {
+        // MVP-208 (CA-4) — quien fue revocado y vuelve por una invitación nueva recupera su fila en vez
+        // de duplicarla: es la misma persona y los registros que la referencian siguen valiendo.
+        var previa = Worker.CreateForMember(TargetWorkspace.Id, InvitedUser.Id, "Vecino");
+        previa.SyncMembership(false);
+        _workerRepository.FindByUserAccountAsync(
+                TargetWorkspace.Id, InvitedUser.Id, Arg.Any<CancellationToken>())
+            .Returns(previa);
+        GivenPendingInvitation();
+        var sut = CreateSut();
+
+        await sut.HandleAsync(Command());
+
+        previa.IsActive.Should().BeTrue();
+        await _workerRepository.DidNotReceive().AddAsync(Arg.Any<Worker>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

@@ -19,13 +19,14 @@ const PILL_BASE =
  * el centro de notificaciones (campanita, MVP-107).
  *
  * La píldora de temporada replica el prototipo (`TopNavbar`): verde con punto pulsante cuando hay
- * temporada activa. Si el Workspace aún no tiene, se ofrece crearla (coherente con MVP-201) en vez
- * de dejar el hueco vacío.
+ * temporada activa. Si el Workspace no tiene ninguna activa, conduce a la misma decisión (MVP-201) en
+ * vez de dejar el hueco vacío; desde MVP-208 (CA-8) distingue «no hay ninguna» de «hay pero ninguna
+ * activa», que es donde antes ofrecía crear una temporada que probablemente ya existía.
  */
 export const AppTopbar: React.FC<AppTopbarProps> = ({ title, onOpenMobileMenu }) => {
   const navigate = useNavigate();
   const { activeWorkspace } = useWorkspace();
-  const { activeSeason, isLoading } = useSeason();
+  const { activeSeason, seasons, isLoading } = useSeason();
 
   return (
     <header className="bg-[#fcf9f4]/80 backdrop-blur-md border-b border-[#e5e2dd] sticky top-0 z-20 px-4 md:px-8 py-3 flex items-center justify-between gap-3">
@@ -50,7 +51,8 @@ export const AppTopbar: React.FC<AppTopbarProps> = ({ title, onOpenMobileMenu })
                 <span className="truncate">{activeSeason.name}</span>
               </span>
             ) : (
-              // Sin temporada: se ofrece crearla (MVP-201), en vez de dejar la cabecera incompleta.
+              // Sin temporada activa: la píldora lleva a la decisión (MVP-201), pero solo promete
+              // «crear» cuando de verdad no hay ninguna; si las hay, lo que toca es elegir.
               <button
                 type="button"
                 onClick={() => navigate('/app/temporada/nueva')}
@@ -58,7 +60,7 @@ export const AppTopbar: React.FC<AppTopbarProps> = ({ title, onOpenMobileMenu })
                 title="Este Workspace no tiene temporada activa"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-[#a2a496] shrink-0" aria-hidden="true" />
-                <span>Sin temporada · Crear</span>
+                <span>{seasons.length > 0 ? 'Sin temporada activa · Elegir' : 'Sin temporada · Crear'}</span>
               </button>
             )}
             {activeWorkspace && (

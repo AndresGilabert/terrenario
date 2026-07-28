@@ -94,8 +94,13 @@ public sealed class WorkspaceMembersRepositorySqliteTests : IDisposable
         found!.UserId.Should().Be(active.Id);
     }
 
+    /// <summary>
+    /// MVP-208 (CA-7) — La superficie de personas y accesos pendientes proyecta los <b>dos</b> canales:
+    /// el enlace compartible también es un acceso vivo que hay que poder retirar (hallazgo R-15). Lo
+    /// que sigue fuera es todo lo que ya no está pendiente.
+    /// </summary>
     [Fact]
-    public async Task ListPendingEmailAsync_Deberia_ExcluirEnlaceYNoPendientes()
+    public async Task ListPendingAsync_Deberia_IncluirEnlace_Y_ExcluirNoPendientes()
     {
         var owner = await SeedUserAsync("-o2", "Zoe");
         var acceptor = await SeedUserAsync("-acc", "Otro");
@@ -115,9 +120,13 @@ public sealed class WorkspaceMembersRepositorySqliteTests : IDisposable
 
         var repository = new WorkspaceInvitationRepository(_db);
 
-        var invited = await repository.ListPendingEmailAsync(workspace.Id);
+        var invited = await repository.ListPendingAsync(workspace.Id);
 
-        invited.Should().ContainSingle().Which.Email.Should().Be("invitado@ejemplo.com");
+        invited.Should().HaveCount(2);
+        invited.Should().ContainSingle(i => i.Channel == InvitationChannels.Email)
+            .Which.Email.Should().Be("invitado@ejemplo.com");
+        invited.Should().ContainSingle(i => i.Channel == InvitationChannels.Link)
+            .Which.Email.Should().BeNull();
     }
 
     public void Dispose()

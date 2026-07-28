@@ -350,6 +350,9 @@ canal, la reemisión documenta los dos canales y el catálogo `worker_kind` se a
     el miembro más antiguo conserva «Andrés Gilabert», la segunda cuenta queda «Andrés Gilabert (2)»,
     la cuadrilla pasa a «Andrés Gilabert (3)» y «Andrés Gilabert (2) (2)» conservando tarifa y estado,
     y «Juan Pérez» intacto. Índice `ux_workers_workspace_user_account` creado.
+  - **Alta de Workspace**: `POST /workspaces` con una sesión sin Workspace crea «Prueba MVP-208» y
+    siembra en el acto la fila de responsable de su creador (`user_account_id` no nulo, activa), que
+    es el otro punto de entrada de CA-1 además de la aceptación de invitación.
   - **API**: `GET /workers` devuelve el maestro con `kind` y `meta:{total,members,crew}`; `POST` con el
     nombre de un miembro, en mayúsculas y con espacios sobrantes → `409
     CONFLICT_WORKER_NAME_DUPLICATE`; nombre libre → `201`; `PATCH {name}` sobre un miembro → `422

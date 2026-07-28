@@ -2,7 +2,7 @@
 id: "MVP-205"
 tipo: feature
 titulo: "Catálogo de tareas por Workspace"
-estado: borrador
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito B — Base operativa preparada"

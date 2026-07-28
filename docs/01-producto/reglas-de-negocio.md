@@ -1,7 +1,7 @@
 ﻿---
 bloque: 01-producto
 documento: reglas-de-negocio
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-07-28"
 ---
 
 # Reglas de Negocio Globales

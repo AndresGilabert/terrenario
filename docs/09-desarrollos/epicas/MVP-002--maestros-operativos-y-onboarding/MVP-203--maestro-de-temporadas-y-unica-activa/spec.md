@@ -2,7 +2,7 @@
 id: "MVP-203"
 tipo: feature
 titulo: "Maestro de temporadas y regla de única activa"
-estado: borrador
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito B — Base operativa preparada"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "masters", "temporadas"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-28"
 ---
 
 # MVP-203 — Maestro de temporadas y regla de única activa

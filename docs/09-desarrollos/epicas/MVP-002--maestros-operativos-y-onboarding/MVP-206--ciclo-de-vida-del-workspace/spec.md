@@ -2,7 +2,7 @@
 id: "MVP-206"
 tipo: feature
 titulo: "Ciclo de vida del Workspace: renombrar, baja lógica y traspaso de propiedad"
-estado: borrador
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito B — Base operativa preparada"
@@ -122,30 +122,48 @@ reactivación**,
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Un miembro puede renombrar el Workspace activo; el nuevo nombre se refleja en el
-  selector y en la cabecera sin recrear la sesión.
-- [ ] **CA-2**: Dar de baja un Workspace es una **baja lógica** (`deleted_at`), nunca un borrado
+> Marcados en la revisión de cierre de la épica (`MVP-299`, 2026-07-28, hallazgo R-02): estaban sin
+> marcar pese a estar implementados y verificados. Entre paréntesis, la evidencia de cada uno.
+
+- [x] **CA-1**: Un miembro puede renombrar el Workspace activo; el nuevo nombre se refleja en el
+  selector y en la cabecera sin recrear la sesión. _(`PATCH /workspaces/active` verificado en API y
+  UI, por propietario y por miembro no propietario.)_
+- [x] **CA-2**: Dar de baja un Workspace es una **baja lógica** (`deleted_at`), nunca un borrado
   físico: los datos siguen en base de datos y el Workspace deja de resolver contexto y de aparecer en
-  el selector.
-- [ ] **CA-3**: El sistema **impide dejar un Workspace sin propietario**. Si el propietario único da
+  el selector. _(`POST /workspaces/active/closure` → `outcome: "deleted"`; fila y datos intactos en
+  PostgreSQL; desaparece de `GET /workspaces`.)_
+- [x] **CA-3**: El sistema **impide dejar un Workspace sin propietario**. Si el propietario único da
   de baja el Workspace o borra su cuenta, se le exige decidir entre traspasar o dar de baja antes de
-  completar la acción.
-- [ ] **CA-4**: En el traspaso, el usuario que realiza la acción **elige** a qué persona (miembro
+  completar la acción. _(`GET /workspaces/active/closure` devuelve `mode` por caso; confirmación
+  deshabilitada hasta decidir; `WorkspaceOwnershipGuard` cubierto por tests.)_
+- [x] **CA-4**: En el traspaso, el usuario que realiza la acción **elige** a qué persona (miembro
   activo) otorga la propiedad; esa persona pasa a `workspace_owner` y el Workspace sigue activo.
-- [ ] **CA-5**: Si existen **varios propietarios**, dar de baja el Workspace lo **reasigna
+  _(`POST /workspaces/active/transfer-ownership` con `candidates[]` del endpoint de opciones;
+  `TransferWorkspaceOwnershipHandlerTests`.)_
+- [x] **CA-5**: Si existen **varios propietarios**, dar de baja el Workspace lo **reasigna
   automáticamente** a otro propietario activo y el Workspace sigue vivo; no se da de baja ni se pide
-  elegir.
-- [ ] **CA-6**: Al dar de baja un Workspace, el resto de miembros recibe un **email** informando de la
-  baja, con un **enlace de un solo uso** para solicitar su traspaso y reactivación.
-- [ ] **CA-7**: Un miembro puede **solicitar** la reactivación desde ese enlace; la solicitud debe ser
+  elegir. _(`mode: auto_transfer` y `FindOtherActiveOwnerAsync`; `CloseWorkspaceHandlerTests`.)_
+- [x] **CA-6**: Al dar de baja un Workspace, el resto de miembros recibe un **email** informando de la
+  baja, con un **enlace de un solo uso** para solicitar su traspaso y reactivación. _(Verificado por
+  `WorkspaceLifecycleEmailComposerTests` y el contador `notified_members`/`emails_sent` de la
+  respuesta; no ejercitado end-to-end porque el entorno de desarrollo no tiene un segundo miembro.)_
+- [x] **CA-7**: Un miembro puede **solicitar** la reactivación desde ese enlace; la solicitud debe ser
   **autorizada por quien dio de baja** el Workspace. Al autorizarse, el Workspace se **reactiva** y la
-  propiedad pasa al solicitante.
-- [ ] **CA-8**: Un Workspace dado de baja **no** resuelve contexto activo ni aparece en ningún
+  propiedad pasa al solicitante. _(`/reactivations/:token` y `/reactivations`;
+  `ReactivationHandlersTests`.)_
+- [x] **CA-8**: Un Workspace dado de baja **no** resuelve contexto activo ni aparece en ningún
   selector; si era el activo de algún usuario, la sesión cae al Workspace por defecto (MVP-104).
-- [ ] **CA-9**: La baja de la cuenta de un propietario único **no deja Workspaces huérfanos**: obliga
-  a resolver cada uno (traspaso o baja lógica) con la misma decisión de HU-3.
-- [ ] **CA-10**: El enlace de reactivación es de **un solo uso**, con caducidad, y solo la persona que
+  _(Verificado end-to-end: tras la baja, un token con ese `workspace_id` deja de resolverlo y los
+  recursos con ámbito de Workspace responden ya desde el Workspace por defecto.)_
+- [x] **CA-9**: La baja de la cuenta de un propietario único **no deja Workspaces huérfanos**: obliga
+  a resolver cada uno (traspaso o baja lógica) con la misma decisión de HU-3. _(Punto de enganche
+  entregado: `GET /workspaces/ownership-obligations` y
+  `WorkspaceOwnershipGuard.EnsureAccountClosureAllowedAsync`. El flujo de baja de cuenta que los
+  consume es P-024, fuera de alcance.)_
+- [x] **CA-10**: El enlace de reactivación es de **un solo uso**, con caducidad, y solo la persona que
   dio de baja el Workspace puede autorizar el traspaso; nadie más puede reactivarlo por esa vía.
+  _(`token_hash` + `authorized_by_user_id`; `WorkspaceReactivationRequestTests` y
+  `WorkspaceLifecycleRepositorySqliteTests`.)_
 
 ## Árbol de decisión (baja de Workspace / de cuenta del propietario)
 

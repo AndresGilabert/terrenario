@@ -22,6 +22,195 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Terrenario.Api.Domain.Activities.Activity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date")
+                        .HasColumnName("date");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("description");
+
+                    b.Property<decimal>("Hours")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("hours");
+
+                    b.Property<decimal>("ManualCost")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("manual_cost");
+
+                    b.Property<Guid>("PlotId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("plot_id");
+
+                    b.Property<Guid>("SeasonId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("season_id");
+
+                    b.Property<Guid?>("TaskId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("task_id");
+
+                    b.Property<string>("TaskText")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("task_text");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UpdatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.Property<Guid>("WorkerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("worker_id");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("workspace_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlotId");
+
+                    b.HasIndex("SeasonId");
+
+                    b.HasIndex("TaskId");
+
+                    b.HasIndex("WorkerId");
+
+                    b.HasIndex("WorkspaceId", "Date")
+                        .HasDatabaseName("ix_activities_live_by_date")
+                        .HasFilter("deleted_at IS NULL");
+
+                    b.HasIndex("WorkspaceId", "PlotId");
+
+                    b.HasIndex("WorkspaceId", "SeasonId");
+
+                    b.ToTable("activities", (string)null);
+                });
+
+            modelBuilder.Entity("Terrenario.Api.Domain.Consumptions.PurchaseConsumption", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("ConsumedQuantity")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("consumed_quantity");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date")
+                        .HasColumnName("date");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("PlotId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("plot_id");
+
+                    b.Property<string>("Product")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("product");
+
+                    b.Property<decimal>("ProportionalCost")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("proportional_cost");
+
+                    b.Property<Guid?>("PurchaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("purchase_id");
+
+                    b.Property<Guid>("SeasonId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("season_id");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(10, 4)
+                        .HasColumnType("numeric(10,4)")
+                        .HasColumnName("unit_price");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UpdatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("workspace_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlotId");
+
+                    b.HasIndex("PurchaseId");
+
+                    b.HasIndex("SeasonId");
+
+                    b.HasIndex("WorkspaceId", "Date")
+                        .HasDatabaseName("ix_purchase_consumptions_live_by_date")
+                        .HasFilter("deleted_at IS NULL");
+
+                    b.HasIndex("WorkspaceId", "PlotId");
+
+                    b.HasIndex("WorkspaceId", "PurchaseId");
+
+                    b.ToTable("purchase_consumptions", (string)null);
+                });
+
             modelBuilder.Entity("Terrenario.Api.Domain.Plots.Plot", b =>
                 {
                     b.Property<Guid>("Id")
@@ -86,6 +275,86 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
                     b.HasIndex("WorkspaceId", "IsActive");
 
                     b.ToTable("plots", (string)null);
+                });
+
+            modelBuilder.Entity("Terrenario.Api.Domain.Purchases.Purchase", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Product")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("product");
+
+                    b.Property<DateOnly>("PurchaseDate")
+                        .HasColumnType("date")
+                        .HasColumnName("purchase_date");
+
+                    b.Property<Guid>("SeasonId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("season_id");
+
+                    b.Property<decimal>("TotalCost")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("total_cost");
+
+                    b.Property<decimal>("TotalQuantity")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("total_quantity");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(10, 4)
+                        .HasColumnType("numeric(10,4)")
+                        .HasColumnName("unit_price");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UpdatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("workspace_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SeasonId");
+
+                    b.HasIndex("WorkspaceId", "Product");
+
+                    b.HasIndex("WorkspaceId", "PurchaseDate")
+                        .HasDatabaseName("ix_purchases_live_by_date")
+                        .HasFilter("deleted_at IS NULL");
+
+                    b.HasIndex("WorkspaceId", "SeasonId");
+
+                    b.ToTable("purchases", (string)null);
                 });
 
             modelBuilder.Entity("Terrenario.Api.Domain.Seasons.Season", b =>
@@ -551,8 +820,81 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
                     b.ToTable("refresh_tokens", (string)null);
                 });
 
+            modelBuilder.Entity("Terrenario.Api.Domain.Activities.Activity", b =>
+                {
+                    b.HasOne("Terrenario.Api.Domain.Plots.Plot", null)
+                        .WithMany()
+                        .HasForeignKey("PlotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Terrenario.Api.Domain.Seasons.Season", null)
+                        .WithMany()
+                        .HasForeignKey("SeasonId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Terrenario.Api.Domain.Tasks.TaskItem", null)
+                        .WithMany()
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Terrenario.Api.Domain.Workers.Worker", null)
+                        .WithMany()
+                        .HasForeignKey("WorkerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Terrenario.Api.Domain.Workspaces.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Terrenario.Api.Domain.Consumptions.PurchaseConsumption", b =>
+                {
+                    b.HasOne("Terrenario.Api.Domain.Plots.Plot", null)
+                        .WithMany()
+                        .HasForeignKey("PlotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Terrenario.Api.Domain.Purchases.Purchase", null)
+                        .WithMany()
+                        .HasForeignKey("PurchaseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Terrenario.Api.Domain.Seasons.Season", null)
+                        .WithMany()
+                        .HasForeignKey("SeasonId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Terrenario.Api.Domain.Workspaces.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Terrenario.Api.Domain.Plots.Plot", b =>
                 {
+                    b.HasOne("Terrenario.Api.Domain.Workspaces.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Terrenario.Api.Domain.Purchases.Purchase", b =>
+                {
+                    b.HasOne("Terrenario.Api.Domain.Seasons.Season", null)
+                        .WithMany()
+                        .HasForeignKey("SeasonId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Terrenario.Api.Domain.Workspaces.Workspace", null)
                         .WithMany()
                         .HasForeignKey("WorkspaceId")

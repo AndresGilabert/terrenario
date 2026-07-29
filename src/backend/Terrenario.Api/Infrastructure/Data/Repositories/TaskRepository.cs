@@ -57,6 +57,19 @@ public sealed class TaskRepository(TerrenarioDbContext db) : ITaskRepository
         return query.AnyAsync(ct);
     }
 
+    public Task<TaskItem?> FindByNameAsync(
+        Guid workspaceId,
+        string name,
+        CancellationToken ct = default)
+    {
+        // Mismo criterio que ExistsWithNameAsync y que el índice único: la guarda de duplicados y la
+        // resolución de la tarea existente no pueden discrepar (MVP-302 reutiliza la de MVP-205).
+        var normalized = name.ToLower();
+
+        return db.Tasks
+            .FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Name.ToLower() == normalized, ct);
+    }
+
     public async Task SaveChangesAsync(CancellationToken ct = default)
     {
         try

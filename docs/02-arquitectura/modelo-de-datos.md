@@ -1,7 +1,7 @@
 ﻿---
 bloque: 02-arquitectura
 documento: modelo-de-datos
-actualizado_en: "2026-07-28"
+actualizado_en: "2026-07-29"
 ---
 
 # Modelo de Datos Global - Terrenario MVP
@@ -151,7 +151,8 @@ erDiagram
         uuid worker_id FK
         date date
         decimal hours
-        string task
+        uuid task_id FK
+        string task_text
         decimal manual_cost
         string description
         uuid created_by FK
@@ -188,8 +189,14 @@ erDiagram
         date date
         string product
         decimal consumed_quantity
+        decimal unit_price
         decimal proportional_cost
+        uuid created_by FK
         timestamp created_at
+        uuid updated_by FK
+        timestamp updated_at
+        bigint version
+        timestamp deleted_at
     }
 
     USER ||--o{ WORKSPACE_MEMBER : participa_en
@@ -216,6 +223,7 @@ erDiagram
     SEASON ||--o{ PURCHASE : agrupa
     SEASON ||--o{ PURCHASE_CONSUMPTION : agrupa
     WORKER ||--o{ ACTIVITY : ejecuta
+    TASK ||--o{ ACTIVITY : cataloga
     PURCHASE ||--o| PURCHASE_CONSUMPTION : reparte
 ```
 
@@ -387,15 +395,18 @@ ya contrataba el recurso `/api/v1/tasks`.
 
 Restricciones: indice de apoyo `(workspace_id, is_active)` para el listado del maestro e indice
 **unico** `ux_tasks_workspace_name` sobre `(workspace_id, lower(name))`, que impide dos tareas con el
-mismo nombre en un Workspace ignorando mayusculas (prevencion de duplicados evidentes; la usara
-tambien el guardado de tarea libre de MVP-302). Las tareas inactivas siguen ocupando su nombre.
+mismo nombre en un Workspace ignorando mayusculas (prevencion de duplicados evidentes). Las tareas
+inactivas siguen ocupando su nombre. **MVP-302 reutiliza esa misma comparacion** para guardar en el
+catalogo una tarea escrita a mano durante el registro de una actividad: la consulta para *resolver* el
+nombre —reutilizando la tarea existente, o reactivandola si estaba inactivada— en vez de chocar contra
+el indice, de modo que la operativa diaria nunca se bloquea por un nombre ya usado.
 Es el patron que **MVP-207 extiende** a `seasons`, `workers` y `plots`, de modo que los cuatro
 maestros de la epica se comportan igual frente a los nombres repetidos.
 
 Relacion con `ACTIVITY`: RN-025 admite tarea **del catalogo o en texto libre**, por lo que el
-contrato de actividad preve `task_id?` + `task_text?`. La reconciliacion de esos campos con el
-`task` (string) que hoy declara `ACTIVITY` en este ER corresponde a **MVP-301**, que es quien
-materializa la entidad de actividad.
+contrato de actividad preve `task_id?` + `task_text?`. **Resuelto en MVP-301** (cierre de `P-028`):
+`ACTIVITY` materializa los dos campos como excluyentes y referencia `tasks` con `ON DELETE RESTRICT`,
+de modo que una tarea del catalogo con historico no se puede borrar (solo inactivar, CA-3).
 
 ### HARVEST
 
@@ -411,20 +422,47 @@ materializa la entidad de actividad.
 
 | Campo | Tipo | Obligatorio | Descripcion |
 |-------|------|-------------|-------------|
+| `date` | date | Si | Fecha de negocio de la labor. Es la que ordena el diario (RN-033), distinta de `created_at` |
 | `hours` | decimal(5,2) | Si | Debe ser `> 0` en MVP |
-| `manual_cost` | decimal(10,2) | Si | Obligatorio en MVP. Se permite sugerir valor por tarifa y editar manualmente |
-| `description` | string (nullable) | No | Nota libre de la actividad. Ya contratada como `description?` en `contratos-api.md` §5 y ausente de este ER hasta la 3a pasada de MVP-299 (hallazgo `G-6`); la materializa MVP-301 |
+| `task_id` | uuid FK (nullable) | Excluyente | Tarea del catalogo del Workspace (`tasks`, MVP-205). `ON DELETE RESTRICT` |
+| `task_text` | string(120) (nullable) | Excluyente | Tarea escrita al vuelo. Misma cota que `TASK.name` para que siempre quepa al guardarse en el catalogo (MVP-302) |
+| `manual_cost` | decimal(10,2) | Si | Obligatorio en MVP. `0` es un valor valido (labor propia sin coste imputado). Se permite sugerir valor por tarifa y editar manualmente, nunca calcularlo (RN-003) |
+| `description` | string(500) (nullable) | No | Nota libre de la actividad. Ya contratada como `description?` en `contratos-api.md` §5 y ausente de este ER hasta la 3a pasada de MVP-299 (hallazgo `G-6`); la materializa MVP-301 |
 | `version` | bigint | Si | Control de concurrencia optimista para `If-Match` (ADR-0005) |
+| `deleted_at` | timestamptz (nullable) | No | Marca de eliminacion logica (RN-037). Nunca hay borrado fisico |
+
+`task_id` y `task_text` **cierran `P-028`** (MVP-301): el ER declaraba la tarea como un `string task`
+suelto, anterior al catalogo de MVP-205, mientras `contratos-api.md` ya preveia los dos campos.
+RN-025 admite tarea **del catalogo o en texto libre**, asi que el agregado exige **exactamente uno**:
+guardar los dos permitiria que divergieran y el diario no sabria cual mostrar. La exclusividad la
+garantiza el dominio, no una restriccion de datos, porque la condicion depende del texto ya
+normalizado. La respuesta de API anade `task` ya resuelto (derivado, no columna).
+
+Restricciones: indice **parcial** `ix_activities_live_by_date` sobre `(workspace_id, date)` filtrado
+por `deleted_at IS NULL` —el 100% de las lecturas filtra por «vivo», como `ix_workspaces_live` en
+MVP-206— e indices de apoyo `(workspace_id, plot_id)` y `(workspace_id, season_id)` para los filtros
+del listado y el futuro dashboard. Las FKs a los maestros son `ON DELETE RESTRICT`: los maestros se
+inactivan en vez de borrarse, asi que la semantica correcta es impedir que un borrado deje operativa
+huerfana. El filtro de baja logica vive en el **puerto** `IActivityRepository`, no en un filtro global
+de EF, siguiendo la misma decision que `IWorkspaceRepository` en MVP-206.
 
 ### PURCHASE
 
 | Campo | Tipo | Obligatorio | Descripcion |
 |-------|------|-------------|-------------|
-| `season_id` | uuid FK | Si | Temporada a la que se imputa la compra (RN-021). **Añadido en la 3a pasada de MVP-299** (`P-050`): `contratos-api.md` ya lo exigia como `season_id*` y el ER no lo declaraba. Lo materializa MVP-303 |
-| `total_quantity` | decimal(10,2) | Si | Cantidad total comprada |
-| `total_cost` | decimal(10,2) | Si | Coste total pagado |
-| `unit_price` | decimal(10,4) | Si | Derivado de `total_cost / total_quantity` y persistido para trazabilidad |
-| `product` | string | Si | Material comprado, en **texto libre** (RN-031). No hay catalogo cerrado: la UI sugiere valores del historico del Workspace |
+| `season_id` | uuid FK | Si | Temporada a la que se imputa la compra (RN-021). **Añadido en la 3a pasada de MVP-299** (`P-050`) y **materializado en MVP-303**: `contratos-api.md` ya lo exigia como `season_id*` y el ER no lo declaraba. FK `ON DELETE RESTRICT`: las temporadas se cierran, no se borran |
+| `purchase_date` | date | Si | Fecha de negocio de la compra. Es la que ordena el libro y el diario (RN-033), distinta de `created_at` |
+| `total_quantity` | decimal(10,2) | Si | Cantidad total comprada. Estrictamente `> 0` |
+| `total_cost` | decimal(10,2) | Si | Coste total pagado. Estrictamente `> 0` |
+| `unit_price` | decimal(10,4) | Si | Derivado de `total_cost / total_quantity` y **persistido** para trazabilidad. Es la base del coste proporcional de las imputaciones (MVP-304) y lo que permite explicar una imputacion antigua aunque la compra se edite despues (RN-032, «no se recalculan historicos») |
+| `product` | string(150) | Si | Material comprado, en **texto libre** (RN-031). No hay catalogo cerrado ni normalizacion: la UI sugiere valores del historico del Workspace (`GET /purchases/products`), pero «Abono NPK» y «abono npk» conviven |
+| `version` | bigint | Si | Control de concurrencia optimista para `If-Match` (ADR-0005) |
+| `deleted_at` | timestamptz (nullable) | No | Marca de eliminacion logica (RN-037). Lo eliminado sale del libro, del gasto acumulado y de las sugerencias, pero la fila permanece |
+
+Restricciones: indice **parcial** `ix_purchases_live_by_date` sobre `(workspace_id, purchase_date)`
+filtrado por `deleted_at IS NULL` —igual que en `ACTIVITY`— e indices de apoyo
+`(workspace_id, season_id)` para el filtro por campaña y `(workspace_id, product)` para la agrupacion
+de sugerencias. El filtro de baja logica vive en el **puerto** `IPurchaseRepository`.
 
 ### PURCHASE_CONSUMPTION
 
@@ -435,14 +473,36 @@ materializa la entidad de actividad.
 | `season_id` | uuid FK | Si | Temporada del consumo (RN-021). Al imputar sobre una compra se hereda de ella |
 | `product` | string | Solo sin compra | Con compra se hereda de ella; sin compra hay que informarlo (texto libre, RN-031) |
 | `consumed_quantity` | decimal(10,2) | Si | Cantidad imputada al terreno |
-| `proportional_cost` | decimal(10,2) | Si | Coste proporcional derivado del `unit_price` de la compra; **`0` cuando no hay compra previa** |
+| `unit_price` | decimal(10,4) | Si | Precio unitario **congelado** al imputar, copiado de la compra; `0` sin compra previa. **Anadido en MVP-304**: es lo que hace verdadero el «no se recalculan historicos» de RN-032 **por estructura** —editar la compra despues no reescribe el coste de lo ya consumido— en vez de por convencion |
+| `proportional_cost` | decimal(10,2) | Si | `consumed_quantity` x `unit_price`; **`0` cuando no hay compra previa** |
+| `version` | bigint | Si | Control de concurrencia optimista para `If-Match` (ADR-0005). **Anadido en MVP-304** |
+| `deleted_at` | timestamptz (nullable) | No | Marca de eliminacion logica (RN-037). **Anadido en MVP-304** |
+
+Restricciones: indice **parcial** `ix_purchase_consumptions_live_by_date` sobre
+`(workspace_id, date)` filtrado por `deleted_at IS NULL`, mas `(workspace_id, purchase_id)` —la suma
+que sostiene la guarda de sobre-imputacion— y `(workspace_id, plot_id)`. La FK a `purchases` es
+`ON DELETE RESTRICT`: dar de baja una compra con imputaciones vivas se rechaza antes con
+`422 BUSINESS_RULE_PURCHASE_HAS_CONSUMPTIONS`, porque las imputaciones son registros operativos
+propios que estan en el diario.
+
+La proyeccion de lectura **no une con `purchases`**: la fila guarda su propio `product` y su propio
+`unit_price`, asi que se explica sola tambien cuando no hay compra detras. Es lo que necesita el
+diario de MVP-305.
 
 > Los cuatro campos anteriores (`purchase_id` anulable, `date`, `season_id`, `product`) y
 > `proportional_cost` se anadieron en la **3a pasada de MVP-299** (hallazgos `G-2` y `G-3`): el ER
 > declaraba la imputacion como una fila colgada obligatoriamente de una compra y sin fecha propia, lo
-> que hacia irrealizables el CA-3 de la epica MVP-003 y el diario cronologico de MVP-305. El
-> **mecanismo** (columna anulable sobre esta entidad frente a entidad de consumo propia) lo cierra el
-> `tech-design` de **MVP-304**; lo que queda fijado aqui son los requisitos que debe cumplir.
+> que hacia irrealizables el CA-3 de la epica MVP-003 y el diario cronologico de MVP-305.
+>
+> **Mecanismo decidido en MVP-303** (el spec de esa historia exigia cerrarlo *antes* de fijar el
+> modelo de compras): se adopta la **columna `purchase_id` anulable sobre esta misma entidad**, y no
+> una entidad de consumo propia. Una imputacion y un consumo sin compra son el **mismo hecho** —«se
+> han consumido X unidades de Y en el terreno Z el dia D, con coste C»—; lo unico que cambia es de
+> donde sale el coste, y separarlos obligaria al diario (MVP-305) y al dashboard (MVP-004) a unir dos
+> tablas con las mismas columnas. Consecuencias: `PURCHASE.unit_price` se persiste (base del coste
+> proporcional) y el consumo guarda **siempre** su propio `product`, copiado de la compra al imputar,
+> de modo que la fila es autoexplicativa y editar la compra despues no reescribe lo ya consumido
+> (RN-032).
 
 ---
 
@@ -484,7 +544,9 @@ materializa la entidad de actividad.
 | `SEASON` | implementada | MVP-201 (temporada inicial + `is_active`); maestro completo en MVP-203 (estados `planificada/activa/cerrada` derivados; `active_crop` diferido) |
 | `PLOT` | implementada | MVP-202 (alta minima RN-028, `is_active`; `location` en vez de coordenadas; `soil_metadata` diferido) |
 | `WORKER` | implementada | MVP-204 (alta minima `name`, `hourly_rate` de referencia, `is_active`); MVP-208 materializa `user_account_id`: el maestro pasa a ser el de responsables (miembros + cuadrilla) y cierra `P-034` |
-| `ACTIVITY`, `PURCHASE`, `PURCHASE_CONSUMPTION` | pendiente | MVP-003 |
+| `ACTIVITY` | implementada | MVP-301 (`task_id`/`task_text` excluyentes cierran `P-028`; estrena `version` + `If-Match` de ADR-0005 y la baja logica `deleted_at` de RN-037) |
+| `PURCHASE` | implementada | MVP-303 (`season_id` cierra `P-050`; `unit_price` persistido como base del coste proporcional de MVP-304) |
+| `PURCHASE_CONSUMPTION` | implementada | MVP-304, con el mecanismo decidido en MVP-303: `purchase_id` anulable (RN-032). Anade `unit_price` congelado, trazabilidad completa, `version` y `deleted_at` |
 | `HARVEST` | pendiente | MVP-004 |
 
 ---

@@ -2,7 +2,7 @@
 id: "MVP-303"
 tipo: feature
 titulo: "Registro de compras operativas"
-estado: borrador
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito C — Registro operativo end-to-end"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "compras", "operativa"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-29"
 ---
 
 # MVP-303 — Registro de compras operativas
@@ -67,9 +67,9 @@ Permitir registrar compras operativas del Workspace con el mínimo de datos nece
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Un usuario puede registrar una compra con producto/material libre, cantidad, coste y temporada.
-- [ ] **CA-2**: El sistema puede sugerir materiales previos del Workspace sin convertirlos en catálogo cerrado.
-- [ ] **CA-3**: Las compras quedan disponibles para su imputación posterior a terrenos.
+- [x] **CA-1**: Un usuario puede registrar una compra con producto/material libre, cantidad, coste y temporada.
+- [x] **CA-2**: El sistema puede sugerir materiales previos del Workspace sin convertirlos en catálogo cerrado.
+- [x] **CA-3**: Las compras quedan disponibles para su imputación posterior a terrenos.
 
 ## Maquetas y referencias visuales
 
@@ -83,8 +83,11 @@ Permitir registrar compras operativas del Workspace con el mínimo de datos nece
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| ComprasView | RN-031, RN-003 | parcial | Alta y listado de compras disponibles |
-| DiarioView | RN-033 | parcial | Compras se reflejan en diario |
+| ComprasView | RN-031 | cubierto | `/app/compras`: producto en texto libre con sugerencias del historico en `datalist`, verificado en UI conducida |
+| ComprasView | RN-021, RN-023 | cubierto | Temporada obligatoria (la activa por defecto) y aviso no bloqueante de fecha fuera de rango |
+| ComprasView | RN-003 | cubierto | Coste siempre manual; el precio unitario se deriva de coste/cantidad y se muestra en vivo |
+| ComprasView | ADR-0005 | cubierto | Conflicto de version provocado desde la API con el modal abierto: el libro recarga y lo explica |
+| DiarioView | RN-033 | falta | Las compras entran en el diario unificado en MVP-305 |
 
 ## Notas y decisiones
 
@@ -96,3 +99,10 @@ Permitir registrar compras operativas del Workspace con el mínimo de datos nece
   - El **modelo del consumo condiciona a esta historia**: `MVP-304` necesita que un consumo pueda
     existir sin compra (RN-032), así que la decisión de si `purchase_id` es una columna anulable o una
     entidad propia debe tomarse **antes** de cerrar el modelo de compras, no después. Ver `MVP-304`.
+    **Decidido al implementar esta historia (2026-07-29): `purchase_id` anulable sobre
+    `PURCHASE_CONSUMPTION`, no una entidad propia.** Una imputación y un consumo sin compra son el
+    mismo hecho —lo único que cambia es de dónde sale el coste—, y separarlos obligaría al diario
+    (`MVP-305`) y al dashboard (`MVP-004`) a unir dos tablas con las mismas columnas. Consecuencias ya
+    preparadas aquí: `unit_price` se **persiste** en la compra (base del coste proporcional, y permite
+    explicar una imputación antigua aunque la compra se edite después) y el consumo guardará su propio
+    `product`. El razonamiento completo está en el `tech-design.md`.

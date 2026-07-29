@@ -3,9 +3,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Mvc;
+using Terrenario.Api.Application.Activities;
 using Terrenario.Api.Application.Auth;
+using Terrenario.Api.Application.Consumptions;
+using Terrenario.Api.Application.Diary;
 using Terrenario.Api.Application.Invitations;
 using Terrenario.Api.Application.Plots;
+using Terrenario.Api.Application.Purchases;
 using Terrenario.Api.Application.Seasons;
 using Terrenario.Api.Application.Tasks;
 using Terrenario.Api.Application.Workers;
@@ -13,7 +17,10 @@ using Terrenario.Api.Application.Workspaces;
 using Terrenario.Api.Common.Errors;
 using Terrenario.Api.Common.Http;
 using Terrenario.Api.Common.Workspaces;
+using Terrenario.Api.Domain.Activities;
+using Terrenario.Api.Domain.Consumptions;
 using Terrenario.Api.Domain.Plots;
+using Terrenario.Api.Domain.Purchases;
 using Terrenario.Api.Domain.Seasons;
 using Terrenario.Api.Domain.Tasks;
 using Terrenario.Api.Domain.Users;
@@ -113,9 +120,39 @@ builder.Services.AddScoped<CreateWorkerHandler>();
 builder.Services.AddScoped<UpdateWorkerHandler>();
 builder.Services.AddScoped<ListWorkersHandler>();
 builder.Services.AddScoped<ITaskRepository, TaskRepository>();
+// Guardado de una tarea libre en el catálogo desde el flujo de actividad (MVP-302). Reutiliza la
+// guarda de duplicados de MVP-205 para resolver el nombre en vez de chocar contra ella.
+builder.Services.AddScoped<TaskCatalogPromoter>();
 builder.Services.AddScoped<CreateTaskHandler>();
 builder.Services.AddScoped<UpdateTaskHandler>();
 builder.Services.AddScoped<ListTasksHandler>();
+// Diario de actividades (MVP-301): primera entidad operativa crítica (ADR-0005 + RN-037)
+builder.Services.AddScoped<IActivityRepository, ActivityRepository>();
+builder.Services.AddScoped<ActivityLinkResolver>();
+builder.Services.AddScoped<CreateActivityHandler>();
+builder.Services.AddScoped<UpdateActivityHandler>();
+builder.Services.AddScoped<DeleteActivityHandler>();
+builder.Services.AddScoped<ListActivitiesHandler>();
+builder.Services.AddScoped<GetActivityHandler>();
+// Libro de compras (MVP-303): segunda entidad operativa crítica, mismo patrón que las actividades
+builder.Services.AddScoped<IPurchaseRepository, PurchaseRepository>();
+builder.Services.AddScoped<PurchaseSeasonResolver>();
+builder.Services.AddScoped<CreatePurchaseHandler>();
+builder.Services.AddScoped<UpdatePurchaseHandler>();
+builder.Services.AddScoped<DeletePurchaseHandler>();
+builder.Services.AddScoped<ListPurchasesHandler>();
+builder.Services.AddScoped<ListPurchaseProductsHandler>();
+// Imputación por terrenos y consumo sin compra previa (MVP-304)
+builder.Services.AddScoped<IConsumptionRepository, ConsumptionRepository>();
+builder.Services.AddScoped<ConsumptionLinkResolver>();
+builder.Services.AddScoped<PurchaseImputationGuard>();
+builder.Services.AddScoped<ImputePurchaseHandler>();
+builder.Services.AddScoped<RegisterConsumptionHandler>();
+builder.Services.AddScoped<UpdateConsumptionHandler>();
+builder.Services.AddScoped<DeleteConsumptionHandler>();
+builder.Services.AddScoped<ListConsumptionsHandler>();
+// Diario cronológico unificado (MVP-305): agrega las tres entidades operativas, de solo lectura
+builder.Services.AddScoped<DiaryQueryService>();
 builder.Services.AddScoped<ListWorkspacePeopleHandler>();
 builder.Services.AddScoped<RevokeMemberHandler>();
 // Ciclo de vida del Workspace (MVP-206): renombrar, baja lógica, traspaso y reactivación

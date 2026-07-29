@@ -31,5 +31,16 @@ public interface ITaskRepository
         Guid? excludeTaskId = null,
         CancellationToken ct = default);
 
+    /// <summary>
+    /// Tarea que ocupa ese nombre en el Workspace, <b>ignorando mayúsculas</b> (MVP-302). El guardado
+    /// de una tarea libre necesita saber <b>cuál</b> es la tarea existente, no solo si el nombre está
+    /// ocupado: la ofrece para reutilizarla en vez de crear una segunda. Ve también las inactivas,
+    /// que siguen ocupando su nombre (MVP-205, CA-3).
+    /// </summary>
+    Task<TaskItem?> FindByNameAsync(
+        Guid workspaceId,
+        string name,
+        CancellationToken ct = default);
+
     Task SaveChangesAsync(CancellationToken ct = default);
 }

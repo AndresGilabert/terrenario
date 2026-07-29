@@ -2,7 +2,7 @@
 id: "MVP-003"
 tipo: epica
 titulo: "Diario y operativa diaria"
-estado: borrador
+estado: completado
 prioridad: critica
 hito: "Hito C — Registro operativo end-to-end"
 tickets: []
@@ -19,7 +19,7 @@ ai_context:
   etiquetas: ["mvp", "operativa", "diario"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-24"
+actualizado_en: "2026-07-29"
 ---
 
 # EPICA MVP-003 — Diario y operativa diaria
@@ -62,11 +62,11 @@ Permitir registrar y consultar el día a día del Workspace en una sola experien
 
 ## Criterios de aceptación de la épica
 
-- [ ] **CA-1**: Todas las historias de la épica están en estado `completado`.
-- [ ] **CA-2**: Un usuario puede registrar operativa diaria completa desde el diario sin depender de procesos externos ni de cálculos automáticos no cerrados.
-- [ ] **CA-3**: La ausencia de compra previa nunca bloquea el registro de consumo, pero el sistema deja visible el impacto en calidad del dato.
-- [ ] **CA-4**: Dos personas del mismo Workspace no pueden pisarse un registro operativo en silencio: la edición y el borrado exigen la versión vigente y responden `409 CONFLICT_VERSION_MISMATCH` si no lo es (`ADR-0005`).
-- [ ] **CA-5**: Ningún registro operativo eliminado se pierde: la eliminación es lógica y exige confirmación explícita (RN-037), y lo eliminado deja de aparecer en el diario y en los listados.
+- [x] **CA-1**: Todas las historias de la épica están en estado `completado`.
+- [x] **CA-2**: Un usuario puede registrar operativa diaria completa desde el diario sin depender de procesos externos ni de cálculos automáticos no cerrados.
+- [x] **CA-3**: La ausencia de compra previa nunca bloquea el registro de consumo, pero el sistema deja visible el impacto en calidad del dato.
+- [x] **CA-4**: Dos personas del mismo Workspace no pueden pisarse un registro operativo en silencio: la edición y el borrado exigen la versión vigente y responden `409 CONFLICT_VERSION_MISMATCH` si no lo es (`ADR-0005`).
+- [x] **CA-5**: Ningún registro operativo eliminado se pierde: la eliminación es lógica y exige confirmación explícita (RN-037), y lo eliminado deja de aparecer en el diario y en los listados.
 
 ## Historias de esta épica
 
@@ -97,11 +97,11 @@ Matriz historia -> pantallas/componentes:
 
 | Historia | Referencias de prototipo | Cobertura |
 |---|---|---|
-| MVP-301 | [prototype/terrenario-mvp/src/components/DiarioView.tsx](../../../../prototype/terrenario-mvp/src/components/DiarioView.tsx), [prototype/terrenario-mvp/src/components/ActivityModal.tsx](../../../../prototype/terrenario-mvp/src/components/ActivityModal.tsx) | Parcial: alta y visualizacion de actividad disponibles |
-| MVP-302 | [prototype/terrenario-mvp/src/components/ActivityModal.tsx](../../../../prototype/terrenario-mvp/src/components/ActivityModal.tsx) | No cubierto funcionalmente: no existe guardado de tarea libre en catalogo |
-| MVP-303 | [prototype/terrenario-mvp/src/components/ComprasView.tsx](../../../../prototype/terrenario-mvp/src/components/ComprasView.tsx) | Parcial: alta/listado de compras disponibles |
-| MVP-304 | [prototype/terrenario-mvp/src/components/ComprasView.tsx](../../../../prototype/terrenario-mvp/src/components/ComprasView.tsx), [prototype/terrenario-mvp/src/components/DiarioView.tsx](../../../../prototype/terrenario-mvp/src/components/DiarioView.tsx) | No cubierto funcionalmente: no existen pantallas de imputacion por terreno ni consumo sin compra previa |
-| MVP-305 | [prototype/terrenario-mvp/src/components/DiarioView.tsx](../../../../prototype/terrenario-mvp/src/components/DiarioView.tsx) | Parcial: diario unificado disponible; borrado con confirmacion no implementado |
+| MVP-301 | [prototype/terrenario-mvp/src/components/DiarioView.tsx](../../../../prototype/terrenario-mvp/src/components/DiarioView.tsx), [prototype/terrenario-mvp/src/components/ActivityModal.tsx](../../../../prototype/terrenario-mvp/src/components/ActivityModal.tsx) | **Cubierto**: `/app/diario` con alta y correccion de actividad |
+| MVP-302 | [prototype/terrenario-mvp/src/components/ActivityModal.tsx](../../../../prototype/terrenario-mvp/src/components/ActivityModal.tsx) | **Cubierto**: casilla de guardado en el catalogo durante la captura y accion de promocion en la tarjeta del diario |
+| MVP-303 | [prototype/terrenario-mvp/src/components/ComprasView.tsx](../../../../prototype/terrenario-mvp/src/components/ComprasView.tsx) | **Cubierto**: `/app/compras` con gasto acumulado, alta en linea y sugerencias de material |
+| MVP-304 | [prototype/terrenario-mvp/src/components/ComprasView.tsx](../../../../prototype/terrenario-mvp/src/components/ComprasView.tsx), [prototype/terrenario-mvp/src/components/DiarioView.tsx](../../../../prototype/terrenario-mvp/src/components/DiarioView.tsx) | **Cubierto**: imputacion por fila con coste proyectado y consumo sin compra con aviso de coste 0 |
+| MVP-305 | [prototype/terrenario-mvp/src/components/DiarioView.tsx](../../../../prototype/terrenario-mvp/src/components/DiarioView.tsx) | **Cubierto**: diario unificado por fecha de negocio y borrado logico con confirmacion explicita |
 
 ## Notas y decisiones
 
@@ -126,4 +126,14 @@ Matriz historia -> pantallas/componentes:
     ya escrito sin manejo de conflicto. `MVP-401` hereda el mismo patrón para `HARVEST`.
 - **`RN-033` se completa en `MVP-004`.** El diario que entrega `MVP-305` mezcla actividades, compras
   y consumos; las **cosechas** todavía no existen. Encenderlas en el diario es alcance de `MVP-401`,
-  no una omisión de esta épica (hallazgo `G-4`).
+  no una omisión de esta épica (hallazgo `G-4`). El catálogo `diary_entry_type` ya reserva el valor
+  `cosecha`, así que `MVP-401` la enciende añadiendo un puerto y un icono.
+- **Cierre de la épica (`MVP-399`, 2026-07-29).** Las cinco historias funcionales quedaron cerradas y
+  la revisión final verificó los cinco CA sobre el flujo integrado real. Salieron ocho hallazgos:
+  cuatro se corrigieron como cierre —el más relevante, `R-01`: el resumen del diario **contaba dos
+  veces el mismo dinero**, porque sumaba el coste de una compra y además el de sus imputaciones—, tres
+  se derivaron a `MVP-999` (`P-056`, `P-057`, `P-058`) y uno era documental. **No se abrieron
+  historias nuevas en esta épica**: ninguno rompía un CA ni bloqueaba a `MVP-004`. El detalle está en
+  el `spec.md` de `MVP-399`.
+- **Lo que hereda `MVP-004`**: el criterio de coste de `R-01` (una imputación reparte dinero ya
+  contado, no es gasto nuevo) debe aplicarse igual en el dashboard.

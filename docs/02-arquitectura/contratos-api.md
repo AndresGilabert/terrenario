@@ -1,7 +1,7 @@
 ﻿---
 bloque: 02-arquitectura
 documento: contratos-api
-actualizado_en: "2026-07-28"
+actualizado_en: "2026-07-29"
 ---
 
 # Contratos de API
@@ -69,6 +69,7 @@ y se mantienen en español.
 | `invitation_channel` | `email`, `enlace` |
 | `invitation_status` | `pendiente`, `aceptada`, `rechazada`, `anulada` |
 | `reactivation_request_status` | `pendiente`, `solicitada`, `autorizada`, `denegada`, `cerrada` |
+| `diary_entry_type` (MVP-305) | `actividad`, `compra`, `consumo` · `cosecha` reservado para `MVP-401` |
 
 ---
 
@@ -356,7 +357,8 @@ Reglas de contexto (MVP-205):
 | Inactivación con histórico (CA-3) | `PATCH { is_active:false }`; reversible. No hay borrado físico de tareas |
 | `PATCH` de campos parciales | Un campo ausente mantiene su valor |
 | Orden del listado | Activas primero y luego por nombre. La operativa diaria pedirá `is_active=true` |
-| Tarea en la actividad (RN-025) | La tarea es obligatoria y puede venir del catálogo (`task_id`) o de texto libre (`task_text`); guardar una tarea libre en el catálogo es alcance de MVP-302 y reutiliza esta guarda de duplicados |
+| Tarea en la actividad (RN-025) | La tarea es obligatoria y puede venir del catálogo (`task_id`) o de texto libre (`task_text`) |
+| Guardado desde la operativa (MVP-302) | `POST`/`PATCH /api/v1/activities` con `save_task_to_catalog` da de alta aquí la tarea escrita a mano, **reutilizando esta misma guarda de duplicados**: consulta la comparación `lower(name)` para resolver el nombre en vez de chocar con él, así que reutiliza la tarea existente —o reactiva la inactivada— en lugar de devolver `CONFLICT_TASK_NAME_DUPLICATE`. Ese 409 sigue vigente en `POST /tasks`, donde el alta sí es el objetivo |
 
 ### 4) Workers (responsables: miembros y cuadrilla)
 
@@ -444,26 +446,63 @@ Validaciones y reglas:
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
-| Alta actividad | `POST /api/v1/activities` | `date*`, `plot_id*`, `season_id*`, `worker_id*`, `task_id?`, `task_text?`, `hours*`, `manual_cost*`, `description?` | `201 { id, version, ...activity }` |
+| Alta actividad | `POST /api/v1/activities` | `date*`, `plot_id*`, `season_id*`, `worker_id*`, `task_id?`, `task_text?`, `hours*`, `manual_cost*`, `description?`, `save_task_to_catalog?` | `201 { id, version, ...activity }` |
 | Editar actividad | `PATCH /api/v1/activities/{activityId}` | campos parciales · `If-Match: <version>` | `200 { ...activity }` |
 | Eliminar actividad | `DELETE /api/v1/activities/{activityId}` | `If-Match: <version>` | `204` |
-| Listado actividades | `GET /api/v1/activities` | `from?`, `to?`, `plot_id?`, `season_id?`, `worker_id?` | `200 { data, meta }` |
+| Listado actividades | `GET /api/v1/activities` | `from?`, `to?`, `plot_id?`, `season_id?`, `worker_id?` | `200 { data, meta: { total } }` |
+| Una actividad (MVP-305) | `GET /api/v1/activities/{activityId}` | — | `200 { ...activity }` · `404` |
+
+Todas exigen `[RequireWorkspaceScope]`. La representación de una actividad es
+`{ id, workspace_id, date, plot_id, plot_name, season_id, season_name, worker_id, worker_name,
+task_id, task_name, task_text, task, hours, manual_cost, description, is_out_of_season_range,
+version, created_at, updated_at }` (MVP-301). Los nombres de los maestros llegan **resueltos** en la
+misma consulta para que el diario no tenga que pedirlos por separado, y dos campos son **derivados**,
+no columnas:
+
+| Campo derivado | Qué es |
+|---|---|
+| `task` | Texto de la tarea venga del catálogo o del campo libre (RN-025), para que ningún cliente rehaga ese `??` |
+| `is_out_of_season_range` | `true` si la fecha cae fuera del rango de la temporada asociada. Es el **aviso** de RN-023, nunca un bloqueo; se calcula en lectura, así que sigue siendo correcto si la temporada se edita después |
+| `task_catalog_outcome` | MVP-302 — qué pasó en el catálogo al pedir `save_task_to_catalog`: `created`, `reused` o `reactivated`. `null` en las lecturas y cuando no se pidió |
 
 Validaciones clave:
 
 | Regla | Código error |
 |---|---|
-| responsable y horas obligatorios | `VALIDATION_ACTIVITY_REQUIRED_FIELDS` |
-| tarea obligatoria por catálogo o texto libre | `VALIDATION_ACTIVITY_TASK_REQUIRED` |
-| `hours > 0` | `VALIDATION_ACTIVITY_HOURS_RANGE` |
-| `manual_cost >= 0` | `VALIDATION_ACTIVITY_COST_RANGE` |
-| Integridad de workspace en FKs | `FOREIGN_KEY_WORKSPACE_MISMATCH` |
+| terreno, temporada y responsable obligatorios | `VALIDATION_ACTIVITY_REQUIRED_FIELDS` (400) |
+| tarea obligatoria por catálogo o texto libre, y **no las dos** | `VALIDATION_ACTIVITY_TASK_REQUIRED` (400) |
+| `task_text` de longitud válida (≤ 120, la del catálogo) | `VALIDATION_ACTIVITY_TASK_TEXT_LENGTH` (400) |
+| `hours > 0` (y ≤ 999,99 por `decimal(5,2)`) | `VALIDATION_ACTIVITY_HOURS_RANGE` (400) |
+| `manual_cost >= 0` (0 es válido: labor propia sin coste imputado) | `VALIDATION_ACTIVITY_COST_RANGE` (400) |
+| `description` de longitud válida (≤ 500) | `VALIDATION_ACTIVITY_DESCRIPTION_LENGTH` (400) |
+| `save_task_to_catalog` sobre una tarea que **ya** viene del catálogo (MVP-302) | `VALIDATION_ACTIVITY_TASK_NOT_FREE_TEXT` (400) |
+| Integridad de workspace en FKs | `FOREIGN_KEY_WORKSPACE_MISMATCH` (400) |
+| `PATCH`/`DELETE` sin cabecera `If-Match` (ADR-0005) | `VALIDATION_REQUIRED_IF_MATCH` (400) |
+| Actividad inexistente, de otro Workspace o ya eliminada | `RESOURCE_NOT_FOUND` (404) |
 | Edición o borrado con versión desfasada (ADR-0005) | `CONFLICT_VERSION_MISMATCH` (409) |
+| `from`/`to` con formato distinto de `YYYY-MM-DD` | `VALIDATION_REQUIRED` (400) |
 
-`worker_id` es un `workers.id` cualquiera de `GET /api/v1/workers`, sin distinguir clase: desde
-MVP-208 los miembros del Workspace también son filas de ese maestro, así que no hacen falta campos
-alternativos ni un responsable polimórfico (P-034).
+Reglas de contexto (MVP-301):
 
+| Regla | Comportamiento |
+|---|---|
+| `worker_id` (P-034) | Es un `workers.id` cualquiera de `GET /api/v1/workers`, sin distinguir clase: desde MVP-208 los miembros del Workspace también son filas de ese maestro, así que no hacen falta campos alternativos ni un responsable polimórfico |
+| Tarea (RN-025) | `task_id` **o** `task_text`, exactamente uno. En el `PATCH`, si viene **cualquiera** de los dos se sustituye la pareja completa y el ausente pasa a nulo: enviar solo `task_id` sobre una actividad con texto libre dejaría los dos informados y el dominio lo rechazaría |
+| Coste (RN-003) | Siempre manual. El servidor no lo calcula ni lo recalcula; `workers.hourly_rate` solo permite a la UI **sugerir** un valor que la persona confirma |
+| Fecha fuera de rango (RN-023) | Nunca bloquea el guardado: se responde `201`/`200` con `is_out_of_season_range: true` |
+| Maestros inactivos | Siguen siendo referenciables. La UI ofrece solo los activos para registros nuevos (CA-3 de MVP-202/204/205), pero corregir una actividad que referencia un maestro ya inactivado no obliga a reactivarlo |
+| Orden del listado | Fecha de negocio descendente (RN-033) y, a igualdad de fecha, fecha de captura descendente. Sin paginación en el MVP (`MVP-999`, P-051) |
+| Precisión | `hours` y `manual_cost` se redondean a 2 decimales en el dominio (`decimal(5,2)` y `decimal(10,2)`), para que lo leído coincida con lo escrito |
+| `save_task_to_catalog` (MVP-302) | Guarda `task_text` en el catálogo del Workspace y deja la actividad referenciándolo por `task_id`, en la **misma transacción**. Si el nombre ya existe se **reutiliza** (y si estaba inactivada, se **reactiva**, MVP-205 CA-3): este flujo nunca devuelve `CONFLICT_TASK_NAME_DUPLICATE`, porque un 409 aquí no sería accionable. Los errores de nombre son los **del catálogo** (`VALIDATION_REQUIRED_TASK_NAME`, `VALIDATION_TASK_NAME_LENGTH`) |
+| `PATCH { save_task_to_catalog: true }` a secas (MVP-302) | Promociona el `task_text` que la actividad **ya tiene**, sin reescribirlo. Es la vía para guardar en el catálogo la tarea de una actividad ya registrada; la versión sube una sola vez |
+
+> **Formato de `If-Match`** (MVP-301). El contrato publica la versión como el entero `version` de la
+> respuesta, pero un cliente HTTP correcto puede enviarla como **ETag**, así que se aceptan las tres
+> formas: `3`, `"3"` y `W/"3"`. Se rechaza `*` —significa «cualquier versión», que es justo lo que el
+> bloqueo optimista existe para impedir— con el mismo `400 VALIDATION_REQUIRED_IF_MATCH` que la
+> cabecera ausente. El `409` incluye además `current_version` en el cuerpo, para que el cliente pueda
+> resolver el conflicto refrescando en vez de dejar al usuario sin salida.
+>
 > **Concurrencia y borrado de los registros operativos** (aplica igual a actividades, cosechas,
 > compras e imputaciones). Las tres entidades operativas son las **entidades críticas** de `ADR-0005`:
 > exponen `version`, exigen `If-Match` en `PATCH`/`DELETE` y responden `409 CONFLICT_VERSION_MISMATCH`
@@ -472,6 +511,50 @@ alternativos ni un responsable polimórfico (P-034).
 > la UI exige confirmación explícita antes de invocarlo. No hay papelera ni restauración en el MVP.
 > Alcance de implementación: `MVP-301`/`MVP-303`/`MVP-304` para actividades, compras e imputaciones, y
 > `MVP-401` para cosechas.
+
+### 5.b) Diary (diario cronológico unificado, MVP-305)
+
+| Operación | Método y ruta | Request (query) | Respuesta 2xx |
+|---|---|---|---|
+| Diario del Workspace | `GET /api/v1/diary` | `from?`, `to?`, `plot_id?`, `season_id?`, `type?` (repetible) | `200 { data, meta }` |
+
+Es **la vista principal del MVP** (RN-033) y es de **solo lectura**: cada registro se crea, corrige y
+elimina por el recurso al que pertenece (`/activities`, `/purchases`, `/consumptions`), que es donde
+viven sus reglas. El diario únicamente agrega.
+
+La entrada del diario es una **proyección común** de las tres entidades operativas:
+`{ type, id, date, title, description, plot_id, plot_name, season_id, season_name, cost, version,
+is_out_of_season_range, created_at, worker_name, hours, task_id, quantity, has_purchase }`. Los
+campos específicos de un tipo llegan a `null` en los demás.
+
+| Campo | Por qué está |
+|---|---|
+| `version` | Permite eliminar desde el diario con `If-Match` (ADR-0005) sin abrir antes el registro |
+| `task_id` | Solo en actividades: `null` ⇒ tarea escrita a mano, lo que permite ofrecer guardarla en el catálogo (MVP-302) |
+| `has_purchase` | Solo en consumos: `false` ⇒ el coste es desconocido, no cero (RN-032) |
+
+`meta` es
+`{ total, total_cost, imputed_cost, activities, purchases, consumptions, consumptions_without_purchase }`:
+
+| Campo de `meta` | Qué mide |
+|---|---|
+| `total_cost` | **Gasto real** de lo que se está viendo: labores + compras + consumos **sin compra**. **No** incluye las imputaciones: reparten dinero que la compra ya aportó, así que sumarlas contaría el mismo gasto dos veces (`MVP-399`, hallazgo `R-01`). Es el criterio que debe heredar el dashboard de `MVP-004` |
+| `imputed_cost` | Lo repartido por terrenos: **desglose** de `total_cost`, no gasto añadido |
+| `consumptions_without_purchase` | Consumos sin compra previa. Su coste consta como `0` porque se desconoce (RN-032), así que el gasto real fue algo mayor; la UI lo advierte (CA-3 de `MVP-003`) |
+
+| Catálogo | Valores permitidos |
+|---|---|
+| `diary_entry_type` | `actividad`, `compra`, `consumo` · `cosecha` **reservado** para `MVP-401` |
+
+Reglas de contexto:
+
+| Regla | Comportamiento |
+|---|---|
+| Orden | Fecha de **negocio** descendente (RN-033) y, a igualdad, fecha de captura descendente |
+| Filtro `type` | Ahorra trabajo, no solo oculta: los tipos no pedidos ni se consultan |
+| Filtro `plot_id` | Deja fuera las **compras** por definición: una compra es del Workspace y solo se reparte por terrenos al imputarla (MVP-304). El cliente lo explica para que no parezca un fallo |
+| `type=cosecha` | Responde `400` hasta que `MVP-401` encienda `HARVEST` (hallazgo `G-4`) |
+| Sin paginación | Igual que el resto de listados del MVP (`MVP-999`, `P-051`) |
 
 ### 6) Harvests (cosechas)
 
@@ -503,19 +586,68 @@ diario es alcance de `MVP-401`.
 | Alta compra | `POST /api/v1/purchases` | `purchase_date*`, `product*`, `total_quantity*`, `total_cost*`, `season_id*` | `201 { id, version, unit_price, ... }` |
 | Editar compra | `PATCH /api/v1/purchases/{purchaseId}` | campos parciales · `If-Match: <version>` | `200 { ...purchase }` |
 | Eliminar compra | `DELETE /api/v1/purchases/{purchaseId}` | `If-Match: <version>` | `204` |
-| Listado compras | `GET /api/v1/purchases` | `product?`, `season_id?` | `200 { data, meta }` |
+| Listado compras | `GET /api/v1/purchases` | `product?`, `season_id?`, `from?`, `to?` | `200 { data, meta: { total, total_cost } }` |
+| Materiales del histórico (MVP-303) | `GET /api/v1/purchases/products` | `search?` | `200 { data:[{ product, times_used }], meta:{ total } }` |
 | Imputar compra a terreno | `POST /api/v1/purchases/{purchaseId}/consumptions` | `date*`, `plot_id*`, `quantity*` | `201 { id, purchase_id, plot_id, date, quantity, proportional_cost }` |
 | Registrar consumo **sin compra previa** (RN-032) | `POST /api/v1/consumptions` | `date*`, `plot_id*`, `season_id*`, `product*`, `quantity*` | `201 { id, purchase_id: null, proportional_cost: 0, ... }` |
-| Listado de consumos | `GET /api/v1/consumptions` | `from?`, `to?`, `plot_id?`, `season_id?` | `200 { data, meta }` |
+| Listado de consumos | `GET /api/v1/consumptions` | `from?`, `to?`, `plot_id?`, `season_id?`, `purchase_id?`, `product?` | `200 { data, meta: { total, total_cost, without_purchase } }` |
+| Editar consumo (MVP-304) | `PATCH /api/v1/consumptions/{consumptionId}` | campos parciales · `If-Match: <version>` | `200 { ...consumption }` |
+| Eliminar consumo (MVP-304) | `DELETE /api/v1/consumptions/{consumptionId}` | `If-Match: <version>` | `204` |
+
+La representación de un consumo es
+`{ id, workspace_id, purchase_id, has_purchase, plot_id, plot_name, season_id, season_name, date,
+product, quantity, unit_price, proportional_cost, is_out_of_season_range, version, created_at,
+updated_at }` (MVP-304). `has_purchase` es **derivado** y desambigua el coste: `proportional_cost: 0`
+con `has_purchase: false` significa «se desconoce», no «fue gratis». `meta.without_purchase` cuenta
+esos registros: es la medida del impacto en la calidad del dato que pide el CA-3 de `MVP-003`.
+
+La representación de una compra es
+`{ id, workspace_id, purchase_date, season_id, season_name, product, total_quantity, total_cost,
+unit_price, is_out_of_season_range, version, created_at, updated_at }` (MVP-303). `season_name` llega
+resuelto y `is_out_of_season_range` es el mismo aviso derivado de RN-023 que en la actividad.
+`meta.total_cost` del listado es el **gasto acumulado de lo filtrado**, calculado en servidor.
 
 Validaciones clave:
 
 | Regla | Código error |
 |---|---|
-| `total_quantity > 0` y `total_cost > 0` | `VALIDATION_PURCHASE_TOTALS_RANGE` |
-| suma imputaciones <= cantidad total | `VALIDATION_CONSUMPTION_OVERFLOW` |
-| `quantity > 0` en la imputación y en el consumo | `VALIDATION_CONSUMPTION_QUANTITY_RANGE` |
+| `product` obligatorio (texto libre, RN-031) | `VALIDATION_PURCHASE_REQUIRED_PRODUCT` (400) |
+| `product` de longitud válida (≤ 150) | `VALIDATION_PURCHASE_PRODUCT_LENGTH` (400) |
+| `season_id` obligatorio (RN-021) | `VALIDATION_PURCHASE_REQUIRED_FIELDS` (400) |
+| `total_quantity > 0` y `total_cost > 0` | `VALIDATION_PURCHASE_TOTALS_RANGE` (400) |
+| La temporada no existe en el Workspace activo | `FOREIGN_KEY_WORKSPACE_MISMATCH` (400) |
+| `PATCH`/`DELETE` sin cabecera `If-Match` (ADR-0005) | `VALIDATION_REQUIRED_IF_MATCH` (400) |
+| Compra inexistente, de otro Workspace o ya eliminada | `RESOURCE_NOT_FOUND` (404) |
+| suma imputaciones <= cantidad total | `VALIDATION_CONSUMPTION_OVERFLOW` (400) |
+| `quantity > 0` en la imputación y en el consumo | `VALIDATION_CONSUMPTION_QUANTITY_RANGE` (400) |
+| `product` obligatorio en el consumo sin compra (RN-031) | `VALIDATION_CONSUMPTION_REQUIRED_PRODUCT` (400) |
+| Terreno o temporada ausentes o de otro Workspace | `VALIDATION_CONSUMPTION_REQUIRED_FIELDS` / `FOREIGN_KEY_WORKSPACE_MISMATCH` (400) |
+| Imputar sobre una compra inexistente, ajena o eliminada | `RESOURCE_NOT_FOUND` (404) |
+| Dar de baja una compra con imputaciones vivas (MVP-304) | `BUSINESS_RULE_PURCHASE_HAS_CONSUMPTIONS` (422) |
 | Edición o borrado con versión desfasada (ADR-0005) | `CONFLICT_VERSION_MISMATCH` (409) |
+
+Reglas de contexto de consumos (MVP-304):
+
+| Regla | Comportamiento |
+|---|---|
+| Una sola entidad para los dos casos | Una imputación y un consumo sin compra son el **mismo hecho**; lo único que cambia es de dónde sale el coste. `purchase_id` anulable, decidido en `MVP-303` antes de cerrar el modelo de compras |
+| Qué se hereda al imputar | `product`, `season_id` y `unit_price` los pone la compra; el usuario solo elige terreno, fecha y cantidad. La temporada no es cambiable al imputar: desalinearía el reparto respecto del gasto |
+| Precio **congelado** (RN-032, CA-3) | El consumo guarda su propio `unit_price`. Editar la compra después **no** reescribe el coste de lo ya consumido, y un consumo sin compra **no** gana coste porque aparezca luego una compra del mismo material: no hay emparejamiento por nombre en ninguna parte |
+| Guarda de sobre-imputación | Suma solo las imputaciones **vivas**, así que retirar una libera su cantidad. El reparto **exacto** del 100% se admite; el mensaje del 400 dice cuánto queda por repartir. Al editar se excluye la propia fila |
+| Baja de una compra con imputaciones | Se rechaza con 422 indicando cuántas hay. Ni cascada —borraría registros operativos del diario que nadie pidió borrar— ni huérfanas —perderían el origen de su coste—: se retiran primero |
+| `imputed_quantity` / `pending_quantity` | El listado de compras los incluye para poder mostrar «imputado / total» sin una consulta por fila |
+| Orden del listado de consumos | Fecha de **negocio** descendente (RN-033, CA-4): un consumo capturado hoy sobre trabajo de la semana pasada se lee donde ocurrió |
+| Filtro `product` (MVP-399) | Búsqueda **parcial** e insensible a mayúsculas, igual que en compras. Añadido en la revisión de cierre (`R-06`): el buscador de material del libro filtraba las compras y dejaba los consumos intactos |
+
+Reglas de contexto (MVP-303):
+
+| Regla | Comportamiento |
+|---|---|
+| Producto en texto libre (RN-031) | No hay catálogo cerrado ni normalización: «Abono NPK» y «abono npk» conviven. `GET /purchases/products` devuelve el vocabulario **aprendido del histórico vivo**, los más usados primero y con tope de 20; es una ayuda de escritura, no un maestro |
+| Filtro `product` | Búsqueda **parcial** e insensible a mayúsculas: el texto libre obligaría, si no, a recordar cómo se escribió |
+| `unit_price` | Derivado de `total_cost / total_quantity` con 4 decimales y **persistido**. Es la base del coste proporcional de las imputaciones (`MVP-304`) y permite explicar una imputación antigua aunque la compra se edite después (RN-032). Se recalcula en cada `PATCH` que toque cantidad o coste |
+| Temporadas cerradas | Siguen admitiendo compras: cerrar es informativo (RN-024) |
+| Lo eliminado deja de sugerirse | Una compra dada de baja sale del listado, del `total_cost` y de las sugerencias (RN-037) |
 
 > **El consumo sin compra previa necesita sitio propio** (`MVP-299`, 3ª pasada, hallazgo `G-2`).
 > `RN-032` y el CA-3 de la épica `MVP-003` obligan a que la ausencia de compra **nunca** bloquee el
@@ -604,6 +736,8 @@ Regla: `yield` y `liters` son opcionales, pero no se permite informar ambos a la
 | 403 | `AUTH_WORKSPACE_SCOPE_REQUIRED` | Operación que exige Workspace activo en la sesión |
 | 403 | `AUTH_WORKSPACE_OWNER_REQUIRED` | Operación reservada al propietario del Workspace (baja y traspaso, RN-038) |
 | 404 | `RESOURCE_NOT_FOUND` | Recurso inexistente |
+| 400 | `VALIDATION_REQUIRED_IF_MATCH` | `PATCH`/`DELETE` de un registro operativo sin `If-Match` (ADR-0005) |
+| 400 | `FOREIGN_KEY_WORKSPACE_MISMATCH` | Un vínculo del registro operativo no existe en el Workspace activo |
 | 409 | `CONFLICT_VERSION_MISMATCH` | Colisión de versión por edición concurrente |
 | 422 | `BUSINESS_RULE_*` | Regla de negocio incumplida |
 | 500 | `INTERNAL_ERROR` | Error inesperado trazable por `X-Request-Id` |

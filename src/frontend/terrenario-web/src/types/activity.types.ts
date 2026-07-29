@@ -93,3 +93,6 @@ export const ACTIVITY_DESCRIPTION_MAX_LENGTH = 500;
 
 /** Código del contrato para la colisión de versión (ADR-0005). */
 export const CONFLICT_VERSION_MISMATCH = 'CONFLICT_VERSION_MISMATCH';
+
+/** El registro ya no existe o ya estaba eliminado (404). */
+export const RESOURCE_NOT_FOUND = 'RESOURCE_NOT_FOUND';

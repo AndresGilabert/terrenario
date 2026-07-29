@@ -69,6 +69,7 @@ y se mantienen en español.
 | `invitation_channel` | `email`, `enlace` |
 | `invitation_status` | `pendiente`, `aceptada`, `rechazada`, `anulada` |
 | `reactivation_request_status` | `pendiente`, `solicitada`, `autorizada`, `denegada`, `cerrada` |
+| `diary_entry_type` (MVP-305) | `actividad`, `compra`, `consumo` · `cosecha` reservado para `MVP-401` |
 
 ---
 
@@ -449,6 +450,7 @@ Validaciones y reglas:
 | Editar actividad | `PATCH /api/v1/activities/{activityId}` | campos parciales · `If-Match: <version>` | `200 { ...activity }` |
 | Eliminar actividad | `DELETE /api/v1/activities/{activityId}` | `If-Match: <version>` | `204` |
 | Listado actividades | `GET /api/v1/activities` | `from?`, `to?`, `plot_id?`, `season_id?`, `worker_id?` | `200 { data, meta: { total } }` |
+| Una actividad (MVP-305) | `GET /api/v1/activities/{activityId}` | — | `200 { ...activity }` · `404` |
 
 Todas exigen `[RequireWorkspaceScope]`. La representación de una actividad es
 `{ id, workspace_id, date, plot_id, plot_name, season_id, season_name, worker_id, worker_name,
@@ -509,6 +511,45 @@ Reglas de contexto (MVP-301):
 > la UI exige confirmación explícita antes de invocarlo. No hay papelera ni restauración en el MVP.
 > Alcance de implementación: `MVP-301`/`MVP-303`/`MVP-304` para actividades, compras e imputaciones, y
 > `MVP-401` para cosechas.
+
+### 5.b) Diary (diario cronológico unificado, MVP-305)
+
+| Operación | Método y ruta | Request (query) | Respuesta 2xx |
+|---|---|---|---|
+| Diario del Workspace | `GET /api/v1/diary` | `from?`, `to?`, `plot_id?`, `season_id?`, `type?` (repetible) | `200 { data, meta }` |
+
+Es **la vista principal del MVP** (RN-033) y es de **solo lectura**: cada registro se crea, corrige y
+elimina por el recurso al que pertenece (`/activities`, `/purchases`, `/consumptions`), que es donde
+viven sus reglas. El diario únicamente agrega.
+
+La entrada del diario es una **proyección común** de las tres entidades operativas:
+`{ type, id, date, title, description, plot_id, plot_name, season_id, season_name, cost, version,
+is_out_of_season_range, created_at, worker_name, hours, task_id, quantity, has_purchase }`. Los
+campos específicos de un tipo llegan a `null` en los demás.
+
+| Campo | Por qué está |
+|---|---|
+| `version` | Permite eliminar desde el diario con `If-Match` (ADR-0005) sin abrir antes el registro |
+| `task_id` | Solo en actividades: `null` ⇒ tarea escrita a mano, lo que permite ofrecer guardarla en el catálogo (MVP-302) |
+| `has_purchase` | Solo en consumos: `false` ⇒ el coste es desconocido, no cero (RN-032) |
+
+`meta` es `{ total, total_cost, activities, purchases, consumptions, consumptions_without_purchase }`.
+El último cuenta los consumos sin compra previa: con ellos, `total_cost` se queda corto **por
+construcción**, y la UI lo advierte en vez de presentar un total que parece exacto (CA-3 de `MVP-003`).
+
+| Catálogo | Valores permitidos |
+|---|---|
+| `diary_entry_type` | `actividad`, `compra`, `consumo` · `cosecha` **reservado** para `MVP-401` |
+
+Reglas de contexto:
+
+| Regla | Comportamiento |
+|---|---|
+| Orden | Fecha de **negocio** descendente (RN-033) y, a igualdad, fecha de captura descendente |
+| Filtro `type` | Ahorra trabajo, no solo oculta: los tipos no pedidos ni se consultan |
+| Filtro `plot_id` | Deja fuera las **compras** por definición: una compra es del Workspace y solo se reparte por terrenos al imputarla (MVP-304). El cliente lo explica para que no parezca un fallo |
+| `type=cosecha` | Responde `400` hasta que `MVP-401` encienda `HARVEST` (hallazgo `G-4`) |
+| Sin paginación | Igual que el resto de listados del MVP (`MVP-999`, `P-051`) |
 
 ### 6) Harvests (cosechas)
 

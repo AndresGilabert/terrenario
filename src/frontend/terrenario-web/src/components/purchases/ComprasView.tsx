@@ -15,8 +15,14 @@ import { createPlotService } from '../../services/plot.service';
 import { createConsumptionService } from '../../services/consumption.service';
 import type { Plot } from '../../types/plot.types';
 import type { Consumption } from '../../types/consumption.types';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import { PurchaseFormModal } from './PurchaseFormModal';
 import { ConsumptionFormModal, type ConsumptionFormValues } from './ConsumptionFormModal';
+
+/** Registro pendiente de confirmación de borrado (MVP-305, RN-037). */
+type PendingDelete =
+  | { kind: 'purchase'; purchase: Purchase }
+  | { kind: 'consumption'; consumption: Consumption };
 
 function todayIso(): string {
   const now = new Date();
@@ -97,6 +103,10 @@ export const ComprasView: React.FC = () => {
   } | null>(null);
   const [isSubmittingConsumption, setSubmittingConsumption] = useState(false);
   const [consumptionError, setConsumptionError] = useState<string | null>(null);
+
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
+  const [isDeleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     setIsLoading(true);
@@ -251,6 +261,43 @@ export const ComprasView: React.FC = () => {
       );
     } finally {
       setSubmittingConsumption(false);
+    }
+  };
+
+  /**
+   * MVP-305 (RN-037, CA-3) — Borrado **lógico** tras confirmación explícita, también desde los
+   * listados y no solo desde el diario. Una compra con imputaciones vivas responde 422 (MVP-304) y el
+   * mensaje se muestra dentro del diálogo, que es donde se está decidiendo.
+   */
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      if (pendingDelete.kind === 'purchase') {
+        await purchaseService.deletePurchase(
+          pendingDelete.purchase.id, pendingDelete.purchase.version);
+      } else {
+        await consumptionService.deleteConsumption(
+          pendingDelete.consumption.id, pendingDelete.consumption.version);
+      }
+      setPendingDelete(null);
+      await reload();
+    } catch (error) {
+      if (error instanceof HttpError && error.code === CONFLICT_VERSION_MISMATCH) {
+        setPendingDelete(null);
+        await reload();
+        setLoadError(
+          'Otra persona modificó ese registro mientras lo mirabas. Se ha recargado la pantalla; revísalo antes de eliminarlo.'
+        );
+        return;
+      }
+      setDeleteError(
+        error instanceof HttpError ? error.message : 'No se pudo eliminar el registro.'
+      );
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -551,6 +598,18 @@ export const ComprasView: React.FC = () => {
                       >
                         <span className="material-symbols-outlined text-base" aria-hidden="true">edit</span>
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDeleteError(null);
+                          setPendingDelete({ kind: 'purchase', purchase });
+                        }}
+                        title="Eliminar compra"
+                        aria-label={`Eliminar la compra de ${purchase.product}`}
+                        className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#ffdad6]/60 hover:text-[#ba1a1a] transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-base" aria-hidden="true">delete</span>
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -661,6 +720,18 @@ export const ComprasView: React.FC = () => {
                         >
                           <span className="material-symbols-outlined text-base" aria-hidden="true">edit</span>
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeleteError(null);
+                            setPendingDelete({ kind: 'consumption', consumption });
+                          }}
+                          title="Eliminar consumo"
+                          aria-label={`Eliminar el consumo de ${consumption.product} en ${consumption.plot_name}`}
+                          className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#ffdad6]/60 hover:text-[#ba1a1a] transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-base" aria-hidden="true">delete</span>
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -683,6 +754,44 @@ export const ComprasView: React.FC = () => {
         errorMessage={consumptionError}
         onClose={() => setConsumptionForm(null)}
         onSubmit={(values) => void handleConsumptionSubmit(values)}
+      />
+
+      {/* RN-037 (CA-3) — confirmación explícita antes de eliminar, también desde los listados */}
+      <ConfirmDialog
+        isOpen={pendingDelete !== null}
+        title={pendingDelete?.kind === 'purchase' ? '¿Eliminar la compra?' : '¿Eliminar el consumo?'}
+        message={
+          pendingDelete && (
+            <>
+              <p>
+                Vas a eliminar{' '}
+                <strong>
+                  «{pendingDelete.kind === 'purchase'
+                    ? pendingDelete.purchase.product
+                    : pendingDelete.consumption.product}»
+                </strong>{' '}
+                del{' '}
+                {formatDate(
+                  pendingDelete.kind === 'purchase'
+                    ? pendingDelete.purchase.purchase_date
+                    : pendingDelete.consumption.date
+                )}
+                {pendingDelete.kind === 'consumption' ? ` en ${pendingDelete.consumption.plot_name}` : ''}.
+              </p>
+              <p className="text-xs text-[#76786b]">
+                Desaparecerá del libro y del diario. No hay papelera: si te equivocas, tendrás que
+                volver a registrarlo.
+              </p>
+            </>
+          )
+        }
+        isBusy={isDeleting}
+        errorMessage={deleteError}
+        onCancel={() => {
+          setPendingDelete(null);
+          setDeleteError(null);
+        }}
+        onConfirm={() => void confirmDelete()}
       />
 
       <PurchaseFormModal

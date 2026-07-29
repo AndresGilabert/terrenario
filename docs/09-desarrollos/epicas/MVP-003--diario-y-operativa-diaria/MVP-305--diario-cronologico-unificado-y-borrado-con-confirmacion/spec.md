@@ -2,7 +2,7 @@
 id: "MVP-305"
 tipo: feature
 titulo: "Diario cronológico unificado y borrado con confirmación"
-estado: borrador
+estado: completado
 prioridad: critica
 sprint: ""
 hito: "Hito C — Registro operativo end-to-end"
@@ -21,14 +21,14 @@ ai_context:
   etiquetas: ["mvp", "diario", "ux"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-29"
 ---
 
 # MVP-305 — Diario cronológico unificado y borrado con confirmación
 
 ## Contexto
 
-La KB deja claro que la vista principal del MVP debe ser un diario cronológico unificado y no un conjunto de módulos desconectados. Esa vista debe mostrar operativa real y soportar acciones básicas sin comprometer la seguridad funcional, incluyendo confirmación explícita antes del borrado físico.
+La KB deja claro que la vista principal del MVP debe ser un diario cronológico unificado y no un conjunto de módulos desconectados. Esa vista debe mostrar operativa real y soportar acciones básicas sin comprometer la seguridad funcional, incluyendo confirmación explícita antes del borrado, que es **lógico** (RN-037, corregida en la 3ª pasada de `MVP-299`).
 
 ## Objetivo
 
@@ -65,9 +65,9 @@ Ofrecer una vista principal única donde el usuario pueda consultar la operativa
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: El usuario puede consultar en una sola vista cronológica la operativa relevante del Workspace.
-- [ ] **CA-2**: La vista del diario se alimenta de actividades, compras y consumos ya registrados en el MVP.
-- [ ] **CA-3**: Antes de eliminar un registro operativo, el sistema exige confirmación explícita del usuario, y el registro eliminado desaparece del diario y de los listados sin perderse en base de datos (eliminación lógica, RN-037).
+- [x] **CA-1**: El usuario puede consultar en una sola vista cronológica la operativa relevante del Workspace.
+- [x] **CA-2**: La vista del diario se alimenta de actividades, compras y consumos ya registrados en el MVP.
+- [x] **CA-3**: Antes de eliminar un registro operativo, el sistema exige confirmación explícita del usuario, y el registro eliminado desaparece del diario y de los listados sin perderse en base de datos (eliminación lógica, RN-037).
 
 ## Maquetas y referencias visuales
 
@@ -81,8 +81,10 @@ Ofrecer una vista principal única donde el usuario pueda consultar la operativa
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| DiarioView | RN-033 | cubierto | Timeline cronologico unificado implementado |
-| DiarioView | RN-037 | falta | Borrado existe pero sin confirmacion explicita |
+| DiarioView | RN-033 | cubierto | `GET /api/v1/diary` mezcla actividades, compras y consumos por fecha de negocio; verificado con 16 registros de los tres tipos en UI conducida |
+| DiarioView | RN-037 | cubierto | Borrado logico con dialogo de confirmacion que nombra el registro y avisa de que no hay papelera; foco inicial en «Cancelar» |
+| DiarioView | MVP-304 | cubierto | El 422 de una compra con imputaciones vivas aparece **dentro** del dialogo, que no se cierra |
+| ComprasView | RN-037 | cubierto | El borrado con confirmacion tambien esta en los listados, no solo en el diario |
 
 ## Notas y decisiones
 
@@ -96,6 +98,17 @@ Ofrecer una vista principal única donde el usuario pueda consultar la operativa
   mismo —confirma y el registro desaparece—; lo que cambia es que un borrado accidental no destruye el
   dato. No hay papelera ni restauración en el MVP: la purga se decide con la política de retención
   (`P-033`, `MVP-505`).
+- **Decisiones de implementación (2026-07-29).** El diario es un **endpoint propio**
+  (`GET /api/v1/diary`) y no una mezcla en el cliente: con tres listados, mezclar en el navegador
+  significaría tres peticiones, orden frágil y la misma lógica repetida en cada consumidor futuro. La
+  mezcla se hace **en memoria dentro del servidor** y no con un `UNION`, porque reutiliza los tres
+  puertos ya probados y el diario todavía no pagina; resolver `P-051` obligará a moverla a SQL, y
+  queda anotado allí. Se añade además `GET /api/v1/activities/{id}`, que el diario necesita para abrir
+  el formulario de corrección sin cargarse el listado entero.
+- **El borrado no vive en el diario**: cada tipo se elimina por su propio recurso, con su `If-Match`,
+  para que las reglas propias —como la de `MVP-304` sobre compras con imputaciones vivas— sigan
+  aplicando sin duplicarlas. El diálogo de confirmación es compartido y muestra el rechazo del
+  servidor **sin cerrarse**, que es donde se está tomando la decisión.
 - **El diario no incluye cosechas todavía** (hallazgo `G-4`). `RN-033` define la vista como la mezcla
   de actividades, **cosechas** y compras/consumos, pero `HARVEST` no existe hasta `MVP-004`. Esta
   historia entrega el diario con lo que hay y **`MVP-401` lo completa** encendiendo la cosecha; el

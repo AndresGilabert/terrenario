@@ -18,3 +18,15 @@ public sealed class ListActivitiesHandler(IActivityRepository activityRepository
         CancellationToken ct = default)
         => activityRepository.ListAsync(workspaceId, filter, ct);
 }
+
+/// <summary>
+/// MVP-305 — Una actividad viva concreta del Workspace activo. Lo necesita el diario unificado para
+/// abrir el formulario de corrección: la entrada del diario es una proyección común de los tres
+/// tipos y no lleva todos los campos de la actividad.
+/// </summary>
+public sealed class GetActivityHandler(IActivityRepository activityRepository)
+{
+    /// <returns><c>null</c> si no existe, es de otro Workspace o ya fue eliminada (404).</returns>
+    public Task<ActivityView?> HandleAsync(Guid workspaceId, Guid activityId, CancellationToken ct = default)
+        => activityRepository.GetViewAsync(workspaceId, activityId, ct);
+}

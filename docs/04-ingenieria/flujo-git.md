@@ -1,7 +1,7 @@
 ﻿---
 bloque: 04-ingenieria
 documento: flujo-git
-actualizado_en: "2026-07-24"
+actualizado_en: "2026-07-28"
 ---
 
 # Flujo de Git
@@ -13,7 +13,7 @@ actualizado_en: "2026-07-24"
 Usamos una variante de **Git Flow** con `develop` como rama de integración:
 
 ```text
-main          ← código en producción, solo recibe merges desde `develop`
+main          ← estado promocionado, solo recibe merges desde `develop`
         └── develop   ← rama de integración y preproducción
   └── feature/{TICKET_ID}--{nombre-feature}   ← desarrollo de features
   └── bugfix/{TICKET_ID}--{nombre-bug}         ← corrección de bugs
@@ -135,12 +135,42 @@ Condiciones mínimas:
 6. El CI debe pasar completamente (tests + validación de KB).
 7. Hacer **squash merge** a `develop` para mantener el historial limpio.
 
-## Promoción a producción
+## Promoción a `main`
 
 1. Solo se puede abrir PR de `develop` hacia `main`.
 2. Ese PR requiere revisión manual; puede ser auto-revisión si no hay otro revisor disponible.
 3. El merge a `main` se usa únicamente para promover el estado ya validado en `develop`.
-4. El despliegue a producción se dispara desde `main` tras esa promoción.
+4. Se hace **merge commit**, no squash: `main` conserva el historial commit a commit para poder
+   etiquetar puntos concretos.
+
+### Promoción de hito frente a release a producción
+
+No todo merge a `main` es una salida a producción. Se distinguen dos cosas, y conviene no leer `main`
+como «desplegable en producción» sin mirar la etiqueta:
+
+| | **Promoción de hito** | **Release a producción** |
+|---|---|---|
+| Cuándo | Al cerrar un hito del roadmap (una o varias épicas con su `MVP-x99` cerrada) | Cuando se supera el gate de salida |
+| Requisito | Épicas del hito en `completado` y CI en verde | Gate de release del MVP: **`MVP-005`** (cobertura de tests, hardening, cumplimiento RGPD/LOPDGDD y checklist final) |
+| Etiqueta | `vX.Y.0-hito-{letra}`, publicada como **pre-release** | `vX.Y.Z`, release normal |
+| Uso | Desplegable en **fase cerrada** (piloto interno, demo, entorno de pruebas) | Desplegable a producción con usuarios reales |
+| Notas | `docs/10-releases/vX.Y.0-hito-{letra}.md` | `docs/10-releases/vX.Y.Z.md` |
+
+Reglas:
+
+- Cada hito promocionado se **etiqueta con un tag anotado** sobre el commit que lo cierra, de modo que
+  siempre haya una referencia concreta que desplegar en fase cerrada sin depender de la punta de
+  `main`.
+- El tag va acompañado de su documento en `docs/10-releases/`, con el estado de despliegue explícito.
+- Un hito promocionado **no autoriza el despliegue a producción**: mientras `MVP-005` no esté
+  entregada, cualquier despliegue es de fase cerrada.
+
+Hitos promocionados hasta ahora:
+
+| Tag | Hito | Épicas | Estado |
+|---|---|---|---|
+| `v0.1.0-hito-a` | Hito A — Base segura y multiusuario | `MVP-001` | Pre-release, fase cerrada |
+| `v0.2.0-hito-b` | Hito B — Base operativa preparada | `MVP-002` | Pre-release, fase cerrada |
 
 ---
 

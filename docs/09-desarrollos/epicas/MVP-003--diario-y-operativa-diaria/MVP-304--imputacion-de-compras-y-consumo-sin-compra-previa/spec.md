@@ -2,7 +2,7 @@
 id: "MVP-304"
 tipo: feature
 titulo: "Imputación de compras y consumo sin compra previa"
-estado: borrador
+estado: completado
 prioridad: critica
 sprint: ""
 hito: "Hito C — Registro operativo end-to-end"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "consumo", "coste"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-29"
 ---
 
 # MVP-304 — Imputación de compras y consumo sin compra previa
@@ -67,10 +67,10 @@ Permitir repartir compras por terrenos y registrar consumo operativo incluso cua
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Una compra puede imputarse a uno o varios terrenos con cantidad aproximada y coste proporcional.
-- [ ] **CA-2**: El sistema permite registrar consumo sin compra previa, asignando coste 0 y mostrando aviso al usuario.
-- [ ] **CA-3**: Registrar una compra posterior no recalcula automáticamente los consumos históricos ya guardados.
-- [ ] **CA-4**: Un consumo registrado sin compra previa aparece en el diario en su **fecha de negocio** —no en la de captura— y queda asociado a una temporada, igual que una actividad o una compra (RN-021, RN-033).
+- [x] **CA-1**: Una compra puede imputarse a uno o varios terrenos con cantidad aproximada y coste proporcional.
+- [x] **CA-2**: El sistema permite registrar consumo sin compra previa, asignando coste 0 y mostrando aviso al usuario.
+- [x] **CA-3**: Registrar una compra posterior no recalcula automáticamente los consumos históricos ya guardados.
+- [x] **CA-4**: Un consumo registrado sin compra previa aparece en el diario en su **fecha de negocio** —no en la de captura— y queda asociado a una temporada, igual que una actividad o una compra (RN-021, RN-033).
 
 ## Maquetas y referencias visuales
 
@@ -84,8 +84,10 @@ Permitir repartir compras por terrenos y registrar consumo operativo incluso cua
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| ComprasView | RN-032 | falta | No existe imputacion de compra por terreno |
-| DiarioView | RN-032 | falta | No hay flujo de consumo sin compra previa con aviso |
+| ComprasView | RN-032 (imputacion) | cubierto | Accion `call_split` por fila, columna «imputado / total», formulario con cantidad pendiente y coste proyectado. Verificado en UI conducida |
+| ComprasView | RN-032 (sin compra) | cubierto | «Consumo sin compra» con aviso explicito de coste 0 y de que registrar la compra despues no lo recalculara; badges «sin compra»/«sin coste» y aviso agregado |
+| ComprasView | CA-1 | cubierto | Guarda de sobre-imputacion con el margen disponible en el mensaje, mostrada en el modal sin cerrarlo |
+| DiarioView | RN-033 | falta | Los consumos entran en el diario unificado en MVP-305; aqui se entrega el dato (fecha de negocio y temporada) y su orden |
 
 ## Notas y decisiones
 
@@ -101,7 +103,21 @@ Permitir repartir compras por terrenos y registrar consumo operativo incluso cua
   propia** de la que la imputación es un caso particular. La revisión fija los **requisitos** —
   `purchase_id` opcional, coste `0` sin compra, sin recálculo retroactivo, fecha de negocio,
   temporada y producto libre— y deja el mecanismo a la implementación. Condiciona el modelo de
-  `MVP-303`, así que debe decidirse **antes** de cerrarlo.
+  `MVP-303`, así que debe decidirse **antes** de cerrarlo. **Cerrada al implementar `MVP-303`
+  (2026-07-29): `purchase_id` anulable**, porque una imputación y un consumo sin compra son el mismo
+  hecho y separarlos obligaría al diario y al dashboard a unir dos tablas iguales.
+- **Cómo se hace verdadero el CA-3 (decisión de esta historia).** La fila del consumo guarda su
+  **propio `unit_price`**, congelado al imputar, y su propio `product`. Así el «no se recalculan
+  históricos» de RN-032 es una propiedad **estructural** y no una convención: editar la compra después
+  no reescribe el coste de lo ya consumido, y un consumo guardado sin compra no gana coste porque
+  aparezca luego una compra del mismo material (no hay emparejamiento por nombre en ninguna parte).
+- **Una compra con imputaciones vivas no se puede dar de baja** (`422
+  BUSINESS_RULE_PURCHASE_HAS_CONSUMPTIONS`). Quedó como riesgo abierto en `MVP-303` y se decide aquí:
+  las imputaciones son registros operativos propios que están en el diario, así que ni se borran en
+  cascada ni se dejan huérfanas; se pide retirarlas primero, que es explícito y reversible.
+- **Alcance visible del CA-4.** El dato ya cumple lo que pide —fecha de negocio propia, temporada y
+  orden por fecha de negocio en `GET /api/v1/consumptions`, verificado end-to-end—; la aparición del
+  consumo **en el diario unificado** es alcance de `MVP-305`, que es quien mezcla los tres tipos.
 - **`G-3`: el consumo necesitaba fecha propia y temporada.** Solo tenía `created_at`, pero el diario
   de `MVP-305` ordena por fecha de negocio (RN-033) y `RN-021` exige temporada en toda la operativa.
   Un consumo capturado el lunes sobre trabajo del jueves anterior caía en el sitio equivocado.

@@ -4,6 +4,7 @@ using Terrenario.Api.Application.Purchases;
 using Terrenario.Api.Application.Purchases.Commands;
 using Terrenario.Api.Common;
 using Terrenario.Api.Common.Errors;
+using Terrenario.Api.Domain.Consumptions;
 using Terrenario.Api.Domain.Operations;
 using Terrenario.Api.Domain.Purchases;
 using Terrenario.Api.Domain.Seasons;
@@ -19,6 +20,7 @@ public class PurchaseHandlersTests
 {
     private readonly IPurchaseRepository _purchases = Substitute.For<IPurchaseRepository>();
     private readonly ISeasonRepository _seasons = Substitute.For<ISeasonRepository>();
+    private readonly IConsumptionRepository _consumptions = Substitute.For<IConsumptionRepository>();
 
     private static readonly Guid WorkspaceId = Guid.NewGuid();
     private static readonly Guid SeasonId = Guid.NewGuid();
@@ -37,7 +39,7 @@ public class PurchaseHandlersTests
 
     private UpdatePurchaseHandler UpdateSut() => new(_purchases, Resolver());
 
-    private DeletePurchaseHandler DeleteSut() => new(_purchases);
+    private DeletePurchaseHandler DeleteSut() => new(_purchases, _consumptions);
 
     private static CreatePurchaseCommand ValidCreate()
         => new(WorkspaceId, UserId, SeasonId, Date, "Abono NPK", 500m, 250m);

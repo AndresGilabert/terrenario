@@ -544,7 +544,16 @@ diario es alcance de `MVP-401`.
 | Materiales del histórico (MVP-303) | `GET /api/v1/purchases/products` | `search?` | `200 { data:[{ product, times_used }], meta:{ total } }` |
 | Imputar compra a terreno | `POST /api/v1/purchases/{purchaseId}/consumptions` | `date*`, `plot_id*`, `quantity*` | `201 { id, purchase_id, plot_id, date, quantity, proportional_cost }` |
 | Registrar consumo **sin compra previa** (RN-032) | `POST /api/v1/consumptions` | `date*`, `plot_id*`, `season_id*`, `product*`, `quantity*` | `201 { id, purchase_id: null, proportional_cost: 0, ... }` |
-| Listado de consumos | `GET /api/v1/consumptions` | `from?`, `to?`, `plot_id?`, `season_id?` | `200 { data, meta }` |
+| Listado de consumos | `GET /api/v1/consumptions` | `from?`, `to?`, `plot_id?`, `season_id?`, `purchase_id?` | `200 { data, meta: { total, total_cost, without_purchase } }` |
+| Editar consumo (MVP-304) | `PATCH /api/v1/consumptions/{consumptionId}` | campos parciales · `If-Match: <version>` | `200 { ...consumption }` |
+| Eliminar consumo (MVP-304) | `DELETE /api/v1/consumptions/{consumptionId}` | `If-Match: <version>` | `204` |
+
+La representación de un consumo es
+`{ id, workspace_id, purchase_id, has_purchase, plot_id, plot_name, season_id, season_name, date,
+product, quantity, unit_price, proportional_cost, is_out_of_season_range, version, created_at,
+updated_at }` (MVP-304). `has_purchase` es **derivado** y desambigua el coste: `proportional_cost: 0`
+con `has_purchase: false` significa «se desconoce», no «fue gratis». `meta.without_purchase` cuenta
+esos registros: es la medida del impacto en la calidad del dato que pide el CA-3 de `MVP-003`.
 
 La representación de una compra es
 `{ id, workspace_id, purchase_date, season_id, season_name, product, total_quantity, total_cost,
@@ -563,9 +572,25 @@ Validaciones clave:
 | La temporada no existe en el Workspace activo | `FOREIGN_KEY_WORKSPACE_MISMATCH` (400) |
 | `PATCH`/`DELETE` sin cabecera `If-Match` (ADR-0005) | `VALIDATION_REQUIRED_IF_MATCH` (400) |
 | Compra inexistente, de otro Workspace o ya eliminada | `RESOURCE_NOT_FOUND` (404) |
-| suma imputaciones <= cantidad total | `VALIDATION_CONSUMPTION_OVERFLOW` |
-| `quantity > 0` en la imputación y en el consumo | `VALIDATION_CONSUMPTION_QUANTITY_RANGE` |
+| suma imputaciones <= cantidad total | `VALIDATION_CONSUMPTION_OVERFLOW` (400) |
+| `quantity > 0` en la imputación y en el consumo | `VALIDATION_CONSUMPTION_QUANTITY_RANGE` (400) |
+| `product` obligatorio en el consumo sin compra (RN-031) | `VALIDATION_CONSUMPTION_REQUIRED_PRODUCT` (400) |
+| Terreno o temporada ausentes o de otro Workspace | `VALIDATION_CONSUMPTION_REQUIRED_FIELDS` / `FOREIGN_KEY_WORKSPACE_MISMATCH` (400) |
+| Imputar sobre una compra inexistente, ajena o eliminada | `RESOURCE_NOT_FOUND` (404) |
+| Dar de baja una compra con imputaciones vivas (MVP-304) | `BUSINESS_RULE_PURCHASE_HAS_CONSUMPTIONS` (422) |
 | Edición o borrado con versión desfasada (ADR-0005) | `CONFLICT_VERSION_MISMATCH` (409) |
+
+Reglas de contexto de consumos (MVP-304):
+
+| Regla | Comportamiento |
+|---|---|
+| Una sola entidad para los dos casos | Una imputación y un consumo sin compra son el **mismo hecho**; lo único que cambia es de dónde sale el coste. `purchase_id` anulable, decidido en `MVP-303` antes de cerrar el modelo de compras |
+| Qué se hereda al imputar | `product`, `season_id` y `unit_price` los pone la compra; el usuario solo elige terreno, fecha y cantidad. La temporada no es cambiable al imputar: desalinearía el reparto respecto del gasto |
+| Precio **congelado** (RN-032, CA-3) | El consumo guarda su propio `unit_price`. Editar la compra después **no** reescribe el coste de lo ya consumido, y un consumo sin compra **no** gana coste porque aparezca luego una compra del mismo material: no hay emparejamiento por nombre en ninguna parte |
+| Guarda de sobre-imputación | Suma solo las imputaciones **vivas**, así que retirar una libera su cantidad. El reparto **exacto** del 100% se admite; el mensaje del 400 dice cuánto queda por repartir. Al editar se excluye la propia fila |
+| Baja de una compra con imputaciones | Se rechaza con 422 indicando cuántas hay. Ni cascada —borraría registros operativos del diario que nadie pidió borrar— ni huérfanas —perderían el origen de su coste—: se retiran primero |
+| `imputed_quantity` / `pending_quantity` | El listado de compras los incluye para poder mostrar «imputado / total» sin una consulta por fila |
+| Orden del listado de consumos | Fecha de **negocio** descendente (RN-033, CA-4): un consumo capturado hoy sobre trabajo de la semana pasada se lee donde ocurrió |
 
 Reglas de contexto (MVP-303):
 

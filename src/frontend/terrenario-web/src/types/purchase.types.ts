@@ -17,6 +17,10 @@ export interface Purchase {
   unit_price: number;
   /** RN-023 — la fecha cae fuera del rango de la temporada. Aviso, nunca bloqueo. */
   is_out_of_season_range: boolean;
+  /** MVP-304 — cantidad ya repartida entre terrenos. */
+  imputed_quantity: number;
+  /** MVP-304 — cantidad que queda por repartir; es el máximo de una imputación nueva (CA-1). */
+  pending_quantity: number;
   /** Versión para el bloqueo optimista: viaja en `If-Match` (ADR-0005). */
   version: number;
   created_at: string;

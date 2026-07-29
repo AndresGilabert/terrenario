@@ -11,7 +11,12 @@ import {
   type ProductSuggestion,
   type Purchase,
 } from '../../types/purchase.types';
+import { createPlotService } from '../../services/plot.service';
+import { createConsumptionService } from '../../services/consumption.service';
+import type { Plot } from '../../types/plot.types';
+import type { Consumption } from '../../types/consumption.types';
 import { PurchaseFormModal } from './PurchaseFormModal';
+import { ConsumptionFormModal, type ConsumptionFormValues } from './ConsumptionFormModal';
 
 function todayIso(): string {
   const now = new Date();
@@ -50,10 +55,15 @@ export const ComprasView: React.FC = () => {
   const navigate = useNavigate();
   const { seasons, activeSeason } = useSeason();
   const purchaseService = useMemo(() => createPurchaseService(http), [http]);
+  const consumptionService = useMemo(() => createConsumptionService(http), [http]);
+  const plotService = useMemo(() => createPlotService(http), [http]);
 
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [totalCost, setTotalCost] = useState(0);
   const [suggestions, setSuggestions] = useState<ProductSuggestion[]>([]);
+  const [consumptions, setConsumptions] = useState<Consumption[]>([]);
+  const [consumptionsWithoutPurchase, setConsumptionsWithoutPurchase] = useState(0);
+  const [plots, setPlots] = useState<Plot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -80,20 +90,36 @@ export const ComprasView: React.FC = () => {
   const [isSubmitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  /** Consumo en curso (MVP-304): imputación de una compra, consumo sin compra o corrección. */
+  const [consumptionForm, setConsumptionForm] = useState<{
+    purchase: Purchase | null;
+    consumption: Consumption | null;
+  } | null>(null);
+  const [isSubmittingConsumption, setSubmittingConsumption] = useState(false);
+  const [consumptionError, setConsumptionError] = useState<string | null>(null);
+
   const reload = useCallback(async () => {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const [list, productList] = await Promise.all([
+      const [list, productList, consumptionList, plotList] = await Promise.all([
         purchaseService.listPurchases({
           seasonId: seasonFilter === 'todas' ? undefined : seasonFilter,
           product: productFilter.trim() || undefined,
         }),
         purchaseService.listProductSuggestions(),
+        consumptionService.listConsumptions({
+          seasonId: seasonFilter === 'todas' ? undefined : seasonFilter,
+        }),
+        // Solo los activos: es lo que se ofrece para registros nuevos (MVP-202, CA-3).
+        plotService.listPlots({ isActive: true }),
       ]);
       setPurchases(list.data);
       setTotalCost(list.meta.total_cost);
       setSuggestions(productList);
+      setConsumptions(consumptionList.data);
+      setConsumptionsWithoutPurchase(consumptionList.meta.without_purchase);
+      setPlots(plotList);
     } catch (error) {
       setLoadError(
         error instanceof HttpError ? error.message : 'No se pudo cargar el libro de compras.'
@@ -101,7 +127,7 @@ export const ComprasView: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [purchaseService, seasonFilter, productFilter]);
+  }, [purchaseService, consumptionService, plotService, seasonFilter, productFilter]);
 
   useEffect(() => {
     void reload();
@@ -180,7 +206,56 @@ export const ComprasView: React.FC = () => {
     }
   };
 
+  /**
+   * MVP-304 — Guarda el consumo por la ruta que corresponde: imputación si cuelga de una compra,
+   * consumo sin compra si no (RN-032), o corrección si ya existía.
+   */
+  const handleConsumptionSubmit = async (values: ConsumptionFormValues) => {
+    if (!consumptionForm) return;
+    const { purchase, consumption } = consumptionForm;
+
+    setSubmittingConsumption(true);
+    setConsumptionError(null);
+    try {
+      if (consumption) {
+        await consumptionService.updateConsumption(consumption.id, consumption.version, {
+          date: values.date,
+          plot_id: values.plot_id,
+          season_id: values.season_id,
+          product: values.product,
+          quantity: values.quantity,
+        });
+      } else if (purchase) {
+        await consumptionService.imputePurchase(purchase.id, {
+          date: values.date,
+          plot_id: values.plot_id,
+          quantity: values.quantity,
+        });
+      } else {
+        await consumptionService.registerConsumption(values);
+      }
+      setConsumptionForm(null);
+      await reload();
+    } catch (error) {
+      if (error instanceof HttpError && error.code === CONFLICT_VERSION_MISMATCH) {
+        setConsumptionForm(null);
+        await reload();
+        setLoadError(
+          'Otra persona modificó ese consumo mientras lo editabas. Se ha recargado la pantalla con la versión actual.'
+        );
+        return;
+      }
+      // El 400 de sobre-imputación llega con el margen disponible en el mensaje: se muestra tal cual.
+      setConsumptionError(
+        error instanceof HttpError ? error.message : 'No se pudo guardar el consumo.'
+      );
+    } finally {
+      setSubmittingConsumption(false);
+    }
+  };
+
   const hasSeason = defaultSeasonId !== null;
+  const canRegisterConsumption = hasSeason && plots.length > 0;
 
   return (
     <div className="space-y-6 pb-12">
@@ -189,8 +264,8 @@ export const ComprasView: React.FC = () => {
         <div>
           <h2 className="font-headline font-extrabold text-xl text-[#1c1c19]">Compras e insumos</h2>
           <p className="text-xs text-[#76786b]">
-            Libro de gastos de abonos, fitosanitarios, combustible y material. El reparto por terrenos
-            llegará después.
+            Libro de gastos de abonos, fitosanitarios, combustible y material, y reparto de lo
+            consumido por terrenos.
           </p>
         </div>
 
@@ -395,6 +470,8 @@ export const ComprasView: React.FC = () => {
                   <th scope="col" className="px-5 py-3.5">Producto</th>
                   <th scope="col" className="px-5 py-3.5">Campaña</th>
                   <th scope="col" className="px-5 py-3.5 text-right">Cantidad</th>
+                  {/* MVP-304 — cuánto se ha repartido ya por terrenos */}
+                  <th scope="col" className="px-5 py-3.5 text-right">Imputado</th>
                   <th scope="col" className="px-5 py-3.5 text-right">Precio ud.</th>
                   <th scope="col" className="px-5 py-3.5 text-right">Coste</th>
                   <th scope="col" className="px-5 py-3.5 text-right sr-only">Acciones</th>
@@ -423,13 +500,45 @@ export const ComprasView: React.FC = () => {
                     <td className="px-5 py-3.5 text-right text-[#45483c] whitespace-nowrap">
                       {purchase.total_quantity.toLocaleString('es-ES')}
                     </td>
+                    <td
+                      className={`px-5 py-3.5 text-right whitespace-nowrap ${
+                        purchase.pending_quantity <= 0 ? 'text-[#33450d] font-semibold' : 'text-[#76786b]'
+                      }`}
+                      title={
+                        purchase.pending_quantity <= 0
+                          ? 'Toda la compra está repartida entre terrenos'
+                          : `Quedan ${purchase.pending_quantity.toLocaleString('es-ES')} por repartir`
+                      }
+                    >
+                      {purchase.imputed_quantity.toLocaleString('es-ES')} / {purchase.total_quantity.toLocaleString('es-ES')}
+                    </td>
                     <td className="px-5 py-3.5 text-right text-[#76786b] whitespace-nowrap">
                       {purchase.unit_price.toLocaleString('es-ES', { maximumFractionDigits: 4 })} €
                     </td>
                     <td className="px-5 py-3.5 text-right font-extrabold text-[#ba1a1a] whitespace-nowrap">
                       - {euros(purchase.total_cost)} €
                     </td>
-                    <td className="px-3 py-3.5 text-right">
+                    <td className="px-3 py-3.5 text-right whitespace-nowrap">
+                      {/* MVP-304 (HU-1) — repartir la compra entre terrenos */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setConsumptionError(null);
+                          setConsumptionForm({ purchase, consumption: null });
+                        }}
+                        disabled={plots.length === 0 || purchase.pending_quantity <= 0}
+                        title={
+                          plots.length === 0
+                            ? 'Necesitas al menos un terreno'
+                            : purchase.pending_quantity <= 0
+                              ? 'Toda la compra ya está repartida'
+                              : 'Imputar a un terreno'
+                        }
+                        aria-label={`Imputar la compra de ${purchase.product} a un terreno`}
+                        className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#f0ede8] hover:text-[#33450d] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <span className="material-symbols-outlined text-base" aria-hidden="true">call_split</span>
+                      </button>
                       <button
                         type="button"
                         onClick={() => {
@@ -450,6 +559,131 @@ export const ComprasView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Consumos e imputaciones (MVP-304). Van debajo del libro y no en otra pantalla porque son
+          la contrapartida de la compra: dónde acabó el material. */}
+      <section className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="font-headline font-bold text-lg text-[#1c1c19]">Consumos por terreno</h3>
+            <p className="text-xs text-[#76786b]">
+              Dónde se ha gastado el material. Reparte una compra con{' '}
+              <span className="material-symbols-outlined text-sm align-middle" aria-hidden="true">call_split</span>{' '}
+              o apunta un consumo aunque no tengas la compra registrada.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setConsumptionError(null);
+              setConsumptionForm({ purchase: null, consumption: null });
+            }}
+            disabled={!canRegisterConsumption}
+            title={canRegisterConsumption ? undefined : 'Necesitas un terreno y una temporada'}
+            className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-white border border-[#c6c8b8] hover:bg-[#f0ede8] text-[#45483c] text-xs font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
+          >
+            <span className="material-symbols-outlined text-lg" aria-hidden="true">inventory_2</span>
+            <span>Consumo sin compra</span>
+          </button>
+        </div>
+
+        {/* CA-3 de la épica — el impacto en la calidad del dato queda visible, no escondido */}
+        {consumptionsWithoutPurchase > 0 && (
+          <p className="text-xs text-[#8a5a00] bg-[#fff6e5] border border-[#f0d9a8] rounded-xl px-3 py-2 flex items-start gap-1.5">
+            <span className="material-symbols-outlined text-base shrink-0" aria-hidden="true">info</span>
+            <span>
+              {consumptionsWithoutPurchase === 1
+                ? 'Hay 1 consumo registrado sin compra previa: su coste consta como 0 porque se desconoce.'
+                : `Hay ${consumptionsWithoutPurchase} consumos registrados sin compra previa: su coste consta como 0 porque se desconoce.`}
+            </span>
+          </p>
+        )}
+
+        {consumptions.length === 0 ? (
+          <p className="text-sm text-[#76786b] italic bg-white p-6 rounded-2xl border border-[#e5e2dd] text-center">
+            Todavía no has repartido ninguna compra por terrenos.
+          </p>
+        ) : (
+          <div className="bg-white rounded-2xl border border-[#e5e2dd] ambient-shadow overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-[#1c1c19]">
+                <thead className="bg-[#f6f3ee] border-b border-[#e5e2dd] text-[11px] font-bold uppercase tracking-wider text-[#45483c]">
+                  <tr>
+                    <th scope="col" className="px-5 py-3.5">Fecha</th>
+                    <th scope="col" className="px-5 py-3.5">Material</th>
+                    <th scope="col" className="px-5 py-3.5">Terreno</th>
+                    <th scope="col" className="px-5 py-3.5 text-right">Cantidad</th>
+                    <th scope="col" className="px-5 py-3.5 text-right">Coste</th>
+                    <th scope="col" className="px-5 py-3.5 text-right sr-only">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#f0ede8]">
+                  {consumptions.map((consumption) => (
+                    <tr key={consumption.id} className="hover:bg-[#fcf9f4]">
+                      <td className="px-5 py-3.5 font-medium text-[#76786b] whitespace-nowrap">
+                        {formatDate(consumption.date)}
+                      </td>
+                      <td className="px-5 py-3.5 font-bold text-[#1c1c19]">
+                        {consumption.product}
+                        {!consumption.has_purchase && (
+                          <span
+                            title="Registrado sin compra previa: el coste se desconoce"
+                            className="ml-1.5 px-2 py-0.5 rounded-full bg-[#fff6e5] text-[#8a5a00] border border-[#f0d9a8] font-semibold text-[10px] whitespace-nowrap"
+                          >
+                            sin compra
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5 text-[#45483c]">{consumption.plot_name}</td>
+                      <td className="px-5 py-3.5 text-right text-[#45483c] whitespace-nowrap">
+                        {consumption.quantity.toLocaleString('es-ES')}
+                      </td>
+                      <td
+                        className={`px-5 py-3.5 text-right whitespace-nowrap ${
+                          consumption.has_purchase ? 'font-extrabold text-[#ba1a1a]' : 'text-[#76786b]'
+                        }`}
+                      >
+                        {consumption.has_purchase
+                          ? `- ${euros(consumption.proportional_cost)} €`
+                          : 'sin coste'}
+                      </td>
+                      <td className="px-3 py-3.5 text-right">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setConsumptionError(null);
+                            setConsumptionForm({ purchase: null, consumption });
+                          }}
+                          title="Corregir consumo"
+                          aria-label={`Corregir el consumo de ${consumption.product} en ${consumption.plot_name}`}
+                          className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#f0ede8] hover:text-[#33450d] transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-base" aria-hidden="true">edit</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <ConsumptionFormModal
+        isOpen={consumptionForm !== null}
+        purchase={consumptionForm?.purchase ?? null}
+        consumption={consumptionForm?.consumption ?? null}
+        plots={plots}
+        seasons={seasons}
+        activeSeason={activeSeason}
+        pendingQuantity={consumptionForm?.purchase?.pending_quantity ?? null}
+        isSubmitting={isSubmittingConsumption}
+        errorMessage={consumptionError}
+        onClose={() => setConsumptionForm(null)}
+        onSubmit={(values) => void handleConsumptionSubmit(values)}
+      />
 
       <PurchaseFormModal
         isOpen={editing !== null}

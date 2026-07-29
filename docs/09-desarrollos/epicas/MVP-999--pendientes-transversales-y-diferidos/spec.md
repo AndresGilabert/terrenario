@@ -21,7 +21,7 @@ ai_context:
 creado_en: "2026-07-24"
 actualizado_en: "2026-07-29"
 ---
-<!-- actualizado_en refleja la ultima anotacion en el registro de puntos (MVP-303: cierre de P-050 y alta de P-053 y P-054). -->
+<!-- actualizado_en refleja la ultima anotacion en el registro de puntos (MVP-304: alta de P-055, foco en modales). -->
 
 # EPICA MVP-999 — Pendientes transversales y diferidos
 
@@ -124,6 +124,8 @@ Cuando una epica cierre su `MVP-x99`, estos puntos deben revisarse, priorizarse 
 
 | P-053 | 2026-07-29 | MVP-003 / MVP-303 (defecto en MVP-205) | bug/ux | **El foco no vuelve al campo tras anadir una tarea en `TareasView`.** El `tech-design` de `MVP-205` afirma que «el foco vuelve al campo: poblar el catalogo es escribir varias tareas seguidas», pero no ocurre: `newNameInput.current?.focus()` se llama dentro del manejador, cuando `isCreating` **sigue siendo `true`** y el input esta `disabled`; enfocar un elemento deshabilitado no hace nada, y `setCreating(false)` se aplica despues, en el `finally`. Verificado en UI conducida: tras anadir una tarea el `document.activeElement` es `BODY`. Impacto bajo pero directo sobre la promesa de la pantalla —hay que volver a pulsar el campo por cada tarea—. La correccion es mover el foco a un `useEffect` que se dispare tras el re-render, que es como se ha implementado en `ComprasView` (MVP-303). No se corrige aqui por estar fuera del alcance de la historia y afectar a una entrega ya validada. | bajo | no | MVP-399 (correccion de cierre de la epica) | pendiente | - |
 | P-054 | 2026-07-29 | MVP-003 / MVP-303 | ux/doc | **Campos del prototipo no portados en el libro de compras.** `ComprasView` del prototipo captura ademas «Categoria» (fertilizantes, fitosanitarios, riego, combustible, mantenimiento) y «Proveedor»; el modelo real de la KB solo tiene `product`, `total_quantity`, `total_cost`, `purchase_date` y `season_id`, que es lo que fija RN-031 y el contrato. La omision es deliberada —no inventar campos que la KB no pide— pero conviene decidirla: la **categoria** habilitaria un desglose de gasto por tipo en el dashboard (MVP-004) y el **proveedor** es informacion de contacto real de la explotacion. Anadirlos despues es una migracion aditiva sin riesgo. Es el mismo tipo de punto que `P-035` registro para el maestro de Trabajadores. | bajo | no | MVP-999 (con P-035) | pendiente | - |
+
+| P-055 | 2026-07-29 | MVP-003 / MVP-304 | ux/accesibilidad | **Los modales de la aplicacion no atrapan el foco.** Con un modal abierto (`PlotFormModal`, `WorkerFormModal`, `SeasonFormModal`, `ActivityFormModal`, `PurchaseFormModal`, `ConsumptionFormModal`, `CloseWorkspaceModal`, `InvitationModal`) los controles del fondo siguen siendo alcanzables con el tabulador y siguen pudiendo activarse, porque el overlay solo tapa visualmente. Tampoco se cierra con `Escape` de forma uniforme ni se devuelve el foco al control que lo abrio. Detectado al conducir la UI de MVP-304: pulsando el envio del formulario en linea del fondo con el modal abierto se dispara el alta equivocada. Impacto real bajo con raton, alto para quien navegue con teclado o lector de pantalla. Es **transversal desde MVP-202** —ningun modal lo hace— y no algo que introduzca esta historia. Propuesta: un componente `Modal` comun con trampa de foco, cierre con `Escape`, `aria-modal`/`role="dialog"` y restauracion del foco, y migrar los ocho modales a el. | medio | no | MVP-005 / MVP-502 | aprobado-crear-historia | MVP-502 |
 
 ### Retriage de la 3a pasada de MVP-299 (2026-07-28)
 

@@ -73,4 +73,9 @@ public sealed record DiaryEntry(
     /// </summary>
     decimal? Kgs = null,
     /// <summary>Solo en cosechas: destino de lo recolectado (RN-012).</summary>
-    string? Destination = null);
+    string? Destination = null,
+    /// <summary>
+    /// Solo en cosechas (MVP-402): rendimiento en la unidad canónica L/100kg (RN-013), sea informado o
+    /// derivado de los litros obtenidos (RN-014). <c>null</c> cuando la partida todavía no lo declara.
+    /// </summary>
+    decimal? Yield = null);

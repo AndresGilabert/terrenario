@@ -17,10 +17,21 @@ export interface Harvest {
   /** Código del catálogo global fijo de producto (RN-030). */
   product: string;
   kgs: number;
-  /** Rendimiento en L/100kg (RN-013). Excluyente con `liters` (RN-004). */
+  /**
+   * Rendimiento **informado**, siempre en la unidad canónica L/100kg (RN-013), sea cual sea la unidad
+   * en la que se escribió (RN-014). Excluyente con `liters` (RN-004).
+   */
   yield: number | null;
   /** Litros de aceite obtenidos. Excluyente con `yield` (RN-004). */
   liters: number | null;
+  /**
+   * MVP-402 — Rendimiento en L/100kg **venga de donde venga**: el informado, o el derivado de los
+   * litros y los kilos cuando lo que se declaró fueron litros (RN-014, tercer origen). Es lo que hace
+   * que la exclusión de RN-004 no cueste información.
+   */
+  effective_yield: number | null;
+  /** De dónde sale `effective_yield`: `informado`, `calculado` o `null` si no hay dato. */
+  yield_source: YieldSource | null;
   /** Código del catálogo cerrado de destino (RN-012). */
   destination: string;
   /** RN-023 — la fecha cae fuera del rango de la temporada. Aviso, nunca bloqueo. */
@@ -76,12 +87,26 @@ export const HARVEST_DESTINATION_LABELS: Record<string, string> = {
 export const harvestDestinationLabel = (destination: string): string =>
   HARVEST_DESTINATION_LABELS[destination] ?? destination;
 
+/** MVP-402 — El rendimiento se declaró, o se dedujo de los litros obtenidos (RN-014). */
+export type YieldSource = 'informado' | 'calculado';
+
 /**
- * Cómo se informa el rendimiento en el formulario. No es un campo del recurso: la API guarda siempre
- * la unidad canónica L/100kg o los litros (RN-004/RN-013). Las **entradas equivalentes** de RN-014
- * (kg de aceite por 100 kg) son alcance de `MVP-402`.
+ * Cómo se informa el rendimiento en el formulario (RN-014). No es un campo del recurso: la API guarda
+ * siempre la unidad canónica L/100kg o los litros (RN-004/RN-013), y convierte lo que haga falta.
+ *
+ * Los tres orígenes que admite RN-014, en el orden en que los ofrece el formulario:
+ * `rendimiento` (L/100kg, la canónica), `rendimiento_graso` (kg de aceite por 100 kg, que es como lo
+ * dan muchas almazaras) y `litros` (de los que se deriva el rendimiento).
  */
-export type YieldInputMode = 'rendimiento' | 'litros' | 'ninguno';
+export type YieldInputMode = 'rendimiento' | 'rendimiento_graso' | 'litros' | 'ninguno';
+
+/** Catálogo de unidades de entrada del rendimiento (RN-014). Lo persistido es siempre `l_100kg`. */
+export const HARVEST_YIELD_UNITS = ['l_100kg', 'kg_100kg'] as const;
+
+export type HarvestYieldUnit = (typeof HARVEST_YIELD_UNITS)[number];
+
+/** Densidad por defecto del aceite de oliva (RN-016), para el equivalente que muestra el formulario. */
+export const OIL_DENSITY_KG_PER_LITRE = 0.92;
 
 /** Alta de cosecha. `yield` y `liters` son opcionales y excluyentes (RN-004). */
 export interface CreateHarvestPayload {
@@ -93,6 +118,12 @@ export interface CreateHarvestPayload {
   destination: string;
   yield?: number | null;
   liters?: number | null;
+  /**
+   * MVP-402 — Unidad en la que va `yield` (RN-014). Ausente equivale a la canónica `l_100kg`; el
+   * servidor convierte `kg_100kg` con la densidad de RN-016. No es un campo del recurso: lo que se
+   * guarda y lo que se lee es siempre la canónica.
+   */
+  yield_unit?: HarvestYieldUnit | null;
 }
 
 /** Edición parcial de cosecha: un campo ausente conserva su valor. */

@@ -61,6 +61,7 @@ y se mantienen en español.
 | Catálogo | Valores permitidos |
 |---|---|
 | `plot_ownership_type` | `propia`, `cedida` |
+| `harvest_yield_unit` (MVP-402) | `l_100kg` (canónica, RN-013), `kg_100kg` (rendimiento graso, se convierte con la densidad de RN-016). Es **unidad de entrada**, no un campo del recurso: lo persistido es siempre la canónica |
 | `harvest_destination` | `venta_aceituna`, `aceite_para_venta`, `aceite_personal`, `desconocido` |
 | `harvest_product` | `aceituna_olivar` — catálogo global fijo gobernado por sistema (`MVP-401`). Un solo valor en el MVP: la **variedad** pertenece al terreno y el **producto** debería vivir a nivel de Workspace modulando el cálculo de rendimiento; ambas cosas son ampliación posterior (`MVP-999`, `P-059`/`P-060`) |
 | `season_status` | `planificada`, `activa`, `cerrada` |
@@ -525,7 +526,7 @@ viven sus reglas. El diario únicamente agrega.
 La entrada del diario es una **proyección común** de las cuatro entidades operativas:
 `{ type, id, date, title, description, plot_id, plot_name, season_id, season_name, cost, version,
 is_out_of_season_range, created_at, worker_name, hours, task_id, quantity, has_purchase, kgs,
-destination }`. Los campos específicos de un tipo llegan a `null` en los demás.
+destination, yield }`. Los campos específicos de un tipo llegan a `null` en los demás.
 
 | Campo | Por qué está |
 |---|---|
@@ -533,6 +534,7 @@ destination }`. Los campos específicos de un tipo llegan a `null` en los demás
 | `task_id` | Solo en actividades: `null` ⇒ tarea escrita a mano, lo que permite ofrecer guardarla en el catálogo (MVP-302) |
 | `has_purchase` | Solo en consumos: `false` ⇒ el coste es desconocido, no cero (RN-032) |
 | `kgs` / `destination` | Solo en cosechas (MVP-401). Van aparte de `quantity` porque no son la misma magnitud: una cosecha se lee en kilos y la tarjeta la rotula distinto |
+| `yield` | Solo en cosechas (MVP-402): el rendimiento **efectivo** en L/100kg, declarado o derivado de los litros (RN-013/RN-014) |
 
 `meta` es
 `{ total, total_cost, imputed_cost, activities, purchases, consumptions, consumptions_without_purchase, harvests, total_kg }`:
@@ -563,7 +565,7 @@ Reglas de contexto:
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
-| Alta cosecha | `POST /api/v1/harvests` | `date*`, `plot_id*`, `season_id*`, `product*`, `kgs*`, `destination*`, `yield?`, `liters?` | `201 { id, version, ...harvest }` |
+| Alta cosecha | `POST /api/v1/harvests` | `date*`, `plot_id*`, `season_id*`, `product*`, `kgs*`, `destination*`, `yield?`, `liters?`, `yield_unit?` | `201 { id, version, ...harvest }` |
 | Editar cosecha | `PATCH /api/v1/harvests/{harvestId}` | campos parciales · `If-Match: <version>` | `200 { ...harvest }` |
 | Eliminar cosecha | `DELETE /api/v1/harvests/{harvestId}` | `If-Match: <version>` | `204` |
 | Listado cosechas | `GET /api/v1/harvests` | `from?`, `to?`, `plot_id?`, `season_id?`, `destination?` | `200 { data, meta: { total, total_kg } }` |
@@ -571,10 +573,17 @@ Reglas de contexto:
 
 La representación de una cosecha es
 `{ id, workspace_id, date, plot_id, plot_name, season_id, season_name, product, kgs, yield, liters,
-destination, is_out_of_season_range, version, created_at, updated_at }` (MVP-401). `plot_name` y
-`season_name` llegan resueltos y `is_out_of_season_range` es el mismo aviso derivado de RN-023 que en
-la actividad y la compra. `meta.total_kg` del listado son los **kilos acumulados de lo filtrado**,
-calculados en servidor, con el mismo criterio que `meta.total_cost` en compras.
+effective_yield, yield_source, destination, is_out_of_season_range, version, created_at, updated_at }`
+(MVP-401, ampliada en MVP-402). `plot_name` y `season_name` llegan resueltos y
+`is_out_of_season_range` es el mismo aviso derivado de RN-023 que en la actividad y la compra.
+`meta.total_kg` del listado son los **kilos acumulados de lo filtrado**, calculados en servidor, con el
+mismo criterio que `meta.total_cost` en compras.
+
+| Campo (MVP-402) | Qué es |
+|---|---|
+| `yield` | Rendimiento **informado**, siempre en la unidad canónica L/100kg (RN-013), sea cual sea la unidad en la que se escribió |
+| `effective_yield` | Rendimiento **venga de donde venga**: el informado, o el derivado de `liters / kgs × 100` cuando lo declarado fueron litros (RN-014, tercer origen). Es lo que hace que la exclusión de RN-004 no cueste información: el dashboard promedia también las partidas que declararon litros |
+| `yield_source` | `informado`, `calculado` o `null`. Derivado; permite que la UI no presente como declarado un valor deducido |
 
 Validaciones clave:
 
@@ -583,7 +592,8 @@ Validaciones clave:
 | `product` obligatorio y dentro de catálogo cerrado | `VALIDATION_PRODUCT_INVALID` |
 | `kgs` obligatorio y > 0 | `VALIDATION_HARVEST_KGS_REQUIRED` |
 | `yield` y `liters` no pueden coexistir | `VALIDATION_HARVEST_XOR_YIELD_LITERS` |
-| `yield` fuera de rango (0 < `yield` ≤ 100 L/100kg) o `liters` ≤ 0 | `VALIDATION_HARVEST_YIELD_RANGE` / `VALIDATION_HARVEST_LITERS_RANGE` (400) |
+| `yield` fuera de rango (0 < `yield` ≤ 100 L/100kg, ya convertido) o `liters` ≤ 0 | `VALIDATION_HARVEST_YIELD_RANGE` / `VALIDATION_HARVEST_LITERS_RANGE` (400) |
+| `yield_unit` fuera del catálogo (MVP-402) | `VALIDATION_HARVEST_YIELD_UNIT_INVALID` (400) |
 | destino en catálogo cerrado | `VALIDATION_DESTINATION_INVALID` |
 | Terreno o temporada ausentes | `VALIDATION_HARVEST_REQUIRED_FIELDS` (400) |
 | Terreno o temporada de otro Workspace | `FOREIGN_KEY_WORKSPACE_MISMATCH` (400) |
@@ -602,7 +612,10 @@ Reglas de contexto (MVP-401):
 | Orden del listado | Fecha de negocio descendente (RN-033) y, a igualdad de fecha, fecha de captura descendente. Sin paginación en el MVP (`MVP-999`, `P-051`) |
 | Filtro `destination` | Comparación **exacta**: es un catálogo cerrado (RN-012), no texto libre como el material de compra (RN-031) |
 | Precisión | `kgs` y `liters` se redondean a 2 decimales y `yield` a 4, para que lo leído coincida con lo escrito |
-| Catálogos cerrados validados en servidor | Alcance de `MVP-402`. `MVP-401` exige producto y destino no vacíos y acotados, y la UI ofrece solo los valores canónicos |
+| Catálogos cerrados (MVP-402) | El **servidor es la autoridad**: producto y destino se validan por pertenencia y el `400` incluye los valores admitidos en el mensaje. `desconocido` es el canon del destino no clasificado; «Sin destino» es solo alias visual (RN-012) y se **rechaza** como valor |
+| `yield_unit` (MVP-402) | Unidad del `yield` **de esta petición** (RN-014). Ausente ⇒ canónica. No es un campo del recurso, así que en el `PATCH` no «conserva» nada: un `PATCH` que no toca el rendimiento nunca reconvierte lo ya persistido |
+| Rendimiento «calculado» de RN-014 | No se persiste: es `effective_yield`, derivado en lectura. Guardarlo duplicaría un dato implícito que quedaría obsoleto al corregir los kilos |
+| Densidad de RN-016 | Constante única `0,92 kg/L`. El override por almazara que la regla contempla queda fuera del MVP —no existe la entidad— y está registrado en `MVP-999` (`P-061`) |
 
 La cosecha se registra por fecha, así que **también entra en el diario cronológico** de `MVP-305`
 (RN-033). La enciende `MVP-401`, que es quien crea `HARVEST`: con los cuatro tipos vivos, RN-033 queda

@@ -25,11 +25,11 @@ namespace Terrenario.Api.Domain.Harvests;
 /// cada mutación. No se reinventa el patrón: es el mismo que estrenó <c>ACTIVITY</c> en MVP-301 y que
 /// ya reutilizan compras (MVP-303) y consumos (MVP-304).
 ///
-/// <b>Lo que esta historia deja abierto a propósito.</b> <see cref="Product"/> y
-/// <see cref="Destination"/> se guardan con las cotas de longitud del modelo, pero **el cierre de los
-/// catálogos** (`harvest_product` global fijo por RN-030 y `harvest_destination` por RN-012), la
-/// unidad canónica L/100kg y sus entradas equivalentes (RN-013/RN-014/RN-016) son alcance de
-/// <c>MVP-402</c>, la historia siguiente. Aquí se entrega la entidad; allí se cierra su semántica.
+/// <b>MVP-402 cierra la semántica de producción</b>: <see cref="Product"/> y
+/// <see cref="Destination"/> se validan contra los catálogos cerrados (<see cref="HarvestProducts"/>,
+/// <see cref="HarvestDestinations"/>) y <see cref="Yield"/> se guarda siempre en la unidad canónica
+/// L/100kg (RN-013), sea cual sea la unidad en la que se informó (RN-014/RN-016). Lo que llega aquí ya
+/// está convertido: el agregado no conoce unidades de entrada, solo la canónica.
 /// </summary>
 public sealed class Harvest
 {
@@ -199,29 +199,31 @@ public sealed class Harvest
                 ErrorCodes.ValidationHarvestRequiredFields,
                 "La cosecha necesita terreno y temporada.");
 
-        // RN-030 — producto obligatorio. Que además pertenezca al catálogo global fijo lo comprueba
-        // MVP-402, que es quien cierra el catálogo.
+        // RN-030 (MVP-402, CA-1) — producto obligatorio y **dentro del catálogo global fijo**. La
+        // comprobación es de pertenencia, no de longitud: es un código gobernado por sistema, no texto
+        // libre como el material de compra (RN-031).
         var normalizedProduct = (product ?? string.Empty).Trim();
         if (normalizedProduct.Length == 0)
             throw new HarvestValidationException(
                 ErrorCodes.ValidationProductInvalid,
                 "La cosecha necesita un producto.");
-        if (normalizedProduct.Length > ProductMaxLength)
+        if (!HarvestProducts.IsSupported(normalizedProduct))
             throw new HarvestValidationException(
                 ErrorCodes.ValidationProductInvalid,
-                $"El producto no puede superar {ProductMaxLength} caracteres.");
+                $"El producto no pertenece al catálogo. Valores admitidos: {string.Join(", ", HarvestProducts.Supported)}.");
 
-        // RN-012 — destino obligatorio. `desconocido` es un valor válido, no un hueco: lo que no se
-        // admite es dejar el campo vacío. El catálogo cerrado lo aplica MVP-402.
+        // RN-012 (MVP-402, CA-1/CA-3) — destino obligatorio y dentro de la taxonomía cerrada.
+        // `desconocido` es un valor válido, no un hueco: no conocer todavía el cierre comercial no
+        // puede retrasar el registro operativo (HU-2).
         var normalizedDestination = (destination ?? string.Empty).Trim();
         if (normalizedDestination.Length == 0)
             throw new HarvestValidationException(
                 ErrorCodes.ValidationDestinationInvalid,
-                "La cosecha necesita un destino.");
-        if (normalizedDestination.Length > DestinationMaxLength)
+                "La cosecha necesita un destino. Usa «desconocido» si todavía no lo sabes.");
+        if (!HarvestDestinations.IsSupported(normalizedDestination))
             throw new HarvestValidationException(
                 ErrorCodes.ValidationDestinationInvalid,
-                $"El destino no puede superar {DestinationMaxLength} caracteres.");
+                $"El destino no pertenece al catálogo. Valores admitidos: {string.Join(", ", HarvestDestinations.Supported)}.");
 
         // RN-004 — sin kilos no hay cosecha que medir.
         if (kgs <= 0 || kgs > KgsMax)

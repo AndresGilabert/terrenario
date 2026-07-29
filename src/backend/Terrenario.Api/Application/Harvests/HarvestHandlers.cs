@@ -1,7 +1,27 @@
 using Terrenario.Api.Application.Harvests.Commands;
+using Terrenario.Api.Common.Errors;
 using Terrenario.Api.Domain.Harvests;
 
 namespace Terrenario.Api.Application.Harvests;
+
+/// <summary>
+/// MVP-402 (RN-013/RN-014/RN-016) — Lleva el rendimiento informado a la unidad canónica L/100kg antes
+/// de que llegue al agregado. Vive en la capa de aplicación y no en el dominio a propósito: la unidad
+/// de entrada es una concesión al usuario —las almazaras dan el rendimiento graso en kg/100kg—, no una
+/// propiedad de la cosecha. Lo que se guarda y lo que compara el dashboard es siempre lo mismo.
+/// </summary>
+internal static class YieldNormalizer
+{
+    public static decimal? ToCanonical(decimal? yield, string? unit)
+    {
+        if (unit is not null && !HarvestYieldUnits.IsSupported(unit))
+            throw new HarvestValidationException(
+                ErrorCodes.ValidationHarvestYieldUnitInvalid,
+                $"La unidad de rendimiento no es válida. Valores admitidos: {string.Join(", ", HarvestYieldUnits.Supported)}.");
+
+        return yield is null ? null : HarvestYieldConversion.ToCanonical(yield.Value, unit);
+    }
+}
 
 /// <summary>
 /// MVP-401 — Registra una cosecha en el Workspace activo (HU-1, CA-1).
@@ -25,7 +45,8 @@ public sealed class CreateHarvestHandler(
             command.Product,
             command.Kgs,
             command.Destination,
-            command.Yield,
+            // RN-014 — el rendimiento puede llegar en kg de aceite/100kg; se guarda en L/100kg.
+            YieldNormalizer.ToCanonical(command.Yield, command.YieldUnit),
             command.Liters,
             command.UserId);
 
@@ -95,7 +116,9 @@ public sealed class UpdateHarvestHandler(
         UpdateHarvestCommand command,
         Harvest harvest)
         => command.Yield.Present || command.Liters.Present
-            ? (command.Yield.Value, command.Liters.Value)
+            // RN-014 — la unidad solo aplica al valor que llega en esta petición: lo ya persistido
+            // está en la canónica y volver a convertirlo lo estropearía.
+            ? (YieldNormalizer.ToCanonical(command.Yield.Value, command.YieldUnit), command.Liters.Value)
             : (harvest.Yield, harvest.Liters);
 }
 

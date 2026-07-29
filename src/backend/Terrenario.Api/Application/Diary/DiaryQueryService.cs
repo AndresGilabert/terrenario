@@ -212,5 +212,8 @@ public sealed class DiaryQueryService(
         harvest.IsOutOfSeasonRange,
         harvest.CreatedAt,
         Kgs: harvest.Kgs,
-        Destination: harvest.Destination);
+        Destination: harvest.Destination,
+        // MVP-402 — el rendimiento efectivo (RN-013/RN-014): la tarjeta lo muestra sin distinguir si
+        // se declaró o se dedujo de los litros, porque para quien lee es el mismo dato.
+        Yield: harvest.EffectiveYield);
 }

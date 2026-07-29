@@ -119,6 +119,8 @@ public sealed class DiaryController(
         has_purchase = entry.HasPurchase,
         // MVP-401 — solo en cosechas: kilos recolectados y destino (RN-012).
         kgs = entry.Kgs,
-        destination = entry.Destination
+        destination = entry.Destination,
+        // MVP-402 — rendimiento efectivo en L/100kg (RN-013/RN-014).
+        yield = entry.Yield
     };
 }

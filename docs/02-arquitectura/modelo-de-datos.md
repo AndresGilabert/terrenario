@@ -415,11 +415,16 @@ de modo que una tarea del catalogo con historico no se puede borrar (solo inacti
 | `date` | date | Si | Fecha de negocio de la cosecha. Es la que ordena el diario (RN-033), distinta de `created_at` |
 | `product` | string(60) | Si | Codigo del catalogo **global fijo** `harvest_product` (RN-030). No es texto libre, a diferencia del `product` de `PURCHASE` (RN-031). En el MVP tiene un solo valor, `aceituna_olivar`: la **variedad** pertenece al terreno y el **producto** deberia vivir a nivel de Workspace modulando el calculo de rendimiento, ambas ampliaciones posteriores (`MVP-999`, `P-059`/`P-060`) |
 | `kgs` | decimal(10,2) | Si | Obligatorio en todo registro de cosecha. Estrictamente `> 0` |
-| `yield` | decimal(10,4) | No | Opcional, en la unidad canonica L/100kg (RN-013). Si viene informado, `liters` no debe enviarse |
+| `yield` | decimal(10,4) | No | Opcional, **siempre** en la unidad canonica L/100kg (RN-013). La unidad de entrada (RN-014: `l_100kg` o `kg_100kg`) **no se persiste**: se convierte con la densidad de RN-016 en el borde de aplicacion (MVP-402), de modo que ningun consumidor tenga que convertir antes de comparar. Si viene informado, `liters` no debe enviarse |
 | `liters` | decimal(10,2) | No | Opcional. Si viene informado, `yield` no debe enviarse |
 | `destination` | enum | Si | Catalogo fijo: `venta_aceituna`, `aceite_para_venta`, `aceite_personal`, `desconocido` |
 | `version` | bigint | Si | Control de concurrencia optimista para `If-Match` (ADR-0005) |
 | `deleted_at` | timestamptz (nullable) | No | Marca de eliminacion logica (RN-037). Lo eliminado sale del listado, del diario y del dashboard, pero la fila permanece |
+
+El **rendimiento efectivo** de RN-014 (tercer origen: calculado desde kilos y litros) es **derivado en
+lectura**, no una columna: guardarlo duplicaria un dato implicito que quedaria obsoleto al corregir los
+kilos. La proyeccion lo publica como `effective_yield` mas `yield_source` (`informado`/`calculado`),
+anadidos en MVP-402.
 
 La exclusividad `yield`/`liters` (RN-004) **la garantiza el agregado, no una restriccion de datos**,
 igual que el par `task_id`/`task_text` de `ACTIVITY`: la condicion es «como mucho uno» sobre valores ya
@@ -564,7 +569,7 @@ diario de MVP-305.
 | `ACTIVITY` | implementada | MVP-301 (`task_id`/`task_text` excluyentes cierran `P-028`; estrena `version` + `If-Match` de ADR-0005 y la baja logica `deleted_at` de RN-037) |
 | `PURCHASE` | implementada | MVP-303 (`season_id` cierra `P-050`; `unit_price` persistido como base del coste proporcional de MVP-304) |
 | `PURCHASE_CONSUMPTION` | implementada | MVP-304, con el mecanismo decidido en MVP-303: `purchase_id` anulable (RN-032). Anade `unit_price` congelado, trazabilidad completa, `version` y `deleted_at` |
-| `HARVEST` | implementada | MVP-401 (cuarta entidad operativa critica: `version` + `If-Match` de ADR-0005 y baja logica `deleted_at` de RN-037; enciende la cosecha en el diario y completa RN-033) |
+| `HARVEST` | implementada | MVP-401 (cuarta entidad operativa critica: `version` + `If-Match` de ADR-0005 y baja logica `deleted_at` de RN-037; enciende la cosecha en el diario y completa RN-033). MVP-402 cierra su semantica: catalogos cerrados de producto y destino validados en servidor y unidad canonica de rendimiento con sus entradas equivalentes |
 
 ---
 

@@ -105,16 +105,21 @@ export const CosechasView: React.FC = () => {
   }, [plots, seasons]);
 
   /**
-   * Rendimiento medio **ponderado por kilos** de lo que se está viendo. Una media aritmética de
-   * porcentajes daría el mismo peso a una partida de 50 kg que a una de 5.000, que es justo la lectura
-   * equivocada. Solo entran las cosechas que declaran rendimiento.
+   * Rendimiento medio **ponderado por kilos** de lo que se está viendo (RN-013). Una media aritmética
+   * daría el mismo peso a una partida de 50 kg que a una de 5.000, que es justo la lectura equivocada.
+   *
+   * Entran todas las partidas con rendimiento **efectivo** (MVP-402): tanto las que lo declararon como
+   * las que declararon litros y del que se deriva (RN-014). Las que todavía no tienen dato de aceite
+   * quedan fuera del promedio, y se cuentan aparte para poder decirlo.
    */
-  const averageYield = useMemo(() => {
-    const withYield = harvests.filter((harvest) => harvest.yield !== null);
+  const yieldSummary = useMemo(() => {
+    const withYield = harvests.filter((harvest) => harvest.effective_yield !== null);
     const kilos = withYield.reduce((acc, harvest) => acc + harvest.kgs, 0);
-    if (kilos === 0) return null;
-    const litres = withYield.reduce((acc, h) => acc + (h.yield! / 100) * h.kgs, 0);
-    return (litres / kilos) * 100;
+    const average =
+      kilos === 0
+        ? null
+        : (withYield.reduce((acc, h) => acc + (h.effective_yield! / 100) * h.kgs, 0) / kilos) * 100;
+    return { average, counted: withYield.length, pending: harvests.length - withYield.length };
   }, [harvests]);
 
   const openCreate = () => {
@@ -245,12 +250,16 @@ export const CosechasView: React.FC = () => {
           <SummaryTile label="Total recolectado" value={`${number(totalKg)} kg`} icon="scale" />
           <SummaryTile
             label="Rendimiento medio"
-            value={averageYield === null ? 'Sin datos' : `${number(averageYield, 1)} L/100kg`}
+            value={
+              yieldSummary.average === null ? 'Sin datos' : `${number(yieldSummary.average, 1)} L/100kg`
+            }
             icon="percent"
             hint={
-              averageYield === null
-                ? 'Ninguna partida declara todavía su rendimiento.'
-                : 'Ponderado por kilos, no media de partidas.'
+              yieldSummary.average === null
+                ? 'Ninguna partida tiene todavía dato de aceite.'
+                : yieldSummary.pending > 0
+                  ? `Ponderado por kilos sobre ${yieldSummary.counted} de ${harvests.length} partidas.`
+                  : 'Ponderado por kilos, no media de partidas.'
             }
           />
           <SummaryTile label="Partidas" value={String(harvests.length)} icon="inventory_2" />
@@ -382,15 +391,31 @@ export const CosechasView: React.FC = () => {
                     <td className="px-5 py-4 text-right font-extrabold whitespace-nowrap">
                       {number(harvest.kgs)} kg
                     </td>
+                    {/* RN-013 — siempre en la unidad canónica, sea declarada o derivada de los
+                        litros (RN-014). Lo derivado se marca para no presentarlo como declarado. */}
                     <td className="px-5 py-4 text-right whitespace-nowrap">
-                      {harvest.yield !== null ? (
-                        <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#c9f16f] text-[#33450d] font-bold">
-                          {number(harvest.yield, 1)} L/100kg
-                        </span>
-                      ) : harvest.liters !== null ? (
-                        <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#f0ede8] text-[#45483c] font-bold">
-                          {number(harvest.liters, 1)} L
-                        </span>
+                      {harvest.effective_yield !== null ? (
+                        <>
+                          <span
+                            className={`inline-block px-2.5 py-0.5 rounded-full font-bold ${
+                              harvest.yield_source === 'informado'
+                                ? 'bg-[#c9f16f] text-[#33450d]'
+                                : 'bg-[#f0ede8] text-[#45483c]'
+                            }`}
+                            title={
+                              harvest.yield_source === 'calculado'
+                                ? `Calculado a partir de ${number(harvest.liters ?? 0, 1)} L obtenidos`
+                                : undefined
+                            }
+                          >
+                            {number(harvest.effective_yield, 1)} L/100kg
+                          </span>
+                          {harvest.yield_source === 'calculado' && (
+                            <span className="block text-[10px] text-[#76786b] mt-0.5">
+                              de {number(harvest.liters ?? 0, 1)} L
+                            </span>
+                          )}
+                        </>
                       ) : (
                         <span className="text-[#a2a496] italic">Sin dato</span>
                       )}

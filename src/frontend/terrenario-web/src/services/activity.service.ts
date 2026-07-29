@@ -32,6 +32,14 @@ export function createActivityService(http: HttpClient) {
       return body.data;
     },
 
+    /**
+     * Una actividad concreta. La usa el diario unificado (MVP-305) para abrir el formulario de
+     * corrección: su entrada es una proyección común de los tres tipos y no lleva todos los campos.
+     */
+    async getActivity(activityId: string): Promise<Activity> {
+      return http.request<Activity>(`/api/v1/activities/${activityId}`);
+    },
+
     async createActivity(payload: CreateActivityPayload): Promise<Activity> {
       return http.request<Activity>('/api/v1/activities', { method: 'POST', body: payload });
     },

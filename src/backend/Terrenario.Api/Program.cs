@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Terrenario.Api.Application.Activities;
 using Terrenario.Api.Application.Auth;
 using Terrenario.Api.Application.Consumptions;
+using Terrenario.Api.Application.Diary;
 using Terrenario.Api.Application.Invitations;
 using Terrenario.Api.Application.Plots;
 using Terrenario.Api.Application.Purchases;
@@ -132,6 +133,7 @@ builder.Services.AddScoped<CreateActivityHandler>();
 builder.Services.AddScoped<UpdateActivityHandler>();
 builder.Services.AddScoped<DeleteActivityHandler>();
 builder.Services.AddScoped<ListActivitiesHandler>();
+builder.Services.AddScoped<GetActivityHandler>();
 // Libro de compras (MVP-303): segunda entidad operativa crítica, mismo patrón que las actividades
 builder.Services.AddScoped<IPurchaseRepository, PurchaseRepository>();
 builder.Services.AddScoped<PurchaseSeasonResolver>();
@@ -149,6 +151,8 @@ builder.Services.AddScoped<RegisterConsumptionHandler>();
 builder.Services.AddScoped<UpdateConsumptionHandler>();
 builder.Services.AddScoped<DeleteConsumptionHandler>();
 builder.Services.AddScoped<ListConsumptionsHandler>();
+// Diario cronológico unificado (MVP-305): agrega las tres entidades operativas, de solo lectura
+builder.Services.AddScoped<DiaryQueryService>();
 builder.Services.AddScoped<ListWorkspacePeopleHandler>();
 builder.Services.AddScoped<RevokeMemberHandler>();
 // Ciclo de vida del Workspace (MVP-206): renombrar, baja lógica, traspaso y reactivación

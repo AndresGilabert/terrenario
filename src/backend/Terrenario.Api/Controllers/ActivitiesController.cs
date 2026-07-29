@@ -41,6 +41,7 @@ public sealed class ActivitiesController(
     UpdateActivityHandler updateActivityHandler,
     DeleteActivityHandler deleteActivityHandler,
     ListActivitiesHandler listActivitiesHandler,
+    GetActivityHandler getActivityHandler,
     IWorkspaceContext workspaceContext) : ControllerBase
 {
     /// <summary>
@@ -70,6 +71,21 @@ public sealed class ActivitiesController(
             data = activities.Select(activity => ToResponse(activity)),
             meta = new { total = activities.Count }
         });
+    }
+
+    /// <summary>
+    /// Una actividad concreta del Workspace activo. Lo estrena <c>MVP-305</c>: el diario unificado
+    /// muestra una proyección común de los tres tipos, así que para abrir el formulario de corrección
+    /// necesita los campos completos de la actividad sin traerse el listado entero.
+    /// </summary>
+    [HttpGet("{activityId:guid}")]
+    public async Task<IActionResult> GetById(Guid activityId, CancellationToken ct)
+    {
+        var activity = await getActivityHandler.HandleAsync(workspaceContext.WorkspaceId, activityId, ct);
+
+        return activity is null
+            ? NotFound(new ApiErrorResponse(ApiError.ActivityNotFound()))
+            : Ok(ToResponse(activity));
     }
 
     /// <summary>Alta de actividad (HU-1, CA-1). El coste es siempre manual (RN-003).</summary>

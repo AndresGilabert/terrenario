@@ -1,7 +1,7 @@
 ﻿---
 bloque: 04-ingenieria
 documento: flujo-git
-actualizado_en: "2026-07-28"
+actualizado_en: "2026-07-29"
 ---
 
 # Flujo de Git
@@ -171,6 +171,7 @@ Hitos promocionados hasta ahora:
 |---|---|---|---|
 | `v0.1.0-hito-a` | Hito A — Base segura y multiusuario | `MVP-001` | Pre-release, fase cerrada |
 | `v0.2.0-hito-b` | Hito B — Base operativa preparada | `MVP-002` | Pre-release, fase cerrada |
+| `v0.3.0-hito-c` | Hito C — Registro operativo end-to-end | `MVP-003` | Pre-release, fase cerrada |
 
 ---
 

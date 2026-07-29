@@ -30,6 +30,12 @@ export interface RequestOptions {
   body?: unknown;
   /** Query params; los valores `undefined`/`null` se omiten. */
   query?: Record<string, string | number | boolean | undefined | null>;
+  /**
+   * Cabeceras adicionales de la petición. Lo estrenan los registros operativos (MVP-301), que exigen
+   * `If-Match` con la versión vigente en `PATCH`/`DELETE` (ADR-0005). No puede sobrescribir
+   * `Authorization`: la sesión la gobierna el cliente, no quien lo llama.
+   */
+  headers?: Record<string, string>;
   signal?: AbortSignal;
 }
 
@@ -73,7 +79,10 @@ export function createHttpClient(opts: {
         }
       }
 
-      const headers: Record<string, string> = { Authorization: `Bearer ${accessToken}` };
+      const headers: Record<string, string> = {
+        ...options.headers,
+        Authorization: `Bearer ${accessToken}`,
+      };
       const hasBody = options.body !== undefined;
       if (hasBody) headers['Content-Type'] = 'application/json';
 

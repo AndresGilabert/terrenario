@@ -2,7 +2,7 @@
 id: "MVP-301"
 tipo: feature
 titulo: "Registro y edición de actividades"
-estado: borrador
+estado: completado
 prioridad: critica
 sprint: ""
 hito: "Hito C — Registro operativo end-to-end"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "operativa", "actividades"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-29"
 ---
 
 # MVP-301 — Registro y edición de actividades
@@ -70,11 +70,11 @@ Permitir registrar y editar actividades completas del Workspace con la mínima f
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Un usuario puede registrar una actividad con todos los campos obligatorios definidos por la KB.
-- [ ] **CA-2**: Si la fecha queda fuera del rango de la temporada seleccionada, el sistema muestra aviso pero no bloquea el guardado.
-- [ ] **CA-3**: El coste de actividad permanece siempre editable y no depende de cálculos automáticos obligatorios.
-- [ ] **CA-4**: Editar o eliminar una actividad con una versión desfasada responde `409 CONFLICT_VERSION_MISMATCH` en vez de sobrescribir en silencio, y el cliente resuelve el conflicto refrescando el registro (`ADR-0005`).
-- [ ] **CA-5**: El responsable de la actividad se elige del listado único `GET /api/v1/workers` y se guarda como `worker_id`, sea miembro del Workspace o cuadrilla sin cuenta, sin campos alternativos (cierre de `P-034` desde el lado del consumidor).
+- [x] **CA-1**: Un usuario puede registrar una actividad con todos los campos obligatorios definidos por la KB.
+- [x] **CA-2**: Si la fecha queda fuera del rango de la temporada seleccionada, el sistema muestra aviso pero no bloquea el guardado.
+- [x] **CA-3**: El coste de actividad permanece siempre editable y no depende de cálculos automáticos obligatorios.
+- [x] **CA-4**: Editar o eliminar una actividad con una versión desfasada responde `409 CONFLICT_VERSION_MISMATCH` en vez de sobrescribir en silencio, y el cliente resuelve el conflicto refrescando el registro (`ADR-0005`).
+- [x] **CA-5**: El responsable de la actividad se elige del listado único `GET /api/v1/workers` y se guarda como `worker_id`, sea miembro del Workspace o cuadrilla sin cuenta, sin campos alternativos (cierre de `P-034` desde el lado del consumidor).
 
 ## Maquetas y referencias visuales
 
@@ -88,8 +88,10 @@ Permitir registrar y editar actividades completas del Workspace con la mínima f
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| ActivityModal | RN-002, RN-003, RN-025 | parcial | Formulario de actividad disponible |
-| DiarioView | RN-033 | cubierto | Visualizacion cronologica del diario |
+| ActivityModal | RN-002, RN-003, RN-025 | cubierto | `ActivityFormModal`: responsable y horas obligatorios, coste manual editable con sugerencia de un clic y tarea del catalogo o texto libre. Verificado en UI conducida |
+| ActivityModal | RN-021, RN-023 | cubierto | Temporada activa autoseleccionada y aviso no bloqueante de fecha fuera de rango, verificado en UI y por API (`is_out_of_season_range`) |
+| DiarioView | RN-033 | cubierto | `/app/diario`: muro cronologico por fecha de negocio descendente, con filtros de terreno y temporada. La mezcla con compras y consumos es MVP-305 |
+| DiarioView | ADR-0005 | cubierto | Conflicto de version provocado desde la API con el formulario abierto: el diario recarga y explica el cambio |
 
 ## Notas y decisiones
 
@@ -103,6 +105,15 @@ Permitir registrar y editar actividades completas del Workspace con la mínima f
   dos orígenes de personas.
 - **Pendiente propio de esta historia**: `P-028`, cómo quedan `task_id?` y `task_text?` en `ACTIVITY`
   (FK opcional al catálogo de `MVP-205` más texto libre, RN-025) y la actualización del ER.
+  **Resuelto aquí**: se materializan los **dos** campos como **excluyentes** —FK opcional a `tasks`
+  con `ON DELETE RESTRICT` más texto libre acotado a la misma longitud que el nombre del catálogo,
+  para que una tarea escrita al vuelo siempre quepa al guardarse en él (`MVP-302`)—, el dominio exige
+  exactamente uno y la respuesta añade `task` ya resuelto. ER y contrato actualizados.
+- **Decisiones de producto tomadas al arrancar la historia (PO, 2026-07-29)**: el diario se enciende
+  como **sección propia** (`/app/diario`) y no sustituye al Home, para no adelantar la decisión que
+  `P-040` asignó a `MVP-004`; y la captura **no** usa el modal único con pestañas del prototipo —el
+  diario abre un formulario de actividad, y compras y consumos se capturan en su propia superficie
+  (`MVP-303`/`MVP-304`)—. El detalle está en el `tech-design.md`.
 - **Añadido en la revisión previa (3ª pasada de `MVP-299`, 2026-07-28).** `ACTIVITY` es la primera
   entidad crítica del MVP, así que estrena aquí dos decisiones que estaban en el aire:
   - **Concurrencia optimista** (`ADR-0005`, hallazgo `G-5`): el ADR estaba aceptado, el ER ya

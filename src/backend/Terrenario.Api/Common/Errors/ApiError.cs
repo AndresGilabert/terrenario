@@ -47,6 +47,19 @@ public sealed record ApiError(string Code, string Message)
 
     public static ApiError TaskNotFound() =>
         new(ErrorCodes.ResourceNotFound, "La tarea no existe en el catálogo de tu Workspace activo.");
+
+    /// <summary>MVP-301 — Cubre también la actividad ya eliminada (RN-037): deja de existir para el diario.</summary>
+    public static ApiError ActivityNotFound() =>
+        new(ErrorCodes.ResourceNotFound, "La actividad no existe en tu Workspace activo.");
+
+    /// <summary>ADR-0005 — <c>PATCH</c>/<c>DELETE</c> de un registro operativo sin <c>If-Match</c>.</summary>
+    public static ApiError IfMatchRequired() =>
+        new(ErrorCodes.ValidationRequiredIfMatch,
+            "Falta la cabecera If-Match con la versión del registro que estás modificando.");
+
+    /// <summary>ADR-0005 — La versión enviada no es la vigente: otra persona tocó el registro antes.</summary>
+    public static ApiError VersionMismatch(string message) =>
+        new(ErrorCodes.ConflictVersionMismatch, message);
 }
 
 public sealed record ApiErrorResponse(ApiError Error);

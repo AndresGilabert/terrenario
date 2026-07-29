@@ -1,5 +1,6 @@
 using Terrenario.Api.Domain.Activities;
 using Terrenario.Api.Domain.Consumptions;
+using Terrenario.Api.Domain.Harvests;
 using Terrenario.Api.Domain.Purchases;
 
 namespace Terrenario.Api.Application.Diary;
@@ -19,6 +20,13 @@ public sealed record DiaryResult(
     int TotalActivities,
     int TotalPurchases,
     int TotalConsumptions,
+    /// <summary>Cosechas de lo filtrado (MVP-401).</summary>
+    int TotalHarvests,
+    /// <summary>
+    /// Kilos recolectados en lo que se está viendo (MVP-401). Es la cifra que da sentido a la cosecha
+    /// en el resumen del diario: el coste no sirve, porque una cosecha no tiene (RN-029).
+    /// </summary>
+    decimal TotalKg,
     /// <summary>
     /// Dinero realmente gastado en lo que se está viendo: labores + compras + consumos **sin compra
     /// previa**. Las imputaciones quedan fuera a propósito (hallazgo <c>R-01</c> de <c>MVP-399</c>):
@@ -49,13 +57,16 @@ public sealed record DiaryResult(
 /// listas ya materializadas no es paginar. Queda anotado ahí.</item>
 /// </list>
 ///
-/// Añadir la cosecha en <c>MVP-401</c> es un cuarto puerto y un cuarto proyector: ni la forma de la
-/// entrada ni el orden cambian (hallazgo <c>G-4</c>).
+/// <b>MVP-401 añade la cosecha</b> exactamente como la vista preveía: un cuarto puerto y un cuarto
+/// proyector, sin tocar la forma de la entrada ni el orden (hallazgo <c>G-4</c>). Con ella, RN-033
+/// queda cumplida entera —actividades, cosechas y compras/consumos—, que era lo que faltaba para que
+/// la vista principal del MVP dejara de estar incompleta por construcción.
 /// </summary>
 public sealed class DiaryQueryService(
     IActivityRepository activityRepository,
     IPurchaseRepository purchaseRepository,
-    IConsumptionRepository consumptionRepository)
+    IConsumptionRepository consumptionRepository,
+    IHarvestRepository harvestRepository)
 {
     public async Task<DiaryResult> HandleAsync(
         Guid workspaceId,
@@ -65,6 +76,7 @@ public sealed class DiaryQueryService(
         var wantsActivities = Includes(filter, DiaryEntryTypes.Activity);
         var wantsPurchases = Includes(filter, DiaryEntryTypes.Purchase);
         var wantsConsumptions = Includes(filter, DiaryEntryTypes.Consumption);
+        var wantsHarvests = Includes(filter, DiaryEntryTypes.Harvest);
 
         // Solo se consulta lo que se va a mostrar: filtrar por tipo debe ahorrar trabajo, no solo
         // ocultarlo después.
@@ -85,9 +97,17 @@ public sealed class DiaryQueryService(
                 workspaceId, new ConsumptionFilter(filter.From, filter.To, filter.PlotId, filter.SeasonId), ct)
             : [];
 
+        // La cosecha sí es de un terreno concreto (RN-001), así que el filtro por terreno la conserva:
+        // a diferencia de la compra, aquí no hay nada que explicar al usuario.
+        var harvests = wantsHarvests
+            ? await harvestRepository.ListAsync(
+                workspaceId, new HarvestFilter(filter.From, filter.To, filter.PlotId, filter.SeasonId), ct)
+            : [];
+
         var entries = activities.Select(ToEntry)
             .Concat(purchases.Select(ToEntry))
             .Concat(consumptions.Select(ToEntry))
+            .Concat(harvests.Select(ToEntry))
             // Fecha de negocio descendente (RN-033) y, a igualdad, lo capturado más tarde primero:
             // es el orden en que la persona recuerda haberlo apuntado.
             .OrderByDescending(entry => entry.Date)
@@ -107,6 +127,8 @@ public sealed class DiaryQueryService(
             activities.Count,
             purchases.Count,
             consumptions.Count,
+            harvests.Count,
+            harvests.Sum(harvest => harvest.Kgs),
             spentCost,
             imputedCost,
             consumptions.Count(consumption => !consumption.HasPurchase));
@@ -166,4 +188,29 @@ public sealed class DiaryQueryService(
         consumption.CreatedAt,
         Quantity: consumption.ConsumedQuantity,
         HasPurchase: consumption.HasPurchase);
+
+    /// <summary>
+    /// MVP-401 — La cosecha en el diario (RN-033). El titular es el <b>producto</b>, igual que en
+    /// compras y consumos; el cliente lo rotula con la etiqueta legible del catálogo.
+    ///
+    /// El coste es <c>0</c> porque una cosecha <b>no tiene coste</b>: RN-029 deja fuera precio,
+    /// molturación y balance. No es «gratis» ni «desconocido», es que la magnitud no aplica, y por eso
+    /// la tarjeta muestra kilos donde las demás muestran dinero.
+    /// </summary>
+    private static DiaryEntry ToEntry(HarvestView harvest) => new(
+        DiaryEntryTypes.Harvest,
+        harvest.Id,
+        harvest.Date,
+        harvest.Product,
+        null,
+        harvest.PlotId,
+        harvest.PlotName,
+        harvest.SeasonId,
+        harvest.SeasonName,
+        0m,
+        harvest.Version,
+        harvest.IsOutOfSeasonRange,
+        harvest.CreatedAt,
+        Kgs: harvest.Kgs,
+        Destination: harvest.Destination);
 }

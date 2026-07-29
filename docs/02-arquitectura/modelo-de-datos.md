@@ -412,11 +412,28 @@ de modo que una tarea del catalogo con historico no se puede borrar (solo inacti
 
 | Campo | Tipo | Obligatorio | Descripcion |
 |-------|------|-------------|-------------|
-| `kgs` | decimal(10,2) | Si | Obligatorio en todo registro de cosecha |
-| `yield` | decimal(10,4) | No | Opcional. Si viene informado, `liters` no debe enviarse |
+| `date` | date | Si | Fecha de negocio de la cosecha. Es la que ordena el diario (RN-033), distinta de `created_at` |
+| `product` | string(60) | Si | Codigo del catalogo **global fijo** `harvest_product` (RN-030). No es texto libre, a diferencia del `product` de `PURCHASE` (RN-031). En el MVP tiene un solo valor, `aceituna_olivar`: la **variedad** pertenece al terreno y el **producto** deberia vivir a nivel de Workspace modulando el calculo de rendimiento, ambas ampliaciones posteriores (`MVP-999`, `P-059`/`P-060`) |
+| `kgs` | decimal(10,2) | Si | Obligatorio en todo registro de cosecha. Estrictamente `> 0` |
+| `yield` | decimal(10,4) | No | Opcional, en la unidad canonica L/100kg (RN-013). Si viene informado, `liters` no debe enviarse |
 | `liters` | decimal(10,2) | No | Opcional. Si viene informado, `yield` no debe enviarse |
 | `destination` | enum | Si | Catalogo fijo: `venta_aceituna`, `aceite_para_venta`, `aceite_personal`, `desconocido` |
-| `version` | bigint | Si | Control de concurrencia optimista para `If-Match` |
+| `version` | bigint | Si | Control de concurrencia optimista para `If-Match` (ADR-0005) |
+| `deleted_at` | timestamptz (nullable) | No | Marca de eliminacion logica (RN-037). Lo eliminado sale del listado, del diario y del dashboard, pero la fila permanece |
+
+La exclusividad `yield`/`liters` (RN-004) **la garantiza el agregado, no una restriccion de datos**,
+igual que el par `task_id`/`task_text` de `ACTIVITY`: la condicion es «como mucho uno» sobre valores ya
+normalizados. La cosecha **no tiene coste** (RN-029, que deja fuera precio, molturacion y balance), asi
+que no hay ninguna columna economica: es la unica entidad operativa del MVP que se mide en kilos y no
+en euros.
+
+Restricciones: indice **parcial** `ix_harvests_live_by_date` sobre `(workspace_id, date)` filtrado por
+`deleted_at IS NULL` —igual que en `ACTIVITY` y `PURCHASE`— mas `(workspace_id, plot_id)`,
+`(workspace_id, season_id)` y `(workspace_id, destination)`, que son los tres ejes por los que agregan
+los cuatro widgets del dashboard (`MVP-403`/`MVP-404`). Las FKs a `plots` y `seasons` son
+`ON DELETE RESTRICT`: los maestros se inactivan en vez de borrarse, asi que la semantica correcta es
+impedir que un borrado deje produccion huerfana. El filtro de baja logica vive en el **puerto**
+`IHarvestRepository`, no en un filtro global de EF, como en el resto de la operativa.
 
 ### ACTIVITY
 
@@ -547,7 +564,7 @@ diario de MVP-305.
 | `ACTIVITY` | implementada | MVP-301 (`task_id`/`task_text` excluyentes cierran `P-028`; estrena `version` + `If-Match` de ADR-0005 y la baja logica `deleted_at` de RN-037) |
 | `PURCHASE` | implementada | MVP-303 (`season_id` cierra `P-050`; `unit_price` persistido como base del coste proporcional de MVP-304) |
 | `PURCHASE_CONSUMPTION` | implementada | MVP-304, con el mecanismo decidido en MVP-303: `purchase_id` anulable (RN-032). Anade `unit_price` congelado, trazabilidad completa, `version` y `deleted_at` |
-| `HARVEST` | pendiente | MVP-004 |
+| `HARVEST` | implementada | MVP-401 (cuarta entidad operativa critica: `version` + `If-Match` de ADR-0005 y baja logica `deleted_at` de RN-037; enciende la cosecha en el diario y completa RN-033) |
 
 ---
 

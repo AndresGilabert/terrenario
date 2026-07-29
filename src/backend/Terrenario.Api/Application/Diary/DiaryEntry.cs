@@ -4,10 +4,10 @@ namespace Terrenario.Api.Application.Diary;
 /// Tipo de entrada del diario (MVP-305). Catálogo cerrado <c>diary_entry_type</c>; sus valores son
 /// vocabulario de dominio y van en español (ADR-0009).
 ///
-/// <c>cosecha</c> **no está todavía**: <c>HARVEST</c> no existe hasta <c>MVP-004</c>. RN-033 define
-/// el diario como la mezcla de actividades, cosechas y compras/consumos, así que encenderla es
-/// alcance de <c>MVP-401</c> (hallazgo <c>G-4</c>), no una omisión de esta historia. La vista está
-/// construida para que añadirla sea una entrada más aquí y un icono más en el cliente.
+/// <c>cosecha</c> se **enciende en MVP-401**, que es quien crea <c>HARVEST</c>: RN-033 define el
+/// diario como la mezcla de actividades, cosechas y compras/consumos, así que hasta entonces la vista
+/// principal estaba incompleta por construcción (hallazgo <c>G-4</c>). Con los cuatro valores vivos,
+/// <c>RN-033</c> queda cumplida entera.
 /// </summary>
 public static class DiaryEntryTypes
 {
@@ -15,23 +15,24 @@ public static class DiaryEntryTypes
     public const string Purchase = "compra";
     public const string Consumption = "consumo";
 
-    /// <summary>Reservado para <c>MVP-401</c>; todavía no se emite.</summary>
+    /// <summary>Cosecha (MVP-401): el cuarto tipo, el que completa RN-033.</summary>
     public const string Harvest = "cosecha";
 
     public static readonly IReadOnlySet<string> Supported =
-        new HashSet<string> { Activity, Purchase, Consumption };
+        new HashSet<string> { Activity, Purchase, Consumption, Harvest };
 
     public static bool IsSupported(string? value) => value is not null && Supported.Contains(value);
 }
 
 /// <summary>
 /// Entrada del diario cronológico unificado (MVP-305, RN-033). Es una **vista de lectura**: no hay
-/// entidad «entrada de diario», sino la proyección común de las tres entidades operativas a lo que el
-/// muro necesita mostrar.
+/// entidad «entrada de diario», sino la proyección común de las cuatro entidades operativas a lo que
+/// el muro necesita mostrar.
 ///
 /// Los campos comunes son los que todas comparten —tipo, fecha de negocio, terreno, temporada, coste
 /// y versión—; el resto viaja en los opcionales, que cada tipo rellena si le aplican. Así el cliente
-/// pinta una tarjeta y no tres, y añadir la cosecha en <c>MVP-401</c> no obliga a rehacerla.
+/// pinta una tarjeta y no cuatro: añadir la cosecha en <c>MVP-401</c> no obligó a rehacerla, solo a
+/// sumar <see cref="Kgs"/> y <see cref="Destination"/> a los opcionales.
 ///
 /// <see cref="Version"/> viaja porque el borrado desde el diario exige <c>If-Match</c> (ADR-0005):
 /// sin ella el usuario tendría que abrir el registro solo para poder eliminarlo.
@@ -64,4 +65,12 @@ public sealed record DiaryEntry(
     /// <summary>Solo en compras y consumos.</summary>
     decimal? Quantity = null,
     /// <summary>Solo en consumos: <c>false</c> ⇒ el coste es desconocido, no cero (RN-032).</summary>
-    bool? HasPurchase = null);
+    bool? HasPurchase = null,
+    /// <summary>
+    /// Solo en cosechas (MVP-401): kilos recolectados. No se reutiliza <see cref="Quantity"/> porque
+    /// no es la misma magnitud —allí es cantidad de material comprado o consumido, sin unidad fija— y
+    /// mezclarlas obligaría a la tarjeta a adivinar cómo rotularla.
+    /// </summary>
+    decimal? Kgs = null,
+    /// <summary>Solo en cosechas: destino de lo recolectado (RN-012).</summary>
+    string? Destination = null);

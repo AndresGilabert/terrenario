@@ -14,6 +14,7 @@ import { AcceptInvitationPage } from './components/invitations/AcceptInvitationP
 import { ReceivedInvitationsPage } from './components/invitations/ReceivedInvitationsPage';
 import { InvitePeoplePage } from './components/workspace/InvitePeoplePage';
 import { DiarioView } from './components/diary/DiarioView';
+import { CosechasView } from './components/harvests/CosechasView';
 import { ComprasView } from './components/purchases/ComprasView';
 import { TerrenosView } from './components/plots/TerrenosView';
 import { TemporadasView } from './components/seasons/TemporadasView';
@@ -76,6 +77,10 @@ function AppRoutes() {
             {/* Libro de compras (MVP-303). Fuera de la guarda de oferta de temporada como el resto
                 del shell: si falta temporada se dice y se enlaza, en vez de desviar sin explicar. */}
             <Route path="/app/compras" element={<ComprasView />} />
+            {/* Registro de cosechas (MVP-401). Fuera de la guarda de oferta de temporada como el
+                resto del shell: si falta temporada se dice y se enlaza, en vez de desviar sin
+                explicar (misma lección que P-038 en MVP-207). */}
+            <Route path="/app/cosechas" element={<CosechasView />} />
             <Route path="/app/terrenos" element={<TerrenosView />} />
             <Route path="/app/temporadas" element={<TemporadasView />} />
             <Route path="/app/trabajadores" element={<TrabajadoresView />} />

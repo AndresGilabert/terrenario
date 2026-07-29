@@ -5,6 +5,7 @@ import { useSeason } from '../../contexts/SeasonContext';
 import { createActivityService } from '../../services/activity.service';
 import { createConsumptionService } from '../../services/consumption.service';
 import { createDiaryService } from '../../services/diary.service';
+import { createHarvestService } from '../../services/harvest.service';
 import { createPlotService } from '../../services/plot.service';
 import { createPurchaseService } from '../../services/purchase.service';
 import { createTaskService } from '../../services/task.service';
@@ -24,10 +25,17 @@ import {
   type DiaryEntryType,
   type DiaryListResponse,
 } from '../../types/diary.types';
+import {
+  harvestDestinationLabel,
+  harvestProductLabel,
+  type CreateHarvestPayload,
+  type Harvest,
+} from '../../types/harvest.types';
 import type { Plot } from '../../types/plot.types';
 import type { WorkTask } from '../../types/task.types';
 import type { Worker } from '../../types/worker.types';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { HarvestFormModal } from '../harvests/HarvestFormModal';
 import { ActivityFormModal } from './ActivityFormModal';
 
 const EMPTY_SUMMARY: DiaryListResponse['meta'] = {
@@ -38,6 +46,8 @@ const EMPTY_SUMMARY: DiaryListResponse['meta'] = {
   purchases: 0,
   consumptions: 0,
   consumptions_without_purchase: 0,
+  harvests: 0,
+  total_kg: 0,
 };
 
 /** Formato de fecha del muro: corto y legible, sin depender del locale del navegador. */
@@ -54,6 +64,14 @@ const euros = (value: number) =>
   value.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /**
+ * Titular de la tarjeta. Todos los tipos traen del servidor un texto ya legible salvo la cosecha, cuyo
+ * `title` es el **código** del catálogo de producto (RN-030): el vocabulario cerrado se rotula en
+ * cliente, como el destino.
+ */
+const entryTitle = (entry: DiaryEntry): string =>
+  entry.type === 'cosecha' ? harvestProductLabel(entry.title) : entry.title;
+
+/**
  * Diario de campo del Workspace (MVP-305): **la vista principal del MVP** (RN-033).
  *
  * Mezcla actividades, compras y consumos en un solo muro ordenado por **fecha de negocio** —no por
@@ -64,8 +82,11 @@ const euros = (value: number) =>
  * del diario y de los listados, pero no se pierde en base de datos. No hay papelera ni deshacer en el
  * MVP, así que la confirmación dice qué se elimina antes de hacerlo.
  *
- * La **cosecha** todavía no aparece porque `HARVEST` no existe hasta MVP-004: encenderla es alcance
- * de `MVP-401` (hallazgo `G-4`), y la tarjeta está construida para que sea un tipo más.
+ * **MVP-401 enciende la cosecha** (hallazgo `G-4`), que era el tipo que faltaba para cumplir RN-033
+ * entera. Se corrige **en línea**, como la actividad y a diferencia de la compra: la compra se abre en
+ * su sección porque allí viven la imputación, las sugerencias de material y la cantidad pendiente,
+ * mientras que el formulario de cosecha no necesita nada que el diario no tenga ya cargado. Mandar al
+ * usuario a otra pantalla sin ganar nada a cambio sería peor experiencia.
  */
 export const DiarioView: React.FC = () => {
   const http = useApiClient();
@@ -76,6 +97,7 @@ export const DiarioView: React.FC = () => {
   const activityService = useMemo(() => createActivityService(http), [http]);
   const purchaseService = useMemo(() => createPurchaseService(http), [http]);
   const consumptionService = useMemo(() => createConsumptionService(http), [http]);
+  const harvestService = useMemo(() => createHarvestService(http), [http]);
   const plotService = useMemo(() => createPlotService(http), [http]);
   const workerService = useMemo(() => createWorkerService(http), [http]);
   const taskService = useMemo(() => createTaskService(http), [http]);
@@ -99,6 +121,11 @@ export const DiarioView: React.FC = () => {
   const [editing, setEditing] = useState<Activity | null>(null);
   const [isSubmitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  /** MVP-401 — la cosecha se registra y se corrige sin salir del diario. */
+  const [isHarvestModalOpen, setHarvestModalOpen] = useState(false);
+  const [editingHarvest, setEditingHarvest] = useState<Harvest | null>(null);
+  const [harvestFormError, setHarvestFormError] = useState<string | null>(null);
 
   const [busyEntryId, setBusyEntryId] = useState<string | null>(null);
   /** Registro pendiente de confirmación de borrado (RN-037, CA-3). */
@@ -157,14 +184,26 @@ export const DiarioView: React.FC = () => {
     return missing;
   }, [plots, workers, seasons]);
 
+  /**
+   * La cosecha no necesita responsable (RN-001/RN-021 piden terreno y temporada, RN-002 es de la
+   * actividad), así que puede registrarse en Workspaces donde la labor todavía no.
+   */
+  const canRegisterHarvest = plots.length > 0 && seasons.length > 0;
+
   const openCreate = () => {
     setEditing(null);
     setFormError(null);
     setModalOpen(true);
   };
 
+  const openCreateHarvest = () => {
+    setEditingHarvest(null);
+    setHarvestFormError(null);
+    setHarvestModalOpen(true);
+  };
+
   /**
-   * La entrada del diario es una proyección común de los tres tipos, así que para corregir una
+   * La entrada del diario es una proyección común de los cuatro tipos, así que para corregir una
    * actividad se piden sus campos completos.
    */
   const openEdit = async (entry: DiaryEntry) => {
@@ -177,6 +216,22 @@ export const DiarioView: React.FC = () => {
       setModalOpen(true);
     } catch (error) {
       await handleStaleEntry(error, 'No se pudo abrir la actividad.');
+    } finally {
+      setBusyEntryId(null);
+    }
+  };
+
+  /** MVP-401 — Igual que la actividad: la entrada no lleva todos los campos de la cosecha. */
+  const openEditHarvest = async (entry: DiaryEntry) => {
+    setBusyEntryId(entry.id);
+    setLoadError(null);
+    try {
+      const harvest = await harvestService.getHarvest(entry.id);
+      setEditingHarvest(harvest);
+      setHarvestFormError(null);
+      setHarvestModalOpen(true);
+    } catch (error) {
+      await handleStaleEntry(error, 'No se pudo abrir la cosecha.');
     } finally {
       setBusyEntryId(null);
     }
@@ -234,6 +289,39 @@ export const DiarioView: React.FC = () => {
     }
   };
 
+  /** MVP-401 — Alta y corrección de cosecha desde el propio diario. */
+  const handleHarvestSubmit = async (payload: CreateHarvestPayload) => {
+    setSubmitting(true);
+    setHarvestFormError(null);
+    setNotice(null);
+    try {
+      if (editingHarvest) {
+        await harvestService.updateHarvest(editingHarvest.id, editingHarvest.version, payload);
+      } else {
+        await harvestService.createHarvest(payload);
+      }
+      setHarvestModalOpen(false);
+      setEditingHarvest(null);
+      await reload();
+      setNotice(editingHarvest ? 'Cosecha corregida.' : 'Cosecha registrada.');
+    } catch (error) {
+      if (error instanceof HttpError && error.code === CONFLICT_VERSION_MISMATCH) {
+        setHarvestModalOpen(false);
+        setEditingHarvest(null);
+        await reload();
+        setLoadError(
+          'Otra persona modificó esa cosecha mientras la editabas. Se ha recargado el diario con la versión actual; revisa el cambio y vuelve a aplicarlo si hace falta.'
+        );
+        return;
+      }
+      setHarvestFormError(
+        error instanceof HttpError ? error.message : 'No se pudo guardar la cosecha.'
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   /** MVP-302 (CA-3) — promociona al catálogo la tarea de una actividad ya registrada. */
   const handleSaveTaskToCatalog = async (entry: DiaryEntry) => {
     setBusyEntryId(entry.id);
@@ -268,12 +356,14 @@ export const DiarioView: React.FC = () => {
         await activityService.deleteActivity(entry.id, entry.version);
       } else if (entry.type === 'compra') {
         await purchaseService.deletePurchase(entry.id, entry.version);
+      } else if (entry.type === 'cosecha') {
+        await harvestService.deleteHarvest(entry.id, entry.version);
       } else {
         await consumptionService.deleteConsumption(entry.id, entry.version);
       }
       setPendingDelete(null);
       await reload();
-      setNotice(`Se ha eliminado ${DIARY_ENTRY_NOUNS[entry.type]} «${entry.title}».`);
+      setNotice(`Se ha eliminado ${DIARY_ENTRY_NOUNS[entry.type]} «${entryTitle(entry)}».`);
     } catch (error) {
       if (error instanceof HttpError && error.code === CONFLICT_VERSION_MISMATCH) {
         setPendingDelete(null);
@@ -300,28 +390,52 @@ export const DiarioView: React.FC = () => {
         <div>
           <h2 className="font-headline font-extrabold text-xl text-[#1c1c19]">Diario de campo</h2>
           <p className="text-xs text-[#76786b]">
-            Labores, compras y consumos del Workspace en orden cronológico. Las cosechas se sumarán a
-            este mismo muro.
+            Labores, cosechas, compras y consumos del Workspace en orden cronológico.
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={openCreate}
-          disabled={missingMasters.length > 0}
-          title={missingMasters.length > 0 ? 'Faltan maestros por poblar' : undefined}
-          className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#33450d] hover:bg-[#4a5d23] text-white text-xs font-semibold shadow-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
-        >
-          <span className="material-symbols-outlined text-lg" aria-hidden="true">add</span>
-          <span>Nueva actividad</span>
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {/* MVP-401 — registrar cosecha desde la vista principal, sin pasar por su listado */}
+          <button
+            type="button"
+            onClick={openCreateHarvest}
+            disabled={!canRegisterHarvest}
+            title={!canRegisterHarvest ? 'Necesitas un terreno y una temporada' : undefined}
+            className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-white border border-[#c6c8b8] hover:bg-[#f0ede8] text-[#33450d] text-xs font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <span className="material-symbols-outlined text-lg" aria-hidden="true">agriculture</span>
+            <span>Nueva cosecha</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={openCreate}
+            disabled={missingMasters.length > 0}
+            title={missingMasters.length > 0 ? 'Faltan maestros por poblar' : undefined}
+            className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#33450d] hover:bg-[#4a5d23] text-white text-xs font-semibold shadow-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <span className="material-symbols-outlined text-lg" aria-hidden="true">add</span>
+            <span>Nueva actividad</span>
+          </button>
+        </div>
       </div>
 
       {/* Resumen de lo que se está viendo */}
       {!isLoading && summary.total > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <SummaryTile label="Registros" value={String(summary.total)} icon="event_note" />
           <SummaryTile label="Labores" value={String(summary.activities)} icon="content_cut" />
+          {/* MVP-401 — la cosecha se resume por kilos: no aporta gasto (RN-029) */}
+          <SummaryTile
+            label="Cosechas"
+            value={summary.harvests === 0 ? '0' : `${summary.total_kg.toLocaleString('es-ES')} kg`}
+            icon="agriculture"
+            hint={
+              summary.harvests > 0
+                ? `${summary.harvests} ${summary.harvests === 1 ? 'partida' : 'partidas'}`
+                : undefined
+            }
+          />
           <SummaryTile
             label="Compras y consumos"
             value={String(summary.purchases + summary.consumptions)}
@@ -403,6 +517,7 @@ export const DiarioView: React.FC = () => {
             >
               <option value="todos">Todos los tipos</option>
               <option value="actividad">Labores</option>
+              <option value="cosecha">Cosechas</option>
               <option value="compra">Compras</option>
               <option value="consumo">Consumos</option>
             </select>
@@ -441,7 +556,7 @@ export const DiarioView: React.FC = () => {
       )}
 
       {/* Filtrar por terreno deja fuera las compras por definición, no por error */}
-      {plotFilter !== 'todos' && typeFilter !== 'consumo' && typeFilter !== 'actividad' && (
+      {plotFilter !== 'todos' && (typeFilter === 'todos' || typeFilter === 'compra') && (
         <p className="text-[11px] text-[#76786b] flex items-start gap-1.5">
           <span className="material-symbols-outlined text-sm shrink-0" aria-hidden="true">info</span>
           Al filtrar por terreno no se muestran compras: una compra es del Workspace y solo se
@@ -493,7 +608,9 @@ export const DiarioView: React.FC = () => {
               key={`${entry.type}-${entry.id}`}
               entry={entry}
               isBusy={busyEntryId === entry.id}
-              onEdit={() => void openEdit(entry)}
+              onEdit={() =>
+                entry.type === 'cosecha' ? void openEditHarvest(entry) : void openEdit(entry)
+              }
               onSaveTaskToCatalog={() => void handleSaveTaskToCatalog(entry)}
               onDelete={() => {
                 setDeleteError(null);
@@ -522,6 +639,22 @@ export const DiarioView: React.FC = () => {
         onSubmit={(payload) => void handleSubmit(payload)}
       />
 
+      {/* MVP-401 — la cosecha se registra y se corrige sin salir del diario */}
+      <HarvestFormModal
+        isOpen={isHarvestModalOpen}
+        harvest={editingHarvest}
+        plots={plots}
+        seasons={seasons}
+        activeSeason={activeSeason}
+        isSubmitting={isSubmitting}
+        errorMessage={harvestFormError}
+        onClose={() => {
+          setHarvestModalOpen(false);
+          setEditingHarvest(null);
+        }}
+        onSubmit={(payload) => void handleHarvestSubmit(payload)}
+      />
+
       {/* RN-037 (CA-3) — confirmación explícita antes de eliminar */}
       <ConfirmDialog
         isOpen={pendingDelete !== null}
@@ -530,7 +663,7 @@ export const DiarioView: React.FC = () => {
           pendingDelete && (
             <>
               <p>
-                Vas a eliminar <strong>«{pendingDelete.title}»</strong> del{' '}
+                Vas a eliminar <strong>«{entryTitle(pendingDelete)}»</strong> del{' '}
                 {formatDate(pendingDelete.date)}
                 {pendingDelete.plot_name ? ` en ${pendingDelete.plot_name}` : ''}.
               </p>
@@ -592,7 +725,10 @@ const DiaryCard: React.FC<DiaryCardProps> = ({
 }) => {
   const style = DIARY_ENTRY_STYLES[entry.type];
   const isActivity = entry.type === 'actividad';
+  const isHarvest = entry.type === 'cosecha';
   const isConsumptionWithoutPurchase = entry.type === 'consumo' && entry.has_purchase === false;
+  // La actividad y la cosecha se corrigen aquí mismo; la compra y el consumo, en su sección.
+  const editsInline = isActivity || isHarvest;
 
   return (
     <li className="relative">
@@ -628,9 +764,18 @@ const DiaryCard: React.FC<DiaryCardProps> = ({
                   SIN COMPRA
                 </span>
               )}
+              {/* RN-012 — el destino sin clasificar se rotula «Sin destino», sin bloquear nada */}
+              {isHarvest && entry.destination === 'desconocido' && (
+                <span
+                  title="La cosecha todavía no tiene destino asignado"
+                  className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#f0ede8] text-[#76786b] border border-[#dcd9d2]"
+                >
+                  SIN DESTINO
+                </span>
+              )}
             </div>
             <h3 className="font-headline font-bold text-lg text-[#1c1c19] tracking-tight truncate">
-              {entry.title}
+              {entryTitle(entry)}
             </h3>
           </div>
 
@@ -649,13 +794,13 @@ const DiaryCard: React.FC<DiaryCardProps> = ({
               </button>
             )}
 
-            {isActivity ? (
+            {editsInline ? (
               <button
                 type="button"
                 onClick={onEdit}
                 disabled={isBusy}
-                title="Corregir actividad"
-                aria-label={`Corregir ${entry.title}`}
+                title={isHarvest ? 'Corregir cosecha' : 'Corregir actividad'}
+                aria-label={`Corregir ${entryTitle(entry)}`}
                 className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#f0ede8] hover:text-[#33450d] transition-colors disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-base" aria-hidden="true">edit</span>
@@ -667,7 +812,7 @@ const DiaryCard: React.FC<DiaryCardProps> = ({
                 onClick={onOpenPurchases}
                 disabled={isBusy}
                 title="Corregir en Compras e insumos"
-                aria-label={`Corregir «${entry.title}» en Compras e insumos`}
+                aria-label={`Corregir «${entryTitle(entry)}» en Compras e insumos`}
                 className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#f0ede8] hover:text-[#33450d] transition-colors disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-base" aria-hidden="true">open_in_new</span>
@@ -680,7 +825,7 @@ const DiaryCard: React.FC<DiaryCardProps> = ({
               onClick={onDelete}
               disabled={isBusy}
               title="Eliminar registro"
-              aria-label={`Eliminar «${entry.title}»`}
+              aria-label={`Eliminar «${entryTitle(entry)}»`}
               className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#ffdad6]/60 hover:text-[#ba1a1a] transition-colors disabled:opacity-50"
             >
               <span className="material-symbols-outlined text-base" aria-hidden="true">delete</span>
@@ -717,14 +862,31 @@ const DiaryCard: React.FC<DiaryCardProps> = ({
               {entry.quantity.toLocaleString('es-ES')}
             </span>
           )}
-          <span
-            className={`flex items-center gap-1 font-bold ${
-              isConsumptionWithoutPurchase ? 'text-[#76786b]' : 'text-[#ba1a1a]'
-            }`}
-          >
-            <span className="material-symbols-outlined text-base" aria-hidden="true">payments</span>
-            {isConsumptionWithoutPurchase ? 'coste desconocido' : `${euros(entry.cost)} €`}
-          </span>
+          {/* MVP-401 — la cosecha muestra kilos y destino donde las demás muestran dinero: no tiene
+              coste (RN-029), y enseñar «0,00 €» haría creer que salió gratis. */}
+          {isHarvest ? (
+            <>
+              <span className="flex items-center gap-1 font-bold text-[#33450d]">
+                <span className="material-symbols-outlined text-base" aria-hidden="true">scale</span>
+                {(entry.kgs ?? 0).toLocaleString('es-ES')} kg
+              </span>
+              {entry.destination && entry.destination !== 'desconocido' && (
+                <span className="flex items-center gap-1 text-[#45483c]">
+                  <span className="material-symbols-outlined text-base" aria-hidden="true">local_shipping</span>
+                  {harvestDestinationLabel(entry.destination)}
+                </span>
+              )}
+            </>
+          ) : (
+            <span
+              className={`flex items-center gap-1 font-bold ${
+                isConsumptionWithoutPurchase ? 'text-[#76786b]' : 'text-[#ba1a1a]'
+              }`}
+            >
+              <span className="material-symbols-outlined text-base" aria-hidden="true">payments</span>
+              {isConsumptionWithoutPurchase ? 'coste desconocido' : `${euros(entry.cost)} €`}
+            </span>
+          )}
         </div>
       </div>
     </li>
@@ -742,8 +904,8 @@ const EmptyDiary: React.FC<{ canRegister: boolean; onRegister: () => void }> = (
     <div className="space-y-1">
       <h3 className="font-headline font-bold text-lg text-[#1c1c19]">Tu diario está vacío</h3>
       <p className="text-sm text-[#45483c] max-w-md mx-auto">
-        Apunta la primera labor: qué se hizo, quién la hizo, cuánto duró y cuánto costó. Las compras y
-        los consumos que registres aparecerán también aquí.
+        Apunta la primera labor: qué se hizo, quién la hizo, cuánto duró y cuánto costó. Las cosechas,
+        las compras y los consumos que registres aparecerán también aquí.
       </p>
     </div>
     {canRegister && (

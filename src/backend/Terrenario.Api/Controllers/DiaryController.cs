@@ -9,16 +9,16 @@ namespace Terrenario.Api.Controllers;
 
 /// <summary>
 /// MVP-305 — Diario cronológico unificado del Workspace activo (RN-033). Es la **vista principal del
-/// MVP**: mezcla actividades, compras y consumos en una sola secuencia por fecha de negocio, para que
-/// revisar la operativa no obligue a pasear por tres listados.
+/// MVP**: mezcla actividades, cosechas, compras y consumos en una sola secuencia por fecha de negocio,
+/// para que revisar la operativa no obligue a pasear por cuatro listados.
 ///
 /// De solo lectura a propósito. Cada registro se crea, corrige y elimina por el recurso al que
-/// pertenece (<c>/activities</c>, <c>/purchases</c>, <c>/consumptions</c>), que es donde viven sus
-/// reglas; el diario solo agrega. Por eso cada entrada trae su <c>version</c>: es lo que permite
-/// eliminar desde aquí con <c>If-Match</c> sin abrir antes el registro (ADR-0005).
+/// pertenece (<c>/activities</c>, <c>/harvests</c>, <c>/purchases</c>, <c>/consumptions</c>), que es
+/// donde viven sus reglas; el diario solo agrega. Por eso cada entrada trae su <c>version</c>: es lo
+/// que permite eliminar desde aquí con <c>If-Match</c> sin abrir antes el registro (ADR-0005).
 ///
-/// La <b>cosecha</b> se añadirá en <c>MVP-401</c>, cuando exista <c>HARVEST</c> (hallazgo
-/// <c>G-4</c>): el catálogo <c>diary_entry_type</c> ya le reserva su valor.
+/// La <b>cosecha</b> la enciende <c>MVP-401</c>, que es quien crea <c>HARVEST</c> (hallazgo
+/// <c>G-4</c>). Con los cuatro tipos vivos, RN-033 queda cumplida entera.
 /// </summary>
 [ApiController]
 [Authorize]
@@ -70,6 +70,10 @@ public sealed class DiaryController(
                 activities = result.TotalActivities,
                 purchases = result.TotalPurchases,
                 consumptions = result.TotalConsumptions,
+                // MVP-401 — la cosecha no aporta gasto (RN-029), así que se resume por kilos: es la
+                // magnitud que la hace legible en la cabecera del diario.
+                harvests = result.TotalHarvests,
+                total_kg = result.TotalKg,
                 // RN-032 — cuántos consumos no tienen compra detrás: su coste consta como 0 porque se
                 // desconoce, y el diario lo dice en vez de dejar creer que fue gratis.
                 consumptions_without_purchase = result.ConsumptionsWithoutPurchase
@@ -112,6 +116,9 @@ public sealed class DiaryController(
         // guardarla en el catálogo solo cuando tiene sentido.
         task_id = entry.TaskId,
         quantity = entry.Quantity,
-        has_purchase = entry.HasPurchase
+        has_purchase = entry.HasPurchase,
+        // MVP-401 — solo en cosechas: kilos recolectados y destino (RN-012).
+        kgs = entry.Kgs,
+        destination = entry.Destination
     };
 }

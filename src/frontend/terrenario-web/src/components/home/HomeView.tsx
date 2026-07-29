@@ -144,14 +144,22 @@ export const HomeView: React.FC = () => {
           )}
         </div>
         <p className="text-[#45483c] text-sm max-w-lg">
-          Temporadas, terrenos, trabajadores, tareas y accesos ya están disponibles en el menú
-          lateral. El diario de campo, las cosechas y las compras llegarán después: en el menú se
-          distinguen con la etiqueta «Pronto».
+          El <strong>diario de campo</strong> es donde se registra el día a día de la explotación.
+          Temporadas, terrenos, trabajadores, tareas y accesos están en el menú lateral; las cosechas
+          y el resto de módulos llegarán después, distinguidos con la etiqueta «Pronto».
         </p>
         <div className="flex flex-col sm:flex-row items-start gap-3 pt-1">
+          {/* MVP-301 — el diario es la vista principal del MVP (RN-033): el Home conduce a él. */}
+          <button
+            onClick={() => navigate('/app/diario')}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#33450d] hover:bg-[#4a5d23] text-white text-sm font-semibold transition-colors"
+          >
+            <span className="material-symbols-outlined text-lg" aria-hidden="true">event_note</span>
+            Ir al diario de campo
+          </button>
           <button
             onClick={() => navigate('/app/invitations')}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#33450d] hover:bg-[#4a5d23] text-white text-sm font-semibold transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-[#c6c8b8] hover:bg-[#f0ede8] text-[#45483c] text-sm font-semibold transition-colors"
           >
             <span className="material-symbols-outlined text-lg" aria-hidden="true">person_add</span>
             Invitar a alguien

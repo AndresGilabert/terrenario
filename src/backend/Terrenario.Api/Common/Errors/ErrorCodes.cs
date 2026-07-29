@@ -50,6 +50,25 @@ public static class ErrorCodes
     // Ciclo de vida del Workspace (MVP-206)
     public const string ValidationRequiredReactivationContext = "VALIDATION_REQUIRED_REACTIVATION_CONTEXT";
     public const string ValidationRequiredNewOwner = "VALIDATION_REQUIRED_NEW_OWNER";
+    // Actividades (MVP-301)
+    public const string ValidationActivityRequiredFields = "VALIDATION_ACTIVITY_REQUIRED_FIELDS";
+    public const string ValidationActivityTaskRequired = "VALIDATION_ACTIVITY_TASK_REQUIRED";
+    public const string ValidationActivityTaskTextLength = "VALIDATION_ACTIVITY_TASK_TEXT_LENGTH";
+    public const string ValidationActivityHoursRange = "VALIDATION_ACTIVITY_HOURS_RANGE";
+    public const string ValidationActivityCostRange = "VALIDATION_ACTIVITY_COST_RANGE";
+    public const string ValidationActivityDescriptionLength = "VALIDATION_ACTIVITY_DESCRIPTION_LENGTH";
+    /// <summary>
+    /// Registros operativos (ADR-0005): <c>PATCH</c>/<c>DELETE</c> exigen <c>If-Match</c> con la
+    /// versión vigente. Sin cabecera no hay control de concurrencia posible, así que la petición se
+    /// rechaza en vez de escribir a ciegas.
+    /// </summary>
+    public const string ValidationRequiredIfMatch = "VALIDATION_REQUIRED_IF_MATCH";
+    /// <summary>
+    /// Un vínculo del registro operativo (terreno, temporada, responsable, tarea o compra) no existe
+    /// en el Workspace activo. Se responde <c>400</c> y no <c>404</c>: lo que falla es el cuerpo de la
+    /// petición, no la ruta.
+    /// </summary>
+    public const string ForeignKeyWorkspaceMismatch = "FOREIGN_KEY_WORKSPACE_MISMATCH";
 
     // Business rules
     public const string BusinessRuleInvitationExpired = "BUSINESS_RULE_INVITATION_EXPIRED";
@@ -83,6 +102,12 @@ public static class ErrorCodes
     public const string ConflictSeasonNameDuplicate = "CONFLICT_SEASON_NAME_DUPLICATE";
     public const string ConflictWorkerNameDuplicate = "CONFLICT_WORKER_NAME_DUPLICATE";
     public const string ConflictPlotNameDuplicate = "CONFLICT_PLOT_NAME_DUPLICATE";
+    /// <summary>
+    /// Edición o borrado de un registro operativo con una versión desfasada (ADR-0005). Es un único
+    /// código para todas las entidades críticas: actividades (MVP-301), compras (MVP-303),
+    /// imputaciones y consumos (MVP-304) y cosechas (MVP-401).
+    /// </summary>
+    public const string ConflictVersionMismatch = "CONFLICT_VERSION_MISMATCH";
 
     // Resources
     public const string ResourceNotFound = "RESOURCE_NOT_FOUND";

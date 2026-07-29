@@ -1,7 +1,7 @@
 ﻿---
 bloque: 02-arquitectura
 documento: contratos-api
-actualizado_en: "2026-07-28"
+actualizado_en: "2026-07-29"
 ---
 
 # Contratos de API
@@ -447,23 +447,55 @@ Validaciones y reglas:
 | Alta actividad | `POST /api/v1/activities` | `date*`, `plot_id*`, `season_id*`, `worker_id*`, `task_id?`, `task_text?`, `hours*`, `manual_cost*`, `description?` | `201 { id, version, ...activity }` |
 | Editar actividad | `PATCH /api/v1/activities/{activityId}` | campos parciales · `If-Match: <version>` | `200 { ...activity }` |
 | Eliminar actividad | `DELETE /api/v1/activities/{activityId}` | `If-Match: <version>` | `204` |
-| Listado actividades | `GET /api/v1/activities` | `from?`, `to?`, `plot_id?`, `season_id?`, `worker_id?` | `200 { data, meta }` |
+| Listado actividades | `GET /api/v1/activities` | `from?`, `to?`, `plot_id?`, `season_id?`, `worker_id?` | `200 { data, meta: { total } }` |
+
+Todas exigen `[RequireWorkspaceScope]`. La representación de una actividad es
+`{ id, workspace_id, date, plot_id, plot_name, season_id, season_name, worker_id, worker_name,
+task_id, task_name, task_text, task, hours, manual_cost, description, is_out_of_season_range,
+version, created_at, updated_at }` (MVP-301). Los nombres de los maestros llegan **resueltos** en la
+misma consulta para que el diario no tenga que pedirlos por separado, y dos campos son **derivados**,
+no columnas:
+
+| Campo derivado | Qué es |
+|---|---|
+| `task` | Texto de la tarea venga del catálogo o del campo libre (RN-025), para que ningún cliente rehaga ese `??` |
+| `is_out_of_season_range` | `true` si la fecha cae fuera del rango de la temporada asociada. Es el **aviso** de RN-023, nunca un bloqueo; se calcula en lectura, así que sigue siendo correcto si la temporada se edita después |
 
 Validaciones clave:
 
 | Regla | Código error |
 |---|---|
-| responsable y horas obligatorios | `VALIDATION_ACTIVITY_REQUIRED_FIELDS` |
-| tarea obligatoria por catálogo o texto libre | `VALIDATION_ACTIVITY_TASK_REQUIRED` |
-| `hours > 0` | `VALIDATION_ACTIVITY_HOURS_RANGE` |
-| `manual_cost >= 0` | `VALIDATION_ACTIVITY_COST_RANGE` |
-| Integridad de workspace en FKs | `FOREIGN_KEY_WORKSPACE_MISMATCH` |
+| terreno, temporada y responsable obligatorios | `VALIDATION_ACTIVITY_REQUIRED_FIELDS` (400) |
+| tarea obligatoria por catálogo o texto libre, y **no las dos** | `VALIDATION_ACTIVITY_TASK_REQUIRED` (400) |
+| `task_text` de longitud válida (≤ 120, la del catálogo) | `VALIDATION_ACTIVITY_TASK_TEXT_LENGTH` (400) |
+| `hours > 0` (y ≤ 999,99 por `decimal(5,2)`) | `VALIDATION_ACTIVITY_HOURS_RANGE` (400) |
+| `manual_cost >= 0` (0 es válido: labor propia sin coste imputado) | `VALIDATION_ACTIVITY_COST_RANGE` (400) |
+| `description` de longitud válida (≤ 500) | `VALIDATION_ACTIVITY_DESCRIPTION_LENGTH` (400) |
+| Integridad de workspace en FKs | `FOREIGN_KEY_WORKSPACE_MISMATCH` (400) |
+| `PATCH`/`DELETE` sin cabecera `If-Match` (ADR-0005) | `VALIDATION_REQUIRED_IF_MATCH` (400) |
+| Actividad inexistente, de otro Workspace o ya eliminada | `RESOURCE_NOT_FOUND` (404) |
 | Edición o borrado con versión desfasada (ADR-0005) | `CONFLICT_VERSION_MISMATCH` (409) |
+| `from`/`to` con formato distinto de `YYYY-MM-DD` | `VALIDATION_REQUIRED` (400) |
 
-`worker_id` es un `workers.id` cualquiera de `GET /api/v1/workers`, sin distinguir clase: desde
-MVP-208 los miembros del Workspace también son filas de ese maestro, así que no hacen falta campos
-alternativos ni un responsable polimórfico (P-034).
+Reglas de contexto (MVP-301):
 
+| Regla | Comportamiento |
+|---|---|
+| `worker_id` (P-034) | Es un `workers.id` cualquiera de `GET /api/v1/workers`, sin distinguir clase: desde MVP-208 los miembros del Workspace también son filas de ese maestro, así que no hacen falta campos alternativos ni un responsable polimórfico |
+| Tarea (RN-025) | `task_id` **o** `task_text`, exactamente uno. En el `PATCH`, si viene **cualquiera** de los dos se sustituye la pareja completa y el ausente pasa a nulo: enviar solo `task_id` sobre una actividad con texto libre dejaría los dos informados y el dominio lo rechazaría |
+| Coste (RN-003) | Siempre manual. El servidor no lo calcula ni lo recalcula; `workers.hourly_rate` solo permite a la UI **sugerir** un valor que la persona confirma |
+| Fecha fuera de rango (RN-023) | Nunca bloquea el guardado: se responde `201`/`200` con `is_out_of_season_range: true` |
+| Maestros inactivos | Siguen siendo referenciables. La UI ofrece solo los activos para registros nuevos (CA-3 de MVP-202/204/205), pero corregir una actividad que referencia un maestro ya inactivado no obliga a reactivarlo |
+| Orden del listado | Fecha de negocio descendente (RN-033) y, a igualdad de fecha, fecha de captura descendente. Sin paginación en el MVP (`MVP-999`, P-051) |
+| Precisión | `hours` y `manual_cost` se redondean a 2 decimales en el dominio (`decimal(5,2)` y `decimal(10,2)`), para que lo leído coincida con lo escrito |
+
+> **Formato de `If-Match`** (MVP-301). El contrato publica la versión como el entero `version` de la
+> respuesta, pero un cliente HTTP correcto puede enviarla como **ETag**, así que se aceptan las tres
+> formas: `3`, `"3"` y `W/"3"`. Se rechaza `*` —significa «cualquier versión», que es justo lo que el
+> bloqueo optimista existe para impedir— con el mismo `400 VALIDATION_REQUIRED_IF_MATCH` que la
+> cabecera ausente. El `409` incluye además `current_version` en el cuerpo, para que el cliente pueda
+> resolver el conflicto refrescando en vez de dejar al usuario sin salida.
+>
 > **Concurrencia y borrado de los registros operativos** (aplica igual a actividades, cosechas,
 > compras e imputaciones). Las tres entidades operativas son las **entidades críticas** de `ADR-0005`:
 > exponen `version`, exigen `If-Match` en `PATCH`/`DELETE` y responden `409 CONFLICT_VERSION_MISMATCH`
@@ -604,6 +636,8 @@ Regla: `yield` y `liters` son opcionales, pero no se permite informar ambos a la
 | 403 | `AUTH_WORKSPACE_SCOPE_REQUIRED` | Operación que exige Workspace activo en la sesión |
 | 403 | `AUTH_WORKSPACE_OWNER_REQUIRED` | Operación reservada al propietario del Workspace (baja y traspaso, RN-038) |
 | 404 | `RESOURCE_NOT_FOUND` | Recurso inexistente |
+| 400 | `VALIDATION_REQUIRED_IF_MATCH` | `PATCH`/`DELETE` de un registro operativo sin `If-Match` (ADR-0005) |
+| 400 | `FOREIGN_KEY_WORKSPACE_MISMATCH` | Un vínculo del registro operativo no existe en el Workspace activo |
 | 409 | `CONFLICT_VERSION_MISMATCH` | Colisión de versión por edición concurrente |
 | 422 | `BUSINESS_RULE_*` | Regla de negocio incumplida |
 | 500 | `INTERNAL_ERROR` | Error inesperado trazable por `X-Request-Id` |

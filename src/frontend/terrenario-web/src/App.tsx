@@ -13,6 +13,7 @@ import { SeasonSetupPage } from './components/onboarding/SeasonSetupPage';
 import { AcceptInvitationPage } from './components/invitations/AcceptInvitationPage';
 import { ReceivedInvitationsPage } from './components/invitations/ReceivedInvitationsPage';
 import { InvitePeoplePage } from './components/workspace/InvitePeoplePage';
+import { DiarioView } from './components/diary/DiarioView';
 import { TerrenosView } from './components/plots/TerrenosView';
 import { TemporadasView } from './components/seasons/TemporadasView';
 import { TrabajadoresView } from './components/workers/TrabajadoresView';
@@ -66,6 +67,11 @@ function AppRoutes() {
                 Terrenos era el único maestro que quedaba dentro: corregido en MVP-207 (CA-5). Invitar
                 también estaba dentro (MVP-999, P-038) y producía el mismo desvío al pulsar «Invitar
                 persona» desde Miembros, que sí estaba fuera; se corrige en la misma pasada. */}
+            {/* Diario de campo (MVP-301). Va **fuera** de la guarda de oferta de temporada, como el
+                resto de secciones del shell: quien entra al diario sin temporada activa recibe el
+                aviso de qué le falta y un enlace al maestro, en vez de un desvío que no explica nada
+                (misma lección que P-038 en MVP-207). */}
+            <Route path="/app/diario" element={<DiarioView />} />
             <Route path="/app/terrenos" element={<TerrenosView />} />
             <Route path="/app/temporadas" element={<TemporadasView />} />
             <Route path="/app/trabajadores" element={<TrabajadoresView />} />

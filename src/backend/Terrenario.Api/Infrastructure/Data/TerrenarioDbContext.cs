@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Terrenario.Api.Domain.Activities;
 using Terrenario.Api.Domain.Plots;
 using Terrenario.Api.Domain.Seasons;
 using Terrenario.Api.Domain.Tasks;
@@ -21,6 +22,7 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
     public DbSet<Plot> Plots => Set<Plot>();
     public DbSet<Worker> Workers => Set<Worker>();
     public DbSet<TaskItem> Tasks => Set<TaskItem>();
+    public DbSet<Activity> Activities => Set<Activity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -352,6 +354,76 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
                 .WithMany()
                 .HasForeignKey(t => t.WorkspaceId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Activity>(entity =>
+        {
+            entity.ToTable("activities");
+            entity.HasKey(a => a.Id);
+            entity.Property(a => a.Id).HasColumnName("id");
+            entity.Property(a => a.WorkspaceId).HasColumnName("workspace_id").IsRequired();
+            entity.Property(a => a.PlotId).HasColumnName("plot_id").IsRequired();
+            entity.Property(a => a.SeasonId).HasColumnName("season_id").IsRequired();
+            entity.Property(a => a.WorkerId).HasColumnName("worker_id").IsRequired();
+            entity.Property(a => a.Date).HasColumnName("date").IsRequired();
+            entity.Property(a => a.Hours).HasColumnName("hours").HasPrecision(5, 2).IsRequired();
+            // RN-025 — la tarea llega del catálogo (FK opcional) o en texto libre, nunca las dos:
+            // la exclusividad la garantiza el agregado, no una restricción de datos, porque la
+            // condición es «exactamente una» y depende de la longitud del texto ya normalizado.
+            // Cierra P-028: el ER declaraba la tarea como un `string task` suelto.
+            entity.Property(a => a.TaskId).HasColumnName("task_id");
+            entity.Property(a => a.TaskText).HasColumnName("task_text").HasMaxLength(Activity.TaskTextMaxLength);
+            entity.Property(a => a.ManualCost).HasColumnName("manual_cost").HasPrecision(10, 2).IsRequired();
+            entity.Property(a => a.Description).HasColumnName("description").HasMaxLength(Activity.DescriptionMaxLength);
+            entity.Property(a => a.CreatedBy).HasColumnName("created_by").IsRequired();
+            entity.Property(a => a.CreatedAt).HasColumnName("created_at");
+            entity.Property(a => a.UpdatedBy).HasColumnName("updated_by").IsRequired();
+            entity.Property(a => a.UpdatedAt).HasColumnName("updated_at");
+            // Bloqueo optimista (ADR-0005): el dominio incrementa `version` en cada mutación y EF la
+            // usa además como token de concurrencia, de modo que dos escrituras simultáneas partiendo
+            // de la misma versión no puedan pisarse aunque las dos pasen la guarda de aplicación.
+            entity.Property(a => a.Version).HasColumnName("version").IsConcurrencyToken();
+            // Eliminación lógica (RN-037): nunca se borra la fila.
+            entity.Property(a => a.DeletedAt).HasColumnName("deleted_at");
+            entity.Ignore(a => a.IsDeleted);
+
+            // El diario consulta siempre por Workspace y ordena por fecha de negocio (RN-033), y
+            // siempre sobre registros vivos: índice parcial, como `ix_workspaces_live` en MVP-206.
+            entity.HasIndex(a => new { a.WorkspaceId, a.Date })
+                .HasFilter("deleted_at IS NULL")
+                .HasDatabaseName("ix_activities_live_by_date");
+            // Filtros del listado y del futuro dashboard.
+            entity.HasIndex(a => new { a.WorkspaceId, a.PlotId });
+            entity.HasIndex(a => new { a.WorkspaceId, a.SeasonId });
+
+            entity.HasOne<Workspace>()
+                .WithMany()
+                .HasForeignKey(a => a.WorkspaceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Los maestros no se borran (se inactivan), así que `Restrict` es la semántica correcta:
+            // si algún día se borrara un terreno con histórico, la operativa no debe quedar huérfana.
+            entity.HasOne<Plot>()
+                .WithMany()
+                .HasForeignKey(a => a.PlotId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<Season>()
+                .WithMany()
+                .HasForeignKey(a => a.SeasonId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<Worker>()
+                .WithMany()
+                .HasForeignKey(a => a.WorkerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // La tarea del catálogo es opcional (RN-025). `SET NULL` degradaría la actividad a «sin
+            // tarea», que RN-025 prohíbe, así que también se restringe.
+            entity.HasOne<TaskItem>()
+                .WithMany()
+                .HasForeignKey(a => a.TaskId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

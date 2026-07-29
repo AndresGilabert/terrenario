@@ -74,4 +74,22 @@ public sealed record HarvestView(
     /// </summary>
     public bool IsOutOfSeasonRange =>
         Date < SeasonStartDate || (SeasonEndDate is { } end && Date > end);
+
+    /// <summary>
+    /// MVP-402 — Rendimiento en la unidad canónica L/100kg (RN-013) <b>venga de donde venga</b>: el
+    /// valor informado, o el derivado de los litros obtenidos y los kilos recolectados cuando lo que
+    /// se declaró fueron litros (RN-014, tercer origen).
+    ///
+    /// Es lo que hace que RN-004 —rendimiento y litros excluyentes— no cueste información: una cosecha
+    /// que declaró litros tiene rendimiento igualmente, y el dashboard puede promediarla sin que cada
+    /// consumidor rehaga la división.
+    /// </summary>
+    public decimal? EffectiveYield => Yield ?? HarvestYieldConversion.FromLitres(Kgs, Liters);
+
+    /// <summary>
+    /// De dónde sale <see cref="EffectiveYield"/>: <c>informado</c>, <c>calculado</c> o <c>null</c> si
+    /// no hay dato. La UI lo necesita para no presentar como declarado un valor que se ha deducido.
+    /// </summary>
+    public string? YieldSource =>
+        Yield is not null ? "informado" : EffectiveYield is not null ? "calculado" : null;
 }

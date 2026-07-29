@@ -5,6 +5,7 @@ import {
   HARVEST_DESTINATIONS,
   HARVEST_PRODUCTS,
   HARVEST_YIELD_MAX,
+  OIL_DENSITY_KG_PER_LITRE,
   harvestDestinationLabel,
   harvestProductLabel,
   type CreateHarvestPayload,
@@ -36,7 +37,9 @@ const today = () => new Date().toISOString().slice(0, 10);
  * - **Rendimiento y litros son un selector, no dos campos sueltos.** RN-004 los declara excluyentes,
  *   así que ofrecerlos a la vez invitaría a rellenar los dos y a recibir un error que el usuario no
  *   ha provocado. Se elige *cómo* se informa la producción de aceite —o no informarla— y solo aparece
- *   el campo que corresponde.
+ *   el campo que corresponde. Los tres modos son los tres orígenes que admite RN-014: L/100kg (la
+ *   unidad canónica de RN-013), kg de aceite por 100 kg (el «rendimiento graso» que dan las almazaras,
+ *   convertido en servidor con la densidad de RN-016) y litros obtenidos, de los que se deriva.
  * - **La fecha fuera del rango de la temporada avisa mientras se escribe** (RN-023) y nunca impide
  *   guardar: es el mismo aviso que ya dan la actividad y la compra.
  */
@@ -59,6 +62,7 @@ export const HarvestFormModal: React.FC<HarvestFormModalProps> = ({
   const [destination, setDestination] = useState<string>('desconocido');
   const [yieldMode, setYieldMode] = useState<YieldInputMode>('ninguno');
   const [yieldValue, setYieldValue] = useState('');
+  const [fatYield, setFatYield] = useState('');
   const [liters, setLiters] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -73,10 +77,15 @@ export const HarvestFormModal: React.FC<HarvestFormModalProps> = ({
       setProduct(harvest.product);
       setKgs(String(harvest.kgs));
       setDestination(harvest.destination);
+      // Al corregir se ofrece la unidad canónica, que es la que se persistió (RN-013): mostrar el
+      // valor original en kg/100kg exigiría guardar la unidad de entrada, y lo que compara el
+      // dashboard es la canónica. Quien quiera volver a escribirlo en rendimiento graso tiene el modo
+      // disponible.
       setYieldMode(
         harvest.yield !== null ? 'rendimiento' : harvest.liters !== null ? 'litros' : 'ninguno'
       );
       setYieldValue(harvest.yield !== null ? String(harvest.yield) : '');
+      setFatYield('');
       setLiters(harvest.liters !== null ? String(harvest.liters) : '');
       return;
     }
@@ -91,6 +100,7 @@ export const HarvestFormModal: React.FC<HarvestFormModalProps> = ({
     setDestination('desconocido');
     setYieldMode('ninguno');
     setYieldValue('');
+    setFatYield('');
     setLiters('');
   }, [isOpen, harvest, plots, seasons, activeSeason]);
 
@@ -107,16 +117,28 @@ export const HarvestFormModal: React.FC<HarvestFormModalProps> = ({
   }, [selectedSeason, date]);
 
   /**
-   * Rendimiento implícito de los litros declarados, solo como ayuda de lectura: la API guarda los
-   * litros tal cual (RN-004). Convertirlos a L/100kg es alcance de `MVP-402`.
+   * Rendimiento equivalente en la unidad canónica L/100kg, como ayuda de lectura mientras se escribe
+   * (RN-013/RN-014). El cálculo bueno lo hace el servidor: aquí solo se anticipa lo que va a guardar,
+   * para que nadie escriba un número a ciegas.
    */
-  const impliedYield = useMemo(() => {
-    if (yieldMode !== 'litros') return null;
+  const canonicalPreview = useMemo(() => {
     const kilos = Number(kgs);
-    const litros = Number(liters);
-    if (!Number.isFinite(kilos) || kilos <= 0 || !Number.isFinite(litros) || litros <= 0) return null;
-    return (litros / kilos) * 100;
-  }, [yieldMode, kgs, liters]);
+
+    if (yieldMode === 'litros') {
+      const litros = Number(liters);
+      if (!Number.isFinite(kilos) || kilos <= 0 || !Number.isFinite(litros) || litros <= 0) return null;
+      return (litros / kilos) * 100;
+    }
+
+    if (yieldMode === 'rendimiento_graso') {
+      const graso = Number(fatYield);
+      if (!Number.isFinite(graso) || graso <= 0) return null;
+      // RN-016 — densidad por defecto 0,92 kg/L.
+      return graso / OIL_DENSITY_KG_PER_LITRE;
+    }
+
+    return null;
+  }, [yieldMode, kgs, liters, fatYield]);
 
   if (!isOpen) return null;
 
@@ -135,6 +157,8 @@ export const HarvestFormModal: React.FC<HarvestFormModalProps> = ({
 
     let yieldPayload: number | null = null;
     let litersPayload: number | null = null;
+    // RN-014 — la unidad viaja aparte del valor; el servidor guarda siempre la canónica (RN-013).
+    let yieldUnit: CreateHarvestPayload['yield_unit'] = null;
 
     if (yieldMode === 'rendimiento') {
       const value = Number(yieldValue);
@@ -143,6 +167,16 @@ export const HarvestFormModal: React.FC<HarvestFormModalProps> = ({
         return;
       }
       yieldPayload = value;
+      yieldUnit = 'l_100kg';
+    } else if (yieldMode === 'rendimiento_graso') {
+      const value = Number(fatYield);
+      // La cota se aplica sobre la canónica, que es lo que valida el servidor.
+      if (!Number.isFinite(value) || value <= 0 || value / OIL_DENSITY_KG_PER_LITRE > HARVEST_YIELD_MAX) {
+        setLocalError('El rendimiento graso debe ser mayor que 0 y no puede superar el 92 % (más aceite que fruto).');
+        return;
+      }
+      yieldPayload = value;
+      yieldUnit = 'kg_100kg';
     } else if (yieldMode === 'litros') {
       const value = Number(liters);
       if (!Number.isFinite(value) || value <= 0) {
@@ -164,6 +198,7 @@ export const HarvestFormModal: React.FC<HarvestFormModalProps> = ({
       // cambiar de rendimiento a litros (o retirar ambos) no deja el campo anterior colgando.
       yield: yieldPayload,
       liters: litersPayload,
+      yield_unit: yieldUnit,
     });
   };
 
@@ -323,10 +358,13 @@ export const HarvestFormModal: React.FC<HarvestFormModalProps> = ({
               Aceite obtenido
             </legend>
             <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Cómo informar el aceite obtenido">
+              {/* RN-014 — los tres orígenes admitidos, más «no lo sé»: cualquiera de ellos acaba en la
+                  misma unidad canónica L/100kg (RN-013). */}
               {(
                 [
                   ['ninguno', 'Todavía no lo sé'],
                   ['rendimiento', 'Rendimiento (L/100kg)'],
+                  ['rendimiento_graso', 'Rendimiento graso (kg/100kg)'],
                   ['litros', 'Litros obtenidos'],
                 ] as [YieldInputMode, string][]
               ).map(([mode, label]) => (
@@ -364,8 +402,30 @@ export const HarvestFormModal: React.FC<HarvestFormModalProps> = ({
                   className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
                 />
                 <p className="text-[11px] text-[#76786b]">
-                  Litros de aceite por cada 100 kg de aceituna, que es la unidad con la que se comparan
-                  las campañas.
+                  Litros de aceite por cada 100 kg de aceituna: la unidad canónica del producto.
+                </p>
+              </div>
+            )}
+
+            {yieldMode === 'rendimiento_graso' && (
+              <div className="space-y-1.5">
+                <label htmlFor="harvest-fat-yield" className="sr-only">
+                  Rendimiento graso en kilos de aceite por cada 100 kg
+                </label>
+                <input
+                  id="harvest-fat-yield"
+                  type="number"
+                  min="0.01"
+                  max="92"
+                  step="0.01"
+                  value={fatYield}
+                  onChange={(e) => setFatYield(e.target.value)}
+                  disabled={isSubmitting}
+                  placeholder="20"
+                  className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
+                />
+                <p className="text-[11px] text-[#76786b]">
+                  Kilos de aceite por cada 100 kg de aceituna, que es como suele darlo la almazara.
                 </p>
               </div>
             )}
@@ -384,13 +444,16 @@ export const HarvestFormModal: React.FC<HarvestFormModalProps> = ({
                   placeholder="220"
                   className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
                 />
-                {impliedYield !== null && (
-                  <p className="text-[11px] text-[#76786b] flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-sm" aria-hidden="true">calculate</span>
-                    Equivale a {impliedYield.toLocaleString('es-ES', { maximumFractionDigits: 2 })} L/100kg.
-                  </p>
-                )}
               </div>
+            )}
+
+            {/* Se anticipa lo que va a guardar el servidor, para que nadie escriba a ciegas */}
+            {canonicalPreview !== null && (
+              <p className="text-[11px] text-[#76786b] flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-sm" aria-hidden="true">calculate</span>
+                Equivale a {canonicalPreview.toLocaleString('es-ES', { maximumFractionDigits: 2 })} L/100kg,
+                que es la unidad con la que se comparan las campañas.
+              </p>
             )}
           </fieldset>
 

@@ -17,7 +17,12 @@ public sealed record CreateHarvestCommand(
     string Destination,
     /// <summary>Excluyente con <see cref="Liters"/> por RN-004.</summary>
     decimal? Yield,
-    decimal? Liters);
+    decimal? Liters,
+    /// <summary>
+    /// MVP-402 — Unidad en la que llega <see cref="Yield"/> (RN-014): <c>l_100kg</c> (canónica, por
+    /// defecto) o <c>kg_100kg</c>. Se convierte antes de persistir; el agregado solo conoce la canónica.
+    /// </summary>
+    string? YieldUnit = null);
 
 /// <summary>
 /// Edición parcial de cosecha (MVP-401, HU-2, <c>PATCH</c>). Cada campo es un
@@ -43,7 +48,13 @@ public sealed record UpdateHarvestCommand(
     FieldUpdate<decimal> Kgs,
     FieldUpdate<string> Destination,
     FieldUpdate<decimal?> Yield,
-    FieldUpdate<decimal?> Liters);
+    FieldUpdate<decimal?> Liters,
+    /// <summary>
+    /// MVP-402 — Unidad de <see cref="Yield"/> en esta petición (RN-014). No es un campo del recurso:
+    /// lo persistido es siempre la unidad canónica, así que no tiene sentido «conservarlo» entre
+    /// ediciones y por eso no es un <see cref="FieldUpdate{T}"/>.
+    /// </summary>
+    string? YieldUnit = null);
 
 /// <summary>
 /// Eliminación <b>lógica</b> de una cosecha (RN-037). La confirmación explícita es responsabilidad de

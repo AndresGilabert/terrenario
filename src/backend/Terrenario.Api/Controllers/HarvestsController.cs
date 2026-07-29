@@ -109,7 +109,8 @@ public sealed class HarvestsController(
                     request.Kgs,
                     request.Destination,
                     request.Yield,
-                    request.Liters),
+                    request.Liters,
+                    request.YieldUnit),
                 ct);
 
             return CreatedAtAction(nameof(GetById), new { harvestId = harvest.Id }, ToResponse(harvest));
@@ -150,7 +151,8 @@ public sealed class HarvestsController(
                 ReadDecimal(body, "kgs"),
                 ReadString(body, "destination"),
                 ReadNullableDecimal(body, "yield"),
-                ReadNullableDecimal(body, "liters"));
+                ReadNullableDecimal(body, "liters"),
+                ReadPlainString(body, "yield_unit"));
         }
         catch (HarvestValidationException ex)
         {
@@ -235,6 +237,21 @@ public sealed class HarvestsController(
             ? FieldUpdate<string>.Set(el.ValueKind == JsonValueKind.Null ? null : el.GetString())
             : FieldUpdate<string>.Absent;
 
+    /// <summary>
+    /// MVP-402 — Lectura de un valor que <b>no es un campo del recurso</b> sino un modificador de la
+    /// petición (la unidad de <c>yield</c>, RN-014). Por eso no es un <see cref="FieldUpdate{T}"/>:
+    /// ausente significa «la canónica», no «conserva la anterior».
+    /// </summary>
+    private static string? ReadPlainString(Dictionary<string, JsonElement> body, string key)
+    {
+        if (!body.TryGetValue(key, out var el)) return null;
+        if (el.ValueKind == JsonValueKind.Null) return null;
+        if (el.ValueKind == JsonValueKind.String) return el.GetString();
+
+        throw new HarvestValidationException(
+            ErrorCodes.ValidationRequired, $"El campo '{key}' debe ser texto.");
+    }
+
     private static FieldUpdate<DateOnly> ReadDate(Dictionary<string, JsonElement> body, string key)
     {
         if (!body.TryGetValue(key, out var el)) return FieldUpdate<DateOnly>.Absent;
@@ -296,8 +313,14 @@ public sealed class HarvestsController(
         product = harvest.Product,
         kgs = harvest.Kgs,
         // RN-004 — como mucho uno de los dos viene informado; el otro llega `null`.
+        // RN-013 — `yield` va siempre en la unidad canónica L/100kg, sea cual sea la unidad en la que
+        // se informó (RN-014): lo que se guarda y lo que compara el dashboard es lo mismo.
         yield = harvest.Yield,
         liters = harvest.Liters,
+        // MVP-402 — Rendimiento venga de donde venga: el informado, o el derivado de los litros
+        // (RN-014, tercer origen). Evita que cada consumidor rehaga la división.
+        effective_yield = harvest.EffectiveYield,
+        yield_source = harvest.YieldSource,
         destination = harvest.Destination,
         // RN-023 — aviso no bloqueante de fecha fuera del rango de la temporada (CA-3).
         is_out_of_season_range = harvest.IsOutOfSeasonRange,
@@ -320,6 +343,12 @@ public sealed record CreateHarvestRequest(
     string Product,
     decimal Kgs,
     string Destination,
-    /// <summary>Rendimiento en L/100kg (RN-013). Excluyente con <see cref="Liters"/> (RN-004).</summary>
+    /// <summary>Rendimiento en la unidad de <see cref="YieldUnit"/>. Excluyente con <see cref="Liters"/> (RN-004).</summary>
     decimal? Yield,
-    decimal? Liters);
+    decimal? Liters,
+    /// <summary>
+    /// MVP-402 — Unidad de <see cref="Yield"/> (RN-014): <c>l_100kg</c> (canónica, por defecto) o
+    /// <c>kg_100kg</c>, que es como dan el rendimiento graso muchas almazaras. Se convierte con la
+    /// densidad de RN-016 antes de persistir.
+    /// </summary>
+    [property: JsonPropertyName("yield_unit")] string? YieldUnit);

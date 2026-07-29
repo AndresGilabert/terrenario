@@ -21,7 +21,7 @@ ai_context:
 creado_en: "2026-07-24"
 actualizado_en: "2026-07-29"
 ---
-<!-- actualizado_en refleja la ultima anotacion en el registro de puntos (MVP-401: alta de P-059 y P-060, evolucion del modelo de producto de cosecha). -->
+<!-- actualizado_en refleja la ultima anotacion en el registro de puntos (MVP-402: alta de P-061, override de densidad por almazara de RN-016). -->
 
 # EPICA MVP-999 — Pendientes transversales y diferidos
 
@@ -133,6 +133,8 @@ Cuando una epica cierre su `MVP-x99`, estos puntos deben revisarse, priorizarse 
 
 | P-059 | 2026-07-29 | MVP-004 / MVP-401 | funcional/modelo | **La variedad de cultivo deberia vivir en el terreno, no en la cosecha.** Al cerrar el catalogo `harvest_product` (RN-030) se comprobo que la KB exigia el catalogo pero **no definia sus valores**: solo aparecia `aceituna_olivar` como ejemplo en un JSON de `contratos-api.md`. El prototipo (`CosechaModal`) captura «Producto / Variedad» en el registro de cosecha, pero **decision del PO (2026-07-29): la variedad es un atributo del terreno**, porque no cambia partida a partida. Registrarla en la cosecha obligaria a repetirla en cada alta y permitiria contradicciones dentro del mismo olivar. Propuesta: anadir la variedad a `PLOT` (maestro de terrenos) y que la cosecha la herede. Sin impacto funcional hoy: el MVP esta ligado al olivar y el dashboard no distingue variedades. | bajo | no | MVP-999 | pendiente | - |
 | P-060 | 2026-07-29 | MVP-004 / MVP-401 | funcional/alcance | **El producto deberia definirse a nivel de Workspace y modular el calculo de rendimiento.** `harvest_product` se cierra en `MVP-401` con **un solo valor** (`aceituna_olivar`) por decision del PO (2026-07-29): mientras el producto sea uno, obligar a elegirlo en cada cosecha es friccion sin informacion. La forma correcta —«gestionar distintos tipos de producto se abordara en ampliaciones posteriores»— es que el Workspace declare con que trabaja (o lo tenga como subapartado propio) y que **el calculo de rendimiento y los widgets del dashboard varien segun el producto**: L/100kg solo tiene sentido en olivar. Consolidar con **P-059**: los dos describen la misma evolucion del modelo de produccion. | medio | no | MVP-999 | pendiente | - |
+
+| P-061 | 2026-07-29 | MVP-004 / MVP-402 | funcional/modelo | **La densidad de conversion kg-L es una constante fija; RN-016 preve override por almazara.** `MVP-402` convierte el rendimiento graso (kg de aceite/100 kg) a la unidad canonica L/100kg con la densidad por defecto de RN-016, **0,92 kg/L**, aislada en una sola constante (`HarvestYieldConversion.DefaultOilDensityKgPerLitre`). La propia regla contempla «override por almazara, aplicable por defecto a futuros registros y editable por registro», pero **en el MVP no existe la entidad almazara** —la molturacion esta fuera de alcance por RN-029—, asi que no hay donde colgar el override ni quien lo consuma. Propuesta: al introducir la almazara (o el producto por Workspace de `P-060`, con el que comparte superficie) parametrizar la densidad por defecto y admitir el ajuste por registro. Impacto real bajo: la desviacion entre densidades reales de aceite de oliva es de decimas. | bajo | no | MVP-999 (con P-060) | pendiente | - |
 
 ### Retriage de la 3a pasada de MVP-299 (2026-07-28)
 

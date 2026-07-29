@@ -50,6 +50,11 @@ export interface DiaryEntry {
   kgs: number | null;
   /** Solo en cosechas: destino de lo recolectado (RN-012). */
   destination: string | null;
+  /**
+   * Solo en cosechas (MVP-402): rendimiento en la unidad canónica L/100kg (RN-013), sea declarado o
+   * derivado de los litros obtenidos (RN-014). `null` cuando la partida no tiene dato de aceite.
+   */
+  yield: number | null;
 }
 
 export interface DiaryListResponse {

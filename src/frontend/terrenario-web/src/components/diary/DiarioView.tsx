@@ -870,6 +870,13 @@ const DiaryCard: React.FC<DiaryCardProps> = ({
                 <span className="material-symbols-outlined text-base" aria-hidden="true">scale</span>
                 {(entry.kgs ?? 0).toLocaleString('es-ES')} kg
               </span>
+              {/* RN-013 — rendimiento en la unidad canónica, declarado o derivado (RN-014) */}
+              {entry.yield !== null && (
+                <span className="flex items-center gap-1 text-[#45483c]">
+                  <span className="material-symbols-outlined text-base" aria-hidden="true">water_drop</span>
+                  {entry.yield.toLocaleString('es-ES', { maximumFractionDigits: 1 })} L/100kg
+                </span>
+              )}
               {entry.destination && entry.destination !== 'desconocido' && (
                 <span className="flex items-center gap-1 text-[#45483c]">
                   <span className="material-symbols-outlined text-base" aria-hidden="true">local_shipping</span>

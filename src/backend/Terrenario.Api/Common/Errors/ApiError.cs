@@ -52,6 +52,10 @@ public sealed record ApiError(string Code, string Message)
     public static ApiError ActivityNotFound() =>
         new(ErrorCodes.ResourceNotFound, "La actividad no existe en tu Workspace activo.");
 
+    /// <summary>MVP-303 — Cubre también la compra ya eliminada (RN-037).</summary>
+    public static ApiError PurchaseNotFound() =>
+        new(ErrorCodes.ResourceNotFound, "La compra no existe en tu Workspace activo.");
+
     /// <summary>ADR-0005 — <c>PATCH</c>/<c>DELETE</c> de un registro operativo sin <c>If-Match</c>.</summary>
     public static ApiError IfMatchRequired() =>
         new(ErrorCodes.ValidationRequiredIfMatch,

@@ -540,19 +540,42 @@ diario es alcance de `MVP-401`.
 | Alta compra | `POST /api/v1/purchases` | `purchase_date*`, `product*`, `total_quantity*`, `total_cost*`, `season_id*` | `201 { id, version, unit_price, ... }` |
 | Editar compra | `PATCH /api/v1/purchases/{purchaseId}` | campos parciales · `If-Match: <version>` | `200 { ...purchase }` |
 | Eliminar compra | `DELETE /api/v1/purchases/{purchaseId}` | `If-Match: <version>` | `204` |
-| Listado compras | `GET /api/v1/purchases` | `product?`, `season_id?` | `200 { data, meta }` |
+| Listado compras | `GET /api/v1/purchases` | `product?`, `season_id?`, `from?`, `to?` | `200 { data, meta: { total, total_cost } }` |
+| Materiales del histórico (MVP-303) | `GET /api/v1/purchases/products` | `search?` | `200 { data:[{ product, times_used }], meta:{ total } }` |
 | Imputar compra a terreno | `POST /api/v1/purchases/{purchaseId}/consumptions` | `date*`, `plot_id*`, `quantity*` | `201 { id, purchase_id, plot_id, date, quantity, proportional_cost }` |
 | Registrar consumo **sin compra previa** (RN-032) | `POST /api/v1/consumptions` | `date*`, `plot_id*`, `season_id*`, `product*`, `quantity*` | `201 { id, purchase_id: null, proportional_cost: 0, ... }` |
 | Listado de consumos | `GET /api/v1/consumptions` | `from?`, `to?`, `plot_id?`, `season_id?` | `200 { data, meta }` |
+
+La representación de una compra es
+`{ id, workspace_id, purchase_date, season_id, season_name, product, total_quantity, total_cost,
+unit_price, is_out_of_season_range, version, created_at, updated_at }` (MVP-303). `season_name` llega
+resuelto y `is_out_of_season_range` es el mismo aviso derivado de RN-023 que en la actividad.
+`meta.total_cost` del listado es el **gasto acumulado de lo filtrado**, calculado en servidor.
 
 Validaciones clave:
 
 | Regla | Código error |
 |---|---|
-| `total_quantity > 0` y `total_cost > 0` | `VALIDATION_PURCHASE_TOTALS_RANGE` |
+| `product` obligatorio (texto libre, RN-031) | `VALIDATION_PURCHASE_REQUIRED_PRODUCT` (400) |
+| `product` de longitud válida (≤ 150) | `VALIDATION_PURCHASE_PRODUCT_LENGTH` (400) |
+| `season_id` obligatorio (RN-021) | `VALIDATION_PURCHASE_REQUIRED_FIELDS` (400) |
+| `total_quantity > 0` y `total_cost > 0` | `VALIDATION_PURCHASE_TOTALS_RANGE` (400) |
+| La temporada no existe en el Workspace activo | `FOREIGN_KEY_WORKSPACE_MISMATCH` (400) |
+| `PATCH`/`DELETE` sin cabecera `If-Match` (ADR-0005) | `VALIDATION_REQUIRED_IF_MATCH` (400) |
+| Compra inexistente, de otro Workspace o ya eliminada | `RESOURCE_NOT_FOUND` (404) |
 | suma imputaciones <= cantidad total | `VALIDATION_CONSUMPTION_OVERFLOW` |
 | `quantity > 0` en la imputación y en el consumo | `VALIDATION_CONSUMPTION_QUANTITY_RANGE` |
 | Edición o borrado con versión desfasada (ADR-0005) | `CONFLICT_VERSION_MISMATCH` (409) |
+
+Reglas de contexto (MVP-303):
+
+| Regla | Comportamiento |
+|---|---|
+| Producto en texto libre (RN-031) | No hay catálogo cerrado ni normalización: «Abono NPK» y «abono npk» conviven. `GET /purchases/products` devuelve el vocabulario **aprendido del histórico vivo**, los más usados primero y con tope de 20; es una ayuda de escritura, no un maestro |
+| Filtro `product` | Búsqueda **parcial** e insensible a mayúsculas: el texto libre obligaría, si no, a recordar cómo se escribió |
+| `unit_price` | Derivado de `total_cost / total_quantity` con 4 decimales y **persistido**. Es la base del coste proporcional de las imputaciones (`MVP-304`) y permite explicar una imputación antigua aunque la compra se edite después (RN-032). Se recalcula en cada `PATCH` que toque cantidad o coste |
+| Temporadas cerradas | Siguen admitiendo compras: cerrar es informativo (RN-024) |
+| Lo eliminado deja de sugerirse | Una compra dada de baja sale del listado, del `total_cost` y de las sugerencias (RN-037) |
 
 > **El consumo sin compra previa necesita sitio propio** (`MVP-299`, 3ª pasada, hallazgo `G-2`).
 > `RN-032` y el CA-3 de la épica `MVP-003` obligan a que la ausencia de compra **nunca** bloquee el

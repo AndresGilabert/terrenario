@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Terrenario.Api.Domain.Activities;
 using Terrenario.Api.Domain.Plots;
+using Terrenario.Api.Domain.Purchases;
 using Terrenario.Api.Domain.Seasons;
 using Terrenario.Api.Domain.Tasks;
 using Terrenario.Api.Domain.Users;
@@ -23,6 +24,7 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
     public DbSet<Worker> Workers => Set<Worker>();
     public DbSet<TaskItem> Tasks => Set<TaskItem>();
     public DbSet<Activity> Activities => Set<Activity>();
+    public DbSet<Purchase> Purchases => Set<Purchase>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -423,6 +425,51 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
             entity.HasOne<TaskItem>()
                 .WithMany()
                 .HasForeignKey(a => a.TaskId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Purchase>(entity =>
+        {
+            entity.ToTable("purchases");
+            entity.HasKey(p => p.Id);
+            entity.Property(p => p.Id).HasColumnName("id");
+            entity.Property(p => p.WorkspaceId).HasColumnName("workspace_id").IsRequired();
+            // RN-021 / P-050 — toda compra pertenece a una temporada. El contrato ya lo exigía y el
+            // ER no lo declaraba hasta la 3ª pasada de MVP-299; aquí se materializa.
+            entity.Property(p => p.SeasonId).HasColumnName("season_id").IsRequired();
+            entity.Property(p => p.PurchaseDate).HasColumnName("purchase_date").IsRequired();
+            // RN-031 — texto libre: no hay catálogo cerrado de materiales.
+            entity.Property(p => p.Product).HasColumnName("product").HasMaxLength(Purchase.ProductMaxLength).IsRequired();
+            entity.Property(p => p.TotalQuantity).HasColumnName("total_quantity").HasPrecision(10, 2).IsRequired();
+            entity.Property(p => p.TotalCost).HasColumnName("total_cost").HasPrecision(10, 2).IsRequired();
+            // Derivado de coste/cantidad pero **persistido**: es lo que MVP-304 usará para el coste
+            // proporcional, y guardarlo permite explicar una imputación vieja aunque la compra cambie.
+            entity.Property(p => p.UnitPrice).HasColumnName("unit_price").HasPrecision(10, 4).IsRequired();
+            entity.Property(p => p.CreatedBy).HasColumnName("created_by").IsRequired();
+            entity.Property(p => p.CreatedAt).HasColumnName("created_at");
+            entity.Property(p => p.UpdatedBy).HasColumnName("updated_by").IsRequired();
+            entity.Property(p => p.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(p => p.Version).HasColumnName("version").IsConcurrencyToken();
+            entity.Property(p => p.DeletedAt).HasColumnName("deleted_at");
+            entity.Ignore(p => p.IsDeleted);
+
+            // El libro de compras y el diario consultan por Workspace y ordenan por fecha de compra,
+            // siempre sobre registros vivos: índice parcial, igual que en actividades.
+            entity.HasIndex(p => new { p.WorkspaceId, p.PurchaseDate })
+                .HasFilter("deleted_at IS NULL")
+                .HasDatabaseName("ix_purchases_live_by_date");
+            entity.HasIndex(p => new { p.WorkspaceId, p.SeasonId });
+            // Las sugerencias de producto (RN-031) agrupan por Workspace y producto.
+            entity.HasIndex(p => new { p.WorkspaceId, p.Product });
+
+            entity.HasOne<Workspace>()
+                .WithMany()
+                .HasForeignKey(p => p.WorkspaceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne<Season>()
+                .WithMany()
+                .HasForeignKey(p => p.SeasonId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
     }

@@ -144,9 +144,10 @@ export const HomeView: React.FC = () => {
           )}
         </div>
         <p className="text-[#45483c] text-sm max-w-lg">
-          El <strong>diario de campo</strong> es donde se registra el día a día de la explotación.
-          Temporadas, terrenos, trabajadores, tareas y accesos están en el menú lateral; las cosechas
-          y el resto de módulos llegarán después, distinguidos con la etiqueta «Pronto».
+          El <strong>diario de campo</strong> es donde se registra el día a día de la explotación:
+          labores, compras y consumos, en orden cronológico. Los maestros —temporadas, terrenos,
+          trabajadores, tareas y accesos— están en el menú lateral. Solo quedan por llegar las
+          cosechas y la visión general, marcadas con la etiqueta «Pronto».
         </p>
         <div className="flex flex-col sm:flex-row items-start gap-3 pt-1">
           {/* MVP-301 — el diario es la vista principal del MVP (RN-033): el Home conduce a él. */}

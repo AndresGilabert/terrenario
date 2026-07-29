@@ -68,6 +68,8 @@ export interface ConsumptionFilters {
   plotId?: string;
   seasonId?: string;
   purchaseId?: string;
+  /** Búsqueda parcial sobre el material, igual que en compras (MVP-399, `R-06`). */
+  product?: string;
 }
 
 /** No se puede repartir más material del que se compró (400). */

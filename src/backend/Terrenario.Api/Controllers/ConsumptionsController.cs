@@ -50,6 +50,7 @@ public sealed class ConsumptionsController(
         [FromQuery(Name = "plot_id")] Guid? plotId,
         [FromQuery(Name = "season_id")] Guid? seasonId,
         [FromQuery(Name = "purchase_id")] Guid? purchaseId,
+        [FromQuery] string? product,
         CancellationToken ct)
     {
         if (!TryParseDate(from, out var fromDate) || !TryParseDate(to, out var toDate))
@@ -58,7 +59,7 @@ public sealed class ConsumptionsController(
 
         var consumptions = await listConsumptionsHandler.HandleAsync(
             workspaceContext.WorkspaceId,
-            new ConsumptionFilter(fromDate, toDate, plotId, seasonId, purchaseId),
+            new ConsumptionFilter(fromDate, toDate, plotId, seasonId, purchaseId, product),
             ct);
 
         return Ok(new

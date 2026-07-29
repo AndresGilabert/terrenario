@@ -26,6 +26,7 @@ export function createConsumptionService(http: HttpClient) {
           plot_id: filters?.plotId,
           season_id: filters?.seasonId,
           purchase_id: filters?.purchaseId,
+          product: filters?.product,
         },
       });
     },

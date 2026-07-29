@@ -533,9 +533,14 @@ campos específicos de un tipo llegan a `null` en los demás.
 | `task_id` | Solo en actividades: `null` ⇒ tarea escrita a mano, lo que permite ofrecer guardarla en el catálogo (MVP-302) |
 | `has_purchase` | Solo en consumos: `false` ⇒ el coste es desconocido, no cero (RN-032) |
 
-`meta` es `{ total, total_cost, activities, purchases, consumptions, consumptions_without_purchase }`.
-El último cuenta los consumos sin compra previa: con ellos, `total_cost` se queda corto **por
-construcción**, y la UI lo advierte en vez de presentar un total que parece exacto (CA-3 de `MVP-003`).
+`meta` es
+`{ total, total_cost, imputed_cost, activities, purchases, consumptions, consumptions_without_purchase }`:
+
+| Campo de `meta` | Qué mide |
+|---|---|
+| `total_cost` | **Gasto real** de lo que se está viendo: labores + compras + consumos **sin compra**. **No** incluye las imputaciones: reparten dinero que la compra ya aportó, así que sumarlas contaría el mismo gasto dos veces (`MVP-399`, hallazgo `R-01`). Es el criterio que debe heredar el dashboard de `MVP-004` |
+| `imputed_cost` | Lo repartido por terrenos: **desglose** de `total_cost`, no gasto añadido |
+| `consumptions_without_purchase` | Consumos sin compra previa. Su coste consta como `0` porque se desconoce (RN-032), así que el gasto real fue algo mayor; la UI lo advierte (CA-3 de `MVP-003`) |
 
 | Catálogo | Valores permitidos |
 |---|---|
@@ -585,7 +590,7 @@ diario es alcance de `MVP-401`.
 | Materiales del histórico (MVP-303) | `GET /api/v1/purchases/products` | `search?` | `200 { data:[{ product, times_used }], meta:{ total } }` |
 | Imputar compra a terreno | `POST /api/v1/purchases/{purchaseId}/consumptions` | `date*`, `plot_id*`, `quantity*` | `201 { id, purchase_id, plot_id, date, quantity, proportional_cost }` |
 | Registrar consumo **sin compra previa** (RN-032) | `POST /api/v1/consumptions` | `date*`, `plot_id*`, `season_id*`, `product*`, `quantity*` | `201 { id, purchase_id: null, proportional_cost: 0, ... }` |
-| Listado de consumos | `GET /api/v1/consumptions` | `from?`, `to?`, `plot_id?`, `season_id?`, `purchase_id?` | `200 { data, meta: { total, total_cost, without_purchase } }` |
+| Listado de consumos | `GET /api/v1/consumptions` | `from?`, `to?`, `plot_id?`, `season_id?`, `purchase_id?`, `product?` | `200 { data, meta: { total, total_cost, without_purchase } }` |
 | Editar consumo (MVP-304) | `PATCH /api/v1/consumptions/{consumptionId}` | campos parciales · `If-Match: <version>` | `200 { ...consumption }` |
 | Eliminar consumo (MVP-304) | `DELETE /api/v1/consumptions/{consumptionId}` | `If-Match: <version>` | `204` |
 
@@ -632,6 +637,7 @@ Reglas de contexto de consumos (MVP-304):
 | Baja de una compra con imputaciones | Se rechaza con 422 indicando cuántas hay. Ni cascada —borraría registros operativos del diario que nadie pidió borrar— ni huérfanas —perderían el origen de su coste—: se retiran primero |
 | `imputed_quantity` / `pending_quantity` | El listado de compras los incluye para poder mostrar «imputado / total» sin una consulta por fila |
 | Orden del listado de consumos | Fecha de **negocio** descendente (RN-033, CA-4): un consumo capturado hoy sobre trabajo de la semana pasada se lee donde ocurrió |
+| Filtro `product` (MVP-399) | Búsqueda **parcial** e insensible a mayúsculas, igual que en compras. Añadido en la revisión de cierre (`R-06`): el buscador de material del libro filtraba las compras y dejaba los consumos intactos |
 
 Reglas de contexto (MVP-303):
 

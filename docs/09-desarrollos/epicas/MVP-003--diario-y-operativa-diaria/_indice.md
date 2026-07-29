@@ -1,6 +1,6 @@
 ﻿# Índice — MVP-003--diario-y-operativa-diaria: Diario y operativa diaria
 
-> **Progreso**: 5/6 completadas · **Hito**: Hito C — Registro operativo end-to-end
+> **Progreso**: 6/6 completadas · **Hito**: Hito C — Registro operativo end-to-end
 > _Generado automáticamente por `validar_kb.py`. No editar manualmente._
 
 | Historia | Título | Estado | Responsable | Prioridad |
@@ -10,4 +10,4 @@
 | [MVP-303](./MVP-303--registro-de-compras-operativas/spec.md) | Registro de compras operativas | ✔️ completado | @andres | alta |
 | [MVP-304](./MVP-304--imputacion-de-compras-y-consumo-sin-compra-previa/spec.md) | Imputación de compras y consumo sin compra previa | ✔️ completado | @andres | critica |
 | [MVP-305](./MVP-305--diario-cronologico-unificado-y-borrado-con-confirmacion/spec.md) | Diario cronológico unificado y borrado con confirmación | ✔️ completado | @andres | critica |
-| [MVP-399](./MVP-399--revision-epica/spec.md) | Revision epica | 📝 borrador | @andres | alta |
+| [MVP-399](./MVP-399--revision-epica/spec.md) | Revision epica | ✔️ completado | @andres | alta |

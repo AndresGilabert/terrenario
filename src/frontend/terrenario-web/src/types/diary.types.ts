@@ -49,7 +49,13 @@ export interface DiaryListResponse {
   data: DiaryEntry[];
   meta: {
     total: number;
+    /**
+     * Gasto real de lo que se está viendo: labores + compras + consumos **sin compra**. Las
+     * imputaciones quedan fuera porque reparten dinero que la compra ya aportó (MVP-399, `R-01`).
+     */
     total_cost: number;
+    /** Lo repartido por terrenos: desglose de `total_cost`, no gasto añadido. */
+    imputed_cost: number;
     activities: number;
     purchases: number;
     consumptions: number;

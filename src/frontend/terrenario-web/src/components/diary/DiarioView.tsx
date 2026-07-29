@@ -33,6 +33,7 @@ import { ActivityFormModal } from './ActivityFormModal';
 const EMPTY_SUMMARY: DiaryListResponse['meta'] = {
   total: 0,
   total_cost: 0,
+  imputed_cost: 0,
   activities: 0,
   purchases: 0,
   consumptions: 0,
@@ -326,7 +327,19 @@ export const DiarioView: React.FC = () => {
             value={String(summary.purchases + summary.consumptions)}
             icon="shopping_bag"
           />
-          <SummaryTile label="Coste" value={`${euros(summary.total_cost)} €`} icon="payments" highlight />
+          <SummaryTile
+            label="Gasto"
+            value={`${euros(summary.total_cost)} €`}
+            icon="payments"
+            highlight
+            /* R-01 (MVP-399) — el total NO suma las imputaciones: reparten dinero que la compra ya
+               aportó, así que contarlas sería contar el mismo gasto dos veces. */
+            hint={
+              summary.imputed_cost > 0
+                ? `De ese gasto, ${euros(summary.imputed_cost)} € ya están repartidos por terrenos.`
+                : undefined
+            }
+          />
         </div>
       )}
 
@@ -336,8 +349,8 @@ export const DiarioView: React.FC = () => {
           <span className="material-symbols-outlined text-base shrink-0" aria-hidden="true">info</span>
           <span>
             {summary.consumptions_without_purchase === 1
-              ? 'Hay 1 consumo sin compra previa: su coste consta como 0 porque se desconoce, así que el total de arriba se queda corto.'
-              : `Hay ${summary.consumptions_without_purchase} consumos sin compra previa: su coste consta como 0 porque se desconoce, así que el total de arriba se queda corto.`}
+              ? 'Hay 1 consumo sin compra previa: su coste consta como 0 porque se desconoce, así que el gasto real fue algo mayor.'
+              : `Hay ${summary.consumptions_without_purchase} consumos sin compra previa: su coste consta como 0 porque se desconoce, así que el gasto real fue algo mayor.`}
           </span>
         </p>
       )}
@@ -545,7 +558,9 @@ const SummaryTile: React.FC<{
   value: string;
   icon: string;
   highlight?: boolean;
-}> = ({ label, value, icon, highlight = false }) => (
+  /** Matiz que evita leer mal la cifra (p. ej. cuánto del gasto ya está repartido). */
+  hint?: string;
+}> = ({ label, value, icon, highlight = false, hint }) => (
   <div className="bg-white rounded-2xl border border-[#e5e2dd] px-4 py-3">
     <p className="text-[10px] font-bold text-[#76786b] uppercase flex items-center gap-1">
       <span className="material-symbols-outlined text-sm" aria-hidden="true">{icon}</span>
@@ -554,6 +569,7 @@ const SummaryTile: React.FC<{
     <p className={`font-headline font-extrabold text-lg ${highlight ? 'text-[#ba1a1a]' : 'text-[#1c1c19]'}`}>
       {value}
     </p>
+    {hint && <p className="text-[10px] text-[#76786b] leading-tight">{hint}</p>}
   </div>
 );
 

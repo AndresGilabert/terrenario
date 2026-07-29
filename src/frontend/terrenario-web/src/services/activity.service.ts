@@ -49,6 +49,19 @@ export function createActivityService(http: HttpClient) {
       });
     },
 
+    /**
+     * MVP-302 — Guarda en el catálogo la tarea libre de una actividad **ya registrada**, sin
+     * reescribirla: la API usa el `task_text` que la actividad ya tiene y la deja referenciando la
+     * tarea del catálogo. Exige `If-Match` como cualquier otra edición (ADR-0005).
+     */
+    async saveTaskToCatalog(activityId: string, version: number): Promise<Activity> {
+      return http.request<Activity>(`/api/v1/activities/${activityId}`, {
+        method: 'PATCH',
+        body: { save_task_to_catalog: true },
+        headers: { 'If-Match': String(version) },
+      });
+    },
+
     /** Eliminación **lógica** (RN-037). La confirmación explícita la pide la UI antes de llamar. */
     async deleteActivity(activityId: string, version: number): Promise<void> {
       await http.request<void>(`/api/v1/activities/${activityId}`, {

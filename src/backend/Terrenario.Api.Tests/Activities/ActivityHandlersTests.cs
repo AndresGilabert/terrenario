@@ -2,6 +2,7 @@ using FluentAssertions;
 using NSubstitute;
 using Terrenario.Api.Application.Activities;
 using Terrenario.Api.Application.Activities.Commands;
+using Terrenario.Api.Application.Tasks;
 using Terrenario.Api.Common;
 using Terrenario.Api.Common.Errors;
 using Terrenario.Api.Domain.Activities;
@@ -46,9 +47,11 @@ public class ActivityHandlersTests
 
     private ActivityLinkResolver Resolver() => new(_plots, _seasons, _workers, _tasks);
 
-    private CreateActivityHandler CreateSut() => new(_activities, Resolver());
+    private TaskCatalogPromoter Promoter() => new(_tasks);
 
-    private UpdateActivityHandler UpdateSut() => new(_activities, Resolver());
+    private CreateActivityHandler CreateSut() => new(_activities, Resolver(), Promoter());
+
+    private UpdateActivityHandler UpdateSut() => new(_activities, Resolver(), Promoter());
 
     private DeleteActivityHandler DeleteSut() => new(_activities);
 
@@ -84,7 +87,8 @@ public class ActivityHandlersTests
 
         var result = await CreateSut().HandleAsync(ValidCreate());
 
-        result.Should().NotBeNull();
+        result.Activity.Should().NotBeNull();
+        result.TaskCatalogOutcome.Should().BeNull();
         added.Should().NotBeNull();
         added!.WorkspaceId.Should().Be(WorkspaceId);
         added.Version.Should().Be(1);
@@ -191,6 +195,94 @@ public class ActivityHandlersTests
 
         activity.TaskId.Should().Be(taskId);
         activity.TaskText.Should().BeNull();
+    }
+
+    // ── Guardado de la tarea libre en el catálogo (MVP-302) ─────────────────
+
+    [Fact]
+    public async Task Create_Deberia_GuardarLaTareaLibreEnElCatalogo_Y_Referenciarla()
+    {
+        // CA-1/CA-2 — la tarea escrita a mano se guarda sin salir del flujo de actividad, y la
+        // actividad pasa a referenciarla por id en vez de arrastrar el texto suelto.
+        Activity? added = null;
+        TaskItem? addedTask = null;
+        await _activities.AddAsync(Arg.Do<Activity>(a => added = a), Arg.Any<CancellationToken>());
+        await _tasks.AddAsync(Arg.Do<TaskItem>(t => addedTask = t), Arg.Any<CancellationToken>());
+        _activities.GetViewAsync(WorkspaceId, Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(ci => ViewOf(added!));
+
+        var result = await CreateSut().HandleAsync(
+            ValidCreate(taskText: "Poda de formación") with { SaveTaskToCatalog = true });
+
+        result.TaskCatalogOutcome.Should().Be(TaskCatalogOutcome.Created);
+        addedTask.Should().NotBeNull();
+        addedTask!.Name.Should().Be("Poda de formación");
+        added!.TaskId.Should().Be(addedTask.Id);
+        added.TaskText.Should().BeNull();
+        // CA-3 — una sola unidad de trabajo: la tarea y la actividad se guardan juntas
+        await _activities.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _tasks.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Create_Deberia_ReutilizarLaTareaExistente_SinRomperLaActividad()
+    {
+        var existing = TaskItem.Create(WorkspaceId, "Poda");
+        _tasks.FindByNameAsync(
+                WorkspaceId,
+                Arg.Is<string>(n => string.Equals(n, "Poda", StringComparison.OrdinalIgnoreCase)),
+                Arg.Any<CancellationToken>())
+            .Returns(existing);
+        Activity? added = null;
+        await _activities.AddAsync(Arg.Do<Activity>(a => added = a), Arg.Any<CancellationToken>());
+        _activities.GetViewAsync(WorkspaceId, Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(ci => ViewOf(added!));
+
+        var result = await CreateSut().HandleAsync(
+            ValidCreate(taskText: "poda") with { SaveTaskToCatalog = true });
+
+        result.TaskCatalogOutcome.Should().Be(TaskCatalogOutcome.Reused);
+        added!.TaskId.Should().Be(existing.Id);
+        await _tasks.DidNotReceive().AddAsync(Arg.Any<TaskItem>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Create_Deberia_Rechazar_SiLaTareaYaVieneDelCatalogo()
+    {
+        // Pedir guardar en el catálogo algo que ya está en él no es una operación silenciosa: se dice
+        var taskId = Guid.NewGuid();
+        _tasks.FindByIdAsync(WorkspaceId, taskId, Arg.Any<CancellationToken>())
+            .Returns(TaskItem.Create(WorkspaceId, "Poda"));
+
+        var act = () => CreateSut().HandleAsync(
+            ValidCreate(taskId: taskId, taskText: null) with { SaveTaskToCatalog = true });
+
+        (await act.Should().ThrowAsync<ActivityValidationException>())
+            .Which.ErrorCode.Should().Be(ErrorCodes.ValidationActivityTaskNotFreeText);
+        await _activities.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Update_Deberia_PromocionarLaTareaDeUnaActividadYaRegistrada()
+    {
+        // CA-3 — promocionar la labor de una actividad existente sin reescribirla y sin romperla:
+        // `PATCH { save_task_to_catalog: true }` a secas.
+        var activity = Existing();
+        TaskItem? addedTask = null;
+        _activities.FindByIdAsync(WorkspaceId, activity.Id, Arg.Any<CancellationToken>()).Returns(activity);
+        await _tasks.AddAsync(Arg.Do<TaskItem>(t => addedTask = t), Arg.Any<CancellationToken>());
+        _activities.GetViewAsync(WorkspaceId, activity.Id, Arg.Any<CancellationToken>())
+            .Returns(ci => ViewOf(activity));
+
+        var result = await UpdateSut().HandleAsync(
+            UpdateCommand(activity.Id, 1) with { SaveTaskToCatalog = true });
+
+        result!.TaskCatalogOutcome.Should().Be(TaskCatalogOutcome.Created);
+        addedTask!.Name.Should().Be("Poda");
+        activity.TaskId.Should().Be(addedTask.Id);
+        activity.TaskText.Should().BeNull();
+        // El usuario hizo un solo cambio: la versión sube una sola vez
+        activity.Version.Should().Be(2);
     }
 
     // ── Borrado lógico ──────────────────────────────────────────────────────

@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Terrenario.Api.Application.Activities;
 using Terrenario.Api.Application.Activities.Commands;
+using Terrenario.Api.Application.Tasks;
 using Terrenario.Api.Common;
 using Terrenario.Api.Common.Auth;
 using Terrenario.Api.Common.Errors;
@@ -13,6 +14,7 @@ using Terrenario.Api.Common.Http;
 using Terrenario.Api.Common.Workspaces;
 using Terrenario.Api.Domain.Activities;
 using Terrenario.Api.Domain.Operations;
+using Terrenario.Api.Domain.Tasks;
 
 namespace Terrenario.Api.Controllers;
 
@@ -65,7 +67,7 @@ public sealed class ActivitiesController(
 
         return Ok(new
         {
-            data = activities.Select(ToResponse),
+            data = activities.Select(activity => ToResponse(activity)),
             meta = new { total = activities.Count }
         });
     }
@@ -80,7 +82,7 @@ public sealed class ActivitiesController(
 
         try
         {
-            var activity = await createActivityHandler.HandleAsync(
+            var result = await createActivityHandler.HandleAsync(
                 new CreateActivityCommand(
                     workspaceContext.WorkspaceId,
                     User.GetUserId()!.Value,
@@ -92,13 +94,20 @@ public sealed class ActivitiesController(
                     request.TaskText,
                     request.Hours,
                     request.ManualCost,
-                    request.Description),
+                    request.Description,
+                    request.SaveTaskToCatalog ?? false),
                 ct);
 
-            return CreatedAtAction(nameof(List), new { id = activity.Id }, ToResponse(activity));
+            return CreatedAtAction(nameof(List), new { id = result.Activity.Id }, ToResponse(result));
         }
         catch (ActivityValidationException ex)
         {
+            return BadRequest(new ApiErrorResponse(ApiError.Validation(ex.ErrorCode, ex.Message)));
+        }
+        catch (TaskValidationException ex)
+        {
+            // MVP-302 — La tarea que se promociona la valida el catálogo (MVP-205) con sus propios
+            // códigos: se dejan pasar tal cual en vez de traducirlos a un genérico de actividad.
             return BadRequest(new ApiErrorResponse(ApiError.Validation(ex.ErrorCode, ex.Message)));
         }
     }
@@ -134,7 +143,8 @@ public sealed class ActivitiesController(
                 ReadString(body, "task_text"),
                 ReadDecimal(body, "hours"),
                 ReadDecimal(body, "manual_cost"),
-                ReadString(body, "description"));
+                ReadString(body, "description"),
+                ReadFlag(body, "save_task_to_catalog"));
         }
         catch (ActivityValidationException ex)
         {
@@ -143,14 +153,18 @@ public sealed class ActivitiesController(
 
         try
         {
-            var activity = await updateActivityHandler.HandleAsync(command, ct);
+            var result = await updateActivityHandler.HandleAsync(command, ct);
 
-            if (activity is null)
+            if (result is null)
                 return NotFound(new ApiErrorResponse(ApiError.ActivityNotFound()));
 
-            return Ok(ToResponse(activity));
+            return Ok(ToResponse(result));
         }
         catch (ActivityValidationException ex)
+        {
+            return BadRequest(new ApiErrorResponse(ApiError.Validation(ex.ErrorCode, ex.Message)));
+        }
+        catch (TaskValidationException ex)
         {
             return BadRequest(new ApiErrorResponse(ApiError.Validation(ex.ErrorCode, ex.Message)));
         }
@@ -255,6 +269,19 @@ public sealed class ActivitiesController(
             ErrorCodes.ValidationRequired, $"El campo '{key}' debe ser un identificador válido o null.");
     }
 
+    /// <summary>
+    /// Bandera de acción (no es un campo del recurso, así que no es un <see cref="FieldUpdate{T}"/>):
+    /// ausente equivale a <c>false</c>. La usa <c>save_task_to_catalog</c> (MVP-302).
+    /// </summary>
+    private static bool ReadFlag(Dictionary<string, JsonElement> body, string key)
+    {
+        if (!body.TryGetValue(key, out var el)) return false;
+        if (el.ValueKind is JsonValueKind.True or JsonValueKind.False) return el.GetBoolean();
+
+        throw new ActivityValidationException(
+            ErrorCodes.ValidationRequired, $"El campo '{key}' debe ser booleano.");
+    }
+
     private static FieldUpdate<decimal> ReadDecimal(Dictionary<string, JsonElement> body, string key)
     {
         if (!body.TryGetValue(key, out var el)) return FieldUpdate<decimal>.Absent;
@@ -265,7 +292,14 @@ public sealed class ActivitiesController(
             ErrorCodes.ValidationRequired, $"El campo '{key}' debe ser numérico.");
     }
 
-    private static object ToResponse(ActivityView activity) => new
+    /// <summary>
+    /// Respuesta de alta y edición: la actividad más qué pasó en el catálogo si se pidió guardar allí
+    /// la tarea escrita a mano (MVP-302).
+    /// </summary>
+    private static object ToResponse(ActivitySaveResult result)
+        => ToResponse(result.Activity, result.TaskCatalogOutcome);
+
+    private static object ToResponse(ActivityView activity, TaskCatalogOutcome? taskCatalogOutcome = null) => new
     {
         id = activity.Id,
         workspace_id = activity.WorkspaceId,
@@ -288,7 +322,10 @@ public sealed class ActivitiesController(
         is_out_of_season_range = activity.IsOutOfSeasonRange,
         version = activity.Version,
         created_at = activity.CreatedAt,
-        updated_at = activity.UpdatedAt
+        updated_at = activity.UpdatedAt,
+        // MVP-302 — `created` / `reused` / `reactivated` cuando se pidió guardar la tarea en el
+        // catálogo; `null` en las lecturas, donde no hay ninguna acción de catálogo asociada.
+        task_catalog_outcome = taskCatalogOutcome?.ToString().ToLowerInvariant()
     };
 }
 
@@ -307,4 +344,10 @@ public sealed record CreateActivityRequest(
     [property: JsonPropertyName("task_text")] string? TaskText,
     decimal Hours,
     [property: JsonPropertyName("manual_cost")] decimal ManualCost,
-    string? Description);
+    string? Description,
+    /// <summary>
+    /// MVP-302 — Guardar además <c>task_text</c> en el catálogo del Workspace para reutilizarla
+    /// después (RN-026). Si el nombre ya existe se reutiliza —o se reactiva si estaba inactivada— en
+    /// vez de crear una segunda tarea.
+    /// </summary>
+    [property: JsonPropertyName("save_task_to_catalog")] bool? SaveTaskToCatalog);

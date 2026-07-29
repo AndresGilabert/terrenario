@@ -19,6 +19,11 @@ interface ActivityFormModalProps {
   activity: Activity | null;
   plots: Plot[];
   workers: Worker[];
+  /**
+   * Catálogo **completo** del Workspace, activas e inactivas. El selector ofrece solo las activas
+   * (MVP-205, CA-3), pero el aviso de «esta tarea ya está en tu catálogo» (MVP-302) necesita ver
+   * también las inactivadas: siguen ocupando su nombre.
+   */
   tasks: WorkTask[];
   seasons: Season[];
   activeSeason: Season | null;
@@ -73,6 +78,7 @@ export const ActivityFormModal: React.FC<ActivityFormModalProps> = ({
   const [hours, setHours] = useState('4');
   const [manualCost, setManualCost] = useState('0');
   const [description, setDescription] = useState('');
+  const [saveTaskToCatalog, setSaveTaskToCatalog] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
   // Sincroniza el formulario al abrirse: alta con los valores por defecto, edición con los actuales.
@@ -90,6 +96,8 @@ export const ActivityFormModal: React.FC<ActivityFormModalProps> = ({
     setHours(activity ? String(activity.hours) : '4');
     setManualCost(activity ? String(activity.manual_cost) : '0');
     setDescription(activity?.description ?? '');
+    // RN-026 lo plantea como una **oferta**: nunca se guarda en el catálogo sin pedirlo.
+    setSaveTaskToCatalog(false);
     setLocalError(null);
   }, [isOpen, activity, plots, workers, tasks, seasons, activeSeason]);
 
@@ -110,6 +118,28 @@ export const ActivityFormModal: React.FC<ActivityFormModalProps> = ({
     if (date < selectedSeason.start_date) return true;
     return selectedSeason.end_date !== null && date > selectedSeason.end_date;
   }, [selectedSeason, date]);
+
+  /**
+   * Opciones del selector: las tareas **activas** del catálogo (MVP-205, CA-3) más, al corregir, la
+   * que la actividad ya referencia aunque esté inactivada —si no, editar cualquier otro campo la
+   * cambiaría sin querer—.
+   */
+  const selectableTasks = useMemo(() => {
+    const active = tasks.filter((task) => task.is_active);
+    const current = activity?.task_id ? tasks.find((task) => task.id === activity.task_id) : undefined;
+    return current && !current.is_active ? [...active, current] : active;
+  }, [tasks, activity]);
+
+  /**
+   * MVP-302 — La tarea escrita ya existe en el catálogo (ignorando mayúsculas y espacios, el mismo
+   * criterio del índice único de MVP-205). Se avisa antes de guardar para que nadie crea que va a
+   * crear una tarea nueva: el servidor reutilizará —o reactivará— la que ya hay.
+   */
+  const existingCatalogTask = useMemo(() => {
+    const normalized = taskText.trim().toLowerCase();
+    if (normalized.length === 0) return null;
+    return tasks.find((task) => task.name.trim().toLowerCase() === normalized) ?? null;
+  }, [tasks, taskText]);
 
   const suggestedCost = useMemo(() => {
     const rate = selectedWorker?.hourly_rate;
@@ -156,6 +186,8 @@ export const ActivityFormModal: React.FC<ActivityFormModalProps> = ({
       hours: parsedHours,
       manual_cost: parsedCost,
       description: description.trim() || null,
+      // MVP-302 — solo tiene sentido sobre una tarea escrita a mano.
+      save_task_to_catalog: !usesCatalog && saveTaskToCatalog,
     });
   };
 
@@ -297,23 +329,51 @@ export const ActivityFormModal: React.FC<ActivityFormModalProps> = ({
               disabled={isSubmitting}
               className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
             >
-              {tasks.map((task) => (
-                <option key={task.id} value={task.id}>{task.name}</option>
+              {selectableTasks.map((task) => (
+                <option key={task.id} value={task.id}>
+                  {task.name}
+                  {task.is_active ? '' : ' (inactiva)'}
+                </option>
               ))}
               <option value={FREE_TEXT_TASK}>Otra (escribirla)</option>
             </select>
 
             {taskChoice === FREE_TEXT_TASK && (
-              <input
-                type="text"
-                aria-label="Escribe la tarea"
-                maxLength={ACTIVITY_TASK_TEXT_MAX_LENGTH}
-                value={taskText}
-                onChange={(e) => setTaskText(e.target.value)}
-                placeholder="ej. Poda de formación, tratamiento fitosanitario"
-                disabled={isSubmitting}
-                className="w-full px-3.5 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
-              />
+              <>
+                <input
+                  type="text"
+                  aria-label="Escribe la tarea"
+                  maxLength={ACTIVITY_TASK_TEXT_MAX_LENGTH}
+                  value={taskText}
+                  onChange={(e) => setTaskText(e.target.value)}
+                  placeholder="ej. Poda de formación, tratamiento fitosanitario"
+                  disabled={isSubmitting}
+                  className="w-full px-3.5 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
+                />
+
+                {/* MVP-302 — la oferta de guardar la labor en el catálogo, para no reescribirla la
+                    próxima vez (RN-026, HU-1). Va aquí, en el propio flujo de captura, para no
+                    obligar a salir del contexto de trabajo (CA-1). */}
+                <label className="flex items-start gap-2 pt-1 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={saveTaskToCatalog}
+                    onChange={(e) => setSaveTaskToCatalog(e.target.checked)}
+                    disabled={isSubmitting || taskText.trim().length === 0}
+                    className="mt-0.5 accent-[#33450d] disabled:opacity-60"
+                  />
+                  <span className="text-xs text-[#45483c]">
+                    Guardar esta tarea en el catálogo del Workspace
+                    <span className="block text-[11px] text-[#76786b]">
+                      {existingCatalogTask
+                        ? existingCatalogTask.is_active
+                          ? `Ya está en tu catálogo: se reutilizará «${existingCatalogTask.name}» en vez de crear otra.`
+                          : `Está en tu catálogo pero inactivada: se reactivará «${existingCatalogTask.name}».`
+                        : 'Así podrás elegirla del desplegable la próxima vez.'}
+                    </span>
+                  </span>
+                </label>
+              </>
             )}
           </div>
 

@@ -60,6 +60,10 @@ public sealed record ApiError(string Code, string Message)
     public static ApiError ConsumptionNotFound() =>
         new(ErrorCodes.ResourceNotFound, "El consumo no existe en tu Workspace activo.");
 
+    /// <summary>MVP-401 — Cubre también la cosecha ya eliminada (RN-037).</summary>
+    public static ApiError HarvestNotFound() =>
+        new(ErrorCodes.ResourceNotFound, "La cosecha no existe en tu Workspace activo.");
+
     /// <summary>ADR-0005 — <c>PATCH</c>/<c>DELETE</c> de un registro operativo sin <c>If-Match</c>.</summary>
     public static ApiError IfMatchRequired() =>
         new(ErrorCodes.ValidationRequiredIfMatch,

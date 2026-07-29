@@ -62,14 +62,14 @@ y se mantienen en español.
 |---|---|
 | `plot_ownership_type` | `propia`, `cedida` |
 | `harvest_destination` | `venta_aceituna`, `aceite_para_venta`, `aceite_personal`, `desconocido` |
-| `harvest_product` | catálogo global fijo gobernado por sistema |
+| `harvest_product` | `aceituna_olivar` — catálogo global fijo gobernado por sistema (`MVP-401`). Un solo valor en el MVP: la **variedad** pertenece al terreno y el **producto** debería vivir a nivel de Workspace modulando el cálculo de rendimiento; ambas cosas son ampliación posterior (`MVP-999`, `P-059`/`P-060`) |
 | `season_status` | `planificada`, `activa`, `cerrada` |
 | `worker_member_status` | `invitado`, `activo`, `revocado` |
 | `worker_kind` | `member`, `crew` (identificador de clase de responsable; derivado de `user_account_id`) |
 | `invitation_channel` | `email`, `enlace` |
 | `invitation_status` | `pendiente`, `aceptada`, `rechazada`, `anulada` |
 | `reactivation_request_status` | `pendiente`, `solicitada`, `autorizada`, `denegada`, `cerrada` |
-| `diary_entry_type` (MVP-305) | `actividad`, `compra`, `consumo` · `cosecha` reservado para `MVP-401` |
+| `diary_entry_type` (MVP-305) | `actividad`, `compra`, `consumo`, `cosecha` (los cuatro vivos desde `MVP-401`) |
 
 ---
 
@@ -510,7 +510,7 @@ Reglas de contexto (MVP-301):
 > el registro desaparece del diario, de los listados y del dashboard, pero no se borra físicamente, y
 > la UI exige confirmación explícita antes de invocarlo. No hay papelera ni restauración en el MVP.
 > Alcance de implementación: `MVP-301`/`MVP-303`/`MVP-304` para actividades, compras e imputaciones, y
-> `MVP-401` para cosechas.
+> `MVP-401` para cosechas —**las cuatro implementadas**—.
 
 ### 5.b) Diary (diario cronológico unificado, MVP-305)
 
@@ -522,29 +522,31 @@ Es **la vista principal del MVP** (RN-033) y es de **solo lectura**: cada regist
 elimina por el recurso al que pertenece (`/activities`, `/purchases`, `/consumptions`), que es donde
 viven sus reglas. El diario únicamente agrega.
 
-La entrada del diario es una **proyección común** de las tres entidades operativas:
+La entrada del diario es una **proyección común** de las cuatro entidades operativas:
 `{ type, id, date, title, description, plot_id, plot_name, season_id, season_name, cost, version,
-is_out_of_season_range, created_at, worker_name, hours, task_id, quantity, has_purchase }`. Los
-campos específicos de un tipo llegan a `null` en los demás.
+is_out_of_season_range, created_at, worker_name, hours, task_id, quantity, has_purchase, kgs,
+destination }`. Los campos específicos de un tipo llegan a `null` en los demás.
 
 | Campo | Por qué está |
 |---|---|
 | `version` | Permite eliminar desde el diario con `If-Match` (ADR-0005) sin abrir antes el registro |
 | `task_id` | Solo en actividades: `null` ⇒ tarea escrita a mano, lo que permite ofrecer guardarla en el catálogo (MVP-302) |
 | `has_purchase` | Solo en consumos: `false` ⇒ el coste es desconocido, no cero (RN-032) |
+| `kgs` / `destination` | Solo en cosechas (MVP-401). Van aparte de `quantity` porque no son la misma magnitud: una cosecha se lee en kilos y la tarjeta la rotula distinto |
 
 `meta` es
-`{ total, total_cost, imputed_cost, activities, purchases, consumptions, consumptions_without_purchase }`:
+`{ total, total_cost, imputed_cost, activities, purchases, consumptions, consumptions_without_purchase, harvests, total_kg }`:
 
 | Campo de `meta` | Qué mide |
 |---|---|
 | `total_cost` | **Gasto real** de lo que se está viendo: labores + compras + consumos **sin compra**. **No** incluye las imputaciones: reparten dinero que la compra ya aportó, así que sumarlas contaría el mismo gasto dos veces (`MVP-399`, hallazgo `R-01`). Es el criterio que debe heredar el dashboard de `MVP-004` |
 | `imputed_cost` | Lo repartido por terrenos: **desglose** de `total_cost`, no gasto añadido |
 | `consumptions_without_purchase` | Consumos sin compra previa. Su coste consta como `0` porque se desconoce (RN-032), así que el gasto real fue algo mayor; la UI lo advierte (CA-3 de `MVP-003`) |
+| `harvests` / `total_kg` | Cosechas y kilos recolectados de lo filtrado (MVP-401). La cosecha **no aporta gasto** (RN-029), así que se resume por kilos: es su magnitud |
 
 | Catálogo | Valores permitidos |
 |---|---|
-| `diary_entry_type` | `actividad`, `compra`, `consumo` · `cosecha` **reservado** para `MVP-401` |
+| `diary_entry_type` | `actividad`, `compra`, `consumo`, `cosecha` (los cuatro vivos desde `MVP-401`) |
 
 Reglas de contexto:
 
@@ -552,8 +554,9 @@ Reglas de contexto:
 |---|---|
 | Orden | Fecha de **negocio** descendente (RN-033) y, a igualdad, fecha de captura descendente |
 | Filtro `type` | Ahorra trabajo, no solo oculta: los tipos no pedidos ni se consultan |
-| Filtro `plot_id` | Deja fuera las **compras** por definición: una compra es del Workspace y solo se reparte por terrenos al imputarla (MVP-304). El cliente lo explica para que no parezca un fallo |
-| `type=cosecha` | Responde `400` hasta que `MVP-401` encienda `HARVEST` (hallazgo `G-4`) |
+| Filtro `plot_id` | Deja fuera las **compras** por definición: una compra es del Workspace y solo se reparte por terrenos al imputarla (MVP-304). El cliente lo explica para que no parezca un fallo. Las **cosechas sí se conservan**: una cosecha es de un terreno (RN-001) |
+| `type=cosecha` | Vivo desde `MVP-401`, que es quien crea `HARVEST` (hallazgo `G-4`). Con los cuatro tipos, `RN-033` queda cumplida entera |
+| `cost` de una cosecha | Siempre `0`: la cosecha **no tiene coste** (RN-029, que deja fuera precio, molturación y balance). No es «gratis» ni «desconocido»: la magnitud no aplica, y por eso la tarjeta muestra kilos donde las demás muestran dinero |
 | Sin paginación | Igual que el resto de listados del MVP (`MVP-999`, `P-051`) |
 
 ### 6) Harvests (cosechas)
@@ -563,7 +566,15 @@ Reglas de contexto:
 | Alta cosecha | `POST /api/v1/harvests` | `date*`, `plot_id*`, `season_id*`, `product*`, `kgs*`, `destination*`, `yield?`, `liters?` | `201 { id, version, ...harvest }` |
 | Editar cosecha | `PATCH /api/v1/harvests/{harvestId}` | campos parciales · `If-Match: <version>` | `200 { ...harvest }` |
 | Eliminar cosecha | `DELETE /api/v1/harvests/{harvestId}` | `If-Match: <version>` | `204` |
-| Listado cosechas | `GET /api/v1/harvests` | `from?`, `to?`, `plot_id?`, `season_id?`, `destination?` | `200 { data, meta }` |
+| Listado cosechas | `GET /api/v1/harvests` | `from?`, `to?`, `plot_id?`, `season_id?`, `destination?` | `200 { data, meta: { total, total_kg } }` |
+| Una cosecha (MVP-401) | `GET /api/v1/harvests/{harvestId}` | — | `200 { ...harvest }` |
+
+La representación de una cosecha es
+`{ id, workspace_id, date, plot_id, plot_name, season_id, season_name, product, kgs, yield, liters,
+destination, is_out_of_season_range, version, created_at, updated_at }` (MVP-401). `plot_name` y
+`season_name` llegan resueltos y `is_out_of_season_range` es el mismo aviso derivado de RN-023 que en
+la actividad y la compra. `meta.total_kg` del listado son los **kilos acumulados de lo filtrado**,
+calculados en servidor, con el mismo criterio que `meta.total_cost` en compras.
 
 Validaciones clave:
 
@@ -572,12 +583,30 @@ Validaciones clave:
 | `product` obligatorio y dentro de catálogo cerrado | `VALIDATION_PRODUCT_INVALID` |
 | `kgs` obligatorio y > 0 | `VALIDATION_HARVEST_KGS_REQUIRED` |
 | `yield` y `liters` no pueden coexistir | `VALIDATION_HARVEST_XOR_YIELD_LITERS` |
+| `yield` fuera de rango (0 < `yield` ≤ 100 L/100kg) o `liters` ≤ 0 | `VALIDATION_HARVEST_YIELD_RANGE` / `VALIDATION_HARVEST_LITERS_RANGE` (400) |
 | destino en catálogo cerrado | `VALIDATION_DESTINATION_INVALID` |
+| Terreno o temporada ausentes | `VALIDATION_HARVEST_REQUIRED_FIELDS` (400) |
+| Terreno o temporada de otro Workspace | `FOREIGN_KEY_WORKSPACE_MISMATCH` (400) |
+| `PATCH`/`DELETE` sin cabecera `If-Match` (ADR-0005) | `VALIDATION_REQUIRED_IF_MATCH` (400) |
+| Cosecha inexistente, de otro Workspace o ya eliminada | `RESOURCE_NOT_FOUND` (404) |
 | Edición o borrado con versión desfasada (ADR-0005) | `CONFLICT_VERSION_MISMATCH` (409) |
 
+Reglas de contexto (MVP-401):
+
+| Regla | Comportamiento |
+|---|---|
+| Par `yield`/`liters` en el `PATCH` | Si viene **cualquiera** de los dos se sustituye la pareja completa y el ausente pasa a nulo. Enviar solo `liters` sobre una cosecha con `yield` dejaría los dos informados y el dominio lo rechazaría: es el mismo criterio que el par tarea de la actividad (§5) |
+| Retirar el dato de aceite | `yield: null` o `liters: null` explícitos lo dejan sin informar, que es un estado válido (RN-004: los dos son opcionales) |
+| Fecha fuera de rango (RN-023) | Nunca bloquea el guardado: se responde `201`/`200` con `is_out_of_season_range: true` |
+| Maestros inactivos | Siguen siendo referenciables, igual que en actividades: inactivar deja de ofrecer, no invalida el histórico |
+| Orden del listado | Fecha de negocio descendente (RN-033) y, a igualdad de fecha, fecha de captura descendente. Sin paginación en el MVP (`MVP-999`, `P-051`) |
+| Filtro `destination` | Comparación **exacta**: es un catálogo cerrado (RN-012), no texto libre como el material de compra (RN-031) |
+| Precisión | `kgs` y `liters` se redondean a 2 decimales y `yield` a 4, para que lo leído coincida con lo escrito |
+| Catálogos cerrados validados en servidor | Alcance de `MVP-402`. `MVP-401` exige producto y destino no vacíos y acotados, y la UI ofrece solo los valores canónicos |
+
 La cosecha se registra por fecha, así que **también entra en el diario cronológico** de `MVP-305`
-(RN-033), que hasta `MVP-004` solo puede mostrar actividades, compras y consumos. Encenderla en el
-diario es alcance de `MVP-401`.
+(RN-033). La enciende `MVP-401`, que es quien crea `HARVEST`: con los cuatro tipos vivos, RN-033 queda
+cumplida entera (hallazgo `G-4`).
 
 ### 7) Purchases (compras)
 
@@ -707,7 +736,8 @@ Los endpoints de sincronización se definirán en una versión posterior cuando 
 }
 ```
 
-Regla: `yield` y `liters` son opcionales, pero no se permite informar ambos a la vez.
+Regla: `yield` y `liters` son opcionales, pero no se permite informar ambos a la vez. `yield` va en la
+unidad canónica L/100kg (RN-013).
 
 ### `ActivityCreateRequest`
 

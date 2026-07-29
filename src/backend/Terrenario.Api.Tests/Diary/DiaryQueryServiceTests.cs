@@ -3,20 +3,22 @@ using NSubstitute;
 using Terrenario.Api.Application.Diary;
 using Terrenario.Api.Domain.Activities;
 using Terrenario.Api.Domain.Consumptions;
+using Terrenario.Api.Domain.Harvests;
 using Terrenario.Api.Domain.Purchases;
 
 namespace Terrenario.Api.Tests.Diary;
 
 /// <summary>
-/// Tests del diario unificado (MVP-305): que mezcla los tres tipos, que ordena por **fecha de
-/// negocio** y no por la de captura (RN-033), y que filtrar por tipo o por terreno consulta solo lo
-/// que corresponde en vez de traerlo todo y esconderlo después.
+/// Tests del diario unificado (MVP-305 + MVP-401): que mezcla los **cuatro** tipos, que ordena por
+/// **fecha de negocio** y no por la de captura (RN-033), y que filtrar por tipo o por terreno consulta
+/// solo lo que corresponde en vez de traerlo todo y esconderlo después.
 /// </summary>
 public class DiaryQueryServiceTests
 {
     private readonly IActivityRepository _activities = Substitute.For<IActivityRepository>();
     private readonly IPurchaseRepository _purchases = Substitute.For<IPurchaseRepository>();
     private readonly IConsumptionRepository _consumptions = Substitute.For<IConsumptionRepository>();
+    private readonly IHarvestRepository _harvests = Substitute.For<IHarvestRepository>();
 
     private static readonly Guid WorkspaceId = Guid.NewGuid();
     private static readonly Guid PlotId = Guid.NewGuid();
@@ -24,7 +26,7 @@ public class DiaryQueryServiceTests
     private static readonly DateOnly SeasonStart = new(2026, 9, 1);
     private static readonly DateOnly SeasonEnd = new(2027, 2, 28);
 
-    private DiaryQueryService CreateSut() => new(_activities, _purchases, _consumptions);
+    private DiaryQueryService CreateSut() => new(_activities, _purchases, _consumptions, _harvests);
 
     private static ActivityView Activity(DateOnly date, DateTimeOffset createdAt, string task = "Poda")
         => new(Guid.NewGuid(), WorkspaceId, PlotId, "Olivar Alto", SeasonId, "2026/2027",
@@ -41,10 +43,21 @@ public class DiaryQueryServiceTests
             SeasonStart, SeasonEnd, date, "Abono NPK", 20m, purchaseId is null ? 0m : 0.5m,
             purchaseId is null ? 0m : 10m, 1, createdAt, createdAt);
 
+    /// <summary>MVP-401 — La cosecha no lleva coste (RN-029): su magnitud son los kilos.</summary>
+    private static HarvestView Harvest(
+        DateOnly date,
+        DateTimeOffset createdAt,
+        decimal kgs = 1200m,
+        string destination = "aceite_para_venta")
+        => new(Guid.NewGuid(), WorkspaceId, PlotId, "Olivar Alto", SeasonId, "2026/2027",
+            SeasonStart, SeasonEnd, date, "aceituna_olivar", kgs, 18.5m, null, destination,
+            1, createdAt, createdAt);
+
     private void Seed(
         IReadOnlyList<ActivityView>? activities = null,
         IReadOnlyList<PurchaseView>? purchases = null,
-        IReadOnlyList<ConsumptionView>? consumptions = null)
+        IReadOnlyList<ConsumptionView>? consumptions = null,
+        IReadOnlyList<HarvestView>? harvests = null)
     {
         _activities.ListAsync(WorkspaceId, Arg.Any<ActivityFilter>(), Arg.Any<CancellationToken>())
             .Returns(activities ?? []);
@@ -52,6 +65,8 @@ public class DiaryQueryServiceTests
             .Returns(purchases ?? []);
         _consumptions.ListAsync(WorkspaceId, Arg.Any<ConsumptionFilter>(), Arg.Any<CancellationToken>())
             .Returns(consumptions ?? []);
+        _harvests.ListAsync(WorkspaceId, Arg.Any<HarvestFilter>(), Arg.Any<CancellationToken>())
+            .Returns(harvests ?? []);
     }
 
     [Fact]
@@ -151,6 +166,8 @@ public class DiaryQueryServiceTests
             Arg.Any<Guid>(), Arg.Any<PurchaseFilter>(), Arg.Any<CancellationToken>());
         await _consumptions.DidNotReceive().ListAsync(
             Arg.Any<Guid>(), Arg.Any<ConsumptionFilter>(), Arg.Any<CancellationToken>());
+        await _harvests.DidNotReceive().ListAsync(
+            Arg.Any<Guid>(), Arg.Any<HarvestFilter>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -169,7 +186,7 @@ public class DiaryQueryServiceTests
     }
 
     [Fact]
-    public async Task Deberia_PropagarLosFiltros_ALosTresPuertos()
+    public async Task Deberia_PropagarLosFiltros_ALosCuatroPuertos()
     {
         Seed();
         var from = new DateOnly(2026, 10, 1);
@@ -188,6 +205,10 @@ public class DiaryQueryServiceTests
         await _consumptions.Received(1).ListAsync(
             WorkspaceId,
             Arg.Is<ConsumptionFilter>(f => f.From == from && f.To == to && f.SeasonId == SeasonId),
+            Arg.Any<CancellationToken>());
+        await _harvests.Received(1).ListAsync(
+            WorkspaceId,
+            Arg.Is<HarvestFilter>(f => f.From == from && f.To == to && f.SeasonId == SeasonId),
             Arg.Any<CancellationToken>());
     }
 
@@ -222,10 +243,75 @@ public class DiaryQueryServiceTests
     }
 
     [Fact]
-    public void DiaryEntryTypes_NoDeberia_AdmitirTodavia_LaCosecha()
+    public void DiaryEntryTypes_Deberia_AdmitirLosCuatroTipos()
     {
-        // G-4 — HARVEST no existe hasta MVP-004; el valor está reservado pero no se emite
-        DiaryEntryTypes.IsSupported(DiaryEntryTypes.Harvest).Should().BeFalse();
-        DiaryEntryTypes.Supported.Should().BeEquivalentTo(["actividad", "compra", "consumo"]);
+        // G-4 — MVP-401 enciende la cosecha: con los cuatro valores vivos, RN-033 queda completa
+        DiaryEntryTypes.IsSupported(DiaryEntryTypes.Harvest).Should().BeTrue();
+        DiaryEntryTypes.Supported.Should().BeEquivalentTo(
+            ["actividad", "compra", "consumo", "cosecha"]);
+    }
+
+    [Fact]
+    public async Task Deberia_MezclarLaCosecha_ConElRestoDeTipos()
+    {
+        // G-4 / RN-033 — la cosecha entra en el muro por su fecha de negocio, como una más
+        var captura = DateTimeOffset.UtcNow;
+        Seed(
+            activities: [Activity(new DateOnly(2026, 10, 15), captura)],
+            purchases: [Purchase(new DateOnly(2026, 10, 1), captura)],
+            consumptions: [Consumption(new DateOnly(2026, 10, 5), captura)],
+            harvests: [Harvest(new DateOnly(2026, 10, 20), captura)]);
+
+        var result = await CreateSut().HandleAsync(WorkspaceId, new DiaryFilter());
+
+        result.Entries.Select(e => e.Type).Should().ContainInOrder(
+            DiaryEntryTypes.Harvest, DiaryEntryTypes.Activity,
+            DiaryEntryTypes.Consumption, DiaryEntryTypes.Purchase);
+        result.Entries.Select(e => e.Date).Should().BeInDescendingOrder();
+    }
+
+    [Fact]
+    public async Task Deberia_ProyectarLaCosecha_ConKilosYDestino_YSinCoste()
+    {
+        // RN-029 — una cosecha no tiene coste: la magnitud que la explica son los kilos
+        Seed(harvests: [Harvest(new DateOnly(2026, 10, 20), DateTimeOffset.UtcNow, 1200m)]);
+
+        var result = await CreateSut().HandleAsync(WorkspaceId, new DiaryFilter());
+
+        var cosecha = result.Entries.Single(e => e.Type == DiaryEntryTypes.Harvest);
+        cosecha.Kgs.Should().Be(1200m);
+        cosecha.Destination.Should().Be("aceite_para_venta");
+        cosecha.PlotName.Should().Be("Olivar Alto");
+        cosecha.Cost.Should().Be(0m);
+        cosecha.Quantity.Should().BeNull();
+        cosecha.HasPurchase.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task NoDeberia_AlterarElGasto_AlAnadirCosechas()
+    {
+        // La cosecha entra en el muro sin tocar la cifra de gasto: no aporta dinero (RN-029)
+        var captura = DateTimeOffset.UtcNow;
+        Seed(
+            activities: [Activity(new DateOnly(2026, 10, 15), captura)],
+            harvests: [Harvest(new DateOnly(2026, 10, 20), captura, 1200m)]);
+
+        var result = await CreateSut().HandleAsync(WorkspaceId, new DiaryFilter());
+
+        result.TotalCost.Should().Be(70m);
+        result.TotalHarvests.Should().Be(1);
+        result.TotalKg.Should().Be(1200m);
+    }
+
+    [Fact]
+    public async Task Deberia_ConservarLasCosechas_AlFiltrarPorTerreno()
+    {
+        // A diferencia de la compra, la cosecha **sí** es de un terreno (RN-001): el filtro la conserva
+        Seed();
+
+        await CreateSut().HandleAsync(WorkspaceId, new DiaryFilter(PlotId: PlotId));
+
+        await _harvests.Received(1).ListAsync(
+            WorkspaceId, Arg.Is<HarvestFilter>(f => f.PlotId == PlotId), Arg.Any<CancellationToken>());
     }
 }

@@ -62,6 +62,11 @@ public static class ErrorCodes
     /// viene del catálogo: no hay nada que guardar. Se responde en vez de ignorarlo en silencio.
     /// </summary>
     public const string ValidationActivityTaskNotFreeText = "VALIDATION_ACTIVITY_TASK_NOT_FREE_TEXT";
+    // Compras (MVP-303)
+    public const string ValidationPurchaseRequiredFields = "VALIDATION_PURCHASE_REQUIRED_FIELDS";
+    public const string ValidationPurchaseRequiredProduct = "VALIDATION_PURCHASE_REQUIRED_PRODUCT";
+    public const string ValidationPurchaseProductLength = "VALIDATION_PURCHASE_PRODUCT_LENGTH";
+    public const string ValidationPurchaseTotalsRange = "VALIDATION_PURCHASE_TOTALS_RANGE";
     /// <summary>
     /// Registros operativos (ADR-0005): <c>PATCH</c>/<c>DELETE</c> exigen <c>If-Match</c> con la
     /// versión vigente. Sin cabecera no hay control de concurrencia posible, así que la petición se

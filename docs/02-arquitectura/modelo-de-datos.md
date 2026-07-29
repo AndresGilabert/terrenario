@@ -444,11 +444,19 @@ de EF, siguiendo la misma decision que `IWorkspaceRepository` en MVP-206.
 
 | Campo | Tipo | Obligatorio | Descripcion |
 |-------|------|-------------|-------------|
-| `season_id` | uuid FK | Si | Temporada a la que se imputa la compra (RN-021). **Añadido en la 3a pasada de MVP-299** (`P-050`): `contratos-api.md` ya lo exigia como `season_id*` y el ER no lo declaraba. Lo materializa MVP-303 |
-| `total_quantity` | decimal(10,2) | Si | Cantidad total comprada |
-| `total_cost` | decimal(10,2) | Si | Coste total pagado |
-| `unit_price` | decimal(10,4) | Si | Derivado de `total_cost / total_quantity` y persistido para trazabilidad |
-| `product` | string | Si | Material comprado, en **texto libre** (RN-031). No hay catalogo cerrado: la UI sugiere valores del historico del Workspace |
+| `season_id` | uuid FK | Si | Temporada a la que se imputa la compra (RN-021). **Añadido en la 3a pasada de MVP-299** (`P-050`) y **materializado en MVP-303**: `contratos-api.md` ya lo exigia como `season_id*` y el ER no lo declaraba. FK `ON DELETE RESTRICT`: las temporadas se cierran, no se borran |
+| `purchase_date` | date | Si | Fecha de negocio de la compra. Es la que ordena el libro y el diario (RN-033), distinta de `created_at` |
+| `total_quantity` | decimal(10,2) | Si | Cantidad total comprada. Estrictamente `> 0` |
+| `total_cost` | decimal(10,2) | Si | Coste total pagado. Estrictamente `> 0` |
+| `unit_price` | decimal(10,4) | Si | Derivado de `total_cost / total_quantity` y **persistido** para trazabilidad. Es la base del coste proporcional de las imputaciones (MVP-304) y lo que permite explicar una imputacion antigua aunque la compra se edite despues (RN-032, «no se recalculan historicos») |
+| `product` | string(150) | Si | Material comprado, en **texto libre** (RN-031). No hay catalogo cerrado ni normalizacion: la UI sugiere valores del historico del Workspace (`GET /purchases/products`), pero «Abono NPK» y «abono npk» conviven |
+| `version` | bigint | Si | Control de concurrencia optimista para `If-Match` (ADR-0005) |
+| `deleted_at` | timestamptz (nullable) | No | Marca de eliminacion logica (RN-037). Lo eliminado sale del libro, del gasto acumulado y de las sugerencias, pero la fila permanece |
+
+Restricciones: indice **parcial** `ix_purchases_live_by_date` sobre `(workspace_id, purchase_date)`
+filtrado por `deleted_at IS NULL` —igual que en `ACTIVITY`— e indices de apoyo
+`(workspace_id, season_id)` para el filtro por campaña y `(workspace_id, product)` para la agrupacion
+de sugerencias. El filtro de baja logica vive en el **puerto** `IPurchaseRepository`.
 
 ### PURCHASE_CONSUMPTION
 
@@ -464,9 +472,17 @@ de EF, siguiendo la misma decision que `IWorkspaceRepository` en MVP-206.
 > Los cuatro campos anteriores (`purchase_id` anulable, `date`, `season_id`, `product`) y
 > `proportional_cost` se anadieron en la **3a pasada de MVP-299** (hallazgos `G-2` y `G-3`): el ER
 > declaraba la imputacion como una fila colgada obligatoriamente de una compra y sin fecha propia, lo
-> que hacia irrealizables el CA-3 de la epica MVP-003 y el diario cronologico de MVP-305. El
-> **mecanismo** (columna anulable sobre esta entidad frente a entidad de consumo propia) lo cierra el
-> `tech-design` de **MVP-304**; lo que queda fijado aqui son los requisitos que debe cumplir.
+> que hacia irrealizables el CA-3 de la epica MVP-003 y el diario cronologico de MVP-305.
+>
+> **Mecanismo decidido en MVP-303** (el spec de esa historia exigia cerrarlo *antes* de fijar el
+> modelo de compras): se adopta la **columna `purchase_id` anulable sobre esta misma entidad**, y no
+> una entidad de consumo propia. Una imputacion y un consumo sin compra son el **mismo hecho** —«se
+> han consumido X unidades de Y en el terreno Z el dia D, con coste C»—; lo unico que cambia es de
+> donde sale el coste, y separarlos obligaria al diario (MVP-305) y al dashboard (MVP-004) a unir dos
+> tablas con las mismas columnas. Consecuencias: `PURCHASE.unit_price` se persiste (base del coste
+> proporcional) y el consumo guarda **siempre** su propio `product`, copiado de la compra al imputar,
+> de modo que la fila es autoexplicativa y editar la compra despues no reescribe lo ya consumido
+> (RN-032).
 
 ---
 
@@ -509,7 +525,8 @@ de EF, siguiendo la misma decision que `IWorkspaceRepository` en MVP-206.
 | `PLOT` | implementada | MVP-202 (alta minima RN-028, `is_active`; `location` en vez de coordenadas; `soil_metadata` diferido) |
 | `WORKER` | implementada | MVP-204 (alta minima `name`, `hourly_rate` de referencia, `is_active`); MVP-208 materializa `user_account_id`: el maestro pasa a ser el de responsables (miembros + cuadrilla) y cierra `P-034` |
 | `ACTIVITY` | implementada | MVP-301 (`task_id`/`task_text` excluyentes cierran `P-028`; estrena `version` + `If-Match` de ADR-0005 y la baja logica `deleted_at` de RN-037) |
-| `PURCHASE`, `PURCHASE_CONSUMPTION` | pendiente | MVP-303 / MVP-304 |
+| `PURCHASE` | implementada | MVP-303 (`season_id` cierra `P-050`; `unit_price` persistido como base del coste proporcional de MVP-304) |
+| `PURCHASE_CONSUMPTION` | pendiente | MVP-304. **Mecanismo ya decidido en MVP-303**: `purchase_id` anulable sobre esta entidad, no una entidad de consumo propia (ver mas abajo) |
 | `HARVEST` | pendiente | MVP-004 |
 
 ---

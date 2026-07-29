@@ -19,7 +19,17 @@ public sealed record DiaryResult(
     int TotalActivities,
     int TotalPurchases,
     int TotalConsumptions,
+    /// <summary>
+    /// Dinero realmente gastado en lo que se está viendo: labores + compras + consumos **sin compra
+    /// previa**. Las imputaciones quedan fuera a propósito (hallazgo <c>R-01</c> de <c>MVP-399</c>):
+    /// reparten dinero que la compra ya aportó, así que sumarlas contaría el mismo gasto dos veces.
+    /// </summary>
     decimal TotalCost,
+    /// <summary>
+    /// Lo repartido por terrenos, aparte. No es gasto nuevo: es el desglose de <c>TotalCost</c> que ya
+    /// tiene destino conocido. Se publica para que el reparto siga siendo visible sin inflar el total.
+    /// </summary>
+    decimal ImputedCost,
     /// <summary>Consumos sin compra previa: el impacto en la calidad del dato queda visible (CA-3 de la épica).</summary>
     int ConsumptionsWithoutPurchase);
 
@@ -84,12 +94,21 @@ public sealed class DiaryQueryService(
             .ThenByDescending(entry => entry.CreatedAt)
             .ToList();
 
+        // R-01 (MVP-399) — una imputación no es gasto nuevo: reparte por terrenos dinero que la
+        // compra ya aportó al total. Sumarla contaría el mismo dinero dos veces, y era la cifra de
+        // cabecera de la vista principal. `HasPurchase` solo es `true` en las imputaciones: en
+        // labores y compras es nulo, y en un consumo sin compra —que sí es gasto real, aunque hoy
+        // valga 0 por RN-032— es `false`.
+        var spentCost = entries.Where(entry => entry.HasPurchase != true).Sum(entry => entry.Cost);
+        var imputedCost = entries.Where(entry => entry.HasPurchase == true).Sum(entry => entry.Cost);
+
         return new DiaryResult(
             entries,
             activities.Count,
             purchases.Count,
             consumptions.Count,
-            entries.Sum(entry => entry.Cost),
+            spentCost,
+            imputedCost,
             consumptions.Count(consumption => !consumption.HasPurchase));
     }
 

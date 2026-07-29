@@ -62,7 +62,11 @@ public sealed class DiaryController(
             meta = new
             {
                 total = result.Entries.Count,
+                // Gasto real de lo que se está viendo. **No** incluye las imputaciones: reparten
+                // dinero que la compra ya aportó (MVP-399, `R-01`).
                 total_cost = result.TotalCost,
+                // Lo repartido por terrenos, aparte: desglose de `total_cost`, no gasto añadido.
+                imputed_cost = result.ImputedCost,
                 activities = result.TotalActivities,
                 purchases = result.TotalPurchases,
                 consumptions = result.TotalConsumptions,

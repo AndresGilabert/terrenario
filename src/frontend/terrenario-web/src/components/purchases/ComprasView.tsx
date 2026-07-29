@@ -120,6 +120,8 @@ export const ComprasView: React.FC = () => {
         purchaseService.listProductSuggestions(),
         consumptionService.listConsumptions({
           seasonId: seasonFilter === 'todas' ? undefined : seasonFilter,
+          // R-06 (MVP-399) — el buscador de material filtraba las compras pero no los consumos.
+          product: productFilter.trim() || undefined,
         }),
         // Solo los activos: es lo que se ofrece para registros nuevos (MVP-202, CA-3).
         plotService.listPlots({ isActive: true }),

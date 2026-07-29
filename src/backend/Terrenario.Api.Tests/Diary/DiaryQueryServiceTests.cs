@@ -104,9 +104,36 @@ public class DiaryQueryServiceTests
         result.TotalActivities.Should().Be(1);
         result.TotalPurchases.Should().Be(1);
         result.TotalConsumptions.Should().Be(2);
-        result.TotalCost.Should().Be(330m); // 70 actividad + 250 compra + 10 imputación + 0 sin compra
+        // R-01 (MVP-399) — el gasto **no** suma la imputación: sus 10 € ya están dentro de los 250 €
+        // de la compra, así que contarlos sería contar el mismo dinero dos veces.
+        result.TotalCost.Should().Be(320m); // 70 actividad + 250 compra + 0 consumo sin compra
+        result.ImputedCost.Should().Be(10m);
         // RN-032 — el impacto en la calidad del dato queda visible
         result.ConsumptionsWithoutPurchase.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task NoDeberia_ContarDosVeces_ElDineroDeUnaCompraYaRepartida()
+    {
+        // R-01 (MVP-399) — el hallazgo tal cual: una compra de 250 € repartida entera entre dos
+        // terrenos son 250 € de gasto, no 500. La imputación no es gasto nuevo.
+        var captura = DateTimeOffset.UtcNow;
+        var purchaseId = Guid.NewGuid();
+        Seed(
+            purchases: [Purchase(new DateOnly(2026, 10, 1), captura)],
+            consumptions:
+            [
+                Consumption(new DateOnly(2026, 10, 5), captura, purchaseId),
+                Consumption(new DateOnly(2026, 10, 6), captura, purchaseId)
+            ]);
+
+        var result = await CreateSut().HandleAsync(WorkspaceId, new DiaryFilter());
+
+        result.TotalCost.Should().Be(250m);
+        result.ImputedCost.Should().Be(20m);
+        // Las tarjetas siguen mostrando su coste proporcional: lo que cambia es el resumen.
+        result.Entries.Where(e => e.Type == DiaryEntryTypes.Consumption)
+            .Should().OnlyContain(e => e.Cost == 10m);
     }
 
     [Fact]

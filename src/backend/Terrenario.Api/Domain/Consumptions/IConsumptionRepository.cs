@@ -61,7 +61,13 @@ public sealed record ConsumptionFilter(
     DateOnly? To = null,
     Guid? PlotId = null,
     Guid? SeasonId = null,
-    Guid? PurchaseId = null);
+    Guid? PurchaseId = null,
+    /// <summary>
+    /// Búsqueda parcial e insensible a mayúsculas sobre el material, igual que en compras. Añadido en
+    /// <c>MVP-399</c> (hallazgo <c>R-06</c>): el buscador del libro filtraba las compras pero no los
+    /// consumos, así que buscar «gasóleo» dejaba a la vista consumos de cualquier otra cosa.
+    /// </summary>
+    string? Product = null);
 
 /// <summary>
 /// Vista de lectura de un consumo con el terreno y la temporada resueltos y el aviso de fecha fuera

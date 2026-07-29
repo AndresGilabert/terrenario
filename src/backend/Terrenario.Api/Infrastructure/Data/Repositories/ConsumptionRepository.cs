@@ -33,6 +33,13 @@ public sealed class ConsumptionRepository(TerrenarioDbContext db) : IConsumption
         if (filter.PlotId is { } plotId) live = live.Where(c => c.PlotId == plotId);
         if (filter.SeasonId is { } seasonId) live = live.Where(c => c.SeasonId == seasonId);
         if (filter.PurchaseId is { } purchaseId) live = live.Where(c => c.PurchaseId == purchaseId);
+        if (!string.IsNullOrWhiteSpace(filter.Product))
+        {
+            // Mismo criterio que en compras (R-06): el material es texto libre, así que la igualdad
+            // exacta obligaría a recordar cómo se escribió.
+            var needle = filter.Product.Trim().ToLower();
+            live = live.Where(c => c.Product.ToLower().Contains(needle));
+        }
 
         // Orden por fecha de negocio en SQL (CA-4) y desempate por fecha de captura en memoria:
         // EF+SQLite no traduce `ORDER BY` sobre `DateTimeOffset` (P-031).

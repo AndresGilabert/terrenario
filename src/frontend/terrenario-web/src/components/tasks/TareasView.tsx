@@ -31,6 +31,13 @@ export const TareasView: React.FC = () => {
   const [isCreating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const newNameInput = useRef<HTMLInputElement>(null);
+  /**
+   * Contador de altas correctas. Existe solo para devolver el foco al campo **después** de que React
+   * haya vuelto a renderizar: llamarlo dentro del propio manejador no funcionaba, porque en ese
+   * momento el input sigue `disabled` y enfocar un elemento deshabilitado no hace nada
+   * (`MVP-999`, `P-053`, corregido en la revisión de cierre `MVP-399`).
+   */
+  const [createdCount, setCreatedCount] = useState(0);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
@@ -57,6 +64,10 @@ export const TareasView: React.FC = () => {
     void reload();
   }, [reload]);
 
+  useEffect(() => {
+    if (createdCount > 0) newNameInput.current?.focus();
+  }, [createdCount]);
+
   const activeCount = useMemo(() => tasks.filter((t) => t.is_active).length, [tasks]);
   const inactiveCount = tasks.length - activeCount;
 
@@ -79,8 +90,9 @@ export const TareasView: React.FC = () => {
       await taskService.createTask({ name });
       setNewName('');
       await reload();
-      // El foco vuelve al campo: poblar el catálogo es escribir varias tareas seguidas.
-      newNameInput.current?.focus();
+      // El foco vuelve al campo (poblar el catálogo es escribir varias tareas seguidas), pero se
+      // pide por efecto, no aquí: ver `createdCount`.
+      setCreatedCount((count) => count + 1);
     } catch (error) {
       // El 409 de nombre duplicado llega con su mensaje del contrato; se muestra tal cual.
       setCreateError(

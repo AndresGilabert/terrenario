@@ -1,5 +1,6 @@
 using Terrenario.Api.Application.Purchases.Commands;
 using Terrenario.Api.Common.Errors;
+using Terrenario.Api.Domain.Consumptions;
 using Terrenario.Api.Domain.Purchases;
 using Terrenario.Api.Domain.Seasons;
 
@@ -96,7 +97,9 @@ public sealed class UpdatePurchaseHandler(
 /// MVP-303 — Elimina una compra de forma <b>lógica</b> (RN-037), con la versión vigente en
 /// <c>If-Match</c>. La confirmación explícita la pone la UI (MVP-305).
 /// </summary>
-public sealed class DeletePurchaseHandler(IPurchaseRepository purchaseRepository)
+public sealed class DeletePurchaseHandler(
+    IPurchaseRepository purchaseRepository,
+    IConsumptionRepository consumptionRepository)
 {
     /// <returns><c>false</c> si no existe, es de otro Workspace o ya estaba eliminada (404).</returns>
     public async Task<bool> HandleAsync(DeletePurchaseCommand command, CancellationToken ct = default)
@@ -105,6 +108,20 @@ public sealed class DeletePurchaseHandler(IPurchaseRepository purchaseRepository
         if (purchase is null) return false;
 
         purchase.EnsureVersion(command.ExpectedVersion);
+
+        // MVP-304 — Una compra con imputaciones vivas no se da de baja: esos consumos son registros
+        // operativos propios, con su terreno y su fecha, que ya están en el diario. Llevárselos en
+        // cascada borraría datos que nadie pidió borrar, y dejarlos huérfanos les quitaría el origen
+        // de su coste. Se pide retirarlos primero, que es explícito y reversible.
+        var imputations = await consumptionRepository.CountLiveByPurchaseAsync(
+            command.WorkspaceId, purchase.Id, ct);
+        if (imputations > 0)
+            throw new PurchaseBusinessRuleException(
+                ErrorCodes.BusinessRulePurchaseHasConsumptions,
+                imputations == 1
+                    ? "Esta compra tiene 1 imputación a un terreno. Retírala antes de eliminar la compra."
+                    : $"Esta compra tiene {imputations} imputaciones a terrenos. Retíralas antes de eliminar la compra.");
+
         purchase.Delete(command.UserId);
 
         await purchaseRepository.SaveChangesAsync(ct);

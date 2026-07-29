@@ -67,6 +67,16 @@ public static class ErrorCodes
     public const string ValidationPurchaseRequiredProduct = "VALIDATION_PURCHASE_REQUIRED_PRODUCT";
     public const string ValidationPurchaseProductLength = "VALIDATION_PURCHASE_PRODUCT_LENGTH";
     public const string ValidationPurchaseTotalsRange = "VALIDATION_PURCHASE_TOTALS_RANGE";
+    // Consumos e imputaciones (MVP-304)
+    public const string ValidationConsumptionRequiredFields = "VALIDATION_CONSUMPTION_REQUIRED_FIELDS";
+    public const string ValidationConsumptionRequiredProduct = "VALIDATION_CONSUMPTION_REQUIRED_PRODUCT";
+    public const string ValidationConsumptionProductLength = "VALIDATION_CONSUMPTION_PRODUCT_LENGTH";
+    public const string ValidationConsumptionQuantityRange = "VALIDATION_CONSUMPTION_QUANTITY_RANGE";
+    /// <summary>
+    /// MVP-304 — La suma de imputaciones vivas de una compra superaría su cantidad total. No se puede
+    /// repartir más material del que se compró.
+    /// </summary>
+    public const string ValidationConsumptionOverflow = "VALIDATION_CONSUMPTION_OVERFLOW";
     /// <summary>
     /// Registros operativos (ADR-0005): <c>PATCH</c>/<c>DELETE</c> exigen <c>If-Match</c> con la
     /// versión vigente. Sin cabecera no hay control de concurrencia posible, así que la petición se
@@ -94,6 +104,12 @@ public static class ErrorCodes
     // porque lo gobiernan su identidad de Google (RN-036) y su membresía (RN-027), no el maestro.
     public const string BusinessRuleWorkerIdentityManaged = "BUSINESS_RULE_WORKER_IDENTITY_MANAGED";
     public const string BusinessRuleWorkerMembershipManaged = "BUSINESS_RULE_WORKER_MEMBERSHIP_MANAGED";
+    /// <summary>
+    /// MVP-304 — No se da de baja una compra que todavía tiene imputaciones vivas: esos consumos son
+    /// registros operativos propios que están en el diario, y borrarlos en cascada eliminaría datos
+    /// que nadie pidió eliminar. Primero se retiran las imputaciones.
+    /// </summary>
+    public const string BusinessRulePurchaseHasConsumptions = "BUSINESS_RULE_PURCHASE_HAS_CONSUMPTIONS";
     // Ciclo de vida del Workspace (MVP-206)
     public const string BusinessRuleWorkspaceDeleted = "BUSINESS_RULE_WORKSPACE_DELETED";
     public const string BusinessRuleWorkspaceNotDeleted = "BUSINESS_RULE_WORKSPACE_NOT_DELETED";

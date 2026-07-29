@@ -4,6 +4,8 @@ using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Terrenario.Api.Application.Consumptions;
+using Terrenario.Api.Application.Consumptions.Commands;
 using Terrenario.Api.Application.Purchases;
 using Terrenario.Api.Application.Purchases.Commands;
 using Terrenario.Api.Common;
@@ -11,6 +13,7 @@ using Terrenario.Api.Common.Auth;
 using Terrenario.Api.Common.Errors;
 using Terrenario.Api.Common.Http;
 using Terrenario.Api.Common.Workspaces;
+using Terrenario.Api.Domain.Consumptions;
 using Terrenario.Api.Domain.Operations;
 using Terrenario.Api.Domain.Purchases;
 
@@ -34,6 +37,8 @@ public sealed class PurchasesController(
     DeletePurchaseHandler deletePurchaseHandler,
     ListPurchasesHandler listPurchasesHandler,
     ListPurchaseProductsHandler listPurchaseProductsHandler,
+    ImputePurchaseHandler imputePurchaseHandler,
+    IConsumptionRepository consumptionRepository,
     IWorkspaceContext workspaceContext) : ControllerBase
 {
     /// <summary>Libro de compras del Workspace, por fecha de compra descendente.</summary>
@@ -54,9 +59,14 @@ public sealed class PurchasesController(
             new PurchaseFilter(product, seasonId, fromDate, toDate),
             ct);
 
+        // MVP-304 — Cuánto se ha repartido ya de cada compra, en una sola consulta agrupada: el libro
+        // muestra «imputado / total» por fila y hacerlo con una consulta por compra no escalaría.
+        var imputed = await consumptionRepository.SumImputedQuantityByPurchaseAsync(
+            workspaceContext.WorkspaceId, purchases.Select(p => p.Id).ToArray(), ct);
+
         return Ok(new
         {
-            data = purchases.Select(ToResponse),
+            data = purchases.Select(p => ToResponse(p, imputed.GetValueOrDefault(p.Id))),
             meta = new
             {
                 total = purchases.Count,
@@ -164,7 +174,54 @@ public sealed class PurchasesController(
         }
     }
 
-    /// <summary>Eliminación <b>lógica</b> de una compra (RN-037). Exige <c>If-Match</c>.</summary>
+    /// <summary>
+    /// MVP-304 (HU-1, CA-1) — Imputa la compra a un terreno con cantidad aproximada. El producto, la
+    /// temporada y el precio unitario se heredan de la compra: el coste proporcional es
+    /// <c>cantidad × unit_price</c>. No se puede repartir más de lo comprado
+    /// (<c>VALIDATION_CONSUMPTION_OVERFLOW</c>).
+    /// </summary>
+    [HttpPost("{purchaseId:guid}/consumptions")]
+    public async Task<IActionResult> Impute(
+        Guid purchaseId,
+        [FromBody] ImputePurchaseRequest request,
+        CancellationToken ct)
+    {
+        if (!TryParseDate(request.Date, out var date) || date is null)
+            return BadRequest(new ApiErrorResponse(ApiError.Validation(
+                ErrorCodes.ValidationConsumptionRequiredFields,
+                "La fecha de la imputación es obligatoria (formato YYYY-MM-DD).")));
+
+        try
+        {
+            var consumption = await imputePurchaseHandler.HandleAsync(
+                new ImputePurchaseCommand(
+                    workspaceContext.WorkspaceId,
+                    User.GetUserId()!.Value,
+                    purchaseId,
+                    request.PlotId,
+                    date.Value,
+                    request.Quantity),
+                ct);
+
+            if (consumption is null)
+                return NotFound(new ApiErrorResponse(ApiError.PurchaseNotFound()));
+
+            return CreatedAtAction(nameof(List), new { id = consumption.Id },
+                ConsumptionsController.ToResponse(consumption));
+        }
+        catch (ConsumptionValidationException ex)
+        {
+            return BadRequest(new ApiErrorResponse(ApiError.Validation(ex.ErrorCode, ex.Message)));
+        }
+    }
+
+    /// <summary>
+    /// Eliminación <b>lógica</b> de una compra (RN-037). Exige <c>If-Match</c>.
+    ///
+    /// MVP-304 — Se rechaza con <c>422</c> si la compra todavía tiene imputaciones vivas: son
+    /// registros operativos propios que están en el diario, y llevárselos en cascada eliminaría datos
+    /// que nadie pidió eliminar.
+    /// </summary>
     [HttpDelete("{purchaseId:guid}")]
     public async Task<IActionResult> Delete(Guid purchaseId, CancellationToken ct)
     {
@@ -181,6 +238,10 @@ public sealed class PurchasesController(
             return deleted
                 ? NoContent()
                 : NotFound(new ApiErrorResponse(ApiError.PurchaseNotFound()));
+        }
+        catch (PurchaseBusinessRuleException ex)
+        {
+            return UnprocessableEntity(new ApiErrorResponse(ApiError.Validation(ex.ErrorCode, ex.Message)));
         }
         catch (ConcurrencyConflictException ex)
         {
@@ -250,7 +311,7 @@ public sealed class PurchasesController(
             ErrorCodes.ValidationRequired, $"El campo '{key}' debe ser numérico.");
     }
 
-    private static object ToResponse(PurchaseView purchase) => new
+    private static object ToResponse(PurchaseView purchase, decimal imputedQuantity = 0m) => new
     {
         id = purchase.Id,
         workspace_id = purchase.WorkspaceId,
@@ -263,11 +324,24 @@ public sealed class PurchasesController(
         unit_price = purchase.UnitPrice,
         // RN-023 — mismo aviso no bloqueante que en la actividad.
         is_out_of_season_range = purchase.IsOutOfSeasonRange,
+        // MVP-304 — cuánto se ha repartido ya por terrenos y cuánto queda por repartir.
+        imputed_quantity = imputedQuantity,
+        pending_quantity = purchase.TotalQuantity - imputedQuantity,
         version = purchase.Version,
         created_at = purchase.CreatedAt,
         updated_at = purchase.UpdatedAt
     };
 }
+
+/// <summary>
+/// Imputación de una compra a un terreno (MVP-304). Solo terreno, fecha y cantidad: el producto, la
+/// temporada y el precio unitario los pone la compra.
+/// </summary>
+public sealed record ImputePurchaseRequest(
+    [Required(ErrorMessage = "La fecha de la imputación es obligatoria.")]
+    string Date,
+    [property: JsonPropertyName("plot_id")] Guid PlotId,
+    decimal Quantity);
 
 /// <summary>
 /// Alta de compra (<c>contratos-api.md</c> §7). El producto es texto libre (RN-031) y la temporada es

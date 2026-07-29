@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Terrenario.Api.Domain.Activities;
+using Terrenario.Api.Domain.Consumptions;
 using Terrenario.Api.Domain.Plots;
 using Terrenario.Api.Domain.Purchases;
 using Terrenario.Api.Domain.Seasons;
@@ -25,6 +26,7 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
     public DbSet<TaskItem> Tasks => Set<TaskItem>();
     public DbSet<Activity> Activities => Set<Activity>();
     public DbSet<Purchase> Purchases => Set<Purchase>();
+    public DbSet<PurchaseConsumption> PurchaseConsumptions => Set<PurchaseConsumption>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -470,6 +472,67 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
             entity.HasOne<Season>()
                 .WithMany()
                 .HasForeignKey(p => p.SeasonId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PurchaseConsumption>(entity =>
+        {
+            entity.ToTable("purchase_consumptions");
+            entity.HasKey(c => c.Id);
+            entity.Property(c => c.Id).HasColumnName("id");
+            entity.Property(c => c.WorkspaceId).HasColumnName("workspace_id").IsRequired();
+            // RN-032 — **anulable**: se puede registrar consumo sin compra previa, y entonces el
+            // coste imputado es 0. Es la excepción operativa más importante de la épica (G-2).
+            entity.Property(c => c.PurchaseId).HasColumnName("purchase_id");
+            entity.Property(c => c.PlotId).HasColumnName("plot_id").IsRequired();
+            entity.Property(c => c.SeasonId).HasColumnName("season_id").IsRequired();
+            // G-3 — fecha de negocio propia: el diario ordena por ella, no por `created_at` (RN-033).
+            entity.Property(c => c.Date).HasColumnName("date").IsRequired();
+            // Se guarda siempre, heredado de la compra al imputar: la fila se explica sola.
+            entity.Property(c => c.Product).HasColumnName("product")
+                .HasMaxLength(PurchaseConsumption.ProductMaxLength).IsRequired();
+            entity.Property(c => c.ConsumedQuantity).HasColumnName("consumed_quantity").HasPrecision(10, 2).IsRequired();
+            // Precio unitario **congelado** al imputar. Es lo que hace verdadero el CA-3 por
+            // estructura: editar la compra después no reescribe el coste de lo ya consumido (RN-032).
+            entity.Property(c => c.UnitPrice).HasColumnName("unit_price").HasPrecision(10, 4).IsRequired();
+            entity.Property(c => c.ProportionalCost).HasColumnName("proportional_cost").HasPrecision(10, 2).IsRequired();
+            entity.Property(c => c.CreatedBy).HasColumnName("created_by").IsRequired();
+            entity.Property(c => c.CreatedAt).HasColumnName("created_at");
+            entity.Property(c => c.UpdatedBy).HasColumnName("updated_by").IsRequired();
+            entity.Property(c => c.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(c => c.Version).HasColumnName("version").IsConcurrencyToken();
+            entity.Property(c => c.DeletedAt).HasColumnName("deleted_at");
+            entity.Ignore(c => c.IsDeleted);
+            entity.Ignore(c => c.HasPurchase);
+
+            entity.HasIndex(c => new { c.WorkspaceId, c.Date })
+                .HasFilter("deleted_at IS NULL")
+                .HasDatabaseName("ix_purchase_consumptions_live_by_date");
+            // La guarda de sobre-imputación suma por compra; el libro muestra «imputado / total».
+            entity.HasIndex(c => new { c.WorkspaceId, c.PurchaseId });
+            entity.HasIndex(c => new { c.WorkspaceId, c.PlotId });
+
+            entity.HasOne<Workspace>()
+                .WithMany()
+                .HasForeignKey(c => c.WorkspaceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // `RESTRICT` y no `CASCADE`: dar de baja una compra no puede llevarse por delante
+            // registros operativos que están en el diario. La guarda de negocio lo impide antes
+            // (BUSINESS_RULE_PURCHASE_HAS_CONSUMPTIONS); esto es la red por debajo.
+            entity.HasOne<Purchase>()
+                .WithMany()
+                .HasForeignKey(c => c.PurchaseId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<Plot>()
+                .WithMany()
+                .HasForeignKey(c => c.PlotId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<Season>()
+                .WithMany()
+                .HasForeignKey(c => c.SeasonId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
     }

@@ -189,8 +189,14 @@ erDiagram
         date date
         string product
         decimal consumed_quantity
+        decimal unit_price
         decimal proportional_cost
+        uuid created_by FK
         timestamp created_at
+        uuid updated_by FK
+        timestamp updated_at
+        bigint version
+        timestamp deleted_at
     }
 
     USER ||--o{ WORKSPACE_MEMBER : participa_en
@@ -467,7 +473,21 @@ de sugerencias. El filtro de baja logica vive en el **puerto** `IPurchaseReposit
 | `season_id` | uuid FK | Si | Temporada del consumo (RN-021). Al imputar sobre una compra se hereda de ella |
 | `product` | string | Solo sin compra | Con compra se hereda de ella; sin compra hay que informarlo (texto libre, RN-031) |
 | `consumed_quantity` | decimal(10,2) | Si | Cantidad imputada al terreno |
-| `proportional_cost` | decimal(10,2) | Si | Coste proporcional derivado del `unit_price` de la compra; **`0` cuando no hay compra previa** |
+| `unit_price` | decimal(10,4) | Si | Precio unitario **congelado** al imputar, copiado de la compra; `0` sin compra previa. **Anadido en MVP-304**: es lo que hace verdadero el «no se recalculan historicos» de RN-032 **por estructura** —editar la compra despues no reescribe el coste de lo ya consumido— en vez de por convencion |
+| `proportional_cost` | decimal(10,2) | Si | `consumed_quantity` x `unit_price`; **`0` cuando no hay compra previa** |
+| `version` | bigint | Si | Control de concurrencia optimista para `If-Match` (ADR-0005). **Anadido en MVP-304** |
+| `deleted_at` | timestamptz (nullable) | No | Marca de eliminacion logica (RN-037). **Anadido en MVP-304** |
+
+Restricciones: indice **parcial** `ix_purchase_consumptions_live_by_date` sobre
+`(workspace_id, date)` filtrado por `deleted_at IS NULL`, mas `(workspace_id, purchase_id)` —la suma
+que sostiene la guarda de sobre-imputacion— y `(workspace_id, plot_id)`. La FK a `purchases` es
+`ON DELETE RESTRICT`: dar de baja una compra con imputaciones vivas se rechaza antes con
+`422 BUSINESS_RULE_PURCHASE_HAS_CONSUMPTIONS`, porque las imputaciones son registros operativos
+propios que estan en el diario.
+
+La proyeccion de lectura **no une con `purchases`**: la fila guarda su propio `product` y su propio
+`unit_price`, asi que se explica sola tambien cuando no hay compra detras. Es lo que necesita el
+diario de MVP-305.
 
 > Los cuatro campos anteriores (`purchase_id` anulable, `date`, `season_id`, `product`) y
 > `proportional_cost` se anadieron en la **3a pasada de MVP-299** (hallazgos `G-2` y `G-3`): el ER
@@ -526,7 +546,7 @@ de sugerencias. El filtro de baja logica vive en el **puerto** `IPurchaseReposit
 | `WORKER` | implementada | MVP-204 (alta minima `name`, `hourly_rate` de referencia, `is_active`); MVP-208 materializa `user_account_id`: el maestro pasa a ser el de responsables (miembros + cuadrilla) y cierra `P-034` |
 | `ACTIVITY` | implementada | MVP-301 (`task_id`/`task_text` excluyentes cierran `P-028`; estrena `version` + `If-Match` de ADR-0005 y la baja logica `deleted_at` de RN-037) |
 | `PURCHASE` | implementada | MVP-303 (`season_id` cierra `P-050`; `unit_price` persistido como base del coste proporcional de MVP-304) |
-| `PURCHASE_CONSUMPTION` | pendiente | MVP-304. **Mecanismo ya decidido en MVP-303**: `purchase_id` anulable sobre esta entidad, no una entidad de consumo propia (ver mas abajo) |
+| `PURCHASE_CONSUMPTION` | implementada | MVP-304, con el mecanismo decidido en MVP-303: `purchase_id` anulable (RN-032). Anade `unit_price` congelado, trazabilidad completa, `version` y `deleted_at` |
 | `HARVEST` | pendiente | MVP-004 |
 
 ---

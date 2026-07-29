@@ -389,8 +389,11 @@ ya contrataba el recurso `/api/v1/tasks`.
 
 Restricciones: indice de apoyo `(workspace_id, is_active)` para el listado del maestro e indice
 **unico** `ux_tasks_workspace_name` sobre `(workspace_id, lower(name))`, que impide dos tareas con el
-mismo nombre en un Workspace ignorando mayusculas (prevencion de duplicados evidentes; la usara
-tambien el guardado de tarea libre de MVP-302). Las tareas inactivas siguen ocupando su nombre.
+mismo nombre en un Workspace ignorando mayusculas (prevencion de duplicados evidentes). Las tareas
+inactivas siguen ocupando su nombre. **MVP-302 reutiliza esa misma comparacion** para guardar en el
+catalogo una tarea escrita a mano durante el registro de una actividad: la consulta para *resolver* el
+nombre —reutilizando la tarea existente, o reactivandola si estaba inactivada— en vez de chocar contra
+el indice, de modo que la operativa diaria nunca se bloquea por un nombre ya usado.
 Es el patron que **MVP-207 extiende** a `seasons`, `workers` y `plots`, de modo que los cuatro
 maestros de la epica se comportan igual frente a los nombres repetidos.
 

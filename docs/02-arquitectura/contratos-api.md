@@ -356,7 +356,8 @@ Reglas de contexto (MVP-205):
 | Inactivación con histórico (CA-3) | `PATCH { is_active:false }`; reversible. No hay borrado físico de tareas |
 | `PATCH` de campos parciales | Un campo ausente mantiene su valor |
 | Orden del listado | Activas primero y luego por nombre. La operativa diaria pedirá `is_active=true` |
-| Tarea en la actividad (RN-025) | La tarea es obligatoria y puede venir del catálogo (`task_id`) o de texto libre (`task_text`); guardar una tarea libre en el catálogo es alcance de MVP-302 y reutiliza esta guarda de duplicados |
+| Tarea en la actividad (RN-025) | La tarea es obligatoria y puede venir del catálogo (`task_id`) o de texto libre (`task_text`) |
+| Guardado desde la operativa (MVP-302) | `POST`/`PATCH /api/v1/activities` con `save_task_to_catalog` da de alta aquí la tarea escrita a mano, **reutilizando esta misma guarda de duplicados**: consulta la comparación `lower(name)` para resolver el nombre en vez de chocar con él, así que reutiliza la tarea existente —o reactiva la inactivada— en lugar de devolver `CONFLICT_TASK_NAME_DUPLICATE`. Ese 409 sigue vigente en `POST /tasks`, donde el alta sí es el objetivo |
 
 ### 4) Workers (responsables: miembros y cuadrilla)
 
@@ -444,7 +445,7 @@ Validaciones y reglas:
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
-| Alta actividad | `POST /api/v1/activities` | `date*`, `plot_id*`, `season_id*`, `worker_id*`, `task_id?`, `task_text?`, `hours*`, `manual_cost*`, `description?` | `201 { id, version, ...activity }` |
+| Alta actividad | `POST /api/v1/activities` | `date*`, `plot_id*`, `season_id*`, `worker_id*`, `task_id?`, `task_text?`, `hours*`, `manual_cost*`, `description?`, `save_task_to_catalog?` | `201 { id, version, ...activity }` |
 | Editar actividad | `PATCH /api/v1/activities/{activityId}` | campos parciales · `If-Match: <version>` | `200 { ...activity }` |
 | Eliminar actividad | `DELETE /api/v1/activities/{activityId}` | `If-Match: <version>` | `204` |
 | Listado actividades | `GET /api/v1/activities` | `from?`, `to?`, `plot_id?`, `season_id?`, `worker_id?` | `200 { data, meta: { total } }` |
@@ -460,6 +461,7 @@ no columnas:
 |---|---|
 | `task` | Texto de la tarea venga del catálogo o del campo libre (RN-025), para que ningún cliente rehaga ese `??` |
 | `is_out_of_season_range` | `true` si la fecha cae fuera del rango de la temporada asociada. Es el **aviso** de RN-023, nunca un bloqueo; se calcula en lectura, así que sigue siendo correcto si la temporada se edita después |
+| `task_catalog_outcome` | MVP-302 — qué pasó en el catálogo al pedir `save_task_to_catalog`: `created`, `reused` o `reactivated`. `null` en las lecturas y cuando no se pidió |
 
 Validaciones clave:
 
@@ -471,6 +473,7 @@ Validaciones clave:
 | `hours > 0` (y ≤ 999,99 por `decimal(5,2)`) | `VALIDATION_ACTIVITY_HOURS_RANGE` (400) |
 | `manual_cost >= 0` (0 es válido: labor propia sin coste imputado) | `VALIDATION_ACTIVITY_COST_RANGE` (400) |
 | `description` de longitud válida (≤ 500) | `VALIDATION_ACTIVITY_DESCRIPTION_LENGTH` (400) |
+| `save_task_to_catalog` sobre una tarea que **ya** viene del catálogo (MVP-302) | `VALIDATION_ACTIVITY_TASK_NOT_FREE_TEXT` (400) |
 | Integridad de workspace en FKs | `FOREIGN_KEY_WORKSPACE_MISMATCH` (400) |
 | `PATCH`/`DELETE` sin cabecera `If-Match` (ADR-0005) | `VALIDATION_REQUIRED_IF_MATCH` (400) |
 | Actividad inexistente, de otro Workspace o ya eliminada | `RESOURCE_NOT_FOUND` (404) |
@@ -488,6 +491,8 @@ Reglas de contexto (MVP-301):
 | Maestros inactivos | Siguen siendo referenciables. La UI ofrece solo los activos para registros nuevos (CA-3 de MVP-202/204/205), pero corregir una actividad que referencia un maestro ya inactivado no obliga a reactivarlo |
 | Orden del listado | Fecha de negocio descendente (RN-033) y, a igualdad de fecha, fecha de captura descendente. Sin paginación en el MVP (`MVP-999`, P-051) |
 | Precisión | `hours` y `manual_cost` se redondean a 2 decimales en el dominio (`decimal(5,2)` y `decimal(10,2)`), para que lo leído coincida con lo escrito |
+| `save_task_to_catalog` (MVP-302) | Guarda `task_text` en el catálogo del Workspace y deja la actividad referenciándolo por `task_id`, en la **misma transacción**. Si el nombre ya existe se **reutiliza** (y si estaba inactivada, se **reactiva**, MVP-205 CA-3): este flujo nunca devuelve `CONFLICT_TASK_NAME_DUPLICATE`, porque un 409 aquí no sería accionable. Los errores de nombre son los **del catálogo** (`VALIDATION_REQUIRED_TASK_NAME`, `VALIDATION_TASK_NAME_LENGTH`) |
+| `PATCH { save_task_to_catalog: true }` a secas (MVP-302) | Promociona el `task_text` que la actividad **ya tiene**, sin reescribirlo. Es la vía para guardar en el catálogo la tarea de una actividad ya registrada; la versión sube una sola vez |
 
 > **Formato de `If-Match`** (MVP-301). El contrato publica la versión como el entero `version` de la
 > respuesta, pero un cliente HTTP correcto puede enviarla como **ETag**, así que se aceptan las tres

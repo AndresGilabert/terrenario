@@ -9,6 +9,7 @@ import { createWorkerService } from '../../services/worker.service';
 import { HttpError } from '../../services/http-client';
 import {
   CONFLICT_VERSION_MISMATCH,
+  TASK_CATALOG_OUTCOME_MESSAGES,
   type Activity,
   type CreateActivityPayload,
 } from '../../types/activity.types';
@@ -55,19 +56,26 @@ export const DiarioView: React.FC = () => {
   const [editing, setEditing] = useState<Activity | null>(null);
   const [isSubmitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  /** Confirmación de lo que ha pasado en el catálogo al guardar una tarea libre (MVP-302). */
+  const [catalogNotice, setCatalogNotice] = useState<string | null>(null);
+  const [busyActivityId, setBusyActivityId] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     setIsLoading(true);
     setLoadError(null);
     try {
-      // Los maestros se piden **activos**: es lo que se ofrece para registros nuevos (MVP-202/204/205,
-      // CA-3). Una actividad antigua que referencie uno inactivo se sigue leyendo sin problema, porque
-      // el nombre llega resuelto desde la API.
+      // Terrenos y responsables se piden **activos**: es lo que se ofrece para registros nuevos
+      // (MVP-202/204, CA-3). Una actividad antigua que referencie uno inactivo se sigue leyendo sin
+      // problema, porque el nombre llega resuelto desde la API.
+      //
+      // El catálogo de tareas se trae **entero**: el selector solo ofrece las activas, pero el aviso
+      // de «esta tarea ya está en tu catálogo» (MVP-302) tiene que ver también las inactivadas, que
+      // siguen ocupando su nombre (MVP-205, CA-3).
       const [activityList, plotList, workerList, taskList] = await Promise.all([
         activityService.listActivities(),
         plotService.listPlots({ isActive: true }),
         workerService.listWorkers({ isActive: true }),
-        taskService.listTasks({ isActive: true }),
+        taskService.listTasks(),
       ]);
       setActivities(activityList);
       setPlots(plotList);
@@ -118,15 +126,16 @@ export const DiarioView: React.FC = () => {
   const handleSubmit = async (payload: CreateActivityPayload) => {
     setSubmitting(true);
     setFormError(null);
+    setCatalogNotice(null);
     try {
-      if (editing) {
-        await activityService.updateActivity(editing.id, editing.version, payload);
-      } else {
-        await activityService.createActivity(payload);
-      }
+      const saved = editing
+        ? await activityService.updateActivity(editing.id, editing.version, payload)
+        : await activityService.createActivity(payload);
+
       setModalOpen(false);
       setEditing(null);
       await reload();
+      showCatalogOutcome(saved);
     } catch (error) {
       if (error instanceof HttpError && error.code === CONFLICT_VERSION_MISMATCH) {
         // ADR-0005 — otra persona tocó el registro: se refresca el diario y se explica qué pasó,
@@ -144,6 +153,43 @@ export const DiarioView: React.FC = () => {
       );
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  /**
+   * MVP-302 — Dice qué ha pasado exactamente en el catálogo. «Guardado» a secas mentiría cuando la
+   * tarea ya existía: el servidor la ha reutilizado o reactivado, no creado.
+   */
+  const showCatalogOutcome = (saved: Activity) => {
+    if (!saved.task_catalog_outcome) return;
+    setCatalogNotice(TASK_CATALOG_OUTCOME_MESSAGES[saved.task_catalog_outcome](saved.task));
+  };
+
+  /**
+   * MVP-302 (CA-3) — Promociona al catálogo la tarea de una actividad **ya registrada**, sin volver a
+   * escribirla ni tocar el resto del registro.
+   */
+  const handleSaveTaskToCatalog = async (activity: Activity) => {
+    setBusyActivityId(activity.id);
+    setCatalogNotice(null);
+    setLoadError(null);
+    try {
+      const saved = await activityService.saveTaskToCatalog(activity.id, activity.version);
+      await reload();
+      showCatalogOutcome(saved);
+    } catch (error) {
+      if (error instanceof HttpError && error.code === CONFLICT_VERSION_MISMATCH) {
+        await reload();
+        setLoadError(
+          'Otra persona modificó esa actividad mientras la mirabas. Se ha recargado el diario; vuelve a intentarlo.'
+        );
+        return;
+      }
+      setLoadError(
+        error instanceof HttpError ? error.message : 'No se pudo guardar la tarea en el catálogo.'
+      );
+    } finally {
+      setBusyActivityId(null);
     }
   };
 
@@ -247,6 +293,27 @@ export const DiarioView: React.FC = () => {
         </div>
       )}
 
+      {/* Confirmación del catálogo (MVP-302). Se cierra a mano: es información, no un error. */}
+      {catalogNotice && (
+        <div
+          role="status"
+          className="p-3 rounded-xl bg-[#eef2e0] border border-[#c9dba0] text-[#33450d] text-sm flex items-start justify-between gap-3"
+        >
+          <span className="flex items-start gap-2">
+            <span className="material-symbols-outlined text-lg shrink-0" aria-hidden="true">checklist</span>
+            {catalogNotice}
+          </span>
+          <button
+            type="button"
+            onClick={() => setCatalogNotice(null)}
+            aria-label="Cerrar aviso"
+            className="p-0.5 rounded text-[#4a5d23] hover:bg-[#dfe7c6] shrink-0"
+          >
+            <span className="material-symbols-outlined text-base" aria-hidden="true">close</span>
+          </button>
+        </div>
+      )}
+
       {/* Muro cronológico */}
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
@@ -261,7 +328,13 @@ export const DiarioView: React.FC = () => {
       ) : (
         <ol className="relative pl-6 space-y-4 before:absolute before:left-3.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-[#c6c8b8]">
           {visibleActivities.map((activity) => (
-            <ActivityCard key={activity.id} activity={activity} onEdit={() => openEdit(activity)} />
+            <ActivityCard
+              key={activity.id}
+              activity={activity}
+              isBusy={busyActivityId === activity.id}
+              onEdit={() => openEdit(activity)}
+              onSaveTaskToCatalog={() => void handleSaveTaskToCatalog(activity)}
+            />
           ))}
         </ol>
       )}
@@ -296,7 +369,20 @@ function formatDate(iso: string): string {
   });
 }
 
-const ActivityCard: React.FC<{ activity: Activity; onEdit: () => void }> = ({ activity, onEdit }) => (
+interface ActivityCardProps {
+  activity: Activity;
+  isBusy: boolean;
+  onEdit: () => void;
+  /** MVP-302 — solo se ofrece si la tarea es texto libre: si viene del catálogo, ya está guardada. */
+  onSaveTaskToCatalog: () => void;
+}
+
+const ActivityCard: React.FC<ActivityCardProps> = ({
+  activity,
+  isBusy,
+  onEdit,
+  onSaveTaskToCatalog,
+}) => (
   <li className="relative">
     {/* Nodo del timeline. El icono identifica el tipo de entrada: MVP-305 añadirá compra y consumo,
         y MVP-401 la cosecha, sobre esta misma tarjeta. */}
@@ -327,15 +413,32 @@ const ActivityCard: React.FC<{ activity: Activity; onEdit: () => void }> = ({ ac
           </h3>
         </div>
 
-        <button
-          type="button"
-          onClick={onEdit}
-          title="Corregir actividad"
-          aria-label={`Corregir ${activity.task}`}
-          className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#f0ede8] hover:text-[#33450d] transition-colors shrink-0"
-        >
-          <span className="material-symbols-outlined text-base" aria-hidden="true">edit</span>
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          {/* MVP-302 (CA-3) — promocionar al catálogo una labor ya registrada, sin reescribirla */}
+          {activity.task_id === null && (
+            <button
+              type="button"
+              onClick={onSaveTaskToCatalog}
+              disabled={isBusy}
+              title="Guardar esta tarea en el catálogo"
+              aria-label={`Guardar «${activity.task}» en el catálogo de tareas`}
+              className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#f0ede8] hover:text-[#33450d] transition-colors disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-base" aria-hidden="true">playlist_add</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={onEdit}
+            disabled={isBusy}
+            title="Corregir actividad"
+            aria-label={`Corregir ${activity.task}`}
+            className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#f0ede8] hover:text-[#33450d] transition-colors disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined text-base" aria-hidden="true">edit</span>
+          </button>
+        </div>
       </div>
 
       {activity.description && (

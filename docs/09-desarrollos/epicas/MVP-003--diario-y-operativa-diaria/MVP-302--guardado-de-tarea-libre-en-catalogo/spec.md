@@ -2,7 +2,7 @@
 id: "MVP-302"
 tipo: feature
 titulo: "Guardado de tarea libre en catálogo"
-estado: borrador
+estado: completado
 prioridad: media
 sprint: ""
 hito: "Hito C — Registro operativo end-to-end"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "tareas", "catalogo"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-28"
+actualizado_en: "2026-07-29"
 ---
 
 # MVP-302 — Guardado de tarea libre en catálogo
@@ -59,9 +59,9 @@ Permitir que una tarea libre registrada durante una actividad se pueda convertir
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Una tarea introducida en texto libre puede guardarse desde el flujo de actividad sin salir del contexto de trabajo.
-- [ ] **CA-2**: La tarea guardada queda disponible en el catálogo del Workspace activo para usos posteriores.
-- [ ] **CA-3**: La operación no afecta a otros Workspaces ni rompe la actividad ya registrada.
+- [x] **CA-1**: Una tarea introducida en texto libre puede guardarse desde el flujo de actividad sin salir del contexto de trabajo.
+- [x] **CA-2**: La tarea guardada queda disponible en el catálogo del Workspace activo para usos posteriores.
+- [x] **CA-3**: La operación no afecta a otros Workspaces ni rompe la actividad ya registrada.
 
 ## Maquetas y referencias visuales
 
@@ -74,8 +74,9 @@ Permitir que una tarea libre registrada durante una actividad se pueda convertir
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| ActivityModal | RN-026 | falta | No existe opcion de guardar tarea libre al catalogo |
-| ActivityModal | RN-025 | parcial | Existe captura de texto libre de actividad |
+| ActivityModal | RN-026 | cubierto | Casilla «Guardar esta tarea en el catalogo del Workspace» bajo el campo de texto libre, con aviso en linea de si se creara, reutilizara o reactivara. Verificado en UI conducida |
+| ActivityModal | RN-025 | cubierto | Captura de texto libre y seleccion desde el catalogo, excluyentes (MVP-301) |
+| DiarioView | RN-026 | cubierto | Accion `playlist_add` en las tarjetas de tarea libre para promocionar una actividad **ya registrada** sin reescribirla (CA-3) |
 
 ## Notas y decisiones
 
@@ -84,3 +85,13 @@ Permitir que una tarea libre registrada durante una actividad se pueda convertir
   duplicados **se adelantó a `MVP-205`** por decisión del PO (`MVP-999`, P-026): la guarda pertenece
   al catálogo, no al flujo que lo alimenta. Esta historia pasa a **reutilizarla**, no a construirla.
   La normalización avanzada de nombres (acentos, similitud) sigue fuera de alcance en ambas.
+- **Cómo se reutiliza la guarda (decisión de implementación, 2026-07-29).** En vez de intentar el alta
+  y tratar el `409`, se consulta **la misma comparación** que sostiene el índice único para *resolver*
+  el nombre: si la tarea ya existe se reutiliza, y si estaba inactivada se reactiva (`MVP-205`, CA-3).
+  Motivo: en el flujo de actividad un `409` no es accionable —el usuario no tiene nada que arreglar y
+  lo único que quiere es que la labor quede apuntada—, mientras que en `POST /tasks`, donde el alta es
+  el objetivo, sigue teniendo sentido. La respuesta informa de lo ocurrido con `task_catalog_outcome`
+  (`created`/`reused`/`reactivated`) para que la UI no diga «guardado» cuando no ha creado nada.
+- **Dos puntos de entrada.** Durante la captura (casilla en el formulario, CA-1) y sobre una actividad
+  **ya registrada** (acción en su tarjeta del diario, CA-3), esta última con
+  `PATCH { save_task_to_catalog: true }` a secas, sin reescribir el texto.

@@ -1,6 +1,16 @@
+using Terrenario.Api.Application.Tasks;
 using Terrenario.Api.Common;
+using Terrenario.Api.Domain.Activities;
 
 namespace Terrenario.Api.Application.Activities.Commands;
+
+/// <summary>
+/// Resultado de guardar una actividad. Además de la actividad, informa de qué pasó con el catálogo
+/// cuando se pidió guardar en él la tarea escrita a mano (MVP-302): <c>null</c> si no se pidió.
+/// </summary>
+public sealed record ActivitySaveResult(
+    ActivityView Activity,
+    TaskCatalogOutcome? TaskCatalogOutcome);
 
 /// <summary>
 /// Alta de actividad (MVP-301, HU-1). El Workspace y el usuario nunca viajan como parámetros de
@@ -17,7 +27,13 @@ public sealed record CreateActivityCommand(
     string? TaskText,
     decimal Hours,
     decimal ManualCost,
-    string? Description);
+    string? Description,
+    /// <summary>
+    /// MVP-302 — Guardar además en el catálogo del Workspace la tarea escrita en
+    /// <see cref="TaskText"/>, para poder reutilizarla en registros futuros (RN-026). La actividad
+    /// pasa entonces a referenciarla por <c>task_id</c>.
+    /// </summary>
+    bool SaveTaskToCatalog = false);
 
 /// <summary>
 /// Edición parcial de actividad (MVP-301, HU-2, <c>PATCH</c>). Cada campo es un
@@ -44,7 +60,13 @@ public sealed record UpdateActivityCommand(
     FieldUpdate<string> TaskText,
     FieldUpdate<decimal> Hours,
     FieldUpdate<decimal> ManualCost,
-    FieldUpdate<string> Description);
+    FieldUpdate<string> Description,
+    /// <summary>
+    /// MVP-302 — Guardar en el catálogo la tarea libre de esta actividad. Si no viene
+    /// <c>task_text</c> en la petición se usa el que ya tiene la actividad, que es como se promociona
+    /// una labor <b>ya registrada</b> sin volver a escribirla (CA-3).
+    /// </summary>
+    bool SaveTaskToCatalog = false);
 
 /// <summary>
 /// Eliminación <b>lógica</b> de una actividad (RN-037). La confirmación explícita es responsabilidad

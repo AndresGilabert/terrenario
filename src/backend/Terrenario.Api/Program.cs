@@ -115,6 +115,9 @@ builder.Services.AddScoped<CreateWorkerHandler>();
 builder.Services.AddScoped<UpdateWorkerHandler>();
 builder.Services.AddScoped<ListWorkersHandler>();
 builder.Services.AddScoped<ITaskRepository, TaskRepository>();
+// Guardado de una tarea libre en el catálogo desde el flujo de actividad (MVP-302). Reutiliza la
+// guarda de duplicados de MVP-205 para resolver el nombre en vez de chocar contra ella.
+builder.Services.AddScoped<TaskCatalogPromoter>();
 builder.Services.AddScoped<CreateTaskHandler>();
 builder.Services.AddScoped<UpdateTaskHandler>();
 builder.Services.AddScoped<ListTasksHandler>();

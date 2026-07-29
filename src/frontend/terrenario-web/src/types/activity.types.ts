@@ -33,7 +33,24 @@ export interface Activity {
   version: number;
   created_at: string;
   updated_at: string;
+  /**
+   * MVP-302 — Qué pasó en el catálogo cuando se pidió guardar la tarea escrita a mano. `null` en las
+   * lecturas y cuando no se pidió.
+   */
+  task_catalog_outcome: TaskCatalogOutcome | null;
 }
+
+/**
+ * Resultado de guardar una tarea libre en el catálogo (MVP-302). No es lo mismo haber creado una
+ * tarea que haber reutilizado —o reactivado— una que ya existía, y la UI lo dice tal cual.
+ */
+export type TaskCatalogOutcome = 'created' | 'reused' | 'reactivated';
+
+export const TASK_CATALOG_OUTCOME_MESSAGES: Record<TaskCatalogOutcome, (name: string) => string> = {
+  created: (name) => `«${name}» se ha añadido a tu catálogo de tareas.`,
+  reused: (name) => `«${name}» ya estaba en tu catálogo: se ha reutilizado esa tarea.`,
+  reactivated: (name) => `«${name}» estaba inactivada en tu catálogo y se ha vuelto a activar.`,
+};
 
 /** Alta de actividad. `task_id` y `task_text` son excluyentes y al menos uno es obligatorio (RN-025). */
 export interface CreateActivityPayload {
@@ -46,6 +63,11 @@ export interface CreateActivityPayload {
   hours: number;
   manual_cost: number;
   description?: string | null;
+  /**
+   * MVP-302 — Guardar además `task_text` en el catálogo del Workspace (RN-026). Si el nombre ya
+   * existe se reutiliza, y si estaba inactivada se reactiva: nunca crea una segunda tarea igual.
+   */
+  save_task_to_catalog?: boolean;
 }
 
 /** Edición parcial de actividad: un campo ausente conserva su valor. */

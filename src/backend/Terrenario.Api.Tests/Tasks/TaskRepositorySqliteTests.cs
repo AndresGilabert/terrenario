@@ -155,6 +155,42 @@ public sealed class TaskRepositorySqliteTests : IDisposable
         (await repository.ExistsWithNameAsync(workspace.Id, "poda", null, default)).Should().BeTrue();
     }
 
+    [Fact]
+    public async Task FindByNameAsync_Deberia_ResolverLaTareaExistente_IgnorandoMayusculas()
+    {
+        // MVP-302 — el guardado de una tarea libre necesita saber **cuál** es la tarea que ocupa el
+        // nombre, no solo si está ocupado: es lo que permite reutilizarla en vez de crear una segunda.
+        var mine = await SeedWorkspaceAsync("-j");
+        var other = await SeedWorkspaceAsync("-k");
+        var poda = TaskItem.Create(mine.Id, "Poda");
+        _db.Tasks.Add(poda);
+        await _db.SaveChangesAsync();
+
+        var repository = new TaskRepository(_db);
+
+        (await repository.FindByNameAsync(mine.Id, "PODA", default))!.Id.Should().Be(poda.Id);
+        (await repository.FindByNameAsync(mine.Id, "Abonado", default)).Should().BeNull();
+        // El catálogo de otro Workspace no interfiere (CA-3 de MVP-302).
+        (await repository.FindByNameAsync(other.Id, "Poda", default)).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task FindByNameAsync_Deberia_VerLasInactivas()
+    {
+        // Siguen ocupando su nombre (MVP-205, CA-3): MVP-302 las reactiva en vez de duplicarlas.
+        var workspace = await SeedWorkspaceAsync("-l");
+        var inactiva = TaskItem.Create(workspace.Id, "Abonado");
+        inactiva.SetActive(false);
+        _db.Tasks.Add(inactiva);
+        await _db.SaveChangesAsync();
+
+        var repository = new TaskRepository(_db);
+
+        var found = await repository.FindByNameAsync(workspace.Id, "abonado", default);
+        found!.Id.Should().Be(inactiva.Id);
+        found.IsActive.Should().BeFalse();
+    }
+
     public void Dispose()
     {
         _db.Dispose();

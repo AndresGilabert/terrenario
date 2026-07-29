@@ -155,6 +155,26 @@ public sealed class Activity
     }
 
     /// <summary>
+    /// MVP-302 — La tarea escrita a mano pasa a referenciar su fila del catálogo (RN-025/RN-026): se
+    /// asigna <see cref="TaskId"/> y se limpia <see cref="TaskText"/>, manteniendo la exclusividad del
+    /// par.
+    ///
+    /// <b>No mueve la versión</b> a propósito: en el alta forma parte del mismo registro que se está
+    /// creando, y en la edición <see cref="Update"/> ya la ha movido antes. Subirla aquí contaría dos
+    /// cambios donde el usuario hizo uno.
+    /// </summary>
+    public void UseCatalogTask(Guid taskId)
+    {
+        if (taskId == Guid.Empty)
+            throw new ActivityValidationException(
+                ErrorCodes.ValidationActivityTaskRequired,
+                "La tarea del catálogo no es válida.");
+
+        TaskId = taskId;
+        TaskText = null;
+    }
+
+    /// <summary>
     /// Comprueba que la versión que trae el cliente es la vigente (ADR-0005). Se llama <b>antes</b> de
     /// mutar nada: el conflicto no debe dejar el agregado a medias.
     /// </summary>

@@ -1,4 +1,5 @@
 using Terrenario.Api.Application.Activities.Commands;
+using Terrenario.Api.Application.Tasks;
 using Terrenario.Api.Domain.Activities;
 
 namespace Terrenario.Api.Application.Activities;
@@ -11,12 +12,19 @@ namespace Terrenario.Api.Application.Activities;
 /// <b>Concurrencia optimista</b> (CA-4, ADR-0005): la versión de <c>If-Match</c> se comprueba
 /// <b>antes</b> de tocar nada, para que un conflicto no deje el agregado a medias ni gaste las
 /// consultas de vínculos.
+///
+/// MVP-302 — Es también la vía para guardar en el catálogo la tarea libre de una actividad <b>ya
+/// registrada</b>: <c>PATCH { save_task_to_catalog: true }</c> sin más campos promociona el texto que
+/// ya tiene, sin obligar a reescribirlo (CA-3).
 /// </summary>
 public sealed class UpdateActivityHandler(
     IActivityRepository activityRepository,
-    ActivityLinkResolver linkResolver)
+    ActivityLinkResolver linkResolver,
+    TaskCatalogPromoter taskCatalogPromoter)
 {
-    public async Task<ActivityView?> HandleAsync(UpdateActivityCommand command, CancellationToken ct = default)
+    public async Task<ActivitySaveResult?> HandleAsync(
+        UpdateActivityCommand command,
+        CancellationToken ct = default)
     {
         var activity = await activityRepository.FindByIdAsync(command.WorkspaceId, command.ActivityId, ct);
         if (activity is null) return null;
@@ -44,9 +52,16 @@ public sealed class UpdateActivityHandler(
             command.Description.Or(activity.Description),
             command.UserId);
 
+        // La promoción va después de `Update`, que ya ha movido la versión: el usuario ha hecho un
+        // solo cambio y la versión sube una sola vez.
+        var outcome = await CreateActivityHandler.PromoteTaskIfRequestedAsync(
+            command.SaveTaskToCatalog, command.WorkspaceId, activity, taskCatalogPromoter, ct);
+
         await activityRepository.SaveChangesAsync(ct);
 
-        return await activityRepository.GetViewAsync(command.WorkspaceId, activity.Id, ct);
+        var view = await activityRepository.GetViewAsync(command.WorkspaceId, activity.Id, ct);
+
+        return view is null ? null : new ActivitySaveResult(view, outcome);
     }
 
     /// <summary>

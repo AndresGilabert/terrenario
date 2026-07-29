@@ -58,6 +58,11 @@ public static class ErrorCodes
     public const string ValidationActivityCostRange = "VALIDATION_ACTIVITY_COST_RANGE";
     public const string ValidationActivityDescriptionLength = "VALIDATION_ACTIVITY_DESCRIPTION_LENGTH";
     /// <summary>
+    /// MVP-302 — Se pidió guardar la tarea en el catálogo sobre una actividad cuya tarea <b>ya</b>
+    /// viene del catálogo: no hay nada que guardar. Se responde en vez de ignorarlo en silencio.
+    /// </summary>
+    public const string ValidationActivityTaskNotFreeText = "VALIDATION_ACTIVITY_TASK_NOT_FREE_TEXT";
+    /// <summary>
     /// Registros operativos (ADR-0005): <c>PATCH</c>/<c>DELETE</c> exigen <c>If-Match</c> con la
     /// versión vigente. Sin cabecera no hay control de concurrencia posible, así que la petición se
     /// rechaza en vez de escribir a ciegas.

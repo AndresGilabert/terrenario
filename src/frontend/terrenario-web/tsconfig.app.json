@@ -22,5 +22,8 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  // Los tests (MVP-501) se comprueban en `tsconfig.test.json`, que es el único que conoce los
+  // globales de Vitest. Dejarlos aquí obligaría a cargar esos tipos en el build de producción.
+  "exclude": ["src/test/**", "src/**/*.test.ts", "src/**/*.test.tsx"]
 }

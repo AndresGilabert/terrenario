@@ -2,7 +2,7 @@
 id: "MVP-501"
 tipo: feature
 titulo: "Cobertura mínima de tests del núcleo MVP"
-estado: borrador
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito E — Salida controlada a MVP"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "testing", "quality-gate"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-30"
 ---
 
 # MVP-501 — Cobertura mínima de tests del núcleo MVP
@@ -63,9 +63,11 @@ Cubrir el núcleo funcional del MVP con la batería mínima de tests requerida p
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Los tests unitarios críticos del dominio MVP están implementados y pasan en verde.
-- [ ] **CA-2**: Los tests de integración crítica del MVP están implementados y pasan en verde.
-- [ ] **CA-3**: Existe smoke E2E para los flujos mínimos exigidos por la estrategia de testing.
+- [x] **CA-1**: Los tests unitarios críticos del dominio MVP están implementados y pasan en verde.
+- [x] **CA-2**: Los tests de integración crítica del MVP están implementados y pasan en verde.
+- [x] **CA-3**: Existe smoke E2E para los flujos mínimos exigidos por la estrategia de testing.
+  **Matiz declarado**: el smoke entregado es E2E **de servidor** (API real de punta a punta), no de
+  navegador. Ver Notas.
 
 ## Maquetas y referencias visuales
 
@@ -79,8 +81,9 @@ Cubrir el núcleo funcional del MVP con la batería mínima de tests requerida p
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| App shell | docs/04-ingenieria/estrategia-testing.md | parcial | Smoke manual posible sobre rutas MVP |
-| Build Vite | docs/04-ingenieria/estrategia-testing.md | cubierto | Evidencia: npm run build ejecutado correctamente |
+| App shell | docs/04-ingenieria/estrategia-testing.md | cubierto | Smoke E2E de servidor sobre el núcleo del MVP (19 tests de integración) |
+| Build Vite | docs/04-ingenieria/estrategia-testing.md | cubierto | Evidencia: `npm run build` y `npm run lint` en verde |
+| Vistas React | docs/04-ingenieria/estrategia-testing.md | parcial | 70 tests de Vitest sobre la lógica de decisión; sin E2E de navegador (`P-064`) |
 
 ## Notas y decisiones
 
@@ -97,3 +100,44 @@ Cubrir el núcleo funcional del MVP con la batería mínima de tests requerida p
     decidir un criterio único y revertir los órdenes en memoria que solo existan por el test.
   - La cobertura de **integración contra PostgreSQL** es además la que habría cazado `P-014` (el 500
     de `GET /workspaces`), que pasó 130 tests con repositorios mockeados.
+
+## Resultado de la entrega (2026-07-30)
+
+Diseño técnico completo en [tech-design.md](./tech-design.md).
+
+| Suite | Antes | Después |
+|---|---|---|
+| Backend — unitarios y repositorios sobre SQLite | 576 | 576 |
+| Backend — integración y smoke E2E de servidor | 0 | 19 |
+| Frontend | **no existía arnés** | 70 |
+
+- **`P-012` + `P-023` resueltos**: el frontend tiene arnés (Vitest + Testing Library) y la lógica de
+  decisión señalada está cubierta —cliente HTTP común, `NotificationsContext` con su tracking de
+  «vistas», gating de `can_revoke`/`is_self`/canal en «Miembros y accesos», filtros y borrado del
+  diario, y el filtro de destino post-login—.
+- **`P-031` sigue abierto**: la decisión del PO de montar la integración sobre **SQLite** en vez de
+  PostgreSQL (sin dependencia de Docker) mantiene el punto tal cual. Los órdenes en memoria que
+  existen solo por el test no se pueden revertir todavía.
+
+### Alcance de CA-3: E2E de servidor, no de navegador
+
+Se entrega un recorrido en secuencia por el núcleo del MVP —login, Workspace, temporada, maestros,
+labor, cosecha, compra, imputación, diario y dashboard— sobre la **API real**: mismo `Program.cs`,
+misma autenticación, mismos filtros de scope y SQL de verdad. Lo único simulado es el intercambio con
+Google, que es un proveedor externo.
+
+Lo que **no** cubre es el cliente React en un navegador. Playwright quedó descartado en esta pasada
+por decisión del PO: el login es Google OIDC y automatizarlo exige sembrar sesión inyectando un token
+de desarrollo. El hueco se registra como **`P-064`** en `MVP-999` y debe tenerse presente al leer el
+gate de `MVP-504`.
+
+### Hallazgos derivados
+
+La cobertura nueva destapó tres cosas. Ninguna se corrige aquí —esta historia es de cobertura— y las
+tres tienen destino:
+
+- **`F-01` → `P-065`**: `expiresLabel` rotula «Caduca mañana» una invitación que vence hoy por la
+  tarde, y «Caduca hoy» solo cuando ya ha caducado.
+- **`F-02` → `MVP-502`**: `react-router` 7.12–8.2 arrastra un aviso de seguridad **high**. No es
+  explotable en una SPA sin modo RSC, pero es una dependencia con CVE abierto de cara al gate.
+- **`F-03` → `P-064`**: el hueco de E2E de navegador descrito arriba.

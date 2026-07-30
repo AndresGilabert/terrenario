@@ -2,7 +2,7 @@
 id: "MVP-406"
 tipo: feature
 titulo: "Navegación del área operativa: agrupación del menú, sección activa y ruta desconocida"
-estado: borrador
+estado: completado
 prioridad: media
 sprint: ""
 hito: "Hito D — Visibilidad operativa MVP"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "ux", "navegacion", "deuda"]
   nivel_riesgo: bajo
 creado_en: "2026-07-28"
-actualizado_en: "2026-07-28"
+actualizado_en: "2026-07-30"
 ---
 
 # MVP-406 — Navegación del área operativa: agrupación del menú, sección activa y ruta desconocida
@@ -90,12 +90,12 @@ existe.
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: El menú lateral presenta los módulos agrupados por secciones con un criterio estable,
-  y ninguna entrada queda fuera de grupo.
-- [ ] **CA-2**: La sección en la que se encuentra el usuario aparece marcada visualmente y expuesta
-  con `aria-current`, en escritorio y en el menú móvil.
-- [ ] **CA-3**: Una ruta inexistente —bajo `/app` o fuera— muestra una pantalla que lo explica y
-  ofrece una salida, en vez de renderizar el Home o redirigir en silencio.
+- [x] **CA-1**: El menú lateral presenta los módulos agrupados por secciones con un criterio estable,
+  y ninguna entrada queda fuera de grupo. _(Verificado: «Operativa» / «Maestros» / «Configuración»; las 10 entradas agrupadas, ninguna suelta.)_
+- [x] **CA-2**: La sección en la que se encuentra el usuario aparece marcada visualmente y expuesta
+  con `aria-current`, en escritorio y en el menú móvil. _(Verificado: `NavLink` marca la activa; en `/app/cosechas` solo «Cosechas» lleva `aria-current="page"`. El mismo `AppSidebar` sirve al drawer móvil.)_
+- [x] **CA-3**: Una ruta inexistente —bajo `/app` o fuera— muestra una pantalla que lo explica y
+  ofrece una salida, en vez de renderizar el Home o redirigir en silencio. _(Verificado: `/app/xxx` → 404 dentro del shell sin forzar la oferta de temporada; `/xxx` fuera de `/app` → 404 a pantalla completa. Salida según sesión: `/app` con sesión, `/` sin ella.)_
 
 ## Maquetas y referencias visuales
 
@@ -109,9 +109,9 @@ existe.
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| App / shell lateral | RN-034 | falta | El menú es una lista plana de 10 entradas sin agrupar (`P-025`) |
-| App / shell lateral | docs/04-ingenieria/estandares-codigo.md | falta | Sin sección activa ni `aria-current` (`P-037`) |
-| App / enrutado | — | falta | Sin pantalla de ruta desconocida: `/app/*` cae en el Home (`P-046`) |
+| App / shell lateral | RN-034 | cubierto | Menú agrupado en Operativa / Maestros / Configuración; las 10 entradas agrupadas (`P-025`) |
+| App / shell lateral | docs/04-ingenieria/estandares-codigo.md | cubierto | `NavLink` marca la sección activa con `aria-current="page"`, verificado en el árbol de accesibilidad (`P-037`) |
+| App / enrutado | — | cubierto | `NotFoundView` para rutas desconocidas dentro y fuera de `/app`, con salida según sesión (`P-046`) |
 
 ## Notas y decisiones
 

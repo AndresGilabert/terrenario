@@ -26,6 +26,7 @@ import { AjustesView } from './components/settings/AjustesView';
 import { ReactivationRequestPage } from './components/workspace/ReactivationRequestPage';
 import { ReactivationInboxPage } from './components/workspace/ReactivationInboxPage';
 import { HomeView } from './components/home/HomeView';
+import { NotFoundView } from './components/errors/NotFoundView';
 import { AppLayout } from './components/layout/AppLayout';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { RequireWorkspace } from './routes/RequireWorkspace';
@@ -101,14 +102,18 @@ function AppRoutes() {
                 MVP-201 la quería: al entrar, no al administrar. */}
             <Route element={<RequireSeasonOffer />}>
               <Route path="/app" element={<HomeView />} />
-              <Route path="/app/*" element={<HomeView />} />
             </Route>
+            {/* Ruta desconocida bajo /app (MVP-406, P-046): 404 **dentro del shell** —conserva el
+                lateral para no desorientar— y **fuera** de la guarda de oferta de temporada: un enlace
+                roto no debe forzar a crear una campaña. Antes caía en el Home y parecía válida. */}
+            <Route path="/app/*" element={<NotFoundView />} />
           </Route>
         </Route>
       </Route>
 
-      {/* Fallback */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* Ruta desconocida fuera de /app (MVP-406, P-046): 404 a pantalla completa con salida al Home
+          o a la landing según haya sesión, en vez de redirigir en silencio a `/`. */}
+      <Route path="*" element={<NotFoundView variant="fullscreen" />} />
     </Routes>
   );
 }

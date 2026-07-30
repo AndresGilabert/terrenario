@@ -15,6 +15,7 @@ import { ReceivedInvitationsPage } from './components/invitations/ReceivedInvita
 import { InvitePeoplePage } from './components/workspace/InvitePeoplePage';
 import { DiarioView } from './components/diary/DiarioView';
 import { CosechasView } from './components/harvests/CosechasView';
+import { VisionGeneralView } from './components/dashboard/VisionGeneralView';
 import { ComprasView } from './components/purchases/ComprasView';
 import { TerrenosView } from './components/plots/TerrenosView';
 import { TemporadasView } from './components/seasons/TemporadasView';
@@ -81,6 +82,11 @@ function AppRoutes() {
                 resto del shell: si falta temporada se dice y se enlaza, en vez de desviar sin
                 explicar (misma lección que P-038 en MVP-207). */}
             <Route path="/app/cosechas" element={<CosechasView />} />
+            {/* Visión General (MVP-403): una sola pantalla con scroll vertical (RN-005). Fuera de la
+                guarda de oferta de temporada como el resto del shell: si falta temporada la propia
+                pantalla lo explica y enlaza al maestro, en vez de desviar sin decir nada.
+                Si el Home pasa a ser esta vista lo decide `P-040` en MVP-499. */}
+            <Route path="/app/vision-general" element={<VisionGeneralView />} />
             <Route path="/app/terrenos" element={<TerrenosView />} />
             <Route path="/app/temporadas" element={<TemporadasView />} />
             <Route path="/app/trabajadores" element={<TrabajadoresView />} />

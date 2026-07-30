@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useApiClient } from '../../contexts/ApiContext';
 import { useSeason } from '../../contexts/SeasonContext';
+import { createDashboardService } from '../../services/dashboard.service';
 import { createSeasonService } from '../../services/season.service';
 import { HttpError } from '../../services/http-client';
 import { SEASON_STATUS_LABELS, type Season } from '../../types/season.types';
@@ -9,8 +10,12 @@ import { SeasonFormModal, type SeasonFormValues } from './SeasonFormModal';
 /**
  * Maestro de temporadas del Workspace (MVP-203). Lista las campañas, permite crear (la nueva pasa a
  * ser la activa), editar, cambiar de activa (RN-022) y cerrar/reabrir (RN-024, informativo). Reutiliza
- * el shell y la paleta del prototipo (`TemporadasView`); a diferencia del prototipo, no muestra la
- * "producción total" (dato de cosechas que llega en MVP-004, no inventamos métricas).
+ * el shell y la paleta del prototipo (`TemporadasView`).
+ *
+ * **MVP-403 cierra `P-021`**: cada tarjeta muestra ya la producción agregada de su campaña, que
+ * `MVP-203` omitió deliberadamente porque `HARVEST` todavía no existía y no quiso inventar métricas.
+ * Llega en **una sola petición** (`GET /dashboard/kg-by-season`), no una por temporada, y su fallo no
+ * tumba el maestro: si no se puede calcular, las tarjetas se pintan sin el dato.
  *
  * Tras cada acción resincroniza la temporada activa del contexto para que la cabecera y la
  * autoselección operativa queden coherentes. Esta pantalla vive fuera de la guarda de oferta de
@@ -19,9 +24,12 @@ import { SeasonFormModal, type SeasonFormValues } from './SeasonFormModal';
 export const TemporadasView: React.FC = () => {
   const http = useApiClient();
   const seasonService = useMemo(() => createSeasonService(http), [http]);
+  const dashboardService = useMemo(() => createDashboardService(http), [http]);
   const { refresh: refreshActiveSeason } = useSeason();
 
   const [seasons, setSeasons] = useState<Season[]>([]);
+  /** P-021 — kilos recolectados por temporada, indexados por id. Vacío si no se pudo calcular. */
+  const [production, setProduction] = useState<Record<string, { kg: number; harvests: number }>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -40,10 +48,24 @@ export const TemporadasView: React.FC = () => {
       setSeasons(data);
     } catch (error) {
       setLoadError(error instanceof HttpError ? error.message : 'No se pudieron cargar las temporadas.');
+      setIsLoading(false);
+      return;
+    }
+
+    // P-021 — la producción es un enriquecimiento, no el maestro: si falla, el maestro sigue en pie.
+    try {
+      const { data } = await dashboardService.getKgBySeason();
+      setProduction(
+        Object.fromEntries(
+          data.map((row) => [row.season_id, { kg: row.total_kg, harvests: row.harvests }])
+        )
+      );
+    } catch {
+      setProduction({});
     } finally {
       setIsLoading(false);
     }
-  }, [seasonService]);
+  }, [seasonService, dashboardService]);
 
   useEffect(() => {
     void reload();
@@ -143,6 +165,7 @@ export const TemporadasView: React.FC = () => {
             <SeasonCard
               key={season.id}
               season={season}
+              production={production[season.id]}
               isBusy={busySeasonId === season.id}
               onEdit={() => openEdit(season)}
               onActivate={() => void activate(season)}
@@ -195,6 +218,8 @@ const EmptyState: React.FC<{ onAdd: () => void }> = ({ onAdd }) => (
 
 interface SeasonCardProps {
   season: Season;
+  /** P-021 — producción agregada de la campaña. `undefined` si no se pudo calcular. */
+  production?: { kg: number; harvests: number };
   isBusy: boolean;
   onEdit: () => void;
   onActivate: () => void;
@@ -214,7 +239,15 @@ function formatDate(iso: string): string {
   return parsed.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-const SeasonCard: React.FC<SeasonCardProps> = ({ season, isBusy, onEdit, onActivate, onClose, onReopen }) => {
+const SeasonCard: React.FC<SeasonCardProps> = ({
+  season,
+  production,
+  isBusy,
+  onEdit,
+  onActivate,
+  onClose,
+  onReopen,
+}) => {
   const range = season.end_date
     ? `${formatDate(season.start_date)} — ${formatDate(season.end_date)}`
     : `Desde ${formatDate(season.start_date)}`;
@@ -241,6 +274,20 @@ const SeasonCard: React.FC<SeasonCardProps> = ({ season, isBusy, onEdit, onActiv
             </span>
           </div>
           <p className="text-xs text-[#76786b]">{range}</p>
+          {/* P-021 — producción agregada de la campaña. `0 kg` es información («no se recolectó
+              nada»), no ausencia de dato; ausencia de dato es que no se pudo calcular y entonces no
+              se enseña nada. */}
+          {production && (
+            <p className="text-xs font-semibold text-[#33450d] flex items-center gap-1 mt-0.5">
+              <span className="material-symbols-outlined text-sm" aria-hidden="true">scale</span>
+              {production.kg.toLocaleString('es-ES')} kg
+              <span className="font-normal text-[#76786b]">
+                · {production.harvests === 0
+                  ? 'sin cosechas'
+                  : `${production.harvests} ${production.harvests === 1 ? 'partida' : 'partidas'}`}
+              </span>
+            </p>
+          )}
         </div>
       </div>
 

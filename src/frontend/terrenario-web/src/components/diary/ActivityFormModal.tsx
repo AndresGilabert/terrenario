@@ -266,7 +266,7 @@ export const ActivityFormModal: React.FC<ActivityFormModalProps> = ({
               {seasons.map((season) => (
                 <option key={season.id} value={season.id}>
                   {season.name}
-                  {season.is_active ? ' · activa' : ''}
+                  {season.is_working ? ' · en curso' : ''}
                 </option>
               ))}
             </select>

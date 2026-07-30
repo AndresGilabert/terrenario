@@ -64,7 +64,7 @@ y se mantienen en español.
 | `harvest_yield_unit` (MVP-402) | `l_100kg` (canónica, RN-013), `kg_100kg` (rendimiento graso, se convierte con la densidad de RN-016). Es **unidad de entrada**, no un campo del recurso: lo persistido es siempre la canónica |
 | `harvest_destination` | `venta_aceituna`, `aceite_para_venta`, `aceite_personal`, `desconocido` |
 | `harvest_product` | `aceituna_olivar` — catálogo global fijo gobernado por sistema (`MVP-401`). Un solo valor en el MVP: la **variedad** pertenece al terreno y el **producto** debería vivir a nivel de Workspace modulando el cálculo de rendimiento; ambas cosas son ampliación posterior (`MVP-999`, `P-059`/`P-060`) |
-| `season_status` | `planificada`, `activa`, `cerrada` |
+| `season_status` (MVP-209) | `planificada`, `abierta`, `cerrada` — **derivado** de `is_closed` + `start_date` vs hoy, no persistido. Es el **estado** de la campaña, independiente de la temporada de trabajo (`is_working`) |
 | `worker_member_status` | `invitado`, `activo`, `revocado` |
 | `worker_kind` | `member`, `crew` (identificador de clase de responsable; derivado de `user_account_id`) |
 | `invitation_channel` | `email`, `enlace` |
@@ -287,16 +287,20 @@ Reglas de contexto (MVP-202):
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
-| Alta temporada | `POST /api/v1/seasons` | `name*`, `start_date*`, `end_date?` | `201 { ...season }` (nace **activa**) |
+| Alta temporada | `POST /api/v1/seasons` | `name*`, `start_date*`, `end_date?` | `201 { ...season }` (pasa a ser **mi** temporada de trabajo) |
 | Editar temporada | `PATCH /api/v1/seasons/{seasonId}` | `name?`, `start_date?`, `end_date?`, `is_closed?` | `200 { ...season }` |
 | Listado temporadas | `GET /api/v1/seasons` | — (sin filtros) | `200 { data, meta: { total } }` |
-| Temporada activa | `GET /api/v1/seasons/active` | — | `200 { ...season }` · `404` si no hay |
-| Cambiar la temporada activa | `POST /api/v1/seasons/{seasonId}/activate` | — | `200 { ...season }` |
+| Mi temporada de trabajo | `GET /api/v1/seasons/active` | — | `200 { ...season }` · `404` si no hay |
+| Fijar mi temporada de trabajo | `POST /api/v1/seasons/{seasonId}/activate` | — | `200 { ...season }` |
 
 Todas exigen `[RequireWorkspaceScope]`. La representación de una temporada es
-`{ id, workspace_id, name, start_date, end_date, is_active, is_closed, status }`, donde `status` es
-el valor **derivado** del catálogo `season_status` (`planificada`/`activa`/`cerrada`), no una columna:
-`cerrada` ≡ `is_closed`; `activa` ≡ `is_active` y no cerrada; `planificada` ≡ ninguna de las dos.
+`{ id, workspace_id, name, start_date, end_date, is_working, is_closed, status }` (MVP-209), donde:
+
+- `status` es el valor **derivado** del catálogo `season_status` (`planificada`/`abierta`/`cerrada`), no
+  una columna: `cerrada` ≡ `is_closed`; en otro caso `abierta` si `start_date <= hoy` (incluye campañas
+  pasadas no cerradas) y `planificada` si `start_date > hoy`. **Independiente** de la temporada de trabajo.
+- `is_working` indica si es la temporada de trabajo **del usuario que consulta** (no un flag global): dos
+  usuarios del mismo Workspace pueden verla distinta. Es un eje **separado** del estado.
 
 Validaciones clave. El **alta y la edición no devuelven los mismos códigos** (ver el aviso de la
 sección de terrenos):
@@ -316,17 +320,17 @@ sección de terrenos):
 `SEASON_NOT_FOUND` (404) y `AUTH_WORKSPACE_SCOPE_REQUIRED` (403). Un `start_date` mal formado en el
 alta devuelve además el mensaje por defecto de ASP.NET **en inglés**; está registrado en `P-043`.
 
-Reglas de contexto (MVP-201 · MVP-203 · MVP-207):
+Reglas de contexto (MVP-201 · MVP-203 · MVP-207 · MVP-209):
 
 | Regla | Comportamiento |
 |---|---|
-| La temporada creada nace **activa** | Decisión de producto «crear cambia la activa» (P-017): la nueva desbanca a la anterior, que pasa a `planificada`. No hay 409 por «ya hay una activa» |
-| Una sola activa por Workspace (RN-022) | Invariante de datos: índice único parcial `ux_seasons_workspace_active`. El desbanque es atómico, en dos fases dentro de una transacción |
+| La temporada creada pasa a ser **mi** temporada de trabajo | Decisión de producto «crear cambia la de trabajo» (P-017), ahora **por usuario** (MVP-209): fija mi `active_season_id`; no toca a otros usuarios ni desbanca nada global. No hay 409 por «ya hay una activa» |
+| Temporada de trabajo **por usuario** (RN-022) | Vive en `workspace_members.active_season_id`; puede haber **varias campañas abiertas a la vez**. Sin nada fijado se resuelve el defecto (`WorkingSeasonPolicy`: abierta que contiene hoy → abierta más reciente → más reciente → `null`). Se retira el índice único parcial `ux_seasons_workspace_active` |
 | `end_date` es opcional | Fecha de fin **estimada**; no se bloquea por rango operativo (RN-023 es un aviso de las historias operativas, no del maestro) |
-| Cierre/reapertura (RN-024) | `PATCH { is_closed:true }` es informativo y no bloquea altas. Cerrar la activa **libera** el hueco de activa del Workspace; reabrir devuelve a `planificada`, sin activar |
+| Cierre/reapertura (RN-024) | `PATCH { is_closed:true }` es informativo y no bloquea altas ni ediciones. El estado y la temporada de trabajo son ejes independientes: **fijar como de trabajo una cerrada no la reabre** (MVP-209, CA-4); reabrir es un `PATCH { is_closed:false }` explícito |
 | Duplicados (MVP-207) | Un Workspace no admite dos temporadas con el mismo nombre ignorando mayúsculas y espacios sobrantes (índice único `(workspace_id, lower(name))`). Las **cerradas también ocupan su nombre**: cerrar no lo libera |
-| `PATCH` de campos parciales | Un campo ausente mantiene su valor. El cambio de activa **no** va aquí: es `POST /seasons/{id}/activate` |
-| Orden del listado | Activa primero, luego las abiertas y por último las cerradas, por fecha de inicio descendente |
+| `PATCH` de campos parciales | Un campo ausente mantiene su valor. Fijar la temporada de trabajo **no** va aquí: es `POST /seasons/{id}/activate` |
+| Orden del listado | Las abiertas primero (por fecha de inicio descendente) y las cerradas al final |
 | No hay borrado | Las temporadas con histórico se cierran, no se eliminan |
 
 ### 3) Tasks (tareas)
@@ -726,9 +730,9 @@ Reglas de filtro por defecto:
 
 | Regla | Comportamiento |
 |---|---|
-| Sin `season_id` | backend resuelve temporada activa del workspace |
+| Sin `season_id` | backend resuelve la **temporada de trabajo del usuario** que consulta (MVP-209): su `active_season_id` o, en su defecto, `WorkingSeasonPolicy` |
 | Sin `plot_ids` | backend usa todos los terrenos activos del workspace |
-| `scope` en la respuesta (MVP-403) | El ámbito **ya resuelto**: `{ season: { id, name, is_active, start_date, end_date } \| null, plot_ids[], plots }`. Los defectos los pone el servidor, así que sin devolverlos la pantalla mostraría cifras sin poder decir de qué son; es también lo que permite posicionar los filtros sin duplicar la regla del defecto en el cliente |
+| `scope` en la respuesta (MVP-403) | El ámbito **ya resuelto**: `{ season: { id, name, status, start_date, end_date } \| null, plot_ids[], plots }` (MVP-209: `is_active` → `status` derivado). Los defectos los pone el servidor, así que sin devolverlos la pantalla mostraría cifras sin poder decir de qué son; es también lo que permite posicionar los filtros sin duplicar la regla del defecto en el cliente |
 | `season: null` (MVP-403) | El Workspace no tiene temporada que mirar. RN-021 asocia toda la producción a una campaña, así que no es «resumen vacío» sino ámbito imposible: se responden ceros y `null`, y el cliente pide la temporada en vez de presentarlos como datos |
 | Terreno pedido inexistente o ajeno (MVP-403) | Se **descarta en silencio**, no es un error: es una lectura, y quien llega con un filtro obsoleto debe ver el dashboard de lo que sí existe. En una escritura la decisión es la contraria (`FOREIGN_KEY_WORKSPACE_MISMATCH`) |
 | Terreno **inactivo** pedido explícitamente (MVP-403) | Cuenta. Inactivar deja de ofrecerlo para registros nuevos (MVP-202, CA-3), no borra su histórico: excluir su producción al mirar una campaña pasada falsearía los totales |

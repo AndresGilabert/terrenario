@@ -122,9 +122,9 @@ export const VisionGeneralView: React.FC = () => {
           <h2 className="font-headline font-extrabold text-xl text-[#1c1c19]">Visión General</h2>
           <p className="text-xs text-[#76786b]">
             {season
-              ? `Producción de ${season.name}${season.is_active ? ' (activa)' : ''}, sobre ${
-                  summary?.scope.plots ?? 0
-                } ${summary?.scope.plots === 1 ? 'terreno' : 'terrenos'}.`
+              ? `Producción de ${season.name}, sobre ${summary?.scope.plots ?? 0} ${
+                  summary?.scope.plots === 1 ? 'terreno' : 'terrenos'
+                }.`
               : 'Resumen de producción del Workspace.'}
           </p>
         </div>

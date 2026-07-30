@@ -71,8 +71,6 @@ export const TemporadasView: React.FC = () => {
     void reload();
   }, [reload]);
 
-  const hasActiveSeason = useMemo(() => seasons.some((s) => s.is_active), [seasons]);
-
   const openCreate = () => {
     setEditingSeason(null);
     setSubmitError(null);
@@ -133,7 +131,8 @@ export const TemporadasView: React.FC = () => {
         <div>
           <h2 className="font-headline font-extrabold text-xl text-[#1c1c19]">Temporadas y campañas</h2>
           <p className="text-xs text-[#76786b]">
-            Agrupa cosechas, labores y compras por campaña. Solo puede haber una temporada activa a la vez.
+            Agrupa cosechas, labores y compras por campaña. Marca en cuál trabajas por defecto; su
+            estado (abierta, planificada o cerrada) es aparte.
           </p>
         </div>
 
@@ -179,7 +178,6 @@ export const TemporadasView: React.FC = () => {
       <SeasonFormModal
         isOpen={isModalOpen}
         season={editingSeason}
-        hasActiveSeason={hasActiveSeason}
         isSubmitting={isSubmitting}
         errorMessage={submitError}
         onClose={() => {
@@ -228,7 +226,7 @@ interface SeasonCardProps {
 }
 
 const STATUS_BADGE: Record<Season['status'], string> = {
-  activa: 'bg-[#c9f16f] text-[#33450d]',
+  abierta: 'bg-[#c9f16f] text-[#33450d]',
   planificada: 'bg-[#eef2e0] text-[#33450d]',
   cerrada: 'bg-[#e5e2dd] text-[#76786b]',
 };
@@ -255,13 +253,13 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
   return (
     <div
       className={`bg-white p-5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all ${
-        season.is_active ? 'border-[#33450d] ring-2 ring-[#33450d]/20' : 'border-[#e5e2dd]'
+        season.is_working ? 'border-[#33450d] ring-2 ring-[#33450d]/20' : 'border-[#e5e2dd]'
       }`}
     >
       <div className="flex items-center gap-4 min-w-0">
         <div
           className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-            season.is_active ? 'bg-[#33450d] text-white' : 'bg-[#f0ede8] text-[#76786b]'
+            season.is_working ? 'bg-[#33450d] text-white' : 'bg-[#f0ede8] text-[#76786b]'
           }`}
         >
           <span className="material-symbols-outlined text-xl" aria-hidden="true">calendar_today</span>
@@ -269,9 +267,17 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="font-headline font-bold text-base text-[#1c1c19] truncate">{season.name}</h3>
+            {/* Estado informativo (MVP-209), independiente de la de trabajo */}
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${STATUS_BADGE[season.status]}`}>
               {SEASON_STATUS_LABELS[season.status].toUpperCase()}
             </span>
+            {/* Marca aparte: sobre esta temporada registro por defecto (por usuario) */}
+            {season.is_working && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#33450d] text-white flex items-center gap-1">
+                <span className="material-symbols-outlined text-[11px]" aria-hidden="true">edit_note</span>
+                TRABAJANDO AQUÍ
+              </span>
+            )}
           </div>
           <p className="text-xs text-[#76786b]">{range}</p>
           {/* P-021 — producción agregada de la campaña. `0 kg` es información («no se recolectó
@@ -292,23 +298,27 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
       </div>
 
       <div className="flex items-center gap-2 shrink-0 flex-wrap">
-        {!season.is_active && (
+        {/* MVP-209 — «Trabajar en esta»: la fija como mi temporada de trabajo (por usuario). No reabre
+            una cerrada ni afecta a otros usuarios. */}
+        {!season.is_working && (
           <button
             onClick={onActivate}
             disabled={isBusy}
             className="px-3.5 py-1.5 rounded-xl bg-[#f0ede8] hover:bg-[#ebe8e3] text-[#33450d] text-xs font-bold disabled:opacity-50 flex items-center gap-1"
+            title="Registrar por defecto sobre esta temporada"
           >
             <span className="material-symbols-outlined text-sm" aria-hidden="true">bolt</span>
-            Activar
+            Trabajar en esta
           </button>
         )}
 
-        {season.is_active && (
+        {/* Cerrar/reabrir es el estado informativo, independiente de la de trabajo (RN-024) */}
+        {!season.is_closed && (
           <button
             onClick={onClose}
             disabled={isBusy}
             className="px-3.5 py-1.5 rounded-xl bg-[#f0ede8] hover:bg-[#ebe8e3] text-[#45483c] text-xs font-bold disabled:opacity-50 flex items-center gap-1"
-            title="Marcar como cerrada (informativo). El Workspace quedará sin temporada activa."
+            title="Marcar como cerrada (informativo): ya no esperas más registros aquí. Podrás editarla igualmente."
           >
             <span className="material-symbols-outlined text-sm" aria-hidden="true">lock</span>
             Cerrar
@@ -320,7 +330,7 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
             onClick={onReopen}
             disabled={isBusy}
             className="px-3.5 py-1.5 rounded-xl bg-[#f0ede8] hover:bg-[#ebe8e3] text-[#45483c] text-xs font-bold disabled:opacity-50 flex items-center gap-1"
-            title="Reabrir: vuelve a planificada"
+            title="Reabrir: vuelve a abierta o planificada según sus fechas"
           >
             <span className="material-symbols-outlined text-sm" aria-hidden="true">lock_open</span>
             Reabrir

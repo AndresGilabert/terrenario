@@ -9,8 +9,10 @@ public class SeasonTests
     private static readonly Guid WorkspaceId = Guid.NewGuid();
     private static readonly DateOnly Start = new(2026, 1, 15);
 
+    private static readonly DateOnly Today = new(2026, 6, 1);
+
     [Fact]
-    public void Create_Deberia_DejarTemporadaActivaAbierta()
+    public void Create_Deberia_DejarTemporadaAbierta()
     {
         var season = Season.Create(WorkspaceId, "Campaña Oliva 2026", Start, new DateOnly(2026, 12, 30));
 
@@ -18,7 +20,6 @@ public class SeasonTests
         season.Name.Should().Be("Campaña Oliva 2026");
         season.StartDate.Should().Be(Start);
         season.EndDate.Should().Be(new DateOnly(2026, 12, 30));
-        season.IsActive.Should().BeTrue();
         season.IsClosed.Should().BeFalse();
     }
 
@@ -67,31 +68,47 @@ public class SeasonTests
             .Which.ErrorCode.Should().Be(ErrorCodes.ValidationSeasonDateRange);
     }
 
-    // ── Máquina de estados (MVP-203) ────────────────────────────────────────────
+    // ── Estado derivado por fechas (MVP-209) ────────────────────────────────────
 
     [Fact]
-    public void Create_Deberia_EstarEnEstadoActiva()
+    public void StatusOn_Deberia_SerAbierta_SiYaInicioYNoEstaCerrada()
     {
+        // Start = 15-ene-2026; hoy 1-jun-2026 → ya iniciada, no cerrada → abierta.
         var season = Season.Create(WorkspaceId, "Campaña 2026", Start, null);
 
-        season.Status.Should().Be(SeasonStatus.Activa);
+        season.StatusOn(Today).Should().Be(SeasonStatus.Abierta);
     }
 
     [Fact]
-    public void Close_Deberia_DejarlaCerradaYNoActiva()
+    public void StatusOn_Deberia_SerAbierta_AunqueLaCampanaYaHayaPasado()
     {
-        // Cerrar la activa libera el hueco de activa del Workspace (decisión de producto MVP-203).
+        // Una campaña pasada no cerrada sigue abierta a registros tardíos (RN-024): NO es «planificada».
+        var pasada = Season.Create(WorkspaceId, "Campaña 2024", new DateOnly(2024, 9, 1), new DateOnly(2025, 2, 28));
+
+        pasada.StatusOn(Today).Should().Be(SeasonStatus.Abierta);
+    }
+
+    [Fact]
+    public void StatusOn_Deberia_SerPlanificada_SiAunNoHaIniciado()
+    {
+        var futura = Season.Create(WorkspaceId, "Campaña 2027", new DateOnly(2027, 9, 1), null);
+
+        futura.StatusOn(Today).Should().Be(SeasonStatus.Planificada);
+    }
+
+    [Fact]
+    public void Close_Deberia_DejarlaCerrada_SinTocarLaDeTrabajo()
+    {
         var season = Season.Create(WorkspaceId, "Campaña 2026", Start, null);
 
         season.Close();
 
         season.IsClosed.Should().BeTrue();
-        season.IsActive.Should().BeFalse();
-        season.Status.Should().Be(SeasonStatus.Cerrada);
+        season.StatusOn(Today).Should().Be(SeasonStatus.Cerrada);
     }
 
     [Fact]
-    public void Reopen_Deberia_DevolverlaAPlanificada_SinActivarla()
+    public void Reopen_Deberia_DevolverlaAlEstadoPorFechas()
     {
         var season = Season.Create(WorkspaceId, "Campaña 2026", Start, null);
         season.Close();
@@ -99,21 +116,8 @@ public class SeasonTests
         season.Reopen();
 
         season.IsClosed.Should().BeFalse();
-        season.IsActive.Should().BeFalse();
-        season.Status.Should().Be(SeasonStatus.Planificada);
-    }
-
-    [Fact]
-    public void Activate_Deberia_ReabrirUnaTemporadaCerrada()
-    {
-        var season = Season.Create(WorkspaceId, "Campaña 2026", Start, null);
-        season.Close();
-
-        season.Activate();
-
-        season.IsActive.Should().BeTrue();
-        season.IsClosed.Should().BeFalse();
-        season.Status.Should().Be(SeasonStatus.Activa);
+        // Ya iniciada → abierta (no reintroduce el concepto de «activa», que ya no existe).
+        season.StatusOn(Today).Should().Be(SeasonStatus.Abierta);
     }
 
     [Fact]
@@ -126,8 +130,8 @@ public class SeasonTests
         season.Name.Should().Be("Campaña Oliva 2027");
         season.StartDate.Should().Be(new DateOnly(2027, 2, 1));
         season.EndDate.Should().Be(new DateOnly(2027, 11, 30));
-        // Editar no cambia el estado.
-        season.Status.Should().Be(SeasonStatus.Activa);
+        // Editar la fecha de inicio puede mover el estado: 1-feb-2027 aún no ha llegado el 1-jun-2026.
+        season.StatusOn(Today).Should().Be(SeasonStatus.Planificada);
     }
 
     [Fact]

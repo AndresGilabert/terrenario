@@ -107,11 +107,12 @@ public sealed class DashboardQueryService(
     DashboardScopeResolver scopeResolver)
 {
     public async Task<SeasonSummary> GetSummaryAsync(
+        Guid userId,
         Guid workspaceId,
         DashboardRequest request,
         CancellationToken ct = default)
     {
-        var scope = await scopeResolver.ResolveAsync(workspaceId, request, ct);
+        var scope = await scopeResolver.ResolveAsync(userId, workspaceId, request, ct);
         var rows = await LoadAsync(workspaceId, scope, ct);
 
         var withOil = rows.Where(row => row.HasOilData).ToList();
@@ -145,9 +146,9 @@ public sealed class DashboardQueryService(
     }
 
     public async Task<(DashboardScope Scope, IReadOnlyList<DestinationTotal> Totals, decimal TotalKg)>
-        GetKgByDestinationAsync(Guid workspaceId, DashboardRequest request, CancellationToken ct = default)
+        GetKgByDestinationAsync(Guid userId, Guid workspaceId, DashboardRequest request, CancellationToken ct = default)
     {
-        var scope = await scopeResolver.ResolveAsync(workspaceId, request, ct);
+        var scope = await scopeResolver.ResolveAsync(userId, workspaceId, request, ct);
         var rows = await LoadAsync(workspaceId, scope, ct);
 
         // Solo se devuelven los destinos **presentes**: enseñar categorías a cero llenaría el widget de
@@ -210,9 +211,9 @@ public sealed class DashboardQueryService(
     /// cargado, sin un <c>JOIN</c> extra.
     /// </summary>
     public async Task<(DashboardScope Scope, IReadOnlyList<PlotTotal> Totals, decimal TotalKg)>
-        GetKgByPlotAsync(Guid workspaceId, DashboardRequest request, CancellationToken ct = default)
+        GetKgByPlotAsync(Guid userId, Guid workspaceId, DashboardRequest request, CancellationToken ct = default)
     {
-        var scope = await scopeResolver.ResolveAsync(workspaceId, request, ct);
+        var scope = await scopeResolver.ResolveAsync(userId, workspaceId, request, ct);
         var rows = await LoadAsync(workspaceId, scope, ct);
 
         var namesByPlot = scope.Plots.ToDictionary(plot => plot.Id, plot => plot.Name);
@@ -250,12 +251,13 @@ public sealed class DashboardQueryService(
     /// la propia campaña.
     /// </summary>
     public async Task<YieldEvolution> GetYieldEvolutionAsync(
+        Guid userId,
         Guid workspaceId,
         DashboardRequest request,
         YieldGranularity granularity,
         CancellationToken ct = default)
     {
-        var scope = await scopeResolver.ResolveAsync(workspaceId, request, ct);
+        var scope = await scopeResolver.ResolveAsync(userId, workspaceId, request, ct);
 
         if (!scope.IsResolvable || scope.Plots.Count == 0)
             return new YieldEvolution(scope, granularity, [], YieldHistory.Empty);

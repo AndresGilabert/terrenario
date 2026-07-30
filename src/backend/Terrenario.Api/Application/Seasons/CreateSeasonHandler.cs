@@ -5,20 +5,17 @@ using Terrenario.Api.Domain.Seasons;
 namespace Terrenario.Api.Application.Seasons;
 
 /// <summary>
-/// Crea una temporada del Workspace activo (MVP-201 · maestro MVP-203). La nueva temporada pasa a ser
-/// la <b>activa</b> del Workspace, desbancando a la anterior si la hubiera (decisión de producto: crear
-/// cambia la activa; RN-022 sigue garantizando una sola activa). La primera temporada de un Workspace
-/// (sin ninguna activa) simplemente nace activa, preservando el flujo de onboarding de MVP-201.
-///
-/// El desbanque atómico de la activa anterior lo hace <see cref="ISeasonRepository.ActivateExclusivelyAsync"/>,
-/// que ordena las descargas para no violar el índice único parcial.
+/// Crea una temporada del Workspace (MVP-201 · maestro MVP-203). Desde MVP-209, la nueva temporada pasa
+/// a ser la temporada de <b>trabajo del creador</b> (P-017, ahora por usuario), <b>sin desbancar a
+/// nadie</b>: cada usuario tiene la suya. Nace abierta o planificada según su fecha de inicio.
 ///
 /// MVP-207 (CA-2) añade la guarda de nombre único por Workspace: dos campañas «2025/2026» son
 /// indistinguibles en pantalla y en cualquier informe posterior.
 /// </summary>
 public sealed class CreateSeasonHandler(ISeasonRepository seasonRepository)
 {
-    public async Task<SeasonSummary> HandleAsync(CreateSeasonCommand command, CancellationToken ct = default)
+    public async Task<SeasonSummary> HandleAsync(
+        Guid userId, CreateSeasonCommand command, CancellationToken ct = default)
     {
         // El dominio normaliza y valida el nombre; se construye primero para no comprobar duplicados
         // contra un texto sin normalizar.
@@ -26,9 +23,13 @@ public sealed class CreateSeasonHandler(ISeasonRepository seasonRepository)
 
         await EnsureNameIsFreeAsync(seasonRepository, command.WorkspaceId, season.Name, null, ct);
 
-        await seasonRepository.ActivateExclusivelyAsync(season, isNew: true, ct);
+        // Se persiste la temporada antes de fijarla como de trabajo: la FK
+        // workspace_members.active_season_id exige que exista.
+        await seasonRepository.AddAsync(season, ct);
+        await seasonRepository.SaveChangesAsync(ct);
+        await seasonRepository.SetWorkingSeasonAsync(userId, command.WorkspaceId, season.Id, ct);
 
-        return GetActiveSeasonHandler.ToSummary(season);
+        return SeasonMapper.ToSummary(season, SeasonMapper.Today(), season.Id);
     }
 
     /// <summary>

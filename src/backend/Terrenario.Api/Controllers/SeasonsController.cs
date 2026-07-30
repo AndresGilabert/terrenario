@@ -7,6 +7,7 @@ using System.Text.Json.Serialization;
 using Terrenario.Api.Application.Seasons;
 using Terrenario.Api.Application.Seasons.Commands;
 using Terrenario.Api.Common;
+using Terrenario.Api.Common.Auth;
 using Terrenario.Api.Common.Errors;
 using Terrenario.Api.Common.Workspaces;
 using Terrenario.Api.Domain.Seasons;
@@ -19,9 +20,10 @@ namespace Terrenario.Api.Controllers;
 /// (MVP-105): el Workspace activo se resuelve en servidor y se lee de <see cref="IWorkspaceContext"/>,
 /// nunca del cliente (RN-034).
 ///
-/// Alcance MVP-203: listar, crear (la nueva pasa a ser la activa), editar (nombre/fechas),
-/// cerrar/reabrir (RN-024, informativo) y cambiar la temporada activa (RN-022, una sola activa). No
-/// hay borrado físico: las temporadas con histórico se cierran, no se eliminan.
+/// Alcance MVP-203: listar, crear, editar (nombre/fechas) y cerrar/reabrir (RN-024, informativo). Desde
+/// MVP-209, el estado (planificada/abierta/cerrada) es derivado e independiente de la temporada de
+/// <b>trabajo</b>, que es por usuario y se fija con <c>POST /seasons/{id}/activate</c>. No hay borrado
+/// físico: las temporadas con histórico se cierran, no se eliminan.
 /// </summary>
 [ApiController]
 [Authorize]
@@ -39,7 +41,8 @@ public sealed class SeasonsController(
     [HttpGet]
     public async Task<IActionResult> List(CancellationToken ct)
     {
-        var seasons = await listSeasonsHandler.HandleAsync(workspaceContext.WorkspaceId, ct);
+        var seasons = await listSeasonsHandler.HandleAsync(
+            User.GetUserId()!.Value, workspaceContext.WorkspaceId, ct);
 
         return Ok(new
         {
@@ -48,11 +51,15 @@ public sealed class SeasonsController(
         });
     }
 
-    /// <summary>Temporada activa del Workspace en curso (RN-021/RN-022). 404 si aún no tiene.</summary>
+    /// <summary>
+    /// Temporada de <b>trabajo del usuario</b> en el Workspace (RN-021, MVP-209). 404 si el Workspace no
+    /// tiene ninguna temporada.
+    /// </summary>
     [HttpGet("active")]
     public async Task<IActionResult> GetActive(CancellationToken ct)
     {
-        var season = await getActiveSeasonHandler.HandleAsync(workspaceContext.WorkspaceId, ct);
+        var season = await getActiveSeasonHandler.HandleAsync(
+            User.GetUserId()!.Value, workspaceContext.WorkspaceId, ct);
 
         if (season is null)
             return NotFound(new ApiErrorResponse(ApiError.SeasonNotFound()));
@@ -70,6 +77,7 @@ public sealed class SeasonsController(
         try
         {
             var season = await createSeasonHandler.HandleAsync(
+                User.GetUserId()!.Value,
                 new CreateSeasonCommand(
                     workspaceContext.WorkspaceId,
                     request.Name,
@@ -119,6 +127,7 @@ public sealed class SeasonsController(
         try
         {
             var season = await updateSeasonHandler.HandleAsync(
+                User.GetUserId()!.Value,
                 new UpdateSeasonCommand(
                     workspaceContext.WorkspaceId,
                     seasonId,
@@ -144,13 +153,14 @@ public sealed class SeasonsController(
     }
 
     /// <summary>
-    /// Cambia la temporada activa del Workspace (RN-022, una sola activa): activa la indicada y desbanca
-    /// a la anterior. Si estaba cerrada, se reabre al activarla.
+    /// Fija esta temporada como la de <b>trabajo del usuario</b> (MVP-209): sobre ella registrará por
+    /// defecto. No afecta a otros miembros ni reabre una temporada cerrada.
     /// </summary>
     [HttpPost("{seasonId:guid}/activate")]
     public async Task<IActionResult> Activate(Guid seasonId, CancellationToken ct)
     {
-        var season = await activateSeasonHandler.HandleAsync(workspaceContext.WorkspaceId, seasonId, ct);
+        var season = await activateSeasonHandler.HandleAsync(
+            User.GetUserId()!.Value, workspaceContext.WorkspaceId, seasonId, ct);
 
         if (season is null)
             return NotFound(new ApiErrorResponse(ApiError.SeasonNotFoundById()));
@@ -208,9 +218,11 @@ public sealed class SeasonsController(
         name = season.Name,
         start_date = season.StartDate,
         end_date = season.EndDate,
-        is_active = season.IsActive,
         is_closed = season.IsClosed,
-        // Estado derivado (planificada/activa/cerrada) para las etiquetas y acciones de la UI.
+        // MVP-209 — la temporada de trabajo del usuario que consulta (antes `is_active`, per-Workspace).
+        is_working = season.IsWorking,
+        // Estado derivado (planificada/abierta/cerrada) para las etiquetas de la UI, independiente de
+        // `is_working`.
         status = season.Status.ToString().ToLowerInvariant()
     };
 }

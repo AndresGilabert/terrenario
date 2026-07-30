@@ -58,6 +58,7 @@ erDiagram
         uuid user_id FK
         string role
         string status
+        uuid active_season_id FK
         timestamp joined_at
     }
 
@@ -117,7 +118,6 @@ erDiagram
         string name
         date start_date
         date end_date
-        boolean is_active
         boolean is_closed
         string active_crop
         timestamp created_at
@@ -269,8 +269,15 @@ de servir porque el Workspace ya volvio por otra via, sin atribuir una decision 
 |-------|------|-------------|-------------|
 | `role` | string | Si | `workspace_owner` o `workspace_member`. Informativo en MVP por RN-034 |
 | `status` | string | Si | Catalogo `worker_member_status`: `invitado`, `activo`, `revocado`. Solo `activo` da acceso y aparece en el selector (MVP-104) |
+| `active_season_id` | UUID (nullable) | No | Temporada de trabajo **de este usuario** en este Workspace (MVP-209, RN-021/RN-022). `null` ⇒ se resuelve el defecto (`WorkingSeasonPolicy`). `ON DELETE SET NULL` si la temporada se borra: el usuario vuelve al defecto en vez de quedar con una referencia colgada |
 
-Restricciones: indice unico `(workspace_id, user_id)` (un usuario no puede tener dos membresias del mismo Workspace) e indice de apoyo `(user_id, status)` para el selector de Workspace activo.
+Restricciones: indice unico `(workspace_id, user_id)` (un usuario no puede tener dos membresias del mismo Workspace), indice de apoyo `(user_id, status)` para el selector de Workspace activo e indice de apoyo sobre `active_season_id` para la FK a `seasons`.
+
+La temporada de trabajo vive aqui, no en `users`, porque `users.active_workspace_id` es **global** por
+usuario mientras que la de trabajo es **por Workspace**, y la membresia ya *es* el par (usuario,
+Workspace). Se resuelve **por peticion** (no viaja en el JWT): es un defecto/preferencia, no un claim de
+scope. Fijarla (crear o «trabajar en esta» temporada) es un `UPDATE` a la membresia del usuario que **no
+toca a nadie mas** (MVP-209, CA-2).
 
 MVP-204 expone estos estados en la vista de personas del Workspace y hace operativa la revocacion
 (`activo` -> `revocado`, metodo `Revoke()`). El estado `invitado` **no** se materializa como fila de
@@ -331,21 +338,27 @@ el MVP: coordenadas/mapas y metadatos de suelo quedan diferidos
 
 | Campo | Tipo | Obligatorio | Descripcion |
 |-------|------|-------------|-------------|
-| `is_active` | boolean | Si | Temporada activa del Workspace (RN-021/RN-022). En MVP solo una por Workspace |
 | `is_closed` | boolean | Si | Cierre informativo (RN-024); no bloquea altas ni ediciones |
 | `end_date` | date (nullable) | No | Fecha fin estimada; opcional |
 | `active_crop` | string (nullable) | No | Reservado para la evolucion por cultivo (RU-18/RU-19). No materializado en MVP-201 |
 
-Restricciones: indice unico parcial `(workspace_id) WHERE is_active` (`ux_seasons_workspace_active`)
-que materializa RN-022 en la base de datos, e indice **unico** `ux_seasons_workspace_name` sobre
-`(workspace_id, lower(name))` (MVP-207, CA-3), que impide dos campanas con el mismo nombre en un
-Workspace ignorando mayusculas. Las temporadas cerradas siguen ocupando su nombre: cerrar no lo
-libera. Introducida en MVP-201 (creacion explicita y cancelable;
-no se siembra por defecto). El maestro completo (estados `planificada/activa/cerrada`, derivados de
-`is_active`/`is_closed` sin columna de estado ni cambio de esquema; alta de varias, edicion,
-cierre/reapertura y cambio de temporada activa) se entrega en MVP-203. El cambio de activa desbanca a
-la anterior de forma transaccional para no violar el indice ni transitoriamente. `active_crop` sigue
-diferido (RU-18/RU-19): en MVP rige "una activa por Workspace".
+El **estado** (`planificada/abierta/cerrada`) no se persiste: se **deriva** de `is_closed` y de
+`start_date` frente a hoy (MVP-209, RN-022/RN-024): `cerrada` si `is_closed`; en otro caso `abierta` si
+`start_date <= hoy` (incluye campanas pasadas no cerradas, que siguen recibiendo registros tardios) y
+`planificada` si `start_date > hoy`. El dominio expone `StatusOn(DateOnly reference)` (no una propiedad):
+la fecha entra desde el borde para no acoplar el dominio al reloj. La **temporada de trabajo** ya no vive
+aqui (era `is_active`, uno por Workspace): pasa a `workspace_members.active_season_id`, por usuario
+(MVP-209, cierra P-045).
+
+Restricciones: indice **unico** `ux_seasons_workspace_name` sobre `(workspace_id, lower(name))`
+(MVP-207, CA-3), que impide dos campanas con el mismo nombre en un Workspace ignorando mayusculas. Las
+temporadas cerradas siguen ocupando su nombre: cerrar no lo libera. Indice de apoyo
+`IX_seasons_workspace_id` para la FK a `workspaces` (introducido en MVP-209 al retirarse el unico parcial
+`ux_seasons_workspace_active`, que hacia tambien de indice de acceso). Introducida en MVP-201 (creacion
+explicita y cancelable; no se siembra por defecto). El maestro completo (estado derivado, alta de varias,
+edicion, cierre/reapertura y cambio de temporada de trabajo) se entrega en MVP-203 y se rearma en MVP-209:
+puede haber **varias campanas abiertas a la vez** y cada usuario elige la suya de trabajo. `active_crop`
+sigue diferido (RU-18/RU-19).
 
 ### WORKER
 
@@ -560,10 +573,10 @@ diario de MVP-305.
 |---|---|---|
 | `USER` | implementada | MVP-101 (contexto activo en MVP-104) |
 | `WORKSPACE` | implementada | MVP-102 (ciclo de vida en MVP-206: renombrado, baja logica `deleted_at` y traspaso de `owner_id`) |
-| `WORKSPACE_MEMBER` | implementada | MVP-102 (estados de membresia en MVP-104; promocion/degradacion de `role` por el traspaso en MVP-206) |
+| `WORKSPACE_MEMBER` | implementada | MVP-102 (estados de membresia en MVP-104; promocion/degradacion de `role` por el traspaso en MVP-206; `active_season_id` —temporada de trabajo por usuario— en MVP-209) |
 | `WORKSPACE_REACTIVATION_REQUEST` | implementada | MVP-206 (enlace de un solo uso para solicitar traspaso y reactivacion) |
 | `WORKSPACE_INVITATION` | implementada | MVP-103 (reenvio en MVP-204: `Reissue` rota token y renueva caducidad) |
-| `SEASON` | implementada | MVP-201 (temporada inicial + `is_active`); maestro completo en MVP-203 (estados `planificada/activa/cerrada` derivados; `active_crop` diferido) |
+| `SEASON` | implementada | MVP-201 (temporada inicial); maestro completo en MVP-203; **MVP-209** separa estado (derivado por fechas: `planificada/abierta/cerrada`) de la **temporada de trabajo por usuario** (`workspace_members.active_season_id`): retira `seasons.is_active` y `ux_seasons_workspace_active`, cierra `P-045`. `active_crop` diferido |
 | `PLOT` | implementada | MVP-202 (alta minima RN-028, `is_active`; `location` en vez de coordenadas; `soil_metadata` diferido) |
 | `WORKER` | implementada | MVP-204 (alta minima `name`, `hourly_rate` de referencia, `is_active`); MVP-208 materializa `user_account_id`: el maestro pasa a ser el de responsables (miembros + cuadrilla) y cierra `P-034` |
 | `ACTIVITY` | implementada | MVP-301 (`task_id`/`task_text` excluyentes cierran `P-028`; estrena `version` + `If-Match` de ADR-0005 y la baja logica `deleted_at` de RN-037) |

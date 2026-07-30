@@ -6,7 +6,7 @@ estado: completado
 prioridad: alta
 hito: "Hito B — Base operativa preparada"
 tickets: []
-historias: ["MVP-201", "MVP-202", "MVP-203", "MVP-204", "MVP-205", "MVP-206", "MVP-207", "MVP-208", "MVP-299"]
+historias: ["MVP-201", "MVP-202", "MVP-203", "MVP-204", "MVP-205", "MVP-206", "MVP-207", "MVP-208", "MVP-209", "MVP-299"]
 depende_de: ["MVP-001"]
 bloquea: ["MVP-003", "MVP-004"]
 relacionado_con: []
@@ -19,7 +19,7 @@ ai_context:
   etiquetas: ["mvp", "masters", "onboarding"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-28"
+actualizado_en: "2026-07-30"
 ---
 
 # EPICA MVP-002 — Maestros operativos y onboarding
@@ -67,8 +67,9 @@ Dejar cada Workspace preparado para empezar a registrar actividad real en pocos 
 
 ## Criterios de aceptación de la épica
 
-- [x] **CA-1**: Todas las historias de la épica están en estado `completado`. _(9/9 en `_indice.md`
-  tras cerrar `MVP-299` en su 3ª pasada.)_
+- [x] **CA-1**: Todas las historias de la épica están en estado `completado`. _(10/10 en `_indice.md`:
+  9/9 tras cerrar `MVP-299` en su 3ª pasada, más `MVP-209` como corrección de modelo posterior al
+  cierre; ver Notas.)_
 - [x] **CA-2**: Un Workspace nuevo puede arrancar con primera temporada y los maestros mínimos necesarios sin configuración técnica adicional. _(Verificado en la 1ª pasada sobre un Workspace creado para la prueba y ratificado en la 3ª.)_
 - [x] **CA-3**: Actividades, compras y cosechas pueden depender exclusivamente de estos maestros sin recurrir a texto libre salvo donde el MVP lo permite explícitamente. Incluye al **responsable**: tanto un miembro del Workspace como un trabajador sin cuenta se identifican con un único tipo de referencia y pueden guardarse (`MVP-208`). _(3ª pasada: `GET /workers` devuelve un único espacio de identificadores con `kind`, y todo miembro activo tiene su `workers.id`, así que `ACTIVITY.worker_id` sigue siendo una FK simple. El texto libre que queda —producto de compra (RN-031)— está permitido explícitamente; el producto y el destino de cosecha son catálogo global fijo (RN-030/RN-012), alcance de `MVP-402`.)_
 - [x] **CA-4**: Los maestros son una referencia estable: dentro de un Workspace no conviven dos registros del mismo maestro con el mismo nombre —tampoco a través de la frontera miembro/cuadrilla del maestro de responsables—, y su contrato publicado describe la API realmente entregada, tanto en el alta como en la edición. _(3ª pasada: `409` verificado en los cuatro maestros y cruzando miembro/cuadrilla, con mayúsculas y espacios sobrantes, garantizado por los índices únicos; contrato verificado fila a fila contra la API tras cerrar `R-18` en `MVP-208` y `R-24` en `MVP-299`.)_
@@ -86,6 +87,7 @@ Dejar cada Workspace preparado para empezar a registrar actividad real en pocos 
 - `MVP-206` — Ciclo de vida del Workspace: renombrar, baja lógica y traspaso de propiedad.
 - `MVP-207` — Correcciones de cierre de la épica de maestros.
 - `MVP-208` — Identidad del responsable y correcciones finales de la épica de maestros.
+- `MVP-209` — Estado de temporada y temporada de trabajo por usuario (corrección de modelo posterior al cierre; cierra `P-045`).
 - `MVP-299` — Revision epica.
 
 ## Vinculacion con prototipo (fuente visual)
@@ -114,6 +116,7 @@ Matriz historia -> pantallas/componentes:
 | MVP-206 | [prototype/terrenario-mvp/src/components/AjustesView.tsx](../../../../prototype/terrenario-mvp/src/components/AjustesView.tsx) | No cubierto: renombrar/baja logica/traspaso de propiedad no existen en el prototipo |
 | MVP-207 | [prototype/terrenario-mvp/src/components/TemporadasView.tsx](../../../../prototype/terrenario-mvp/src/components/TemporadasView.tsx), [prototype/terrenario-mvp/src/components/TrabajadoresView.tsx](../../../../prototype/terrenario-mvp/src/components/TrabajadoresView.tsx) | No aplica: correcciones sobre pantallas ya entregadas por MVP-201..205 |
 | MVP-208 | [prototype/terrenario-mvp/src/components/TrabajadoresView.tsx](../../../../prototype/terrenario-mvp/src/components/TrabajadoresView.tsx), [prototype/terrenario-mvp/src/components/ActivityModal.tsx](../../../../prototype/terrenario-mvp/src/components/ActivityModal.tsx) | No aplica: modelo del maestro de responsables y correcciones sobre pantallas ya entregadas por MVP-201..207 |
+| MVP-209 | [prototype/terrenario-mvp/src/components/TemporadasView.tsx](../../../../prototype/terrenario-mvp/src/components/TemporadasView.tsx) | No aplica: corrección de modelo (estado ≠ temporada de trabajo por usuario) sobre el maestro ya entregado por MVP-203 |
 
 ## Notas y decisiones
 
@@ -156,3 +159,16 @@ Matriz historia -> pantallas/componentes:
   `P-049` (`can_revoke` frente a la guarda real con varios propietarios) y `P-050` (el ER de
   `PURCHASE` sin `season_id`, con destino `MVP-303`). Ninguno rompe un criterio de esta épica ni
   bloquea a `MVP-003`/`MVP-004`.
+- **Corrección de modelo posterior al cierre (`MVP-209`, 2026-07-30).** Al construir el filtro de
+  temporada del dashboard (`MVP-405`) afloró `P-045`: una campaña **pasada** desbancada por «crear
+  cambia la activa» (`P-017`) quedaba `is_active=false, is_closed=false` y se rotulaba «planificada»,
+  que describe algo por venir. Al plantearlo, el PO reformuló el problema de fondo: el modelo **fundía
+  dos conceptos** en el único `Season.is_active` —el **estado** informativo de la campaña y la
+  **temporada de trabajo** sobre la que se registra— y además la de trabajo era global por Workspace,
+  de modo que un usuario cambiaba la de otro. `MVP-209` los separa: el **estado** (`planificada`/
+  `abierta`/`cerrada`) se deriva de `is_closed` + fechas —`abierta` cubre las pasadas no cerradas— y la
+  **temporada de trabajo** pasa a ser **por usuario** (`workspace_members.active_season_id`). Es una
+  corrección del maestro de temporadas de esta épica (Hito B ya promocionado), no un defecto de una
+  historia concreta; se documenta aquí con el mismo criterio que lo absorbido por `MVP-206`/`MVP-208`,
+  cierra `P-045` y desbloquea el filtro de `MVP-405`. Decisión del PO (2026-07-30): **priorizar el
+  rediseño completo ya**, antes de cerrar `MVP-405`.

@@ -18,6 +18,7 @@ public class DashboardQueryServiceTests
     private readonly IPlotRepository _plots = Substitute.For<IPlotRepository>();
 
     private static readonly Guid WorkspaceId = Guid.NewGuid();
+    private static readonly Guid UserId = Guid.NewGuid();
 
     private readonly Season _active = Season.Create(
         WorkspaceId, "2026/2027", new DateOnly(2026, 9, 1), new DateOnly(2027, 2, 28));
@@ -34,10 +35,9 @@ public class DashboardQueryServiceTests
 
     public DashboardQueryServiceTests()
     {
-        _active.Activate();
         _retirado.SetActive(false);
 
-        _seasons.FindActiveByWorkspaceAsync(WorkspaceId, Arg.Any<CancellationToken>()).Returns(_active);
+        _seasons.FindWorkingSeasonAsync(UserId, WorkspaceId, Arg.Any<CancellationToken>()).Returns(_active);
         _seasons.FindByIdAsync(WorkspaceId, _active.Id, Arg.Any<CancellationToken>()).Returns(_active);
         _seasons.ListByWorkspaceAsync(WorkspaceId, Arg.Any<CancellationToken>()).Returns([_active]);
         _plots.ListByWorkspaceAsync(WorkspaceId, null, null, Arg.Any<CancellationToken>())
@@ -77,7 +77,7 @@ public class DashboardQueryServiceTests
         // RN-008 — al primer acceso, todos los terrenos y la temporada actual
         Seed();
 
-        var summary = await CreateSut().GetSummaryAsync(WorkspaceId, new DashboardRequest());
+        var summary = await CreateSut().GetSummaryAsync(UserId, WorkspaceId, new DashboardRequest());
 
         summary.Scope.Season!.Id.Should().Be(_active.Id);
         summary.Scope.Plots.Select(p => p.Id).Should().BeEquivalentTo([_alto.Id, _bajo.Id]);
@@ -92,7 +92,7 @@ public class DashboardQueryServiceTests
         Seed();
 
         var summary = await CreateSut().GetSummaryAsync(
-            WorkspaceId, new DashboardRequest(PlotIds: [_retirado.Id]));
+            UserId, WorkspaceId, new DashboardRequest(PlotIds: [_retirado.Id]));
 
         summary.Scope.Plots.Select(p => p.Id).Should().BeEquivalentTo([_retirado.Id]);
     }
@@ -105,7 +105,7 @@ public class DashboardQueryServiceTests
         Seed();
 
         var summary = await CreateSut().GetSummaryAsync(
-            WorkspaceId, new DashboardRequest(PlotIds: [_alto.Id, Guid.NewGuid()]));
+            UserId, WorkspaceId, new DashboardRequest(PlotIds: [_alto.Id, Guid.NewGuid()]));
 
         summary.Scope.Plots.Select(p => p.Id).Should().BeEquivalentTo([_alto.Id]);
     }
@@ -114,10 +114,10 @@ public class DashboardQueryServiceTests
     public async Task NoDeberia_ConsultarCosechas_SinTemporadaResoluble()
     {
         // RN-021 — toda la producción va asociada a una campaña: sin temporada el ámbito es imposible
-        _seasons.FindActiveByWorkspaceAsync(WorkspaceId, Arg.Any<CancellationToken>()).Returns((Season?)null);
+        _seasons.FindWorkingSeasonAsync(UserId, WorkspaceId, Arg.Any<CancellationToken>()).Returns((Season?)null);
         Seed();
 
-        var summary = await CreateSut().GetSummaryAsync(WorkspaceId, new DashboardRequest());
+        var summary = await CreateSut().GetSummaryAsync(UserId, WorkspaceId, new DashboardRequest());
 
         summary.Scope.IsResolvable.Should().BeFalse();
         summary.TotalKg.Should().Be(0m);
@@ -132,7 +132,7 @@ public class DashboardQueryServiceTests
     {
         Seed(Row(1000m), Row(500.5m), Row(200m));
 
-        var summary = await CreateSut().GetSummaryAsync(WorkspaceId, new DashboardRequest());
+        var summary = await CreateSut().GetSummaryAsync(UserId, WorkspaceId, new DashboardRequest());
 
         summary.TotalKg.Should().Be(1700.5m);
         summary.Harvests.Should().Be(3);
@@ -146,7 +146,7 @@ public class DashboardQueryServiceTests
             Row(1000m, liters: 200m),
             Row(1000m, yield: 20m)); // 20 L/100kg sobre 1.000 kg = 200 L
 
-        var summary = await CreateSut().GetSummaryAsync(WorkspaceId, new DashboardRequest());
+        var summary = await CreateSut().GetSummaryAsync(UserId, WorkspaceId, new DashboardRequest());
 
         summary.TotalLiters.Should().Be(400m);
     }
@@ -157,7 +157,7 @@ public class DashboardQueryServiceTests
         // Desconocido no es cero: un resumen que dice «0 litros» afirma que no salió aceite
         Seed(Row(1000m), Row(500m));
 
-        var summary = await CreateSut().GetSummaryAsync(WorkspaceId, new DashboardRequest());
+        var summary = await CreateSut().GetSummaryAsync(UserId, WorkspaceId, new DashboardRequest());
 
         summary.TotalLiters.Should().BeNull();
         summary.AverageYield.Should().BeNull();
@@ -174,7 +174,7 @@ public class DashboardQueryServiceTests
             Row(1000m, yield: 10m),
             Row(9000m, yield: 20m));
 
-        var summary = await CreateSut().GetSummaryAsync(WorkspaceId, new DashboardRequest());
+        var summary = await CreateSut().GetSummaryAsync(UserId, WorkspaceId, new DashboardRequest());
 
         summary.AverageYield.Should().Be(19m);
     }
@@ -187,7 +187,7 @@ public class DashboardQueryServiceTests
             Row(1000m, yield: 20m),
             Row(4000m));
 
-        var summary = await CreateSut().GetSummaryAsync(WorkspaceId, new DashboardRequest());
+        var summary = await CreateSut().GetSummaryAsync(UserId, WorkspaceId, new DashboardRequest());
 
         summary.AverageYield.Should().Be(20m);
         summary.Harvests.Should().Be(2);
@@ -206,7 +206,7 @@ public class DashboardQueryServiceTests
             Row(500m, destination: HarvestDestinations.VentaAceituna));
 
         var (_, totals, totalKg) = await CreateSut().GetKgByDestinationAsync(
-            WorkspaceId, new DashboardRequest());
+            UserId, WorkspaceId, new DashboardRequest());
 
         totals.Select(t => t.Destination).Should().ContainInOrder(
             HarvestDestinations.AceiteParaVenta, HarvestDestinations.VentaAceituna,
@@ -223,7 +223,7 @@ public class DashboardQueryServiceTests
             Row(1000m, destination: HarvestDestinations.AceiteParaVenta),
             Row(400m, destination: HarvestDestinations.Desconocido));
 
-        var (_, totals, _) = await CreateSut().GetKgByDestinationAsync(WorkspaceId, new DashboardRequest());
+        var (_, totals, _) = await CreateSut().GetKgByDestinationAsync(UserId, WorkspaceId, new DashboardRequest());
 
         totals.Should().Contain(t => t.Destination == HarvestDestinations.Desconocido && t.Kg == 400m);
     }
@@ -235,7 +235,7 @@ public class DashboardQueryServiceTests
         // cuatro: categorías a cero solo llenarían el widget de ruido
         Seed(Row(1000m, destination: HarvestDestinations.AceiteParaVenta));
 
-        var (_, totals, _) = await CreateSut().GetKgByDestinationAsync(WorkspaceId, new DashboardRequest());
+        var (_, totals, _) = await CreateSut().GetKgByDestinationAsync(UserId, WorkspaceId, new DashboardRequest());
 
         totals.Should().ContainSingle().Which.Destination.Should().Be(HarvestDestinations.AceiteParaVenta);
     }
@@ -250,8 +250,8 @@ public class DashboardQueryServiceTests
             Row(150.25m, destination: HarvestDestinations.AceitePersonal));
 
         var sut = CreateSut();
-        var summary = await sut.GetSummaryAsync(WorkspaceId, new DashboardRequest());
-        var (_, totals, totalKg) = await sut.GetKgByDestinationAsync(WorkspaceId, new DashboardRequest());
+        var summary = await sut.GetSummaryAsync(UserId, WorkspaceId, new DashboardRequest());
+        var (_, totals, totalKg) = await sut.GetKgByDestinationAsync(UserId, WorkspaceId, new DashboardRequest());
 
         totals.Sum(t => t.Kg).Should().Be(summary.TotalKg);
         totalKg.Should().Be(summary.TotalKg);
@@ -316,7 +316,7 @@ public class DashboardQueryServiceTests
             Row(500m, plotId: _alto.Id),
             Row(1200m, plotId: _bajo.Id));
 
-        var (_, totals, totalKg) = await CreateSut().GetKgByPlotAsync(WorkspaceId, new DashboardRequest());
+        var (_, totals, totalKg) = await CreateSut().GetKgByPlotAsync(UserId, WorkspaceId, new DashboardRequest());
 
         totals.Select(t => t.PlotId).Should().ContainInOrder(_bajo.Id, _alto.Id);
         totals.First().PlotName.Should().Be("Olivar Bajo");
@@ -331,7 +331,7 @@ public class DashboardQueryServiceTests
             Row(1000m, plotId: _bajo.Id),
             Row(1000m, plotId: _alto.Id));
 
-        var (_, totals, _) = await CreateSut().GetKgByPlotAsync(WorkspaceId, new DashboardRequest());
+        var (_, totals, _) = await CreateSut().GetKgByPlotAsync(UserId, WorkspaceId, new DashboardRequest());
 
         totals.Select(t => t.PlotName).Should().ContainInOrder("Olivar Alto", "Olivar Bajo");
     }
@@ -342,7 +342,7 @@ public class DashboardQueryServiceTests
         // Un terreno del ámbito sin cosechas sería una barra a cero: ruido, como en kg por destino
         Seed(Row(1000m, plotId: _alto.Id));
 
-        var (_, totals, _) = await CreateSut().GetKgByPlotAsync(WorkspaceId, new DashboardRequest());
+        var (_, totals, _) = await CreateSut().GetKgByPlotAsync(UserId, WorkspaceId, new DashboardRequest());
 
         totals.Should().ContainSingle().Which.PlotId.Should().Be(_alto.Id);
     }
@@ -355,8 +355,8 @@ public class DashboardQueryServiceTests
             Row(700.5m, plotId: _bajo.Id));
 
         var sut = CreateSut();
-        var summary = await sut.GetSummaryAsync(WorkspaceId, new DashboardRequest());
-        var (_, totals, totalKg) = await sut.GetKgByPlotAsync(WorkspaceId, new DashboardRequest());
+        var summary = await sut.GetSummaryAsync(UserId, WorkspaceId, new DashboardRequest());
+        var (_, totals, totalKg) = await sut.GetKgByPlotAsync(UserId, WorkspaceId, new DashboardRequest());
 
         totals.Sum(t => t.Kg).Should().Be(summary.TotalKg);
         totalKg.Should().Be(summary.TotalKg);
@@ -374,7 +374,7 @@ public class DashboardQueryServiceTests
             Row(2000m, yield: 21m, date: new DateOnly(2026, 11, 10)));
 
         var evolution = await CreateSut().GetYieldEvolutionAsync(
-            WorkspaceId, new DashboardRequest(), YieldGranularity.Month);
+            UserId, WorkspaceId, new DashboardRequest(), YieldGranularity.Month);
 
         evolution.Series.Select(p => p.Period).Should().ContainInOrder("2026-10", "2026-11");
         evolution.Series.Single(p => p.Period == "2026-10").Yield.Should().Be(19m);
@@ -390,7 +390,7 @@ public class DashboardQueryServiceTests
             Row(1000m, date: new DateOnly(2026, 11, 5)));
 
         var evolution = await CreateSut().GetYieldEvolutionAsync(
-            WorkspaceId, new DashboardRequest(), YieldGranularity.Month);
+            UserId, WorkspaceId, new DashboardRequest(), YieldGranularity.Month);
 
         evolution.Series.Should().ContainSingle().Which.Period.Should().Be("2026-10");
     }
@@ -403,7 +403,7 @@ public class DashboardQueryServiceTests
             Row(1000m, yield: 20m, date: new DateOnly(2026, 10, 12)));
 
         var evolution = await CreateSut().GetYieldEvolutionAsync(
-            WorkspaceId, new DashboardRequest(), YieldGranularity.Week);
+            UserId, WorkspaceId, new DashboardRequest(), YieldGranularity.Week);
 
         // 2026-10-05 es semana ISO 41; 2026-10-12, semana 42.
         evolution.Series.Select(p => p.Period).Should().ContainInOrder("2026-W41", "2026-W42");
@@ -417,7 +417,7 @@ public class DashboardQueryServiceTests
         Seed(Row(1000m, yield: 20m, date: new DateOnly(2026, 10, 5)));
 
         var evolution = await CreateSut().GetYieldEvolutionAsync(
-            WorkspaceId, new DashboardRequest(), YieldGranularity.Month);
+            UserId, WorkspaceId, new DashboardRequest(), YieldGranularity.Month);
 
         evolution.History.Average.Should().BeNull();
         evolution.History.PriorYearsWithData.Should().Be(0);
@@ -434,7 +434,7 @@ public class DashboardQueryServiceTests
             Row(1000m, yield: 18m, seasonId: PriorSeasonId, date: new DateOnly(2024, 10, 8))); // año -2
 
         var evolution = await CreateSut().GetYieldEvolutionAsync(
-            WorkspaceId, new DashboardRequest(), YieldGranularity.Month);
+            UserId, WorkspaceId, new DashboardRequest(), YieldGranularity.Month);
 
         // La serie es de la campaña actual; el histórico, de los dos años anteriores (media de 16 y 18).
         evolution.Series.Single().Yield.Should().Be(22m);
@@ -458,7 +458,7 @@ public class DashboardQueryServiceTests
             Row(1000m, yield: 16m, seasonId: PriorSeasonId, date: new DateOnly(2025, 4, 20))); // abril
 
         var evolution = await CreateSut().GetYieldEvolutionAsync(
-            WorkspaceId, new DashboardRequest(), YieldGranularity.Month);
+            UserId, WorkspaceId, new DashboardRequest(), YieldGranularity.Month);
 
         evolution.History.Average.Should().BeNull();
         evolution.History.PriorYearsWithData.Should().Be(0);
@@ -475,7 +475,7 @@ public class DashboardQueryServiceTests
             Row(1000m, yield: 30m, seasonId: PriorSeasonId, date: new DateOnly(2024, 10, 20))); // +10 días: fuera
 
         var evolution = await CreateSut().GetYieldEvolutionAsync(
-            WorkspaceId, new DashboardRequest(), YieldGranularity.Month);
+            UserId, WorkspaceId, new DashboardRequest(), YieldGranularity.Month);
 
         evolution.History.Average.Should().Be(16m);
         evolution.History.PriorYearsWithData.Should().Be(1);
@@ -487,8 +487,7 @@ public class DashboardQueryServiceTests
         // Escenario del PO: la temporada activa aún no tiene recolección. No hay línea actual, pero sí
         // interesa el histórico; la ventana la fija entonces el calendario de la campaña.
         var enCurso = Season.Create(WorkspaceId, "2026/2027", new DateOnly(2026, 9, 1), new DateOnly(2027, 2, 28));
-        enCurso.Activate();
-        _seasons.FindActiveByWorkspaceAsync(WorkspaceId, Arg.Any<CancellationToken>()).Returns(enCurso);
+        _seasons.FindWorkingSeasonAsync(UserId, WorkspaceId, Arg.Any<CancellationToken>()).Returns(enCurso);
         _seasons.FindByIdAsync(WorkspaceId, enCurso.Id, Arg.Any<CancellationToken>()).Returns(enCurso);
         // Sin cosechas en la campaña activa; sí en años anteriores dentro del calendario sept-feb.
         Seed(
@@ -496,7 +495,7 @@ public class DashboardQueryServiceTests
             Row(1000m, yield: 24m, seasonId: PriorSeasonId, date: new DateOnly(2024, 12, 10))); // año -2
 
         var evolution = await CreateSut().GetYieldEvolutionAsync(
-            WorkspaceId, new DashboardRequest(), YieldGranularity.Month);
+            UserId, WorkspaceId, new DashboardRequest(), YieldGranularity.Month);
 
         evolution.Series.Should().BeEmpty();
         evolution.History.Average.Should().Be(22m);
@@ -514,7 +513,7 @@ public class DashboardQueryServiceTests
             Row(1000m, yield: 12m, seasonId: PriorSeasonId, date: new DateOnly(2020, 10, 6)));  // año -6
 
         var evolution = await CreateSut().GetYieldEvolutionAsync(
-            WorkspaceId, new DashboardRequest(), YieldGranularity.Month);
+            UserId, WorkspaceId, new DashboardRequest(), YieldGranularity.Month);
 
         // General: ponderada de 18 (2000 kg) y 12 (1000 kg) = (360+120)/3000*100 = 16.
         evolution.History.Average.Should().Be(16m);
@@ -532,7 +531,7 @@ public class DashboardQueryServiceTests
         Seed();
 
         await CreateSut().GetYieldEvolutionAsync(
-            WorkspaceId, new DashboardRequest(PlotIds: [_alto.Id]), YieldGranularity.Month);
+            UserId, WorkspaceId, new DashboardRequest(PlotIds: [_alto.Id]), YieldGranularity.Month);
 
         // La consulta de evolución pide todas las temporadas (SeasonId null) pero solo el terreno pedido.
         await _harvests.Received(1).ListAggregateRowsAsync(
@@ -545,11 +544,11 @@ public class DashboardQueryServiceTests
     [Fact]
     public async Task Evolucion_NoDeberia_ConsultarNada_SinTemporada()
     {
-        _seasons.FindActiveByWorkspaceAsync(WorkspaceId, Arg.Any<CancellationToken>()).Returns((Season?)null);
+        _seasons.FindWorkingSeasonAsync(UserId, WorkspaceId, Arg.Any<CancellationToken>()).Returns((Season?)null);
         Seed();
 
         var evolution = await CreateSut().GetYieldEvolutionAsync(
-            WorkspaceId, new DashboardRequest(), YieldGranularity.Month);
+            UserId, WorkspaceId, new DashboardRequest(), YieldGranularity.Month);
 
         evolution.Series.Should().BeEmpty();
         evolution.History.Average.Should().BeNull();

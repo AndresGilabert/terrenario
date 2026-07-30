@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Globalization;
 using Terrenario.Api.Application.Dashboard;
+using Terrenario.Api.Common.Auth;
 using Terrenario.Api.Common.Workspaces;
 
 namespace Terrenario.Api.Controllers;
@@ -32,7 +33,7 @@ public sealed class DashboardController(
         CancellationToken ct)
     {
         var summary = await dashboardQueryService.GetSummaryAsync(
-            workspaceContext.WorkspaceId, new DashboardRequest(seasonId, plotIds), ct);
+            User.GetUserId()!.Value, workspaceContext.WorkspaceId, new DashboardRequest(seasonId, plotIds), ct);
 
         return Ok(new
         {
@@ -57,7 +58,7 @@ public sealed class DashboardController(
         CancellationToken ct)
     {
         var (scope, totals, totalKg) = await dashboardQueryService.GetKgByDestinationAsync(
-            workspaceContext.WorkspaceId, new DashboardRequest(seasonId, plotIds), ct);
+            User.GetUserId()!.Value, workspaceContext.WorkspaceId, new DashboardRequest(seasonId, plotIds), ct);
 
         return Ok(new
         {
@@ -77,7 +78,7 @@ public sealed class DashboardController(
         CancellationToken ct)
     {
         var (scope, totals, totalKg) = await dashboardQueryService.GetKgByPlotAsync(
-            workspaceContext.WorkspaceId, new DashboardRequest(seasonId, plotIds), ct);
+            User.GetUserId()!.Value, workspaceContext.WorkspaceId, new DashboardRequest(seasonId, plotIds), ct);
 
         return Ok(new
         {
@@ -109,7 +110,7 @@ public sealed class DashboardController(
             : YieldGranularity.Month;
 
         var evolution = await dashboardQueryService.GetYieldEvolutionAsync(
-            workspaceContext.WorkspaceId, new DashboardRequest(seasonId, plotIds), resolved, ct);
+            User.GetUserId()!.Value, workspaceContext.WorkspaceId, new DashboardRequest(seasonId, plotIds), resolved, ct);
 
         return Ok(new
         {
@@ -171,7 +172,9 @@ public sealed class DashboardController(
             {
                 id = scope.Season.Id,
                 name = scope.Season.Name,
-                is_active = scope.Season.IsActive,
+                // MVP-209 — estado derivado (planificada/abierta/cerrada) en vez del antiguo `is_active`.
+                status = scope.Season.StatusOn(DateOnly.FromDateTime(DateTime.UtcNow))
+                    .ToString().ToLowerInvariant(),
                 start_date = scope.Season.StartDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 end_date = scope.Season.EndDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
             },

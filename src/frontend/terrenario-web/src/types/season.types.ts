@@ -1,7 +1,11 @@
 /**
- * Temporada (campaña) del Workspace (MVP-201 · maestro MVP-203). En MVP hay una única temporada
- * activa por Workspace (RN-022). Los estados `planificada/activa/cerrada` se derivan de los booleanos
- * canónicos; el backend los expone ya resueltos en `status` para las etiquetas y acciones de la UI.
+ * Temporada (campaña) del Workspace (MVP-201 · maestro MVP-203 · modelo MVP-209).
+ *
+ * MVP-209 separó dos ejes que antes fundía `is_active`:
+ * - `status` (informativo): en qué punto de su vida está la campaña —planificada/abierta/cerrada—,
+ *   derivado de `is_closed` y de la fecha de inicio frente a hoy, independiente de la de trabajo.
+ * - `is_working`: si es la temporada de **trabajo del usuario** que consulta (sobre la que registra por
+ *   defecto). Es por usuario, no por Workspace.
  */
 export interface Season {
   id: string;
@@ -10,24 +14,25 @@ export interface Season {
   start_date: string;
   /** Fecha ISO `YYYY-MM-DD`. Estimada y opcional. */
   end_date: string | null;
-  is_active: boolean;
   is_closed: boolean;
-  /** Estado derivado (planificada/activa/cerrada). */
+  /** MVP-209 — la temporada de trabajo de este usuario (antes `is_active`, que era por Workspace). */
+  is_working: boolean;
+  /** Estado derivado informativo (planificada/abierta/cerrada). */
   status: SeasonStatus;
 }
 
-/** Máquina de estados de la temporada (RN-024). Derivada de `is_active`/`is_closed` en el backend. */
-export type SeasonStatus = 'planificada' | 'activa' | 'cerrada';
+/** Estado informativo de la temporada (MVP-209). Derivado de `is_closed` + fechas en el backend. */
+export type SeasonStatus = 'planificada' | 'abierta' | 'cerrada';
 
 export const SEASON_STATUS_LABELS: Record<SeasonStatus, string> = {
   planificada: 'Planificada',
-  activa: 'Activa',
+  abierta: 'Abierta',
   cerrada: 'Cerrada',
 };
 
 /**
- * Creación de una temporada del Workspace. La nueva pasa a ser la activa (MVP-203); la primera de un
- * Workspace simplemente nace activa (onboarding MVP-201).
+ * Creación de una temporada del Workspace. Desde MVP-209 la nueva pasa a ser la temporada de **trabajo
+ * del creador** (por usuario), sin desbancar a nadie.
  */
 export interface CreateSeasonPayload {
   name: string;

@@ -5,15 +5,17 @@ namespace Terrenario.Api.Application.Seasons;
 
 /// <summary>
 /// MVP-203 — Edita una temporada del Workspace activo (HU-1/CA-2): nombre, fechas y cierre/reapertura
-/// (RN-024). El cambio de temporada activa NO se hace aquí (es <see cref="ActivateSeasonHandler"/>),
-/// porque implica desbancar a la anterior. La temporada se busca acotada al Workspace: si no existe en
-/// él, devuelve <c>null</c> y el borde de transporte responde 404.
+/// (RN-024). El cambio de temporada de trabajo NO se hace aquí (es <see cref="ActivateSeasonHandler"/>).
+/// La temporada se busca acotada al Workspace: si no existe en él, devuelve <c>null</c> y el borde de
+/// transporte responde 404.
 ///
 /// MVP-207 (CA-2): renombrar tampoco puede dejar dos temporadas con el mismo nombre.
+/// Recibe <paramref name="userId"/> solo para marcar <c>is_working</c> en la respuesta (MVP-209).
 /// </summary>
 public sealed class UpdateSeasonHandler(ISeasonRepository seasonRepository)
 {
-    public async Task<SeasonSummary?> HandleAsync(UpdateSeasonCommand command, CancellationToken ct = default)
+    public async Task<SeasonSummary?> HandleAsync(
+        Guid userId, UpdateSeasonCommand command, CancellationToken ct = default)
     {
         var season = await seasonRepository.FindByIdAsync(command.WorkspaceId, command.SeasonId, ct);
         if (season is null) return null;
@@ -34,8 +36,8 @@ public sealed class UpdateSeasonHandler(ISeasonRepository seasonRepository)
             command.StartDate.Or(season.StartDate),
             command.EndDate.Or(season.EndDate));
 
-        // Cierre/reapertura (RN-024, informativo). Cerrar la activa libera el hueco de activa del
-        // Workspace (decisión de producto MVP-203); reabrir devuelve a "planificada".
+        // Cierre/reapertura (RN-024, informativo). No toca la temporada de trabajo de nadie (MVP-209):
+        // cerrar es «ya no espero registros aquí», reabrir la devuelve a abierta/planificada por fechas.
         if (command.IsClosed.Present)
         {
             if (command.IsClosed.Value) season.Close();
@@ -44,6 +46,7 @@ public sealed class UpdateSeasonHandler(ISeasonRepository seasonRepository)
 
         await seasonRepository.SaveChangesAsync(ct);
 
-        return GetActiveSeasonHandler.ToSummary(season);
+        var working = await seasonRepository.FindWorkingSeasonAsync(userId, command.WorkspaceId, ct);
+        return SeasonMapper.ToSummary(season, SeasonMapper.Today(), working?.Id);
     }
 }

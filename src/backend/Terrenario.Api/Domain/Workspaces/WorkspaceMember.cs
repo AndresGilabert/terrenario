@@ -14,6 +14,15 @@ public sealed class WorkspaceMember
     public string Status { get; private set; } = WorkspaceMemberStatuses.Active;
     public DateTimeOffset JoinedAt { get; private set; }
 
+    /// <summary>
+    /// MVP-209 — Temporada de trabajo de <b>este usuario en este Workspace</b>: la que se autoselecciona
+    /// al registrar y el defecto del dashboard. Es una preferencia por usuario, no un estado de la
+    /// temporada; <c>null</c> mientras no se haya fijado ninguna (se resuelve un defecto,
+    /// <see cref="Seasons.WorkingSeasonPolicy"/>). La FK usa <c>ON DELETE SET NULL</c>: borrar la
+    /// temporada devuelve al usuario al defecto en vez de dejar una referencia colgada.
+    /// </summary>
+    public Guid? ActiveSeasonId { get; private set; }
+
     /// <summary>Atajo de lectura del estado; no se persiste como columna propia.</summary>
     public bool IsActive => Status == WorkspaceMemberStatuses.Active;
 
@@ -46,6 +55,13 @@ public sealed class WorkspaceMember
     /// En MVP los permisos son planos (RN-034), así que solo afecta a las reglas de propiedad.
     /// </summary>
     public void DemoteToMember() => Role = WorkspaceRoles.Member;
+
+    /// <summary>
+    /// MVP-209 — Fija la temporada de trabajo de este usuario (o la limpia con <c>null</c> para volver
+    /// al defecto). No valida que la temporada exista o sea del Workspace: eso es responsabilidad del
+    /// caso de uso, que es quien tiene acceso al maestro.
+    /// </summary>
+    public void SetActiveSeason(Guid? seasonId) => ActiveSeasonId = seasonId;
 
     private static WorkspaceMember Create(Guid workspaceId, Guid userId, string role) =>
         new()

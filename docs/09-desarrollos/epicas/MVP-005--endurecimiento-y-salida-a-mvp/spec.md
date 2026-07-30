@@ -6,7 +6,7 @@ estado: borrador
 prioridad: alta
 hito: "Hito E — Salida controlada a MVP"
 tickets: []
-historias: ["MVP-501", "MVP-502", "MVP-503", "MVP-504", "MVP-505", "MVP-599"]
+historias: ["MVP-501", "MVP-502", "MVP-503", "MVP-504", "MVP-505", "MVP-506", "MVP-599"]
 depende_de: ["MVP-001", "MVP-002", "MVP-003", "MVP-004"]
 bloquea: ["MVP-006"]
 relacionado_con: []
@@ -19,7 +19,7 @@ ai_context:
   etiquetas: ["mvp", "hardening", "release"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-24"
+actualizado_en: "2026-07-30"
 ---
 
 # EPICA MVP-005 — Endurecimiento y salida a MVP
@@ -71,6 +71,7 @@ Llevar el núcleo funcional del MVP a un estado desplegable con riesgo controlad
 - `MVP-503` — Checklist de cumplimiento RGPD/LOPDGDD del MVP.
 - `MVP-504` — Gate final de release y salida controlada a staging/producción.
 - `MVP-505` — Cumplimiento funcional de salida: páginas legales, consentimiento y baja de cuenta.
+- `MVP-506` — Navegación y escala del diario: paginación, búsqueda en servidor y filtro por responsable (consolida `P-051`/`P-052`/`P-056`).
 - `MVP-599` — Revision epica.
 
 ## Vinculacion con prototipo (fuente visual)

@@ -2,7 +2,7 @@
 id: "MVP-403"
 tipo: feature
 titulo: "Dashboard resumen y kg por destino"
-estado: borrador
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito D — Visibilidad operativa MVP"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "dashboard", "kpi"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-29"
 ---
 
 # MVP-403 — Dashboard resumen y kg por destino
@@ -63,9 +63,9 @@ Mostrar un resumen de temporada útil y un desglose fiable por destino a partir 
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: El dashboard muestra un resumen de temporada basado en las cosechas del Workspace y temporada activa o seleccionada.
-- [ ] **CA-2**: El widget de kg por destino usa la taxonomía cerrada del MVP, incluyendo `desconocido`.
-- [ ] **CA-3**: Los widgets se muestran sin error bloqueante incluso cuando algunos datos complementarios no existan.
+- [x] **CA-1**: El dashboard muestra un resumen de temporada basado en las cosechas del Workspace y temporada activa o seleccionada.
+- [x] **CA-2**: El widget de kg por destino usa la taxonomía cerrada del MVP, incluyendo `desconocido`.
+- [x] **CA-3**: Los widgets se muestran sin error bloqueante incluso cuando algunos datos complementarios no existan.
 
 ## Maquetas y referencias visuales
 
@@ -78,9 +78,24 @@ Mostrar un resumen de temporada útil y un desglose fiable por destino a partir 
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| DashboardView - resumen | RN-005, RN-009 | parcial | Widget de resumen visible |
-| DashboardView - destino | RN-012 | parcial | Incluye Sin destino; faltan taxonomias canonicas completas |
+| DashboardView - resumen | RN-005, RN-009 | cubierto | Vision General en una sola pantalla con scroll vertical; kg, litros y rendimiento medio ponderado |
+| DashboardView - destino | RN-012 | cubierto | Kg por destino con la taxonomia cerrada e `desconocido` rotulado «Sin destino» |
+| DashboardView - refresco | RN-006 | cubierto | Sin actualizacion en segundo plano; boton «Actualizar» explicito y aviso en pantalla |
+| TemporadasView | — | cubierto | Produccion agregada por campana en la tarjeta del maestro (cierra `P-021`) |
 
 ## Notas y decisiones
 
 - Esta historia cubre dos de los cuatro widgets MVP.
+- **Cierra `P-021`**: la tarjeta de temporada muestra ya su produccion agregada, que `MVP-203` omitio
+  deliberadamente por no inventar metricas sin datos de cosecha. Llega en una sola peticion
+  (`GET /dashboard/kg-by-season`) y su fallo no tumba el maestro.
+- **El resumen dice sobre cuantas partidas promedia.** Una media de rendimiento calculada sobre 2 de 20
+  partidas, presentada a secas, se lee como la de la campana entera; y `null` en litros o rendimiento
+  significa **desconocido**, no cero: «no salio aceite» seria una afirmacion falsa.
+- **El ambito resuelto (RN-008) viaja en la respuesta.** Los defectos los pone el servidor —temporada
+  activa y todos los terrenos activos—, asi que devolverlos es lo que permite a la pantalla explicar de
+  que son las cifras, y a `MVP-405` posicionar los filtros sin duplicar la regla en el cliente.
+- **Alcance que cierra `MVP-405`, no esta historia**: los filtros en la UI con su persistencia (RN-007)
+  y el KPI `kg/arbol` con la exclusion de terrenos sin `num_arboles` (RN-010). El contrato publica
+  `kg_per_tree` e `incomplete`, y aqui **no se emiten** a proposito: publicar un `kg/arbol` sin la
+  exclusion de RN-010 seria publicar una cifra mal calculada. Detalle en el [tech-design](./tech-design.md).

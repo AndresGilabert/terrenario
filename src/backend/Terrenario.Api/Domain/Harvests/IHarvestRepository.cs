@@ -32,7 +32,63 @@ public interface IHarvestRepository
     /// <summary>Misma proyección que el listado, para un único registro (respuestas de alta y edición).</summary>
     Task<HarvestView?> GetViewAsync(Guid workspaceId, Guid harvestId, CancellationToken ct = default);
 
+    /// <summary>
+    /// MVP-403 — Filas mínimas para agregar el dashboard: solo las columnas que suman, sin <c>JOIN</c>
+    /// a los maestros. Excluye las eliminadas (RN-037), como todas las lecturas de este puerto.
+    ///
+    /// <b>Una sola lectura para los cuatro widgets.</b> La KB exige que resumen, gráficos y detalle no
+    /// se contradigan entre sí; con una única consulta lo cumplen <i>por construcción</i>, porque todos
+    /// agregan sobre el mismo conjunto de filas y no sobre cuatro consultas que podrían intercalarse con
+    /// una escritura. Y la agregación queda detrás de este método, así que moverla a <c>GROUP BY</c> en
+    /// SQL —la evolución que ya prevé <c>ADR-0004</c> para consultas analíticas— no toca a los llamantes.
+    /// </summary>
+    Task<IReadOnlyList<HarvestAggregateRow>> ListAggregateRowsAsync(
+        Guid workspaceId,
+        HarvestAggregateFilter filter,
+        CancellationToken ct = default);
+
     Task SaveChangesAsync(CancellationToken ct = default);
+}
+
+/// <summary>
+/// Ámbito de agregación del dashboard (MVP-403): temporada y conjunto de terrenos. A diferencia de
+/// <see cref="HarvestFilter"/> admite <b>varios</b> terrenos, que es como filtra el dashboard (RN-008).
+/// <c>null</c> o vacío significa «sin restringir por esa dimensión»: los valores por defecto los
+/// resuelve el caso de uso, no el puerto.
+/// </summary>
+public sealed record HarvestAggregateFilter(
+    Guid? SeasonId = null,
+    IReadOnlyCollection<Guid>? PlotIds = null);
+
+/// <summary>
+/// Fila mínima de agregación (MVP-403): lo justo para sumar kilos, litros y rendimiento por terreno,
+/// destino y temporada. No lleva nombres resueltos porque quien agrupa ya tiene los maestros cargados.
+/// </summary>
+public sealed record HarvestAggregateRow(
+    Guid PlotId,
+    Guid SeasonId,
+    decimal Kgs,
+    decimal? Yield,
+    decimal? Liters,
+    string Destination)
+{
+    /// <summary>
+    /// Rendimiento en la unidad canónica L/100kg (RN-013), declarado o derivado de los litros
+    /// (RN-014). Misma regla que <see cref="HarvestView.EffectiveYield"/>: el dato no cambia de
+    /// significado según quién lo lea.
+    /// </summary>
+    public decimal? EffectiveYield => Yield ?? HarvestYieldConversion.FromLitres(Kgs, Liters);
+
+    /// <summary>
+    /// Litros de aceite de la partida, declarados o derivados del rendimiento. Es la cara simétrica de
+    /// <see cref="EffectiveYield"/>: RN-004 obliga a informar uno de los dos, y el resumen de temporada
+    /// necesita los litros totales «cuando exista dato», no solo cuando se escribieran litros.
+    /// </summary>
+    public decimal? EffectiveLiters =>
+        Liters ?? (Yield is { } yield ? decimal.Round(yield / 100m * Kgs, 2, MidpointRounding.AwayFromZero) : null);
+
+    /// <summary>¿La partida aporta algún dato de aceite? Es lo que decide si entra en los promedios.</summary>
+    public bool HasOilData => Yield is not null || Liters is not null;
 }
 
 /// <summary>Filtros del listado de cosechas (<c>from</c>, <c>to</c>, terreno, temporada, destino).</summary>

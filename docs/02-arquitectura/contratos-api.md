@@ -712,10 +712,15 @@ Reglas de contexto (MVP-303):
 
 | Operación | Método y ruta | Request (query) | Respuesta 2xx |
 |---|---|---|---|
-| Resumen temporada | `GET /api/v1/dashboard/summary` | `season_id?`, `plot_ids?[]` | `200 { total_kg, total_liters, average_yield, kg_per_tree, incomplete }` |
-| Kg por destino | `GET /api/v1/dashboard/kg-by-destination` | `season_id?`, `plot_ids?[]` | `200 { data:[{ destination, kg }] }` |
+| Resumen temporada | `GET /api/v1/dashboard/summary` | `season_id?`, `plot_ids?[]` | `200 { scope, total_kg, total_liters, average_yield, harvests, harvests_with_oil_data, kg_per_tree, incomplete }` |
+| Kg por destino | `GET /api/v1/dashboard/kg-by-destination` | `season_id?`, `plot_ids?[]` | `200 { scope, data:[{ destination, kg }], meta:{ total_kg } }` |
+| Kg por temporada (MVP-403) | `GET /api/v1/dashboard/kg-by-season` | — | `200 { data:[{ season_id, season_name, total_kg, harvests }], meta:{ total } }` |
 | Kg por terreno | `GET /api/v1/dashboard/kg-by-plot` | `season_id?` | `200 { data:[{ plot_id, plot_name, kg }] }` |
 | Evolución rendimiento | `GET /api/v1/dashboard/yield-evolution` | `season_id?`, `granularity?=month\|week` | `200 { data:[{ period, yield }] }` |
+
+El dashboard es de **solo lectura** y no se refresca en segundo plano (RN-006): se recalcula al entrar
+en la pantalla o a petición explícita. `plot_ids` es un parámetro **repetible**
+(`?plot_ids=a&plot_ids=b`).
 
 Reglas de filtro por defecto:
 
@@ -723,6 +728,22 @@ Reglas de filtro por defecto:
 |---|---|
 | Sin `season_id` | backend resuelve temporada activa del workspace |
 | Sin `plot_ids` | backend usa todos los terrenos activos del workspace |
+| `scope` en la respuesta (MVP-403) | El ámbito **ya resuelto**: `{ season: { id, name, is_active, start_date, end_date } \| null, plot_ids[], plots }`. Los defectos los pone el servidor, así que sin devolverlos la pantalla mostraría cifras sin poder decir de qué son; es también lo que permite posicionar los filtros sin duplicar la regla del defecto en el cliente |
+| `season: null` (MVP-403) | El Workspace no tiene temporada que mirar. RN-021 asocia toda la producción a una campaña, así que no es «resumen vacío» sino ámbito imposible: se responden ceros y `null`, y el cliente pide la temporada en vez de presentarlos como datos |
+| Terreno pedido inexistente o ajeno (MVP-403) | Se **descarta en silencio**, no es un error: es una lectura, y quien llega con un filtro obsoleto debe ver el dashboard de lo que sí existe. En una escritura la decisión es la contraria (`FOREIGN_KEY_WORKSPACE_MISMATCH`) |
+| Terreno **inactivo** pedido explícitamente (MVP-403) | Cuenta. Inactivar deja de ofrecerlo para registros nuevos (MVP-202, CA-3), no borra su histórico: excluir su producción al mirar una campaña pasada falsearía los totales |
+
+Reglas de cálculo (MVP-403):
+
+| Regla | Comportamiento |
+|---|---|
+| `total_liters` | Litros «cuando exista dato»: declarados o derivados del rendimiento (RN-014). `null` significa **desconocido**, que no es lo mismo que cero litros |
+| `average_yield` | Unidad canónica L/100kg (RN-013) y **ponderado por kilos**, no media de partidas: el rendimiento de una campaña es el de todo el aceite sobre toda la aceituna. `null` sin dato de aceite |
+| `harvests_with_oil_data` | Partidas que aportan dato de aceite. Junto a `harvests` permite decir sobre cuántas se ha promediado: una media sobre 2 de 20 presentada a secas se lee como la de la campaña entera |
+| `data` de kg por destino | Solo los destinos **presentes**. La taxonomía cerrada (RN-012) garantiza que las claves salen del catálogo, no que haya que pintar las cuatro categorías. Orden: kg descendentes y desempate alfabético, el mismo criterio que RN-011 impone al widget de terrenos |
+| `meta.total_kg` | Calculado en servidor, para que el porcentaje del gráfico no pueda discrepar del resumen por un redondeo |
+| `kg-by-season` | Sin filtro de terreno (la tarjeta del maestro habla de la campaña completa) y en una sola petición. Una campaña sin cosechas aparece con `total_kg: 0`, que es información («no se recolectó nada»), no ausencia de dato. Cierra `P-021` |
+| `kg_per_tree` / `incomplete` | **Pendientes de `MVP-405`**, que es quien tiene la regla RN-010 (excluir terrenos sin `num_arboles` y avisar de dato incompleto). `MVP-403` no los emite: publicar un `kg/árbol` sin esa exclusión sería publicar una cifra mal calculada |
 
 ### 9) Alcance de sincronización MVP
 

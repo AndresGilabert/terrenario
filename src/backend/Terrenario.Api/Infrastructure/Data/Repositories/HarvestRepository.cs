@@ -59,6 +59,30 @@ public sealed class HarvestRepository(TerrenarioDbContext db) : IHarvestReposito
     public Task<HarvestView?> GetViewAsync(Guid workspaceId, Guid harvestId, CancellationToken ct = default)
         => ProjectViews(LiveHarvests(workspaceId).Where(h => h.Id == harvestId)).FirstOrDefaultAsync(ct);
 
+    public async Task<IReadOnlyList<HarvestAggregateRow>> ListAggregateRowsAsync(
+        Guid workspaceId,
+        HarvestAggregateFilter filter,
+        CancellationToken ct = default)
+    {
+        var live = LiveHarvests(workspaceId);
+
+        if (filter.SeasonId is { } seasonId) live = live.Where(h => h.SeasonId == seasonId);
+
+        // Una lista vacía **no** es «todos»: eso lo decide el caso de uso resolviendo el ámbito por
+        // defecto (RN-008). Aquí, `null` es «sin restringir» y una lista con valores restringe.
+        if (filter.PlotIds is { Count: > 0 } plotIds)
+        {
+            var ids = plotIds.ToArray();
+            live = live.Where(h => ids.Contains(h.PlotId));
+        }
+
+        // Solo las columnas que suman: sin `JOIN` a los maestros y sin orden, porque agregar no lo
+        // necesita. Es la consulta más barata que responde a los cuatro widgets.
+        return await live
+            .Select(h => new HarvestAggregateRow(h.PlotId, h.SeasonId, h.Kgs, h.Yield, h.Liters, h.Destination))
+            .ToListAsync(ct);
+    }
+
     /// <summary>Cosechas vivas del Workspace: el filtro de baja lógica en un único sitio (RN-037).</summary>
     private IQueryable<Harvest> LiveHarvests(Guid workspaceId)
         => db.Harvests.Where(h => h.WorkspaceId == workspaceId && h.DeletedAt == null);

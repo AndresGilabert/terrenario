@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Terrenario.Api.Application.Activities;
 using Terrenario.Api.Application.Auth;
 using Terrenario.Api.Application.Consumptions;
+using Terrenario.Api.Application.Dashboard;
 using Terrenario.Api.Application.Diary;
 using Terrenario.Api.Application.Harvests;
 using Terrenario.Api.Application.Invitations;
@@ -161,6 +162,9 @@ builder.Services.AddScoped<UpdateHarvestHandler>();
 builder.Services.AddScoped<DeleteHarvestHandler>();
 builder.Services.AddScoped<ListHarvestsHandler>();
 builder.Services.AddScoped<GetHarvestHandler>();
+// Dashboard (MVP-403): agrega la producción capturada; solo lectura y sin refresco continuo (RN-006)
+builder.Services.AddScoped<DashboardScopeResolver>();
+builder.Services.AddScoped<DashboardQueryService>();
 // Diario cronológico unificado (MVP-305): agrega las cuatro entidades operativas, de solo lectura.
 // MVP-401 enciende la cosecha, que es lo que completa RN-033 (hallazgo `G-4`).
 builder.Services.AddScoped<DiaryQueryService>();

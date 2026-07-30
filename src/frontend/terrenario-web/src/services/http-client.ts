@@ -28,8 +28,18 @@ export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
   /** Cuerpo JSON serializable. Se serializa y se fija `Content-Type: application/json`. */
   body?: unknown;
-  /** Query params; los valores `undefined`/`null` se omiten. */
-  query?: Record<string, string | number | boolean | undefined | null>;
+  /**
+   * Query params; los valores `undefined`/`null` se omiten.
+   *
+   * Un **array** se serializa como parámetro **repetible** (`?plot_ids=a&plot_ids=b`), que es la forma
+   * que espera la API para los filtros multivalor —`plot_ids` del dashboard (MVP-403), `type` del
+   * diario—. Un array vacío se omite: «sin filtro» y «filtro que no selecciona nada» no son lo mismo,
+   * y quien quiera el segundo debe decirlo explícitamente.
+   */
+  query?: Record<
+    string,
+    string | number | boolean | undefined | null | readonly (string | number | boolean)[]
+  >;
   /**
    * Cabeceras adicionales de la petición. Lo estrenan los registros operativos (MVP-301), que exigen
    * `If-Match` con la versión vigente en `PATCH`/`DELETE` (ADR-0005). No puede sobrescribir
@@ -75,7 +85,12 @@ export function createHttpClient(opts: {
       const url = new URL(`${baseUrl}${path}`);
       if (options.query) {
         for (const [key, value] of Object.entries(options.query)) {
-          if (value !== undefined && value !== null) url.searchParams.set(key, String(value));
+          if (value === undefined || value === null) continue;
+          if (Array.isArray(value)) {
+            for (const item of value) url.searchParams.append(key, String(item));
+            continue;
+          }
+          url.searchParams.set(key, String(value));
         }
       }
 

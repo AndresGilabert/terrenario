@@ -77,6 +77,23 @@ public static class ErrorCodes
     /// repartir más material del que se compró.
     /// </summary>
     public const string ValidationConsumptionOverflow = "VALIDATION_CONSUMPTION_OVERFLOW";
+    // Cosechas (MVP-401)
+    public const string ValidationHarvestRequiredFields = "VALIDATION_HARVEST_REQUIRED_FIELDS";
+    /// <summary>RN-004 — sin kilos no hay cosecha que medir.</summary>
+    public const string ValidationHarvestKgsRequired = "VALIDATION_HARVEST_KGS_REQUIRED";
+    /// <summary>
+    /// RN-004 — <c>yield</c> y <c>liters</c> no pueden coexistir: son dos formas de medir lo mismo y
+    /// guardar las dos permitiría que se contradijeran.
+    /// </summary>
+    public const string ValidationHarvestXorYieldLiters = "VALIDATION_HARVEST_XOR_YIELD_LITERS";
+    public const string ValidationHarvestYieldRange = "VALIDATION_HARVEST_YIELD_RANGE";
+    /// <summary>MVP-402 — La unidad de rendimiento no está en el catálogo `l_100kg` / `kg_100kg` (RN-014).</summary>
+    public const string ValidationHarvestYieldUnitInvalid = "VALIDATION_HARVEST_YIELD_UNIT_INVALID";
+    public const string ValidationHarvestLitersRange = "VALIDATION_HARVEST_LITERS_RANGE";
+    /// <summary>RN-030 — producto de cosecha obligatorio; el catálogo cerrado lo aplica MVP-402.</summary>
+    public const string ValidationProductInvalid = "VALIDATION_PRODUCT_INVALID";
+    /// <summary>RN-012 — destino de cosecha obligatorio; el catálogo cerrado lo aplica MVP-402.</summary>
+    public const string ValidationDestinationInvalid = "VALIDATION_DESTINATION_INVALID";
     /// <summary>
     /// Registros operativos (ADR-0005): <c>PATCH</c>/<c>DELETE</c> exigen <c>If-Match</c> con la
     /// versión vigente. Sin cabecera no hay control de concurrencia posible, así que la petición se

@@ -61,15 +61,16 @@ y se mantienen en español.
 | Catálogo | Valores permitidos |
 |---|---|
 | `plot_ownership_type` | `propia`, `cedida` |
+| `harvest_yield_unit` (MVP-402) | `l_100kg` (canónica, RN-013), `kg_100kg` (rendimiento graso, se convierte con la densidad de RN-016). Es **unidad de entrada**, no un campo del recurso: lo persistido es siempre la canónica |
 | `harvest_destination` | `venta_aceituna`, `aceite_para_venta`, `aceite_personal`, `desconocido` |
-| `harvest_product` | catálogo global fijo gobernado por sistema |
-| `season_status` | `planificada`, `activa`, `cerrada` |
+| `harvest_product` | `aceituna_olivar` — catálogo global fijo gobernado por sistema (`MVP-401`). Un solo valor en el MVP: la **variedad** pertenece al terreno y el **producto** debería vivir a nivel de Workspace modulando el cálculo de rendimiento; ambas cosas son ampliación posterior (`MVP-999`, `P-059`/`P-060`) |
+| `season_status` (MVP-209) | `planificada`, `abierta`, `cerrada` — **derivado** de `is_closed` + `start_date` vs hoy, no persistido. Es el **estado** de la campaña, independiente de la temporada de trabajo (`is_working`) |
 | `worker_member_status` | `invitado`, `activo`, `revocado` |
 | `worker_kind` | `member`, `crew` (identificador de clase de responsable; derivado de `user_account_id`) |
 | `invitation_channel` | `email`, `enlace` |
 | `invitation_status` | `pendiente`, `aceptada`, `rechazada`, `anulada` |
 | `reactivation_request_status` | `pendiente`, `solicitada`, `autorizada`, `denegada`, `cerrada` |
-| `diary_entry_type` (MVP-305) | `actividad`, `compra`, `consumo` · `cosecha` reservado para `MVP-401` |
+| `diary_entry_type` (MVP-305) | `actividad`, `compra`, `consumo`, `cosecha` (los cuatro vivos desde `MVP-401`) |
 
 ---
 
@@ -286,16 +287,20 @@ Reglas de contexto (MVP-202):
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
-| Alta temporada | `POST /api/v1/seasons` | `name*`, `start_date*`, `end_date?` | `201 { ...season }` (nace **activa**) |
+| Alta temporada | `POST /api/v1/seasons` | `name*`, `start_date*`, `end_date?` | `201 { ...season }` (pasa a ser **mi** temporada de trabajo) |
 | Editar temporada | `PATCH /api/v1/seasons/{seasonId}` | `name?`, `start_date?`, `end_date?`, `is_closed?` | `200 { ...season }` |
 | Listado temporadas | `GET /api/v1/seasons` | — (sin filtros) | `200 { data, meta: { total } }` |
-| Temporada activa | `GET /api/v1/seasons/active` | — | `200 { ...season }` · `404` si no hay |
-| Cambiar la temporada activa | `POST /api/v1/seasons/{seasonId}/activate` | — | `200 { ...season }` |
+| Mi temporada de trabajo | `GET /api/v1/seasons/active` | — | `200 { ...season }` · `404` si no hay |
+| Fijar mi temporada de trabajo | `POST /api/v1/seasons/{seasonId}/activate` | — | `200 { ...season }` |
 
 Todas exigen `[RequireWorkspaceScope]`. La representación de una temporada es
-`{ id, workspace_id, name, start_date, end_date, is_active, is_closed, status }`, donde `status` es
-el valor **derivado** del catálogo `season_status` (`planificada`/`activa`/`cerrada`), no una columna:
-`cerrada` ≡ `is_closed`; `activa` ≡ `is_active` y no cerrada; `planificada` ≡ ninguna de las dos.
+`{ id, workspace_id, name, start_date, end_date, is_working, is_closed, status }` (MVP-209), donde:
+
+- `status` es el valor **derivado** del catálogo `season_status` (`planificada`/`abierta`/`cerrada`), no
+  una columna: `cerrada` ≡ `is_closed`; en otro caso `abierta` si `start_date <= hoy` (incluye campañas
+  pasadas no cerradas) y `planificada` si `start_date > hoy`. **Independiente** de la temporada de trabajo.
+- `is_working` indica si es la temporada de trabajo **del usuario que consulta** (no un flag global): dos
+  usuarios del mismo Workspace pueden verla distinta. Es un eje **separado** del estado.
 
 Validaciones clave. El **alta y la edición no devuelven los mismos códigos** (ver el aviso de la
 sección de terrenos):
@@ -315,17 +320,17 @@ sección de terrenos):
 `SEASON_NOT_FOUND` (404) y `AUTH_WORKSPACE_SCOPE_REQUIRED` (403). Un `start_date` mal formado en el
 alta devuelve además el mensaje por defecto de ASP.NET **en inglés**; está registrado en `P-043`.
 
-Reglas de contexto (MVP-201 · MVP-203 · MVP-207):
+Reglas de contexto (MVP-201 · MVP-203 · MVP-207 · MVP-209):
 
 | Regla | Comportamiento |
 |---|---|
-| La temporada creada nace **activa** | Decisión de producto «crear cambia la activa» (P-017): la nueva desbanca a la anterior, que pasa a `planificada`. No hay 409 por «ya hay una activa» |
-| Una sola activa por Workspace (RN-022) | Invariante de datos: índice único parcial `ux_seasons_workspace_active`. El desbanque es atómico, en dos fases dentro de una transacción |
+| La temporada creada pasa a ser **mi** temporada de trabajo | Decisión de producto «crear cambia la de trabajo» (P-017), ahora **por usuario** (MVP-209): fija mi `active_season_id`; no toca a otros usuarios ni desbanca nada global. No hay 409 por «ya hay una activa» |
+| Temporada de trabajo **por usuario** (RN-022) | Vive en `workspace_members.active_season_id`; puede haber **varias campañas abiertas a la vez**. Sin nada fijado se resuelve el defecto (`WorkingSeasonPolicy`: abierta que contiene hoy → abierta más reciente → más reciente → `null`). Se retira el índice único parcial `ux_seasons_workspace_active` |
 | `end_date` es opcional | Fecha de fin **estimada**; no se bloquea por rango operativo (RN-023 es un aviso de las historias operativas, no del maestro) |
-| Cierre/reapertura (RN-024) | `PATCH { is_closed:true }` es informativo y no bloquea altas. Cerrar la activa **libera** el hueco de activa del Workspace; reabrir devuelve a `planificada`, sin activar |
+| Cierre/reapertura (RN-024) | `PATCH { is_closed:true }` es informativo y no bloquea altas ni ediciones. El estado y la temporada de trabajo son ejes independientes: **fijar como de trabajo una cerrada no la reabre** (MVP-209, CA-4); reabrir es un `PATCH { is_closed:false }` explícito |
 | Duplicados (MVP-207) | Un Workspace no admite dos temporadas con el mismo nombre ignorando mayúsculas y espacios sobrantes (índice único `(workspace_id, lower(name))`). Las **cerradas también ocupan su nombre**: cerrar no lo libera |
-| `PATCH` de campos parciales | Un campo ausente mantiene su valor. El cambio de activa **no** va aquí: es `POST /seasons/{id}/activate` |
-| Orden del listado | Activa primero, luego las abiertas y por último las cerradas, por fecha de inicio descendente |
+| `PATCH` de campos parciales | Un campo ausente mantiene su valor. Fijar la temporada de trabajo **no** va aquí: es `POST /seasons/{id}/activate` |
+| Orden del listado | Las abiertas primero (por fecha de inicio descendente) y las cerradas al final |
 | No hay borrado | Las temporadas con histórico se cierran, no se eliminan |
 
 ### 3) Tasks (tareas)
@@ -510,7 +515,7 @@ Reglas de contexto (MVP-301):
 > el registro desaparece del diario, de los listados y del dashboard, pero no se borra físicamente, y
 > la UI exige confirmación explícita antes de invocarlo. No hay papelera ni restauración en el MVP.
 > Alcance de implementación: `MVP-301`/`MVP-303`/`MVP-304` para actividades, compras e imputaciones, y
-> `MVP-401` para cosechas.
+> `MVP-401` para cosechas —**las cuatro implementadas**—.
 
 ### 5.b) Diary (diario cronológico unificado, MVP-305)
 
@@ -522,29 +527,32 @@ Es **la vista principal del MVP** (RN-033) y es de **solo lectura**: cada regist
 elimina por el recurso al que pertenece (`/activities`, `/purchases`, `/consumptions`), que es donde
 viven sus reglas. El diario únicamente agrega.
 
-La entrada del diario es una **proyección común** de las tres entidades operativas:
+La entrada del diario es una **proyección común** de las cuatro entidades operativas:
 `{ type, id, date, title, description, plot_id, plot_name, season_id, season_name, cost, version,
-is_out_of_season_range, created_at, worker_name, hours, task_id, quantity, has_purchase }`. Los
-campos específicos de un tipo llegan a `null` en los demás.
+is_out_of_season_range, created_at, worker_name, hours, task_id, quantity, has_purchase, kgs,
+destination, yield }`. Los campos específicos de un tipo llegan a `null` en los demás.
 
 | Campo | Por qué está |
 |---|---|
 | `version` | Permite eliminar desde el diario con `If-Match` (ADR-0005) sin abrir antes el registro |
 | `task_id` | Solo en actividades: `null` ⇒ tarea escrita a mano, lo que permite ofrecer guardarla en el catálogo (MVP-302) |
 | `has_purchase` | Solo en consumos: `false` ⇒ el coste es desconocido, no cero (RN-032) |
+| `kgs` / `destination` | Solo en cosechas (MVP-401). Van aparte de `quantity` porque no son la misma magnitud: una cosecha se lee en kilos y la tarjeta la rotula distinto |
+| `yield` | Solo en cosechas (MVP-402): el rendimiento **efectivo** en L/100kg, declarado o derivado de los litros (RN-013/RN-014) |
 
 `meta` es
-`{ total, total_cost, imputed_cost, activities, purchases, consumptions, consumptions_without_purchase }`:
+`{ total, total_cost, imputed_cost, activities, purchases, consumptions, consumptions_without_purchase, harvests, total_kg }`:
 
 | Campo de `meta` | Qué mide |
 |---|---|
 | `total_cost` | **Gasto real** de lo que se está viendo: labores + compras + consumos **sin compra**. **No** incluye las imputaciones: reparten dinero que la compra ya aportó, así que sumarlas contaría el mismo gasto dos veces (`MVP-399`, hallazgo `R-01`). Es el criterio que debe heredar el dashboard de `MVP-004` |
 | `imputed_cost` | Lo repartido por terrenos: **desglose** de `total_cost`, no gasto añadido |
 | `consumptions_without_purchase` | Consumos sin compra previa. Su coste consta como `0` porque se desconoce (RN-032), así que el gasto real fue algo mayor; la UI lo advierte (CA-3 de `MVP-003`) |
+| `harvests` / `total_kg` | Cosechas y kilos recolectados de lo filtrado (MVP-401). La cosecha **no aporta gasto** (RN-029), así que se resume por kilos: es su magnitud |
 
 | Catálogo | Valores permitidos |
 |---|---|
-| `diary_entry_type` | `actividad`, `compra`, `consumo` · `cosecha` **reservado** para `MVP-401` |
+| `diary_entry_type` | `actividad`, `compra`, `consumo`, `cosecha` (los cuatro vivos desde `MVP-401`) |
 
 Reglas de contexto:
 
@@ -552,18 +560,34 @@ Reglas de contexto:
 |---|---|
 | Orden | Fecha de **negocio** descendente (RN-033) y, a igualdad, fecha de captura descendente |
 | Filtro `type` | Ahorra trabajo, no solo oculta: los tipos no pedidos ni se consultan |
-| Filtro `plot_id` | Deja fuera las **compras** por definición: una compra es del Workspace y solo se reparte por terrenos al imputarla (MVP-304). El cliente lo explica para que no parezca un fallo |
-| `type=cosecha` | Responde `400` hasta que `MVP-401` encienda `HARVEST` (hallazgo `G-4`) |
+| Filtro `plot_id` | Deja fuera las **compras** por definición: una compra es del Workspace y solo se reparte por terrenos al imputarla (MVP-304). El cliente lo explica para que no parezca un fallo. Las **cosechas sí se conservan**: una cosecha es de un terreno (RN-001) |
+| `type=cosecha` | Vivo desde `MVP-401`, que es quien crea `HARVEST` (hallazgo `G-4`). Con los cuatro tipos, `RN-033` queda cumplida entera |
+| `cost` de una cosecha | Siempre `0`: la cosecha **no tiene coste** (RN-029, que deja fuera precio, molturación y balance). No es «gratis» ni «desconocido»: la magnitud no aplica, y por eso la tarjeta muestra kilos donde las demás muestran dinero |
 | Sin paginación | Igual que el resto de listados del MVP (`MVP-999`, `P-051`) |
 
 ### 6) Harvests (cosechas)
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
-| Alta cosecha | `POST /api/v1/harvests` | `date*`, `plot_id*`, `season_id*`, `product*`, `kgs*`, `destination*`, `yield?`, `liters?` | `201 { id, version, ...harvest }` |
+| Alta cosecha | `POST /api/v1/harvests` | `date*`, `plot_id*`, `season_id*`, `product*`, `kgs*`, `destination*`, `yield?`, `liters?`, `yield_unit?` | `201 { id, version, ...harvest }` |
 | Editar cosecha | `PATCH /api/v1/harvests/{harvestId}` | campos parciales · `If-Match: <version>` | `200 { ...harvest }` |
 | Eliminar cosecha | `DELETE /api/v1/harvests/{harvestId}` | `If-Match: <version>` | `204` |
-| Listado cosechas | `GET /api/v1/harvests` | `from?`, `to?`, `plot_id?`, `season_id?`, `destination?` | `200 { data, meta }` |
+| Listado cosechas | `GET /api/v1/harvests` | `from?`, `to?`, `plot_id?`, `season_id?`, `destination?` | `200 { data, meta: { total, total_kg } }` |
+| Una cosecha (MVP-401) | `GET /api/v1/harvests/{harvestId}` | — | `200 { ...harvest }` |
+
+La representación de una cosecha es
+`{ id, workspace_id, date, plot_id, plot_name, season_id, season_name, product, kgs, yield, liters,
+effective_yield, yield_source, destination, is_out_of_season_range, version, created_at, updated_at }`
+(MVP-401, ampliada en MVP-402). `plot_name` y `season_name` llegan resueltos y
+`is_out_of_season_range` es el mismo aviso derivado de RN-023 que en la actividad y la compra.
+`meta.total_kg` del listado son los **kilos acumulados de lo filtrado**, calculados en servidor, con el
+mismo criterio que `meta.total_cost` en compras.
+
+| Campo (MVP-402) | Qué es |
+|---|---|
+| `yield` | Rendimiento **informado**, siempre en la unidad canónica L/100kg (RN-013), sea cual sea la unidad en la que se escribió |
+| `effective_yield` | Rendimiento **venga de donde venga**: el informado, o el derivado de `liters / kgs × 100` cuando lo declarado fueron litros (RN-014, tercer origen). Es lo que hace que la exclusión de RN-004 no cueste información: el dashboard promedia también las partidas que declararon litros |
+| `yield_source` | `informado`, `calculado` o `null`. Derivado; permite que la UI no presente como declarado un valor deducido |
 
 Validaciones clave:
 
@@ -572,12 +596,43 @@ Validaciones clave:
 | `product` obligatorio y dentro de catálogo cerrado | `VALIDATION_PRODUCT_INVALID` |
 | `kgs` obligatorio y > 0 | `VALIDATION_HARVEST_KGS_REQUIRED` |
 | `yield` y `liters` no pueden coexistir | `VALIDATION_HARVEST_XOR_YIELD_LITERS` |
+| `yield` fuera de rango (0 < `yield` ≤ 100 L/100kg, ya convertido) o `liters` ≤ 0 | `VALIDATION_HARVEST_YIELD_RANGE` / `VALIDATION_HARVEST_LITERS_RANGE` (400) |
+| `yield_unit` fuera del catálogo (MVP-402) | `VALIDATION_HARVEST_YIELD_UNIT_INVALID` (400) |
 | destino en catálogo cerrado | `VALIDATION_DESTINATION_INVALID` |
+| Terreno o temporada ausentes | `VALIDATION_HARVEST_REQUIRED_FIELDS` (400) |
+| Terreno o temporada de otro Workspace | `FOREIGN_KEY_WORKSPACE_MISMATCH` (400) |
+| `PATCH`/`DELETE` sin cabecera `If-Match` (ADR-0005) | `VALIDATION_REQUIRED_IF_MATCH` (400) |
+| Cosecha inexistente, de otro Workspace o ya eliminada | `RESOURCE_NOT_FOUND` (404) |
 | Edición o borrado con versión desfasada (ADR-0005) | `CONFLICT_VERSION_MISMATCH` (409) |
 
+**El alta (`POST`) y la edición (`PATCH`) no devuelven los mismos códigos** (mismo patrón que el resto
+de recursos; ver el aviso de la sección de terrenos, MVP-499/R-04). Los códigos de dominio de la tabla
+son los del **alta**. En el `PATCH`, un campo con **tipo mal formado** —`date` no `YYYY-MM-DD`,
+`plot_id`/`season_id` no-UUID, `kgs`/`yield`/`liters` no numéricos, `yield_unit` no-cadena— se rechaza
+en el borde con el genérico `VALIDATION_REQUIRED` (400), no con el código de dominio específico. Además,
+en el **alta** un `date` ausente o mal formado responde `VALIDATION_HARVEST_REQUIRED_FIELDS` (400), el
+mismo código que «terreno o temporada ausentes». Y un `from`/`to` mal formado en `GET /harvests`
+responde `VALIDATION_REQUIRED` (400), como en el diario (MVP-499/R-05).
+
+Reglas de contexto (MVP-401):
+
+| Regla | Comportamiento |
+|---|---|
+| Par `yield`/`liters` en el `PATCH` | Si viene **cualquiera** de los dos se sustituye la pareja completa y el ausente pasa a nulo. Enviar solo `liters` sobre una cosecha con `yield` dejaría los dos informados y el dominio lo rechazaría: es el mismo criterio que el par tarea de la actividad (§5) |
+| Retirar el dato de aceite | `yield: null` o `liters: null` explícitos lo dejan sin informar, que es un estado válido (RN-004: los dos son opcionales) |
+| Fecha fuera de rango (RN-023) | Nunca bloquea el guardado: se responde `201`/`200` con `is_out_of_season_range: true` |
+| Maestros inactivos | Siguen siendo referenciables, igual que en actividades: inactivar deja de ofrecer, no invalida el histórico |
+| Orden del listado | Fecha de negocio descendente (RN-033) y, a igualdad de fecha, fecha de captura descendente. Sin paginación en el MVP (`MVP-999`, `P-051`) |
+| Filtro `destination` | Comparación **exacta**: es un catálogo cerrado (RN-012), no texto libre como el material de compra (RN-031) |
+| Precisión | `kgs` y `liters` se redondean a 2 decimales y `yield` a 4, para que lo leído coincida con lo escrito |
+| Catálogos cerrados (MVP-402) | El **servidor es la autoridad**: producto y destino se validan por pertenencia y el `400` incluye los valores admitidos en el mensaje. `desconocido` es el canon del destino no clasificado; «Sin destino» es solo alias visual (RN-012) y se **rechaza** como valor |
+| `yield_unit` (MVP-402) | Unidad del `yield` **de esta petición** (RN-014). Ausente ⇒ canónica. No es un campo del recurso, así que en el `PATCH` no «conserva» nada: un `PATCH` que no toca el rendimiento nunca reconvierte lo ya persistido |
+| Rendimiento «calculado» de RN-014 | No se persiste: es `effective_yield`, derivado en lectura. Guardarlo duplicaría un dato implícito que quedaría obsoleto al corregir los kilos |
+| Densidad de RN-016 | Constante única `0,92 kg/L`. El override por almazara que la regla contempla queda fuera del MVP —no existe la entidad— y está registrado en `MVP-999` (`P-061`) |
+
 La cosecha se registra por fecha, así que **también entra en el diario cronológico** de `MVP-305`
-(RN-033), que hasta `MVP-004` solo puede mostrar actividades, compras y consumos. Encenderla en el
-diario es alcance de `MVP-401`.
+(RN-033). La enciende `MVP-401`, que es quien crea `HARVEST`: con los cuatro tipos vivos, RN-033 queda
+cumplida entera (hallazgo `G-4`).
 
 ### 7) Purchases (compras)
 
@@ -670,17 +725,41 @@ Reglas de contexto (MVP-303):
 
 | Operación | Método y ruta | Request (query) | Respuesta 2xx |
 |---|---|---|---|
-| Resumen temporada | `GET /api/v1/dashboard/summary` | `season_id?`, `plot_ids?[]` | `200 { total_kg, total_liters, average_yield, kg_per_tree, incomplete }` |
-| Kg por destino | `GET /api/v1/dashboard/kg-by-destination` | `season_id?`, `plot_ids?[]` | `200 { data:[{ destination, kg }] }` |
-| Kg por terreno | `GET /api/v1/dashboard/kg-by-plot` | `season_id?` | `200 { data:[{ plot_id, plot_name, kg }] }` |
-| Evolución rendimiento | `GET /api/v1/dashboard/yield-evolution` | `season_id?`, `granularity?=month\|week` | `200 { data:[{ period, yield }] }` |
+| Resumen temporada | `GET /api/v1/dashboard/summary` | `season_id?`, `plot_ids?[]` | `200 { scope, total_kg, total_liters, average_yield, harvests, harvests_with_oil_data, kg_per_tree, trees_counted, plots_counted, plots_without_tree_count }` |
+| Kg por destino | `GET /api/v1/dashboard/kg-by-destination` | `season_id?`, `plot_ids?[]` | `200 { scope, data:[{ destination, kg }], meta:{ total_kg } }` |
+| Kg por temporada (MVP-403) | `GET /api/v1/dashboard/kg-by-season` | — | `200 { data:[{ season_id, season_name, total_kg, harvests }], meta:{ total } }` |
+| Kg por terreno (MVP-404) | `GET /api/v1/dashboard/kg-by-plot` | `season_id?`, `plot_ids?[]` | `200 { scope, data:[{ plot_id, plot_name, kg }], meta:{ total_kg } }` |
+| Evolución rendimiento (MVP-404) | `GET /api/v1/dashboard/yield-evolution` | `season_id?`, `plot_ids?[]`, `granularity?=month\|week` | `200 { scope, granularity, data:[{ period, yield_l_per_100kg, kg }], history:{ average, average_5_years, average_10_years, prior_years_with_data, window } }` |
+
+El dashboard es de **solo lectura** y no se refresca en segundo plano (RN-006): se recalcula al entrar
+en la pantalla o a petición explícita. `plot_ids` es un parámetro **repetible**
+(`?plot_ids=a&plot_ids=b`).
 
 Reglas de filtro por defecto:
 
 | Regla | Comportamiento |
 |---|---|
-| Sin `season_id` | backend resuelve temporada activa del workspace |
+| Sin `season_id` | backend resuelve la **temporada de trabajo del usuario** que consulta (MVP-209): su `active_season_id` o, en su defecto, `WorkingSeasonPolicy` |
 | Sin `plot_ids` | backend usa todos los terrenos activos del workspace |
+| `scope` en la respuesta (MVP-403) | El ámbito **ya resuelto**: `{ season: { id, name, status, start_date, end_date } \| null, plot_ids[], plots }` (MVP-209: `is_active` → `status` derivado). Los defectos los pone el servidor, así que sin devolverlos la pantalla mostraría cifras sin poder decir de qué son; es también lo que permite posicionar los filtros sin duplicar la regla del defecto en el cliente |
+| `season: null` (MVP-403) | El Workspace no tiene temporada que mirar. RN-021 asocia toda la producción a una campaña, así que no es «resumen vacío» sino ámbito imposible: se responden ceros y `null`, y el cliente pide la temporada en vez de presentarlos como datos |
+| Terreno pedido inexistente o ajeno (MVP-403) | Se **descarta en silencio**, no es un error: es una lectura, y quien llega con un filtro obsoleto debe ver el dashboard de lo que sí existe. En una escritura la decisión es la contraria (`FOREIGN_KEY_WORKSPACE_MISMATCH`) |
+| Terreno **inactivo** pedido explícitamente (MVP-403) | Cuenta. Inactivar deja de ofrecerlo para registros nuevos (MVP-202, CA-3), no borra su histórico: excluir su producción al mirar una campaña pasada falsearía los totales |
+
+Reglas de cálculo (MVP-403):
+
+| Regla | Comportamiento |
+|---|---|
+| `total_liters` | Litros «cuando exista dato»: declarados o derivados del rendimiento (RN-014). `null` significa **desconocido**, que no es lo mismo que cero litros |
+| `average_yield` | Unidad canónica L/100kg (RN-013) y **ponderado por kilos**, no media de partidas: el rendimiento de una campaña es el de todo el aceite sobre toda la aceituna. `null` sin dato de aceite |
+| `harvests_with_oil_data` | Partidas que aportan dato de aceite. Junto a `harvests` permite decir sobre cuántas se ha promediado: una media sobre 2 de 20 presentada a secas se lee como la de la campaña entera |
+| `data` de kg por destino | Solo los destinos **presentes**. La taxonomía cerrada (RN-012) garantiza que las claves salen del catálogo, no que haya que pintar las cuatro categorías. Orden: kg descendentes y desempate alfabético, el mismo criterio que RN-011 impone al widget de terrenos |
+| `meta.total_kg` | Calculado en servidor, para que el porcentaje del gráfico no pueda discrepar del resumen por un redondeo |
+| `kg-by-season` | Sin filtro de terreno (la tarjeta del maestro habla de la campaña completa) y en una sola petición. Una campaña sin cosechas aparece con `total_kg: 0`, que es información («no se recolectó nada»), no ausencia de dato. Cierra `P-021` |
+| `kg_per_tree` (MVP-405, RN-010) | Kg por árbol del ámbito: Σkg / Σárboles de los terrenos que **han producido y tienen** número de árboles. `null` si ninguno de ellos lo tiene (desconocido, no cero). `trees_counted`/`plots_counted` son el denominador y los terrenos incluidos («sobre X árboles de Y terrenos»); `plots_without_tree_count` son los terrenos con cosechas **excluidos** por no tener `tree_count`, y si es `> 0` la UI avisa de dato incompleto. Un terreno del ámbito sin cosechas no cuenta ni como incluido ni como excluido |
+| `kg-by-plot` (MVP-404) | Orden **fijo** por kg descendente y desempate alfabético por nombre de terreno (RN-011). No hay orden manual, así que se resuelve en servidor y el cliente pinta la lista tal cual. Solo los terrenos que **produjeron**: uno sin cosechas sería una barra a cero |
+| `yield-evolution` — `data` (MVP-404) | Serie del rendimiento del ámbito por periodo en la unidad canónica L/100kg (RN-013), ponderado por kilos. `period` es `YYYY-MM` (mes) o `YYYY-Www` (semana ISO). Un periodo sin dato de aceite **no aparece**: forzar un cero fingiría una caída que no ocurrió |
+| `yield-evolution` — `history` (MVP-404) | Comparativa histórica básica (RN-015): `{ average, average_5_years, average_10_years, prior_years_with_data, window:{ from, to } }`. Es una **ventana de calendario**, no campañas agrupadas: los mismos días de años anteriores a los de las cosechas de la campaña activa —su rango de fechas ensanchado ±7 días para captar más histórico—, buscados en cada año previo. Una cosecha de otra época del año queda fuera. Respeta el filtro de terreno (compara las mismas parcelas). Cada media es `null` mientras no haya «histórico suficiente», medido por profundidad: la general con un año previo con dato; la de 5 años solo si el histórico llega 5 años atrás, la de 10 si llega 10. **Aparece aunque la campaña activa aún no tenga cosechas** (`data` vacío, solo `history`): entonces la ventana la fija el calendario de la temporada. `window` es el tramo (`MM-DD`) usado, para que la UI lo explique |
 
 ### 9) Alcance de sincronización MVP
 
@@ -707,7 +786,8 @@ Los endpoints de sincronización se definirán en una versión posterior cuando 
 }
 ```
 
-Regla: `yield` y `liters` son opcionales, pero no se permite informar ambos a la vez.
+Regla: `yield` y `liters` son opcionales, pero no se permite informar ambos a la vez. `yield` va en la
+unidad canónica L/100kg (RN-013).
 
 ### `ActivityCreateRequest`
 

@@ -260,7 +260,7 @@ export const ConsumptionFormModal: React.FC<ConsumptionFormModalProps> = ({
                 {seasons.map((season) => (
                   <option key={season.id} value={season.id}>
                     {season.name}
-                    {season.is_active ? ' · activa' : ''}
+                    {season.is_working ? ' · en curso' : ''}
                   </option>
                 ))}
               </select>

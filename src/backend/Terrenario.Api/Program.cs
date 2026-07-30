@@ -6,7 +6,9 @@ using Microsoft.AspNetCore.Mvc;
 using Terrenario.Api.Application.Activities;
 using Terrenario.Api.Application.Auth;
 using Terrenario.Api.Application.Consumptions;
+using Terrenario.Api.Application.Dashboard;
 using Terrenario.Api.Application.Diary;
+using Terrenario.Api.Application.Harvests;
 using Terrenario.Api.Application.Invitations;
 using Terrenario.Api.Application.Plots;
 using Terrenario.Api.Application.Purchases;
@@ -19,6 +21,7 @@ using Terrenario.Api.Common.Http;
 using Terrenario.Api.Common.Workspaces;
 using Terrenario.Api.Domain.Activities;
 using Terrenario.Api.Domain.Consumptions;
+using Terrenario.Api.Domain.Harvests;
 using Terrenario.Api.Domain.Plots;
 using Terrenario.Api.Domain.Purchases;
 using Terrenario.Api.Domain.Seasons;
@@ -151,7 +154,19 @@ builder.Services.AddScoped<RegisterConsumptionHandler>();
 builder.Services.AddScoped<UpdateConsumptionHandler>();
 builder.Services.AddScoped<DeleteConsumptionHandler>();
 builder.Services.AddScoped<ListConsumptionsHandler>();
-// Diario cronológico unificado (MVP-305): agrega las tres entidades operativas, de solo lectura
+// Cosechas (MVP-401): cuarta entidad operativa crítica y materia prima del dashboard
+builder.Services.AddScoped<IHarvestRepository, HarvestRepository>();
+builder.Services.AddScoped<HarvestLinkResolver>();
+builder.Services.AddScoped<CreateHarvestHandler>();
+builder.Services.AddScoped<UpdateHarvestHandler>();
+builder.Services.AddScoped<DeleteHarvestHandler>();
+builder.Services.AddScoped<ListHarvestsHandler>();
+builder.Services.AddScoped<GetHarvestHandler>();
+// Dashboard (MVP-403): agrega la producción capturada; solo lectura y sin refresco continuo (RN-006)
+builder.Services.AddScoped<DashboardScopeResolver>();
+builder.Services.AddScoped<DashboardQueryService>();
+// Diario cronológico unificado (MVP-305): agrega las cuatro entidades operativas, de solo lectura.
+// MVP-401 enciende la cosecha, que es lo que completa RN-033 (hallazgo `G-4`).
 builder.Services.AddScoped<DiaryQueryService>();
 builder.Services.AddScoped<ListWorkspacePeopleHandler>();
 builder.Services.AddScoped<RevokeMemberHandler>();

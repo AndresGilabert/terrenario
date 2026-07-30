@@ -2,11 +2,11 @@
 id: "MVP-004"
 tipo: epica
 titulo: "Producción y dashboard MVP"
-estado: borrador
+estado: completado
 prioridad: critica
 hito: "Hito D — Visibilidad operativa MVP"
 tickets: []
-historias: ["MVP-401", "MVP-402", "MVP-403", "MVP-404", "MVP-405", "MVP-406", "MVP-499"]
+historias: ["MVP-401", "MVP-402", "MVP-403", "MVP-404", "MVP-405", "MVP-406", "MVP-407", "MVP-499"]
 depende_de: ["MVP-001", "MVP-002", "MVP-003"]
 bloquea: ["MVP-005", "MVP-006"]
 relacionado_con: []
@@ -19,7 +19,7 @@ ai_context:
   etiquetas: ["mvp", "produccion", "analytics-basica"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-24"
+actualizado_en: "2026-07-30"
 ---
 
 # EPICA MVP-004 — Producción y dashboard MVP
@@ -41,7 +41,7 @@ Permitir registrar cosechas consistentes y mostrar un dashboard operativo útil 
 
 ## Alcance
 
-- Registro y edición de cosechas con `producto`, `kgs`, `destino`, temporada y uno entre `rendimiento` o `litros`.
+- Registro y edición de cosechas con `producto`, `kgs`, `destino`, temporada y, **opcionalmente**, `rendimiento` o `litros` (como mucho uno de los dos, no ambos; RN-004).
 - Catálogo global fijo de productos de cosecha.
 - Soporte de destino `desconocido` y taxonomía cerrada de destinos.
 - Dashboard MVP en una sola pantalla con scroll vertical.
@@ -58,9 +58,9 @@ Permitir registrar cosechas consistentes y mostrar un dashboard operativo útil 
 
 ## Criterios de aceptación de la épica
 
-- [ ] **CA-1**: Todas las historias de la épica están en estado `completado`.
-- [ ] **CA-2**: El usuario puede registrar cosechas sin ambigüedad entre rendimiento y litros y ver los cuatro widgets mínimos sin error bloqueante.
-- [ ] **CA-3**: El dashboard respeta filtros, taxonomías y reglas de dato incompleto definidas en la KB.
+- [x] **CA-1**: Todas las historias de la épica están en estado `completado`. _(8/8 en `_indice.md`: `MVP-401`..`MVP-407` entregadas y `MVP-499` cerrada.)_
+- [x] **CA-2**: El usuario puede registrar cosechas sin ambigüedad entre rendimiento y litros y ver los cuatro widgets mínimos sin error bloqueante. _(`MVP-499`: XOR de RN-004 verificado vía API; los cuatro widgets renderizan sin error de consola.)_
+- [x] **CA-3**: El dashboard respeta filtros, taxonomías y reglas de dato incompleto definidas en la KB. _(`MVP-499`: filtros por temporada/terreno, taxonomía de destino con `desconocido`, `kg/árbol` con exclusión de RN-010, y totales que cuadran entre los cuatro agregados y el diario.)_
 
 ## Historias de esta épica
 
@@ -72,6 +72,7 @@ Permitir registrar cosechas consistentes y mostrar un dashboard operativo útil 
 - `MVP-404` — Dashboard MVP: kg por terreno y evolución de rendimiento.
 - `MVP-405` — Filtros, persistencia de contexto y manejo de datos incompletos.
 - `MVP-406` — Navegación del área operativa: agrupación del menú, sección activa y ruta desconocida.
+- `MVP-407` — Detalle de terreno con histórico de cosechas y labores (parte de detalle de `P-019`).
 - `MVP-499` — Revision epica.
 
 ## Vinculacion con prototipo (fuente visual)
@@ -99,6 +100,7 @@ Matriz historia -> pantallas/componentes:
 | MVP-404 | [prototype/terrenario-mvp/src/components/DashboardView.tsx](../../../../prototype/terrenario-mvp/src/components/DashboardView.tsx) | Parcial: produccion por terreno y evolucion disponibles |
 | MVP-405 | [prototype/terrenario-mvp/src/components/DashboardView.tsx](../../../../prototype/terrenario-mvp/src/components/DashboardView.tsx), [prototype/terrenario-mvp/src/components/TerrenosView.tsx](../../../../prototype/terrenario-mvp/src/components/TerrenosView.tsx) | Parcial: filtro visual disponible; persistencia tras recarga y reglas completas de dato incompleto pendientes |
 | MVP-406 | [prototype/terrenario-mvp/src/App.tsx](../../../../prototype/terrenario-mvp/src/App.tsx) | No cubierto: el prototipo no contempla agrupacion del menu, seccion activa ni pantalla de ruta desconocida |
+| MVP-407 | [prototype/terrenario-mvp/src/components/TerrenoDetailModal.tsx](../../../../prototype/terrenario-mvp/src/components/TerrenoDetailModal.tsx) | Parcial: el prototipo aporta la estructura del detalle; los campos son los reales (RN-028), no los inventados (superficie/riego/poda), y el historico sale del diario |
 
 ## Notas y decisiones
 
@@ -112,7 +114,9 @@ Matriz historia -> pantallas/componentes:
     `season_status` es un catálogo cerrado de producto y el vocabulario lo fija quien filtre por
     temporada: `MVP-405`. Consolidar con `P-021`.
   - **`P-019`** (parte de detalle) — el modal de detalle de terreno con histórico de cosechas y
-    labores, diferido en `MVP-202` porque sus datos dependían de esta épica y de `MVP-003`.
+    labores, diferido en `MVP-202` porque sus datos dependían de esta épica y de `MVP-003`. **Entregado
+    en `MVP-407`** (2026-07-30), leyendo el histórico del diario unificado por terreno. La parte de **ER**
+    (coordenadas/`soil_metadata`) sigue en `MVP-999`.
   - **`P-040`** — decidir si el Home pasa a ser la Visión General y qué ocurre con el checklist de
     preparación que entregó `MVP-207`, en vez de acabar con dos pantallas de inicio.
   - **`P-036` + `P-041`** — borrado y **fusión** de registros de maestro creados por error. Su propio
@@ -123,3 +127,12 @@ Matriz historia -> pantallas/componentes:
 - **`MVP-401` completa `RN-033`.** El diario cronológico que entrega `MVP-305` no puede incluir
   cosechas porque `HARVEST` no existe todavía; encenderlas en el diario es alcance de `MVP-401`
   (hallazgo `G-4` de la revisión previa de `MVP-003`).
+- **Cierre de la épica (`MVP-499`, 2026-07-30).** Las ocho historias quedan entregadas y verificadas
+  contra la API real y la UI conducida, y los **tres criterios de la épica se cumplen** (ver el veredicto
+  por CA en el `spec.md` de `MVP-499`). La revisión no encontró defectos de comportamiento —dashboard y
+  cosechas son fieles al contrato— y las correcciones menores detectadas (`R-03`..`R-06`, `R-08`: copy
+  obsoleto del Home, huecos de documentación del contrato de cosechas y un nit de comparador) se
+  resolvieron en la propia rama de revisión. De los puntos de producto asignados: **`P-040` se resolvió**
+  (el Home pasa a ser la Visión General cuando la explotación está preparada) y **`P-036`/`P-041`**
+  (borrado y fusión de maestros sin uso) se **difieren a post-MVP** por ser funcionalidad nueva que no
+  bloquea la salida. Ninguno rompe un criterio de la épica.

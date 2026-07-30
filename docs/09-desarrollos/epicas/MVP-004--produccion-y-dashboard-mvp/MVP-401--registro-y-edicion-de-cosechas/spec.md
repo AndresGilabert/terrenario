@@ -2,7 +2,7 @@
 id: "MVP-401"
 tipo: feature
 titulo: "Registro y edición de cosechas"
-estado: borrador
+estado: completado
 prioridad: critica
 sprint: ""
 hito: "Hito D — Visibilidad operativa MVP"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "produccion", "cosecha"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-29"
 ---
 
 # MVP-401 — Registro y edición de cosechas
@@ -67,11 +67,11 @@ Permitir registrar y editar cosechas con un modelo simple, consistente y alinead
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Un usuario puede registrar una cosecha con todos los campos obligatorios definidos para MVP.
-- [ ] **CA-2**: El sistema permite editar cosechas existentes manteniendo coherencia de Workspace, terreno y temporada.
-- [ ] **CA-3**: Si la fecha queda fuera del rango de temporada, el sistema avisa pero no bloquea el guardado.
-- [ ] **CA-4**: Las cosechas aparecen en el diario cronológico junto a actividades, compras y consumos, ordenadas por su fecha de negocio, con lo que la vista principal cumple ya `RN-033` completa.
-- [ ] **CA-5**: Editar o eliminar una cosecha con una versión desfasada responde `409 CONFLICT_VERSION_MISMATCH`, y la eliminación es lógica y con confirmación explícita (`ADR-0005`, RN-037).
+- [x] **CA-1**: Un usuario puede registrar una cosecha con todos los campos obligatorios definidos para MVP.
+- [x] **CA-2**: El sistema permite editar cosechas existentes manteniendo coherencia de Workspace, terreno y temporada.
+- [x] **CA-3**: Si la fecha queda fuera del rango de temporada, el sistema avisa pero no bloquea el guardado.
+- [x] **CA-4**: Las cosechas aparecen en el diario cronológico junto a actividades, compras y consumos, ordenadas por su fecha de negocio, con lo que la vista principal cumple ya `RN-033` completa.
+- [x] **CA-5**: Editar o eliminar una cosecha con una versión desfasada responde `409 CONFLICT_VERSION_MISMATCH`, y la eliminación es lógica y con confirmación explícita (`ADR-0005`, RN-037).
 
 ## Maquetas y referencias visuales
 
@@ -85,12 +85,23 @@ Permitir registrar y editar cosechas con un modelo simple, consistente y alinead
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| CosechaModal | RN-029, RN-004 | parcial | Formulario de cosecha disponible |
-| CosechasView | RN-029 | cubierto | Listado de cosechas y borrado visual |
+| CosechaModal | RN-029, RN-004 | cubierto | Alta y corrección con selector excluyente rendimiento/litros; verificado en UI conducida |
+| CosechaModal | RN-021, RN-023 | cubierto | Temporada activa autoseleccionada y aviso no bloqueante de fecha fuera de rango |
+| CosechasView | RN-029 | cubierto | Listado con filtros de terreno, temporada y destino, y borrado con confirmación (RN-037) |
+| DiarioView | RN-033 | cubierto | La cosecha aparece en el diario junto a labores, compras y consumos, ordenada por fecha de negocio |
 
 ## Notas y decisiones
 
 - Esta historia entrega la base de datos sobre la que se apoyará el dashboard.
+- **El catálogo de producto se cierra con un único valor, `aceituna_olivar`** (decisión del PO,
+  2026-07-29). La KB exigía el catálogo (RN-030) pero no definía sus valores. La **variedad** pertenece
+  al terreno y el **producto** debería vivir a nivel de Workspace, modulando el cálculo de rendimiento;
+  ambas cosas son ampliaciones posteriores (`MVP-999`, `P-059`/`P-060`). Hasta entonces el MVP está
+  ligado al olivar y el dashboard no distingue variedades.
+- **Alcance que se cierra en `MVP-402`, no aquí**: la validación en servidor de los catálogos cerrados
+  de producto y destino, y las entradas equivalentes de rendimiento (RN-014/RN-016). Esta historia
+  entrega la entidad y las reglas que su propio alcance enumera; la historia siguiente cierra la
+  semántica. Detalle en el [tech-design](./tech-design.md).
 - **Añadido en la revisión previa de MVP-003 (3ª pasada de `MVP-299`, 2026-07-28), hallazgo `G-4`.**
   `RN-033` define el diario como la mezcla de actividades, **cosechas** y compras/consumos, pero
   `MVP-305` lo construye cuando `HARVEST` todavía no existe y **ninguna historia de esta épica

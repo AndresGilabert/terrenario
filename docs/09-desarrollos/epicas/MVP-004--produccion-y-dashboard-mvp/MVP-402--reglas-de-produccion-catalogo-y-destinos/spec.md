@@ -2,7 +2,7 @@
 id: "MVP-402"
 tipo: feature
 titulo: "Reglas de producción, catálogo y destinos"
-estado: borrador
+estado: completado
 prioridad: critica
 sprint: ""
 hito: "Hito D — Visibilidad operativa MVP"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "produccion", "reglas"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-29"
 ---
 
 # MVP-402 — Reglas de producción, catálogo y destinos
@@ -64,9 +64,9 @@ Garantizar que las cosechas se registran bajo reglas homogéneas y compatibles c
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: El sistema exige producto válido, `kgs` y destino dentro del marco funcional del MVP.
-- [ ] **CA-2**: `rendimiento` y `litros` no pueden coexistir en la misma cosecha.
-- [ ] **CA-3**: `desconocido` se admite como destino válido sin degradar la consistencia posterior del dashboard.
+- [x] **CA-1**: El sistema exige producto válido, `kgs` y destino dentro del marco funcional del MVP.
+- [x] **CA-2**: `rendimiento` y `litros` no pueden coexistir en la misma cosecha.
+- [x] **CA-3**: `desconocido` se admite como destino válido sin degradar la consistencia posterior del dashboard.
 
 ## Maquetas y referencias visuales
 
@@ -80,9 +80,21 @@ Garantizar que las cosechas se registran bajo reglas homogéneas y compatibles c
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| CosechaModal | RN-030, RN-012 | parcial | Destino visible, pero catalogo cerrado MVP no completo |
-| CosechaModal | RN-004, RN-013, RN-014 | falta | No aplica regla XOR rendimiento/litros en UI |
+| CosechaModal | RN-030, RN-012 | cubierto | Catalogos cerrados validados en servidor; `desconocido` admitido y rotulado «Sin destino» |
+| CosechaModal | RN-004, RN-013, RN-014 | cubierto | Selector excluyente con los tres origenes de RN-014 y equivalente en L/100kg al escribir |
+| CosechasView | RN-013 | cubierto | Rendimiento efectivo en unidad canonica, marcando lo derivado, y media ponderada por kilos |
 
 ## Notas y decisiones
 
 - Esta historia cierra la semántica de producción del MVP antes de explotar datos en dashboard.
+- **La unidad de entrada no se persiste: se convierte.** RN-013 fija L/100kg como canónica y RN-014
+  admite además kg de aceite por 100 kg. Guardar la unidad de origen obligaría a cada consumidor del
+  dato a convertir antes de comparar, y una sola omisión daría un promedio mal sin avisar. Se convierte
+  una vez, con la densidad de RN-016, y lo persistido es siempre lo mismo.
+- **El rendimiento «calculado» de RN-014 se expone como derivado, no como columna**: `effective_yield`
+  junto a `yield_source`. Así una cosecha que declaró litros cuenta en los promedios sin contradecir la
+  exclusión de RN-004, y la UI no presenta como declarado algo que se ha deducido.
+- **`desconocido` es el canon; «Sin destino» es solo alias visual** (RN-012). El servidor rechaza el
+  alias como valor: es la deriva que convertiría un catálogo cerrado en texto libre por acumulación.
+- **Diferido con destino**: el override de densidad por almazara que contempla RN-016 queda en
+  `MVP-999` (`P-061`); no existe la entidad almazara en el MVP.

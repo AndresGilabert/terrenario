@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Terrenario.Api.Domain.Activities;
 using Terrenario.Api.Domain.Consumptions;
+using Terrenario.Api.Domain.Harvests;
 using Terrenario.Api.Domain.Plots;
 using Terrenario.Api.Domain.Purchases;
 using Terrenario.Api.Domain.Seasons;
@@ -27,6 +28,7 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
     public DbSet<Activity> Activities => Set<Activity>();
     public DbSet<Purchase> Purchases => Set<Purchase>();
     public DbSet<PurchaseConsumption> PurchaseConsumptions => Set<PurchaseConsumption>();
+    public DbSet<Harvest> Harvests => Set<Harvest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -115,6 +117,9 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
             entity.Property(m => m.Role).HasColumnName("role").HasMaxLength(50).IsRequired();
             entity.Property(m => m.Status).HasColumnName("status").HasMaxLength(20).IsRequired();
             entity.Property(m => m.JoinedAt).HasColumnName("joined_at");
+            // MVP-209 — temporada de trabajo de este usuario en este Workspace (por usuario, no por
+            // Workspace). `null` ⇒ se resuelve un defecto (WorkingSeasonPolicy).
+            entity.Property(m => m.ActiveSeasonId).HasColumnName("active_season_id");
             entity.Ignore(m => m.IsActive);
 
             entity.HasIndex(m => new { m.WorkspaceId, m.UserId }).IsUnique();
@@ -131,6 +136,13 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
                 .WithMany()
                 .HasForeignKey(m => m.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // MVP-209 — si se borra la temporada de trabajo, la membresía vuelve al defecto en vez de
+            // quedar con una referencia colgada.
+            entity.HasOne<Season>()
+                .WithMany()
+                .HasForeignKey(m => m.ActiveSeasonId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<WorkspaceInvitation>(entity =>
@@ -232,18 +244,14 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
             entity.Property(s => s.Name).HasColumnName("name").HasMaxLength(Season.NameMaxLength).IsRequired();
             entity.Property(s => s.StartDate).HasColumnName("start_date").IsRequired();
             entity.Property(s => s.EndDate).HasColumnName("end_date");
-            entity.Property(s => s.IsActive).HasColumnName("is_active");
             entity.Property(s => s.IsClosed).HasColumnName("is_closed");
             entity.Property(s => s.CreatedAt).HasColumnName("created_at");
             entity.Property(s => s.UpdatedAt).HasColumnName("updated_at");
 
-            // RN-022 — una sola temporada activa por Workspace: índice único parcial sobre las filas
-            // activas. La invariante deja de depender solo de la lógica de aplicación (CA-3). También
-            // es el índice de acceso de la consulta de temporada activa (workspace_id + is_active).
-            entity.HasIndex(s => s.WorkspaceId)
-                .IsUnique()
-                .HasFilter("is_active")
-                .HasDatabaseName("ux_seasons_workspace_active");
+            // MVP-209 — se retiró `is_active` y el índice único parcial `ux_seasons_workspace_active`:
+            // ya no hay «una activa por Workspace». La temporada de trabajo es por usuario y vive en
+            // `workspace_members.active_season_id`. El estado (planificada/abierta/cerrada) se deriva de
+            // `is_closed` + `start_date` en lectura (`Season.StatusOn`), sin columna propia.
 
             // MVP-207 (CA-3) — nombre único por Workspace ignorando mayúsculas
             // (ux_seasons_workspace_name, UNIQUE sobre (workspace_id, lower(name))). Es un índice sobre
@@ -533,6 +541,65 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
             entity.HasOne<Season>()
                 .WithMany()
                 .HasForeignKey(c => c.SeasonId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Harvest>(entity =>
+        {
+            entity.ToTable("harvests");
+            entity.HasKey(h => h.Id);
+            entity.Property(h => h.Id).HasColumnName("id");
+            entity.Property(h => h.WorkspaceId).HasColumnName("workspace_id").IsRequired();
+            // RN-001 — toda cosecha es de un terreno; RN-021 — y de una temporada.
+            entity.Property(h => h.PlotId).HasColumnName("plot_id").IsRequired();
+            entity.Property(h => h.SeasonId).HasColumnName("season_id").IsRequired();
+            entity.Property(h => h.Date).HasColumnName("date").IsRequired();
+            // RN-030 — producto de catálogo global fijo (no texto libre como el material de compra):
+            // la columna guarda el **código**, y el cierre del catálogo lo aplica MVP-402.
+            entity.Property(h => h.Product).HasColumnName("product")
+                .HasMaxLength(Harvest.ProductMaxLength).IsRequired();
+            entity.Property(h => h.Kgs).HasColumnName("kgs").HasPrecision(10, 2).IsRequired();
+            // RN-004 — opcionales y **excluyentes**: la exclusividad la garantiza el agregado, no una
+            // restricción de datos, igual que el par tarea de ACTIVITY en MVP-301.
+            entity.Property(h => h.Yield).HasColumnName("yield").HasPrecision(10, 4);
+            entity.Property(h => h.Liters).HasColumnName("liters").HasPrecision(10, 2);
+            // RN-012 — catálogo cerrado con `desconocido` como valor válido.
+            entity.Property(h => h.Destination).HasColumnName("destination")
+                .HasMaxLength(Harvest.DestinationMaxLength).IsRequired();
+            entity.Property(h => h.CreatedBy).HasColumnName("created_by").IsRequired();
+            entity.Property(h => h.CreatedAt).HasColumnName("created_at");
+            entity.Property(h => h.UpdatedBy).HasColumnName("updated_by").IsRequired();
+            entity.Property(h => h.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(h => h.Version).HasColumnName("version").IsConcurrencyToken();
+            entity.Property(h => h.DeletedAt).HasColumnName("deleted_at");
+            entity.Ignore(h => h.IsDeleted);
+
+            // El listado y el diario consultan por Workspace y ordenan por fecha de negocio (RN-033),
+            // siempre sobre registros vivos: índice parcial, igual que en actividades y compras.
+            entity.HasIndex(h => new { h.WorkspaceId, h.Date })
+                .HasFilter("deleted_at IS NULL")
+                .HasDatabaseName("ix_harvests_live_by_date");
+            // Los cuatro widgets del dashboard (MVP-403/404) agrupan por terreno, por temporada y por
+            // destino: los tres filtros tienen índice de apoyo desde el principio.
+            entity.HasIndex(h => new { h.WorkspaceId, h.PlotId });
+            entity.HasIndex(h => new { h.WorkspaceId, h.SeasonId });
+            entity.HasIndex(h => new { h.WorkspaceId, h.Destination });
+
+            entity.HasOne<Workspace>()
+                .WithMany()
+                .HasForeignKey(h => h.WorkspaceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Los maestros se inactivan, no se borran: `Restrict` impide que un borrado deje operativa
+            // huérfana, igual que en ACTIVITY.
+            entity.HasOne<Plot>()
+                .WithMany()
+                .HasForeignKey(h => h.PlotId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<Season>()
+                .WithMany()
+                .HasForeignKey(h => h.SeasonId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
     }

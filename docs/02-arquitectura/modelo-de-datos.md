@@ -58,6 +58,7 @@ erDiagram
         uuid user_id FK
         string role
         string status
+        uuid active_season_id FK
         timestamp joined_at
     }
 
@@ -117,7 +118,6 @@ erDiagram
         string name
         date start_date
         date end_date
-        boolean is_active
         boolean is_closed
         string active_crop
         timestamp created_at
@@ -269,8 +269,15 @@ de servir porque el Workspace ya volvio por otra via, sin atribuir una decision 
 |-------|------|-------------|-------------|
 | `role` | string | Si | `workspace_owner` o `workspace_member`. Informativo en MVP por RN-034 |
 | `status` | string | Si | Catalogo `worker_member_status`: `invitado`, `activo`, `revocado`. Solo `activo` da acceso y aparece en el selector (MVP-104) |
+| `active_season_id` | UUID (nullable) | No | Temporada de trabajo **de este usuario** en este Workspace (MVP-209, RN-021/RN-022). `null` ⇒ se resuelve el defecto (`WorkingSeasonPolicy`). `ON DELETE SET NULL` si la temporada se borra: el usuario vuelve al defecto en vez de quedar con una referencia colgada |
 
-Restricciones: indice unico `(workspace_id, user_id)` (un usuario no puede tener dos membresias del mismo Workspace) e indice de apoyo `(user_id, status)` para el selector de Workspace activo.
+Restricciones: indice unico `(workspace_id, user_id)` (un usuario no puede tener dos membresias del mismo Workspace), indice de apoyo `(user_id, status)` para el selector de Workspace activo e indice de apoyo sobre `active_season_id` para la FK a `seasons`.
+
+La temporada de trabajo vive aqui, no en `users`, porque `users.active_workspace_id` es **global** por
+usuario mientras que la de trabajo es **por Workspace**, y la membresia ya *es* el par (usuario,
+Workspace). Se resuelve **por peticion** (no viaja en el JWT): es un defecto/preferencia, no un claim de
+scope. Fijarla (crear o «trabajar en esta» temporada) es un `UPDATE` a la membresia del usuario que **no
+toca a nadie mas** (MVP-209, CA-2).
 
 MVP-204 expone estos estados en la vista de personas del Workspace y hace operativa la revocacion
 (`activo` -> `revocado`, metodo `Revoke()`). El estado `invitado` **no** se materializa como fila de
@@ -331,21 +338,27 @@ el MVP: coordenadas/mapas y metadatos de suelo quedan diferidos
 
 | Campo | Tipo | Obligatorio | Descripcion |
 |-------|------|-------------|-------------|
-| `is_active` | boolean | Si | Temporada activa del Workspace (RN-021/RN-022). En MVP solo una por Workspace |
 | `is_closed` | boolean | Si | Cierre informativo (RN-024); no bloquea altas ni ediciones |
 | `end_date` | date (nullable) | No | Fecha fin estimada; opcional |
 | `active_crop` | string (nullable) | No | Reservado para la evolucion por cultivo (RU-18/RU-19). No materializado en MVP-201 |
 
-Restricciones: indice unico parcial `(workspace_id) WHERE is_active` (`ux_seasons_workspace_active`)
-que materializa RN-022 en la base de datos, e indice **unico** `ux_seasons_workspace_name` sobre
-`(workspace_id, lower(name))` (MVP-207, CA-3), que impide dos campanas con el mismo nombre en un
-Workspace ignorando mayusculas. Las temporadas cerradas siguen ocupando su nombre: cerrar no lo
-libera. Introducida en MVP-201 (creacion explicita y cancelable;
-no se siembra por defecto). El maestro completo (estados `planificada/activa/cerrada`, derivados de
-`is_active`/`is_closed` sin columna de estado ni cambio de esquema; alta de varias, edicion,
-cierre/reapertura y cambio de temporada activa) se entrega en MVP-203. El cambio de activa desbanca a
-la anterior de forma transaccional para no violar el indice ni transitoriamente. `active_crop` sigue
-diferido (RU-18/RU-19): en MVP rige "una activa por Workspace".
+El **estado** (`planificada/abierta/cerrada`) no se persiste: se **deriva** de `is_closed` y de
+`start_date` frente a hoy (MVP-209, RN-022/RN-024): `cerrada` si `is_closed`; en otro caso `abierta` si
+`start_date <= hoy` (incluye campanas pasadas no cerradas, que siguen recibiendo registros tardios) y
+`planificada` si `start_date > hoy`. El dominio expone `StatusOn(DateOnly reference)` (no una propiedad):
+la fecha entra desde el borde para no acoplar el dominio al reloj. La **temporada de trabajo** ya no vive
+aqui (era `is_active`, uno por Workspace): pasa a `workspace_members.active_season_id`, por usuario
+(MVP-209, cierra P-045).
+
+Restricciones: indice **unico** `ux_seasons_workspace_name` sobre `(workspace_id, lower(name))`
+(MVP-207, CA-3), que impide dos campanas con el mismo nombre en un Workspace ignorando mayusculas. Las
+temporadas cerradas siguen ocupando su nombre: cerrar no lo libera. Indice de apoyo
+`IX_seasons_workspace_id` para la FK a `workspaces` (introducido en MVP-209 al retirarse el unico parcial
+`ux_seasons_workspace_active`, que hacia tambien de indice de acceso). Introducida en MVP-201 (creacion
+explicita y cancelable; no se siembra por defecto). El maestro completo (estado derivado, alta de varias,
+edicion, cierre/reapertura y cambio de temporada de trabajo) se entrega en MVP-203 y se rearma en MVP-209:
+puede haber **varias campanas abiertas a la vez** y cada usuario elige la suya de trabajo. `active_crop`
+sigue diferido (RU-18/RU-19).
 
 ### WORKER
 
@@ -412,11 +425,33 @@ de modo que una tarea del catalogo con historico no se puede borrar (solo inacti
 
 | Campo | Tipo | Obligatorio | Descripcion |
 |-------|------|-------------|-------------|
-| `kgs` | decimal(10,2) | Si | Obligatorio en todo registro de cosecha |
-| `yield` | decimal(10,4) | No | Opcional. Si viene informado, `liters` no debe enviarse |
+| `date` | date | Si | Fecha de negocio de la cosecha. Es la que ordena el diario (RN-033), distinta de `created_at` |
+| `product` | string(60) | Si | Codigo del catalogo **global fijo** `harvest_product` (RN-030). No es texto libre, a diferencia del `product` de `PURCHASE` (RN-031). En el MVP tiene un solo valor, `aceituna_olivar`: la **variedad** pertenece al terreno y el **producto** deberia vivir a nivel de Workspace modulando el calculo de rendimiento, ambas ampliaciones posteriores (`MVP-999`, `P-059`/`P-060`) |
+| `kgs` | decimal(10,2) | Si | Obligatorio en todo registro de cosecha. Estrictamente `> 0` |
+| `yield` | decimal(10,4) | No | Opcional, **siempre** en la unidad canonica L/100kg (RN-013). La unidad de entrada (RN-014: `l_100kg` o `kg_100kg`) **no se persiste**: se convierte con la densidad de RN-016 en el borde de aplicacion (MVP-402), de modo que ningun consumidor tenga que convertir antes de comparar. Si viene informado, `liters` no debe enviarse |
 | `liters` | decimal(10,2) | No | Opcional. Si viene informado, `yield` no debe enviarse |
 | `destination` | enum | Si | Catalogo fijo: `venta_aceituna`, `aceite_para_venta`, `aceite_personal`, `desconocido` |
-| `version` | bigint | Si | Control de concurrencia optimista para `If-Match` |
+| `version` | bigint | Si | Control de concurrencia optimista para `If-Match` (ADR-0005) |
+| `deleted_at` | timestamptz (nullable) | No | Marca de eliminacion logica (RN-037). Lo eliminado sale del listado, del diario y del dashboard, pero la fila permanece |
+
+El **rendimiento efectivo** de RN-014 (tercer origen: calculado desde kilos y litros) es **derivado en
+lectura**, no una columna: guardarlo duplicaria un dato implicito que quedaria obsoleto al corregir los
+kilos. La proyeccion lo publica como `effective_yield` mas `yield_source` (`informado`/`calculado`),
+anadidos en MVP-402.
+
+La exclusividad `yield`/`liters` (RN-004) **la garantiza el agregado, no una restriccion de datos**,
+igual que el par `task_id`/`task_text` de `ACTIVITY`: la condicion es «como mucho uno» sobre valores ya
+normalizados. La cosecha **no tiene coste** (RN-029, que deja fuera precio, molturacion y balance), asi
+que no hay ninguna columna economica: es la unica entidad operativa del MVP que se mide en kilos y no
+en euros.
+
+Restricciones: indice **parcial** `ix_harvests_live_by_date` sobre `(workspace_id, date)` filtrado por
+`deleted_at IS NULL` —igual que en `ACTIVITY` y `PURCHASE`— mas `(workspace_id, plot_id)`,
+`(workspace_id, season_id)` y `(workspace_id, destination)`, que son los tres ejes por los que agregan
+los cuatro widgets del dashboard (`MVP-403`/`MVP-404`). Las FKs a `plots` y `seasons` son
+`ON DELETE RESTRICT`: los maestros se inactivan en vez de borrarse, asi que la semantica correcta es
+impedir que un borrado deje produccion huerfana. El filtro de baja logica vive en el **puerto**
+`IHarvestRepository`, no en un filtro global de EF, como en el resto de la operativa.
 
 ### ACTIVITY
 
@@ -538,16 +573,16 @@ diario de MVP-305.
 |---|---|---|
 | `USER` | implementada | MVP-101 (contexto activo en MVP-104) |
 | `WORKSPACE` | implementada | MVP-102 (ciclo de vida en MVP-206: renombrado, baja logica `deleted_at` y traspaso de `owner_id`) |
-| `WORKSPACE_MEMBER` | implementada | MVP-102 (estados de membresia en MVP-104; promocion/degradacion de `role` por el traspaso en MVP-206) |
+| `WORKSPACE_MEMBER` | implementada | MVP-102 (estados de membresia en MVP-104; promocion/degradacion de `role` por el traspaso en MVP-206; `active_season_id` —temporada de trabajo por usuario— en MVP-209) |
 | `WORKSPACE_REACTIVATION_REQUEST` | implementada | MVP-206 (enlace de un solo uso para solicitar traspaso y reactivacion) |
 | `WORKSPACE_INVITATION` | implementada | MVP-103 (reenvio en MVP-204: `Reissue` rota token y renueva caducidad) |
-| `SEASON` | implementada | MVP-201 (temporada inicial + `is_active`); maestro completo en MVP-203 (estados `planificada/activa/cerrada` derivados; `active_crop` diferido) |
+| `SEASON` | implementada | MVP-201 (temporada inicial); maestro completo en MVP-203; **MVP-209** separa estado (derivado por fechas: `planificada/abierta/cerrada`) de la **temporada de trabajo por usuario** (`workspace_members.active_season_id`): retira `seasons.is_active` y `ux_seasons_workspace_active`, cierra `P-045`. `active_crop` diferido |
 | `PLOT` | implementada | MVP-202 (alta minima RN-028, `is_active`; `location` en vez de coordenadas; `soil_metadata` diferido) |
 | `WORKER` | implementada | MVP-204 (alta minima `name`, `hourly_rate` de referencia, `is_active`); MVP-208 materializa `user_account_id`: el maestro pasa a ser el de responsables (miembros + cuadrilla) y cierra `P-034` |
 | `ACTIVITY` | implementada | MVP-301 (`task_id`/`task_text` excluyentes cierran `P-028`; estrena `version` + `If-Match` de ADR-0005 y la baja logica `deleted_at` de RN-037) |
 | `PURCHASE` | implementada | MVP-303 (`season_id` cierra `P-050`; `unit_price` persistido como base del coste proporcional de MVP-304) |
 | `PURCHASE_CONSUMPTION` | implementada | MVP-304, con el mecanismo decidido en MVP-303: `purchase_id` anulable (RN-032). Anade `unit_price` congelado, trazabilidad completa, `version` y `deleted_at` |
-| `HARVEST` | pendiente | MVP-004 |
+| `HARVEST` | implementada | MVP-401 (cuarta entidad operativa critica: `version` + `If-Match` de ADR-0005 y baja logica `deleted_at` de RN-037; enciende la cosecha en el diario y completa RN-033). MVP-402 cierra su semantica: catalogos cerrados de producto y destino validados en servidor y unidad canonica de rendimiento con sus entradas equivalentes |
 
 ---
 

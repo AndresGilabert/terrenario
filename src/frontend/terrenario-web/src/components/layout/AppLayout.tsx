@@ -7,6 +7,8 @@ import { InvitationModal } from '../notifications/InvitationModal';
 /** Título contextual de la cabecera según la ruta activa. */
 function titleForPath(pathname: string): string {
   if (pathname.startsWith('/app/diario')) return 'Diario de campo';
+  if (pathname.startsWith('/app/vision-general')) return 'Visión General';
+  if (pathname.startsWith('/app/cosechas')) return 'Cosechas';
   if (pathname.startsWith('/app/compras')) return 'Compras e insumos';
   if (pathname.startsWith('/app/invitations')) return 'Invitar a alguien';
   if (pathname.startsWith('/app/temporadas')) return 'Temporadas';
@@ -15,7 +17,10 @@ function titleForPath(pathname: string): string {
   if (pathname.startsWith('/app/miembros')) return 'Miembros y accesos';
   if (pathname.startsWith('/app/tareas')) return 'Catálogo de tareas';
   if (pathname.startsWith('/app/ajustes')) return 'Ajustes del Workspace';
-  return 'Inicio';
+  // Solo el Home y las rutas desconocidas llegan aquí (las conocidas retornan antes): el shell aloja
+  // la pantalla 404 de MVP-406, así que la cabecera lo dice en vez de rotular «Inicio» algo que no lo es.
+  if (pathname === '/app' || pathname === '/app/') return 'Inicio';
+  return 'Página no encontrada';
 }
 
 /**

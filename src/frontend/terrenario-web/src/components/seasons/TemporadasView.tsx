@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useApiClient } from '../../contexts/ApiContext';
 import { useSeason } from '../../contexts/SeasonContext';
+import { createDashboardService } from '../../services/dashboard.service';
 import { createSeasonService } from '../../services/season.service';
 import { HttpError } from '../../services/http-client';
 import { SEASON_STATUS_LABELS, type Season } from '../../types/season.types';
@@ -9,8 +10,12 @@ import { SeasonFormModal, type SeasonFormValues } from './SeasonFormModal';
 /**
  * Maestro de temporadas del Workspace (MVP-203). Lista las campañas, permite crear (la nueva pasa a
  * ser la activa), editar, cambiar de activa (RN-022) y cerrar/reabrir (RN-024, informativo). Reutiliza
- * el shell y la paleta del prototipo (`TemporadasView`); a diferencia del prototipo, no muestra la
- * "producción total" (dato de cosechas que llega en MVP-004, no inventamos métricas).
+ * el shell y la paleta del prototipo (`TemporadasView`).
+ *
+ * **MVP-403 cierra `P-021`**: cada tarjeta muestra ya la producción agregada de su campaña, que
+ * `MVP-203` omitió deliberadamente porque `HARVEST` todavía no existía y no quiso inventar métricas.
+ * Llega en **una sola petición** (`GET /dashboard/kg-by-season`), no una por temporada, y su fallo no
+ * tumba el maestro: si no se puede calcular, las tarjetas se pintan sin el dato.
  *
  * Tras cada acción resincroniza la temporada activa del contexto para que la cabecera y la
  * autoselección operativa queden coherentes. Esta pantalla vive fuera de la guarda de oferta de
@@ -19,9 +24,12 @@ import { SeasonFormModal, type SeasonFormValues } from './SeasonFormModal';
 export const TemporadasView: React.FC = () => {
   const http = useApiClient();
   const seasonService = useMemo(() => createSeasonService(http), [http]);
+  const dashboardService = useMemo(() => createDashboardService(http), [http]);
   const { refresh: refreshActiveSeason } = useSeason();
 
   const [seasons, setSeasons] = useState<Season[]>([]);
+  /** P-021 — kilos recolectados por temporada, indexados por id. Vacío si no se pudo calcular. */
+  const [production, setProduction] = useState<Record<string, { kg: number; harvests: number }>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -40,16 +48,28 @@ export const TemporadasView: React.FC = () => {
       setSeasons(data);
     } catch (error) {
       setLoadError(error instanceof HttpError ? error.message : 'No se pudieron cargar las temporadas.');
+      setIsLoading(false);
+      return;
+    }
+
+    // P-021 — la producción es un enriquecimiento, no el maestro: si falla, el maestro sigue en pie.
+    try {
+      const { data } = await dashboardService.getKgBySeason();
+      setProduction(
+        Object.fromEntries(
+          data.map((row) => [row.season_id, { kg: row.total_kg, harvests: row.harvests }])
+        )
+      );
+    } catch {
+      setProduction({});
     } finally {
       setIsLoading(false);
     }
-  }, [seasonService]);
+  }, [seasonService, dashboardService]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
-
-  const hasActiveSeason = useMemo(() => seasons.some((s) => s.is_active), [seasons]);
 
   const openCreate = () => {
     setEditingSeason(null);
@@ -111,7 +131,8 @@ export const TemporadasView: React.FC = () => {
         <div>
           <h2 className="font-headline font-extrabold text-xl text-[#1c1c19]">Temporadas y campañas</h2>
           <p className="text-xs text-[#76786b]">
-            Agrupa cosechas, labores y compras por campaña. Solo puede haber una temporada activa a la vez.
+            Agrupa cosechas, labores y compras por campaña. Marca en cuál trabajas por defecto; su
+            estado (abierta, planificada o cerrada) es aparte.
           </p>
         </div>
 
@@ -143,6 +164,7 @@ export const TemporadasView: React.FC = () => {
             <SeasonCard
               key={season.id}
               season={season}
+              production={production[season.id]}
               isBusy={busySeasonId === season.id}
               onEdit={() => openEdit(season)}
               onActivate={() => void activate(season)}
@@ -156,7 +178,6 @@ export const TemporadasView: React.FC = () => {
       <SeasonFormModal
         isOpen={isModalOpen}
         season={editingSeason}
-        hasActiveSeason={hasActiveSeason}
         isSubmitting={isSubmitting}
         errorMessage={submitError}
         onClose={() => {
@@ -195,6 +216,8 @@ const EmptyState: React.FC<{ onAdd: () => void }> = ({ onAdd }) => (
 
 interface SeasonCardProps {
   season: Season;
+  /** P-021 — producción agregada de la campaña. `undefined` si no se pudo calcular. */
+  production?: { kg: number; harvests: number };
   isBusy: boolean;
   onEdit: () => void;
   onActivate: () => void;
@@ -203,7 +226,7 @@ interface SeasonCardProps {
 }
 
 const STATUS_BADGE: Record<Season['status'], string> = {
-  activa: 'bg-[#c9f16f] text-[#33450d]',
+  abierta: 'bg-[#c9f16f] text-[#33450d]',
   planificada: 'bg-[#eef2e0] text-[#33450d]',
   cerrada: 'bg-[#e5e2dd] text-[#76786b]',
 };
@@ -214,7 +237,15 @@ function formatDate(iso: string): string {
   return parsed.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-const SeasonCard: React.FC<SeasonCardProps> = ({ season, isBusy, onEdit, onActivate, onClose, onReopen }) => {
+const SeasonCard: React.FC<SeasonCardProps> = ({
+  season,
+  production,
+  isBusy,
+  onEdit,
+  onActivate,
+  onClose,
+  onReopen,
+}) => {
   const range = season.end_date
     ? `${formatDate(season.start_date)} — ${formatDate(season.end_date)}`
     : `Desde ${formatDate(season.start_date)}`;
@@ -222,13 +253,13 @@ const SeasonCard: React.FC<SeasonCardProps> = ({ season, isBusy, onEdit, onActiv
   return (
     <div
       className={`bg-white p-5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all ${
-        season.is_active ? 'border-[#33450d] ring-2 ring-[#33450d]/20' : 'border-[#e5e2dd]'
+        season.is_working ? 'border-[#33450d] ring-2 ring-[#33450d]/20' : 'border-[#e5e2dd]'
       }`}
     >
       <div className="flex items-center gap-4 min-w-0">
         <div
           className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-            season.is_active ? 'bg-[#33450d] text-white' : 'bg-[#f0ede8] text-[#76786b]'
+            season.is_working ? 'bg-[#33450d] text-white' : 'bg-[#f0ede8] text-[#76786b]'
           }`}
         >
           <span className="material-symbols-outlined text-xl" aria-hidden="true">calendar_today</span>
@@ -236,32 +267,58 @@ const SeasonCard: React.FC<SeasonCardProps> = ({ season, isBusy, onEdit, onActiv
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="font-headline font-bold text-base text-[#1c1c19] truncate">{season.name}</h3>
+            {/* Estado informativo (MVP-209), independiente de la de trabajo */}
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${STATUS_BADGE[season.status]}`}>
               {SEASON_STATUS_LABELS[season.status].toUpperCase()}
             </span>
+            {/* Marca aparte: sobre esta temporada registro por defecto (por usuario) */}
+            {season.is_working && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#33450d] text-white flex items-center gap-1">
+                <span className="material-symbols-outlined text-[11px]" aria-hidden="true">edit_note</span>
+                TRABAJANDO AQUÍ
+              </span>
+            )}
           </div>
           <p className="text-xs text-[#76786b]">{range}</p>
+          {/* P-021 — producción agregada de la campaña. `0 kg` es información («no se recolectó
+              nada»), no ausencia de dato; ausencia de dato es que no se pudo calcular y entonces no
+              se enseña nada. */}
+          {production && (
+            <p className="text-xs font-semibold text-[#33450d] flex items-center gap-1 mt-0.5">
+              <span className="material-symbols-outlined text-sm" aria-hidden="true">scale</span>
+              {production.kg.toLocaleString('es-ES')} kg
+              <span className="font-normal text-[#76786b]">
+                · {production.harvests === 0
+                  ? 'sin cosechas'
+                  : `${production.harvests} ${production.harvests === 1 ? 'partida' : 'partidas'}`}
+              </span>
+            </p>
+          )}
         </div>
       </div>
 
       <div className="flex items-center gap-2 shrink-0 flex-wrap">
-        {!season.is_active && (
+        {/* MVP-209 — «Trabajar en esta»: la fija como mi temporada de trabajo (por usuario). No reabre
+            una cerrada ni afecta a otros usuarios. */}
+        {!season.is_working && (
           <button
             onClick={onActivate}
             disabled={isBusy}
             className="px-3.5 py-1.5 rounded-xl bg-[#f0ede8] hover:bg-[#ebe8e3] text-[#33450d] text-xs font-bold disabled:opacity-50 flex items-center gap-1"
+            title="Registrar por defecto sobre esta temporada"
           >
             <span className="material-symbols-outlined text-sm" aria-hidden="true">bolt</span>
-            Activar
+            Trabajar en esta
           </button>
         )}
 
-        {season.is_active && (
+        {/* Cerrar/reabrir es el estado informativo, independiente de la de trabajo (RN-024) */}
+        {!season.is_closed && (
           <button
             onClick={onClose}
             disabled={isBusy}
             className="px-3.5 py-1.5 rounded-xl bg-[#f0ede8] hover:bg-[#ebe8e3] text-[#45483c] text-xs font-bold disabled:opacity-50 flex items-center gap-1"
-            title="Marcar como cerrada (informativo). El Workspace quedará sin temporada activa."
+            title="Marcar como cerrada (informativo): ya no esperas más registros aquí. Podrás editarla igualmente."
           >
             <span className="material-symbols-outlined text-sm" aria-hidden="true">lock</span>
             Cerrar
@@ -273,7 +330,7 @@ const SeasonCard: React.FC<SeasonCardProps> = ({ season, isBusy, onEdit, onActiv
             onClick={onReopen}
             disabled={isBusy}
             className="px-3.5 py-1.5 rounded-xl bg-[#f0ede8] hover:bg-[#ebe8e3] text-[#45483c] text-xs font-bold disabled:opacity-50 flex items-center gap-1"
-            title="Reabrir: vuelve a planificada"
+            title="Reabrir: vuelve a abierta o planificada según sus fechas"
           >
             <span className="material-symbols-outlined text-sm" aria-hidden="true">lock_open</span>
             Reabrir

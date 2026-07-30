@@ -211,6 +211,100 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
                     b.ToTable("purchase_consumptions", (string)null);
                 });
 
+            modelBuilder.Entity("Terrenario.Api.Domain.Harvests.Harvest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date")
+                        .HasColumnName("date");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Destination")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("destination");
+
+                    b.Property<decimal>("Kgs")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("kgs");
+
+                    b.Property<decimal?>("Liters")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("liters");
+
+                    b.Property<Guid>("PlotId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("plot_id");
+
+                    b.Property<string>("Product")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("product");
+
+                    b.Property<Guid>("SeasonId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("season_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UpdatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("workspace_id");
+
+                    b.Property<decimal?>("Yield")
+                        .HasPrecision(10, 4)
+                        .HasColumnType("numeric(10,4)")
+                        .HasColumnName("yield");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlotId");
+
+                    b.HasIndex("SeasonId");
+
+                    b.HasIndex("WorkspaceId", "Date")
+                        .HasDatabaseName("ix_harvests_live_by_date")
+                        .HasFilter("deleted_at IS NULL");
+
+                    b.HasIndex("WorkspaceId", "Destination");
+
+                    b.HasIndex("WorkspaceId", "PlotId");
+
+                    b.HasIndex("WorkspaceId", "SeasonId");
+
+                    b.ToTable("harvests", (string)null);
+                });
+
             modelBuilder.Entity("Terrenario.Api.Domain.Plots.Plot", b =>
                 {
                     b.Property<Guid>("Id")
@@ -372,10 +466,6 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
                         .HasColumnType("date")
                         .HasColumnName("end_date");
 
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_active");
-
                     b.Property<bool>("IsClosed")
                         .HasColumnType("boolean")
                         .HasColumnName("is_closed");
@@ -400,10 +490,7 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("WorkspaceId")
-                        .IsUnique()
-                        .HasDatabaseName("ux_seasons_workspace_active")
-                        .HasFilter("is_active");
+                    b.HasIndex("WorkspaceId");
 
                     b.ToTable("seasons", (string)null);
                 });
@@ -686,6 +773,10 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("ActiveSeasonId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("active_season_id");
+
                     b.Property<DateTimeOffset>("JoinedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("joined_at");
@@ -711,6 +802,8 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
                         .HasColumnName("workspace_id");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ActiveSeasonId");
 
                     b.HasIndex("UserId", "Status");
 
@@ -878,6 +971,27 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Terrenario.Api.Domain.Harvests.Harvest", b =>
+                {
+                    b.HasOne("Terrenario.Api.Domain.Plots.Plot", null)
+                        .WithMany()
+                        .HasForeignKey("PlotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Terrenario.Api.Domain.Seasons.Season", null)
+                        .WithMany()
+                        .HasForeignKey("SeasonId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Terrenario.Api.Domain.Workspaces.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Terrenario.Api.Domain.Plots.Plot", b =>
                 {
                     b.HasOne("Terrenario.Api.Domain.Workspaces.Workspace", null)
@@ -988,6 +1102,11 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
 
             modelBuilder.Entity("Terrenario.Api.Domain.Workspaces.WorkspaceMember", b =>
                 {
+                    b.HasOne("Terrenario.Api.Domain.Seasons.Season", null)
+                        .WithMany()
+                        .HasForeignKey("ActiveSeasonId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Terrenario.Api.Domain.Users.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")

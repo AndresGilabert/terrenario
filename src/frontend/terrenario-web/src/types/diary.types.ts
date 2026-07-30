@@ -1,12 +1,12 @@
 /**
  * Tipo de entrada del diario (MVP-305). Catálogo cerrado `diary_entry_type`.
  *
- * `cosecha` **no está todavía**: `HARVEST` no existe hasta MVP-004. RN-033 define el diario como la
- * mezcla de actividades, cosechas y compras/consumos, así que encenderla es alcance de MVP-401
- * (hallazgo `G-4`). La tarjeta está construida para que añadirla sea una entrada más en los mapas de
- * abajo.
+ * `cosecha` la enciende **MVP-401**, que es quien crea `HARVEST`: RN-033 define el diario como la
+ * mezcla de actividades, cosechas y compras/consumos, así que hasta entonces la vista principal estaba
+ * incompleta por construcción (hallazgo `G-4`). Con los cuatro valores vivos, RN-033 queda cumplida
+ * entera.
  */
-export type DiaryEntryType = 'actividad' | 'compra' | 'consumo';
+export type DiaryEntryType = 'actividad' | 'compra' | 'consumo' | 'cosecha';
 
 /**
  * Entrada del diario cronológico unificado. Es una **vista de lectura**: no hay entidad «entrada de
@@ -43,6 +43,18 @@ export interface DiaryEntry {
   quantity: number | null;
   /** Solo en consumos: `false` ⇒ el coste es desconocido, no cero (RN-032). */
   has_purchase: boolean | null;
+  /**
+   * Solo en cosechas (MVP-401): kilos recolectados. Van aparte de `quantity` porque no son la misma
+   * magnitud —allí es material comprado o consumido, sin unidad fija— y la tarjeta las rotula distinto.
+   */
+  kgs: number | null;
+  /** Solo en cosechas: destino de lo recolectado (RN-012). */
+  destination: string | null;
+  /**
+   * Solo en cosechas (MVP-402): rendimiento en la unidad canónica L/100kg (RN-013), sea declarado o
+   * derivado de los litros obtenidos (RN-014). `null` cuando la partida no tiene dato de aceite.
+   */
+  yield: number | null;
 }
 
 export interface DiaryListResponse {
@@ -60,6 +72,10 @@ export interface DiaryListResponse {
     purchases: number;
     consumptions: number;
     consumptions_without_purchase: number;
+    /** MVP-401 — cosechas de lo filtrado. */
+    harvests: number;
+    /** MVP-401 — kilos recolectados: la cosecha no aporta gasto (RN-029), así que se resume por kilos. */
+    total_kg: number;
   };
 }
 
@@ -71,7 +87,7 @@ export interface DiaryFilters {
   types?: DiaryEntryType[];
 }
 
-/** Cómo se pinta cada tipo en el muro. Añadir `cosecha` en MVP-401 es una entrada más aquí. */
+/** Cómo se pinta cada tipo en el muro. La cosecha (MVP-401) fue una entrada más aquí. */
 export const DIARY_ENTRY_STYLES: Record<
   DiaryEntryType,
   { label: string; icon: string; badgeClass: string }
@@ -79,6 +95,7 @@ export const DIARY_ENTRY_STYLES: Record<
   actividad: { label: 'Labor', icon: 'content_cut', badgeClass: 'bg-[#4a5d23]' },
   compra: { label: 'Compra', icon: 'shopping_bag', badgeClass: 'bg-[#5a3811]' },
   consumo: { label: 'Consumo', icon: 'inventory_2', badgeClass: 'bg-[#7a6a1f]' },
+  cosecha: { label: 'Cosecha', icon: 'agriculture', badgeClass: 'bg-[#33450d]' },
 };
 
 /** Qué se le dice al usuario antes de eliminar cada tipo (RN-037: confirmación explícita). */
@@ -86,4 +103,5 @@ export const DIARY_ENTRY_NOUNS: Record<DiaryEntryType, string> = {
   actividad: 'la actividad',
   compra: 'la compra',
   consumo: 'el consumo',
+  cosecha: 'la cosecha',
 };

@@ -14,6 +14,8 @@ import { AcceptInvitationPage } from './components/invitations/AcceptInvitationP
 import { ReceivedInvitationsPage } from './components/invitations/ReceivedInvitationsPage';
 import { InvitePeoplePage } from './components/workspace/InvitePeoplePage';
 import { DiarioView } from './components/diary/DiarioView';
+import { CosechasView } from './components/harvests/CosechasView';
+import { VisionGeneralView } from './components/dashboard/VisionGeneralView';
 import { ComprasView } from './components/purchases/ComprasView';
 import { TerrenosView } from './components/plots/TerrenosView';
 import { TemporadasView } from './components/seasons/TemporadasView';
@@ -24,6 +26,7 @@ import { AjustesView } from './components/settings/AjustesView';
 import { ReactivationRequestPage } from './components/workspace/ReactivationRequestPage';
 import { ReactivationInboxPage } from './components/workspace/ReactivationInboxPage';
 import { HomeView } from './components/home/HomeView';
+import { NotFoundView } from './components/errors/NotFoundView';
 import { AppLayout } from './components/layout/AppLayout';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { RequireWorkspace } from './routes/RequireWorkspace';
@@ -76,6 +79,15 @@ function AppRoutes() {
             {/* Libro de compras (MVP-303). Fuera de la guarda de oferta de temporada como el resto
                 del shell: si falta temporada se dice y se enlaza, en vez de desviar sin explicar. */}
             <Route path="/app/compras" element={<ComprasView />} />
+            {/* Registro de cosechas (MVP-401). Fuera de la guarda de oferta de temporada como el
+                resto del shell: si falta temporada se dice y se enlaza, en vez de desviar sin
+                explicar (misma lección que P-038 en MVP-207). */}
+            <Route path="/app/cosechas" element={<CosechasView />} />
+            {/* Visión General (MVP-403): una sola pantalla con scroll vertical (RN-005). Fuera de la
+                guarda de oferta de temporada como el resto del shell: si falta temporada la propia
+                pantalla lo explica y enlaza al maestro, en vez de desviar sin decir nada.
+                Si el Home pasa a ser esta vista lo decide `P-040` en MVP-499. */}
+            <Route path="/app/vision-general" element={<VisionGeneralView />} />
             <Route path="/app/terrenos" element={<TerrenosView />} />
             <Route path="/app/temporadas" element={<TemporadasView />} />
             <Route path="/app/trabajadores" element={<TrabajadoresView />} />
@@ -90,14 +102,18 @@ function AppRoutes() {
                 MVP-201 la quería: al entrar, no al administrar. */}
             <Route element={<RequireSeasonOffer />}>
               <Route path="/app" element={<HomeView />} />
-              <Route path="/app/*" element={<HomeView />} />
             </Route>
+            {/* Ruta desconocida bajo /app (MVP-406, P-046): 404 **dentro del shell** —conserva el
+                lateral para no desorientar— y **fuera** de la guarda de oferta de temporada: un enlace
+                roto no debe forzar a crear una campaña. Antes caía en el Home y parecía válida. */}
+            <Route path="/app/*" element={<NotFoundView />} />
           </Route>
         </Route>
       </Route>
 
-      {/* Fallback */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* Ruta desconocida fuera de /app (MVP-406, P-046): 404 a pantalla completa con salida al Home
+          o a la landing según haya sesión, en vez de redirigir en silencio a `/`. */}
+      <Route path="*" element={<NotFoundView variant="fullscreen" />} />
     </Routes>
   );
 }

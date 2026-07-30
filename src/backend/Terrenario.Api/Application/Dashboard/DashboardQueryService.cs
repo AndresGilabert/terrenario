@@ -223,10 +223,12 @@ public sealed class DashboardQueryService(
             .GroupBy(row => row.Destination)
             .Select(group => new DestinationTotal(
                 group.Key, decimal.Round(group.Sum(row => row.Kgs), 2, MidpointRounding.AwayFromZero)))
-            // Kilos descendentes y desempate alfabético por la clave canónica: mismo criterio que
-            // RN-011 impone al widget de terrenos, para que las dos listas se lean igual.
+            // Kilos descendentes y desempate alfabético por la clave canónica: **mismo comparador** que
+            // RN-011 impone al widget de terrenos (OrdinalIgnoreCase), para que las dos listas se lean
+            // igual (MVP-499, R-06). Las claves de destino son minúsculas canónicas, así que hoy no
+            // cambia el resultado; se alinea para que «mismo criterio» sea literal.
             .OrderByDescending(total => total.Kg)
-            .ThenBy(total => total.Destination, StringComparer.Ordinal)
+            .ThenBy(total => total.Destination, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         return (scope, totals, decimal.Round(rows.Sum(row => row.Kgs), 2, MidpointRounding.AwayFromZero));

@@ -7,18 +7,19 @@ import { useApiClient } from '../../contexts/ApiContext';
 import { createPlotService } from '../../services/plot.service';
 import { createWorkerService } from '../../services/worker.service';
 import { createTaskService } from '../../services/task.service';
+import { VisionGeneralView } from '../dashboard/VisionGeneralView';
 
 /**
- * Home del área operativa (MVP-201 · corregido en MVP-207, HU-4/CA-6).
+ * Home del área operativa (MVP-201 · MVP-207 · MVP-499).
  *
- * Antes era una pantalla muerta: su único CTA era «Invitar a alguien» y su copy seguía anunciando
- * como «por habilitar» módulos que ya están encendidos en el menú. Ahora conduce a los maestros que
- * faltan por poblar, que es lo que HU-2 de MVP-201 pedía («entrar a una aplicación preparada para
- * completar los maestros básicos»).
+ * Tiene dos caras según la preparación del Workspace (P-040, decisión del PO en MVP-499):
  *
- * No es el dashboard: la Visión General con métricas reales es alcance de MVP-004. Aquí solo se
- * responde a «¿qué me falta para empezar a registrar?», y el bloque desaparece en cuanto está todo
- * preparado.
+ * - **Mientras falten maestros por poblar**, es la pantalla de arranque: bienvenida + checklist de lo
+ *   que queda para empezar a registrar (temporada, terrenos, trabajadores, tareas). Es lo que pedía
+ *   HU-2 de MVP-201.
+ * - **Cuando la explotación está preparada**, el Home **pasa a ser la Visión General**: quien ya lo
+ *   tiene todo listo entra directo a sus métricas, no a un checklist completado. Así no hay dos
+ *   pantallas de inicio compitiendo (cierra P-040).
  */
 
 interface SetupStep {
@@ -125,6 +126,22 @@ export const HomeView: React.FC = () => {
   const pending = steps.filter((step) => !step.done).length;
   const isReady = counts !== null && pending === 0;
 
+  // Mientras se calcula la preparación no se decide qué cara mostrar: un parpadeo entre el checklist y
+  // el dashboard sería peor que esperar un instante.
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div className="w-10 h-10 border-4 border-[#33450d] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // P-040 — con la explotación preparada, el Home ES la Visión General (MVP-499): se reutiliza la misma
+  // vista, no se duplica. El checklist ya no aporta nada porque no queda nada que preparar.
+  if (isReady) {
+    return <VisionGeneralView />;
+  }
+
   return (
     <div className="space-y-6 pb-12">
       {/* Bienvenida. El selector, la campanita, la navegación y el cierre de sesión viven en el
@@ -145,9 +162,10 @@ export const HomeView: React.FC = () => {
         </div>
         <p className="text-[#45483c] text-sm max-w-lg">
           El <strong>diario de campo</strong> es donde se registra el día a día de la explotación:
-          labores, compras y consumos, en orden cronológico. Los maestros —temporadas, terrenos,
-          trabajadores, tareas y accesos— están en el menú lateral. Solo quedan por llegar las
-          cosechas y la visión general, marcadas con la etiqueta «Pronto».
+          labores, compras, consumos y cosechas, en orden cronológico. Los maestros —temporadas,
+          terrenos, trabajadores, tareas y accesos— y la <strong>Visión General</strong> están en el
+          menú lateral. En cuanto termines de preparar los maestros, esta pantalla pasará a mostrarte
+          el resumen de tu explotación.
         </p>
         <div className="flex flex-col sm:flex-row items-start gap-3 pt-1">
           {/* MVP-301 — el diario es la vista principal del MVP (RN-033): el Home conduce a él. */}
@@ -168,30 +186,20 @@ export const HomeView: React.FC = () => {
         </div>
       </div>
 
-      {/* Preparación de la explotación (CA-6): el camino explícito a los maestros pendientes. */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-10">
-          <div className="w-8 h-8 border-4 border-[#33450d] border-t-transparent rounded-full animate-spin" />
-        </div>
-      ) : (
-        counts !== null && (
+      {/* Preparación de la explotación (CA-6): el camino explícito a los maestros pendientes. Aquí
+          siempre queda algo por poblar —si no, el Home ya sería la Visión General (P-040)—. */}
+      {counts !== null && (
           <section className="bg-white rounded-2xl border border-[#e5e2dd] p-6 ambient-shadow space-y-4">
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <div>
-                <h2 className="font-headline font-bold text-lg text-[#1c1c19]">
-                  {isReady ? 'Tu explotación está preparada' : 'Prepara tu explotación'}
-                </h2>
+                <h2 className="font-headline font-bold text-lg text-[#1c1c19]">Prepara tu explotación</h2>
                 <p className="text-xs text-[#76786b]">
-                  {isReady
-                    ? 'Ya puedes seguir completando los maestros cuando lo necesites.'
-                    : `Te ${pending === 1 ? 'queda 1 maestro' : `quedan ${pending} maestros`} por poblar para empezar a registrar el día a día.`}
+                  {`Te ${pending === 1 ? 'queda 1 maestro' : `quedan ${pending} maestros`} por poblar para empezar a registrar el día a día.`}
                 </p>
               </div>
-              {!isReady && (
-                <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#eef2e0] text-[#33450d] shrink-0">
-                  {steps.length - pending}/{steps.length}
-                </span>
-              )}
+              <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#eef2e0] text-[#33450d] shrink-0">
+                {steps.length - pending}/{steps.length}
+              </span>
             </div>
 
             <ul className="divide-y divide-[#f0ede8]">
@@ -232,7 +240,6 @@ export const HomeView: React.FC = () => {
               ))}
             </ul>
           </section>
-        )
       )}
     </div>
   );

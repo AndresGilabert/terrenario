@@ -46,7 +46,13 @@ public sealed class DashboardController(
             harvests = summary.Harvests,
             // Sobre cuántas partidas se ha promediado: sin esto, una media sobre 2 de 20 partidas
             // parecería la de la campaña entera.
-            harvests_with_oil_data = summary.HarvestsWithOilData
+            harvests_with_oil_data = summary.HarvestsWithOilData,
+            // MVP-405 (CA-3, RN-010) — kg/árbol del ámbito. `null` = ningún terreno con cosechas tiene
+            // número de árboles. Los contadores explican sobre qué se calculó y cuántos quedaron fuera.
+            kg_per_tree = summary.KgPerTree,
+            trees_counted = summary.TreesCounted,
+            plots_counted = summary.PlotsCounted,
+            plots_without_tree_count = summary.PlotsWithoutTreeCount
         });
     }
 

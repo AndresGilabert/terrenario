@@ -194,6 +194,100 @@ public class DashboardQueryServiceTests
         summary.HarvestsWithOilData.Should().Be(1);
     }
 
+    // ── Kg por árbol (MVP-405, CA-3 · RN-010) ───────────────────────────────
+
+    /// <summary>Fija los terrenos que verá el resolutor del ámbito para un test concreto.</summary>
+    private void SeedPlots(params Plot[] plots)
+        => _plots.ListByWorkspaceAsync(WorkspaceId, null, null, Arg.Any<CancellationToken>()).Returns(plots);
+
+    [Fact]
+    public async Task KgPorArbol_Deberia_DividirKilosEntreArboles_DeLosTerrenosConDato()
+    {
+        // RN-010 — kg/árbol = Σkg / Σárboles de los terrenos con cosecha y con número de árboles.
+        var con100 = Plot.Create(WorkspaceId, "Olivar Cien", "propia", treeCount: 100);
+        var con200 = Plot.Create(WorkspaceId, "Olivar Doscientos", "propia", treeCount: 200);
+        SeedPlots(con100, con200);
+        Seed(Row(1000m, plotId: con100.Id), Row(3000m, plotId: con200.Id));
+
+        var summary = await CreateSut().GetSummaryAsync(UserId, WorkspaceId, new DashboardRequest());
+
+        // 4.000 kg sobre 300 árboles = 13,33 kg/árbol.
+        summary.KgPerTree.Should().Be(13.33m);
+        summary.TreesCounted.Should().Be(300);
+        summary.PlotsCounted.Should().Be(2);
+        summary.PlotsWithoutTreeCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task KgPorArbol_Deberia_ExcluirLosTerrenosSinArboles_YContarlos()
+    {
+        // RN-010 — un terreno con cosechas pero sin número de árboles queda fuera del KPI y dispara el
+        // aviso de dato incompleto; el KPI se calcula solo sobre el que sí tiene árboles.
+        var con100 = Plot.Create(WorkspaceId, "Olivar Cien", "propia", treeCount: 100);
+        var sinArboles = Plot.Create(WorkspaceId, "Olivar Sin Contar", "propia");
+        SeedPlots(con100, sinArboles);
+        Seed(Row(1000m, plotId: con100.Id), Row(5000m, plotId: sinArboles.Id));
+
+        var summary = await CreateSut().GetSummaryAsync(UserId, WorkspaceId, new DashboardRequest());
+
+        summary.KgPerTree.Should().Be(10m); // 1.000 kg sobre 100 árboles; los 5.000 sin árboles no entran
+        summary.PlotsCounted.Should().Be(1);
+        summary.PlotsWithoutTreeCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task KgPorArbol_Deberia_SerNulo_SiNingunTerrenoConCosechasTieneArboles()
+    {
+        // `null` ≠ 0: si ningún terreno con producción tiene número de árboles, el dato es desconocido.
+        var sinA = Plot.Create(WorkspaceId, "Olivar A", "propia");
+        var sinB = Plot.Create(WorkspaceId, "Olivar B", "propia");
+        SeedPlots(sinA, sinB);
+        Seed(Row(1000m, plotId: sinA.Id), Row(2000m, plotId: sinB.Id));
+
+        var summary = await CreateSut().GetSummaryAsync(UserId, WorkspaceId, new DashboardRequest());
+
+        summary.KgPerTree.Should().BeNull();
+        summary.TreesCounted.Should().Be(0);
+        summary.PlotsCounted.Should().Be(0);
+        summary.PlotsWithoutTreeCount.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task KgPorArbol_NoDeberia_ContarUnTerrenoDelAmbitoSinCosechas()
+    {
+        // Un terreno con árboles pero sin cosechas no entra en el KPI —no aporta kilos ni interesa su
+        // densidad— ni cuenta como «dato incompleto»: solo cuentan los que produjeron.
+        var conCosecha = Plot.Create(WorkspaceId, "Olivar Productivo", "propia", treeCount: 100);
+        var sinCosecha = Plot.Create(WorkspaceId, "Olivar Ocioso", "propia", treeCount: 500);
+        SeedPlots(conCosecha, sinCosecha);
+        Seed(Row(1000m, plotId: conCosecha.Id));
+
+        var summary = await CreateSut().GetSummaryAsync(UserId, WorkspaceId, new DashboardRequest());
+
+        summary.KgPerTree.Should().Be(10m); // solo el que produjo: 1.000 / 100
+        summary.TreesCounted.Should().Be(100);
+        summary.PlotsCounted.Should().Be(1);
+        summary.PlotsWithoutTreeCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task KgPorArbol_Deberia_AcotarseAlFiltroDeTerreno()
+    {
+        // El KPI es del ámbito: un terreno fuera del filtro no cuenta ni como incluido ni como excluido,
+        // aunque tenga cosechas (en producción sus filas ni siquiera se leen).
+        var enFiltro = Plot.Create(WorkspaceId, "Olivar En Filtro", "propia", treeCount: 100);
+        var fuera = Plot.Create(WorkspaceId, "Olivar Fuera", "propia", treeCount: 900);
+        SeedPlots(enFiltro, fuera);
+        Seed(Row(1000m, plotId: enFiltro.Id), Row(9000m, plotId: fuera.Id));
+
+        var summary = await CreateSut().GetSummaryAsync(
+            UserId, WorkspaceId, new DashboardRequest(PlotIds: [enFiltro.Id]));
+
+        summary.KgPerTree.Should().Be(10m); // 1.000 / 100; el terreno fuera del filtro se ignora
+        summary.PlotsCounted.Should().Be(1);
+        summary.PlotsWithoutTreeCount.Should().Be(0);
+    }
+
     // ── Kg por destino (CA-2) ───────────────────────────────────────────────
 
     [Fact]

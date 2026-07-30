@@ -1,14 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useApiClient } from '../../contexts/ApiContext';
+import { useSeason } from '../../contexts/SeasonContext';
 import { createDashboardService } from '../../services/dashboard.service';
+import { createPlotService } from '../../services/plot.service';
 import { HttpError } from '../../services/http-client';
 import type {
+  DashboardFilters,
   DashboardKgByDestination,
   DashboardKgByPlot,
   DashboardSummary,
   DashboardYieldEvolution,
 } from '../../types/dashboard.types';
+import type { Plot } from '../../types/plot.types';
 import { harvestDestinationLabel } from '../../types/harvest.types';
 
 const number = (value: number, decimals = 0) =>
@@ -54,19 +58,41 @@ const colorFor = (destination: string) => DESTINATION_COLORS[destination] ?? 'bg
  * vertical** (RN-005) y **sin refresco continuo** (RN-006): los datos se recalculan al entrar o al
  * recargar, y la pantalla lo dice en vez de dejar creer que están vivos.
  *
- * Los filtros por temporada y terrenos, su persistencia tras recarga y el KPI de kg/árbol con su aviso
- * de dato incompleto son alcance de `MVP-405`; aquí el ámbito lo resuelve el servidor con los defectos
- * de RN-008 (temporada activa y todos los terrenos activos) y se muestra cuál ha aplicado.
+ * Los filtros por temporada y terrenos viven en la **URL** (`?season_id=…&plot_ids=…`, MVP-405): la
+ * recarga los conserva (RN-007) y el enlace es compartible. Sin filtros en la URL, el ámbito lo resuelve
+ * el servidor con los defectos de RN-008 (temporada de trabajo del usuario —MVP-209— y todos los
+ * terrenos activos) y el `scope` de la respuesta deja los controles posicionados. El KPI `kg/árbol`
+ * excluye los terrenos sin número de árboles y avisa de que el dato es incompleto (RN-010).
  */
 export const VisionGeneralView: React.FC = () => {
   const http = useApiClient();
   const navigate = useNavigate();
   const dashboardService = useMemo(() => createDashboardService(http), [http]);
+  const plotService = useMemo(() => createPlotService(http), [http]);
+  const { seasons, activeSeason } = useSeason();
+
+  // RN-007 — los filtros son la URL: recargar los conserva y el enlace es compartible. El estado deriva
+  // de `searchParams` (fuente única), nunca al revés, para no montar un bucle URL ↔ estado.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const seasonParam = searchParams.get('season_id');
+  const plotParams = useMemo(() => searchParams.getAll('plot_ids'), [searchParams]);
+  const selectedPlotIds = useMemo(() => new Set(plotParams), [plotParams]);
+  // Clave estable para no relanzar las peticiones si la lista de terrenos no cambia realmente.
+  const plotKey = plotParams.join(',');
+  const filters: DashboardFilters = useMemo(
+    () => ({
+      seasonId: seasonParam ?? undefined,
+      plotIds: plotParams.length > 0 ? plotParams : undefined,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [seasonParam, plotKey]
+  );
 
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [destinations, setDestinations] = useState<DashboardKgByDestination | null>(null);
   const [plots, setPlots] = useState<DashboardKgByPlot | null>(null);
   const [evolution, setEvolution] = useState<DashboardYieldEvolution | null>(null);
+  const [plotOptions, setPlotOptions] = useState<Plot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -76,10 +102,10 @@ export const VisionGeneralView: React.FC = () => {
     try {
       // Las cuatro peticiones van juntas: agregan el mismo ámbito y la pantalla las presenta a la vez.
       const [summaryData, destinationData, plotData, evolutionData] = await Promise.all([
-        dashboardService.getSummary(),
-        dashboardService.getKgByDestination(),
-        dashboardService.getKgByPlot(),
-        dashboardService.getYieldEvolution(),
+        dashboardService.getSummary(filters),
+        dashboardService.getKgByDestination(filters),
+        dashboardService.getKgByPlot(filters),
+        dashboardService.getYieldEvolution(filters),
       ]);
       setSummary(summaryData);
       setDestinations(destinationData);
@@ -92,11 +118,67 @@ export const VisionGeneralView: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [dashboardService]);
+  }, [dashboardService, filters]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  // Opciones del filtro de terrenos: los **activos** del Workspace (el defecto de RN-008). Un id
+  // inactivo puesto a mano en la URL lo sigue honrando el servidor, aunque no aparezca como opción.
+  useEffect(() => {
+    let cancelled = false;
+    plotService
+      .listPlots({ isActive: true })
+      .then((list) => {
+        if (!cancelled) setPlotOptions(list);
+      })
+      .catch(() => {
+        if (!cancelled) setPlotOptions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [plotService]);
+
+  // La temporada aplicada: la de la URL o, en su defecto, la que el servidor resolvió (viaja en `scope`).
+  const appliedSeasonId = seasonParam ?? summary?.scope.season?.id ?? '';
+
+  const onSeasonChange = useCallback(
+    (value: string) => {
+      const next = new URLSearchParams(searchParams);
+      // Elegir la temporada de trabajo (el defecto) limpia la URL: «sin filtro» = lo que el servidor
+      // considere por defecto hoy, que es lo que se quiere al cambiar de temporada de trabajo.
+      if (!value || value === activeSeason?.id) next.delete('season_id');
+      else next.set('season_id', value);
+      setSearchParams(next);
+    },
+    [searchParams, setSearchParams, activeSeason]
+  );
+
+  const togglePlot = useCallback(
+    (plotId: string) => {
+      const selected = new Set(searchParams.getAll('plot_ids'));
+      if (selected.has(plotId)) selected.delete(plotId);
+      else selected.add(plotId);
+      const next = new URLSearchParams(searchParams);
+      next.delete('plot_ids');
+      selected.forEach((id) => next.append('plot_ids', id));
+      setSearchParams(next);
+    },
+    [searchParams, setSearchParams]
+  );
+
+  const clearPlots = useCallback(() => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('plot_ids');
+    setSearchParams(next);
+  }, [searchParams, setSearchParams]);
+
+  const plotFilterLabel =
+    selectedPlotIds.size === 0
+      ? 'Todos los terrenos'
+      : `${selectedPlotIds.size} ${selectedPlotIds.size === 1 ? 'terreno' : 'terrenos'}`;
 
   const season = summary?.scope.season ?? null;
   const totalKg = destinations?.meta.total_kg ?? 0;
@@ -106,18 +188,11 @@ export const VisionGeneralView: React.FC = () => {
   // del PO), así que la pantalla no se queda del todo en blanco.
   const hasHistoryOnly = !hasProduction && (evolution?.history.average ?? null) !== null;
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <div className="w-8 h-8 border-4 border-[#33450d] border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6 pb-12">
-      {/* Cabecera */}
-      <div className="bg-white p-5 rounded-2xl border border-[#e5e2dd] ambient-shadow flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Cabecera con los filtros (MVP-405). Se mantiene visible durante la recarga: el spinner solo
+          sustituye al contenido, para no perder los controles ni el foco al cambiar un filtro. */}
+      <div className="bg-white p-5 rounded-2xl border border-[#e5e2dd] ambient-shadow flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="font-headline font-extrabold text-xl text-[#1c1c19]">Visión General</h2>
           <p className="text-xs text-[#76786b]">
@@ -129,15 +204,74 @@ export const VisionGeneralView: React.FC = () => {
           </p>
         </div>
 
-        {/* RN-006 — no hay actualización en segundo plano: el refresco es un acto explícito */}
-        <button
-          type="button"
-          onClick={() => void reload()}
-          className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-white border border-[#c6c8b8] hover:bg-[#f0ede8] text-[#33450d] text-xs font-semibold transition-colors shrink-0"
-        >
-          <span className="material-symbols-outlined text-lg" aria-hidden="true">refresh</span>
-          <span>Actualizar</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Filtro de temporada (RN-008): el defecto es la de trabajo del usuario, ya posicionada */}
+          {seasons.length > 0 && (
+            <>
+              <label className="sr-only" htmlFor="dashboard-season-filter">
+                Temporada
+              </label>
+              <select
+                id="dashboard-season-filter"
+                value={appliedSeasonId}
+                onChange={(event) => onSeasonChange(event.target.value)}
+                className="px-3 py-2.5 rounded-xl bg-white border border-[#c6c8b8] hover:bg-[#f0ede8] text-[#33450d] text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#33450d]/30 cursor-pointer"
+              >
+                {seasons.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+
+          {/* Filtro de terrenos, selección múltiple (MVP-405). «Todos» = sin filtro (URL limpia). */}
+          {plotOptions.length > 0 && (
+            <details className="relative">
+              <summary className="list-none [&::-webkit-details-marker]:hidden cursor-pointer flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white border border-[#c6c8b8] hover:bg-[#f0ede8] text-[#33450d] text-xs font-semibold">
+                <span className="material-symbols-outlined text-base" aria-hidden="true">park</span>
+                <span>{plotFilterLabel}</span>
+                <span className="material-symbols-outlined text-base" aria-hidden="true">expand_more</span>
+              </summary>
+              <div className="absolute right-0 z-20 mt-1 w-60 max-h-72 overflow-auto bg-white border border-[#e5e2dd] rounded-xl ambient-shadow p-2 space-y-0.5">
+                <button
+                  type="button"
+                  onClick={clearPlots}
+                  className={`w-full text-left px-2 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#f6f3ee] ${
+                    selectedPlotIds.size === 0 ? 'text-[#33450d]' : 'text-[#76786b]'
+                  }`}
+                >
+                  Todos los terrenos
+                </button>
+                {plotOptions.map((plot) => (
+                  <label
+                    key={plot.id}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#f6f3ee] cursor-pointer text-xs text-[#1c1c19]"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedPlotIds.has(plot.id)}
+                      onChange={() => togglePlot(plot.id)}
+                      className="accent-[#33450d]"
+                    />
+                    <span className="truncate">{plot.name}</span>
+                  </label>
+                ))}
+              </div>
+            </details>
+          )}
+
+          {/* RN-006 — no hay actualización en segundo plano: el refresco es un acto explícito */}
+          <button
+            type="button"
+            onClick={() => void reload()}
+            className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-white border border-[#c6c8b8] hover:bg-[#f0ede8] text-[#33450d] text-xs font-semibold transition-colors shrink-0"
+          >
+            <span className="material-symbols-outlined text-lg" aria-hidden="true">refresh</span>
+            <span>Actualizar</span>
+          </button>
+        </div>
       </div>
 
       {loadError && (
@@ -146,8 +280,12 @@ export const VisionGeneralView: React.FC = () => {
         </div>
       )}
 
-      {/* RN-021 — sin temporada no hay nada que agregar: se pide, no se muestran ceros */}
-      {!season ? (
+      {isLoading ? (
+        <div className="flex items-center justify-center py-24">
+          <div className="w-8 h-8 border-4 border-[#33450d] border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : /* RN-021 — sin temporada no hay nada que agregar: se pide, no se muestran ceros */
+      !season ? (
         <EmptyState
           icon="calendar_today"
           title="Todavía no hay temporada que mirar"
@@ -170,7 +308,7 @@ export const VisionGeneralView: React.FC = () => {
       ) : (
         <>
           {/* Resumen de temporada (CA-1) */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <MetricCard
               label="Kg recolectados"
               value={`${number(summary!.total_kg)} kg`}
@@ -206,6 +344,24 @@ export const VisionGeneralView: React.FC = () => {
                   : 'Ponderado por kilos, no media de partidas'
               }
             />
+            {/* Kg por árbol (MVP-405, CA-3, RN-010). `null` = ningún terreno con cosechas tiene árboles */}
+            <MetricCard
+              label="Kg por árbol"
+              value={
+                summary!.kg_per_tree === null
+                  ? 'Sin dato'
+                  : `${number(summary!.kg_per_tree, 1)} kg/árbol`
+              }
+              icon="park"
+              iconClass="bg-[#f0ede8] text-[#5a3811]"
+              hint={
+                summary!.kg_per_tree === null
+                  ? 'Ningún terreno con cosechas tiene nº de árboles'
+                  : `Sobre ${number(summary!.trees_counted)} árboles de ${summary!.plots_counted} ${
+                      summary!.plots_counted === 1 ? 'terreno' : 'terrenos'
+                    }`
+              }
+            />
           </div>
 
           {/* Aviso de cobertura parcial: una media sobre parte de las partidas no es la de la campaña */}
@@ -219,6 +375,18 @@ export const VisionGeneralView: React.FC = () => {
                 </span>
               </p>
             )}
+
+          {/* RN-010 — el KPI de kg/árbol excluye los terrenos sin número de árboles y lo dice */}
+          {summary!.plots_without_tree_count > 0 && (
+            <p className="text-xs text-[#8a5a00] bg-[#fff6e5] border border-[#f0d9a8] rounded-xl px-3 py-2 flex items-start gap-1.5">
+              <span className="material-symbols-outlined text-base shrink-0" aria-hidden="true">park</span>
+              <span>
+                El KPI de kg/árbol excluye {summary!.plots_without_tree_count}{' '}
+                {summary!.plots_without_tree_count === 1 ? 'terreno' : 'terrenos'} con cosechas pero sin
+                número de árboles registrado. Complétalo en Terrenos para incluirlo.
+              </span>
+            </p>
+          )}
 
           {/* Kg por destino (CA-2) */}
           <div className="bg-white p-6 rounded-2xl border border-[#e5e2dd] ambient-shadow space-y-5">

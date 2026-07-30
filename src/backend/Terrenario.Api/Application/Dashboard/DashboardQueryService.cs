@@ -24,7 +24,22 @@ public sealed record SeasonSummary(
     /// Partidas que aportan dato de aceite. Junto a <see cref="Harvests"/> permite decir sobre cuántas
     /// se ha promediado, en vez de presentar una media que parece de todo.
     /// </summary>
-    int HarvestsWithOilData);
+    int HarvestsWithOilData,
+    /// <summary>
+    /// MVP-405 (CA-3, RN-010) — Kilos por árbol del ámbito: Σkg / Σárboles de los terrenos que han
+    /// producido <b>y tienen</b> número de árboles. <c>null</c> si ninguno de los terrenos con cosechas
+    /// tiene <c>tree_count</c> (dato desconocido, no cero).
+    /// </summary>
+    decimal? KgPerTree,
+    /// <summary>Árboles sobre los que se ha calculado <see cref="KgPerTree"/> (denominador del KPI).</summary>
+    int TreesCounted,
+    /// <summary>Terrenos con cosechas incluidos en <see cref="KgPerTree"/> (tienen número de árboles).</summary>
+    int PlotsCounted,
+    /// <summary>
+    /// Terrenos con cosechas <b>excluidos</b> del KPI por no tener número de árboles (RN-010). Si es
+    /// <c>&gt; 0</c>, el widget avisa de que <see cref="KgPerTree"/> es un dato incompleto.
+    /// </summary>
+    int PlotsWithoutTreeCount);
 
 /// <summary>Kilos por destino (MVP-403, CA-2). Taxonomía cerrada de RN-012, incluido `desconocido`.</summary>
 public sealed record DestinationTotal(string Destination, decimal Kg);
@@ -117,6 +132,7 @@ public sealed class DashboardQueryService(
 
         var withOil = rows.Where(row => row.HasOilData).ToList();
         var liters = withOil.Sum(row => row.EffectiveLiters ?? 0m);
+        var perTree = KgPerTree(rows, scope);
 
         return new SeasonSummary(
             scope,
@@ -125,7 +141,56 @@ public sealed class DashboardQueryService(
             withOil.Count == 0 ? null : decimal.Round(liters, 2, MidpointRounding.AwayFromZero),
             WeightedYield(rows),
             rows.Count,
-            withOil.Count);
+            withOil.Count,
+            perTree.KgPerTree,
+            perTree.Trees,
+            perTree.Plots,
+            perTree.Excluded);
+    }
+
+    /// <summary>
+    /// MVP-405 (CA-3, RN-010) — Kilos por árbol del ámbito. Se calcula sobre los terrenos que <b>han
+    /// producido</b> (aparecen en las filas) y <b>tienen</b> número de árboles: Σkg de esos terrenos
+    /// entre la suma de sus árboles. Los terrenos con cosechas <b>sin</b> <c>tree_count</c> se excluyen
+    /// del numerador y del denominador y se cuentan aparte (<paramref name="rows"/> ⇒
+    /// <c>Excluded</c>), para que el widget avise de que el dato es incompleto.
+    ///
+    /// Un terreno del ámbito sin cosechas no cuenta —no aporta kilos ni interesa su densidad—, así que
+    /// el KPI no se diluye con parcelas que no rindieron. <c>KgPerTree</c> es <c>null</c> cuando ningún
+    /// terreno con cosechas tiene árboles: dato desconocido, no cero.
+    /// </summary>
+    private static (decimal? KgPerTree, int Trees, int Plots, int Excluded) KgPerTree(
+        IReadOnlyList<HarvestAggregateRow> rows,
+        DashboardScope scope)
+    {
+        var treesByPlot = scope.Plots.ToDictionary(plot => plot.Id, plot => plot.TreeCount);
+
+        int totalTrees = 0, plotsCounted = 0, excluded = 0;
+        decimal kgCounted = 0m;
+        foreach (var group in rows.GroupBy(row => row.PlotId))
+        {
+            // El terreno debería estar en el ámbito: las filas ya vienen filtradas por él (LoadAsync).
+            // Si no está, no es «dato incompleto», es ajeno al ámbito: se ignora sin sumar al aviso.
+            if (!treesByPlot.TryGetValue(group.Key, out var trees))
+                continue;
+
+            // RN-010 — con cosechas pero sin número de árboles: fuera del KPI y suma al aviso.
+            if (trees is null)
+            {
+                excluded++;
+                continue;
+            }
+
+            totalTrees += trees.Value;
+            kgCounted += group.Sum(row => row.Kgs);
+            plotsCounted++;
+        }
+
+        var kgPerTree = totalTrees > 0
+            ? decimal.Round(kgCounted / totalTrees, 2, MidpointRounding.AwayFromZero)
+            : (decimal?)null;
+
+        return (kgPerTree, totalTrees, plotsCounted, excluded);
     }
 
     /// <summary>

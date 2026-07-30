@@ -1,6 +1,6 @@
 ﻿# Índice — MVP-004--produccion-y-dashboard-mvp: Producción y dashboard MVP
 
-> **Progreso**: 6/7 completadas · **Hito**: Hito D — Visibilidad operativa MVP
+> **Progreso**: 7/8 completadas · **Hito**: Hito D — Visibilidad operativa MVP
 > _Generado automáticamente por `validar_kb.py`. No editar manualmente._
 
 | Historia | Título | Estado | Responsable | Prioridad |
@@ -11,4 +11,5 @@
 | [MVP-404](./MVP-404--dashboard-kg-por-terreno-y-evolucion/spec.md) | Dashboard kg por terreno y evolución de rendimiento | ✔️ completado | @andres | alta |
 | [MVP-405](./MVP-405--filtros-persistencia-y-datos-incompletos/spec.md) | Filtros, persistencia y datos incompletos | ✔️ completado | @andres | alta |
 | [MVP-406](./MVP-406--navegacion-del-area-operativa/spec.md) | Navegación del área operativa: agrupación del menú, sección activa y ruta desconocida | ✔️ completado | @andres | media |
+| [MVP-407](./MVP-407--detalle-de-terreno-con-historico/spec.md) | Detalle de terreno con histórico de cosechas y labores | ✔️ completado | @andres | media |
 | [MVP-499](./MVP-499--revision-epica/spec.md) | Revision epica | 📝 borrador | @andres | alta |

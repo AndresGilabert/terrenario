@@ -4,6 +4,7 @@ import { createPlotService } from '../../services/plot.service';
 import { HttpError } from '../../services/http-client';
 import { PLOT_OWNERSHIP_LABELS, type CreatePlotPayload, type Plot } from '../../types/plot.types';
 import { PlotFormModal } from './PlotFormModal';
+import { TerrenoDetailModal } from './TerrenoDetailModal';
 
 /**
  * Maestro de terrenos del Workspace (MVP-202). Lista, alta, edición e inactivación con la mínima
@@ -27,6 +28,8 @@ export const TerrenosView: React.FC = () => {
   const [isSubmitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [busyPlotId, setBusyPlotId] = useState<string | null>(null);
+  // Detalle de un terreno con su histórico (MVP-407): es una lectura, independiente del alta/edición.
+  const [detailPlot, setDetailPlot] = useState<Plot | null>(null);
 
   const reload = useCallback(async () => {
     setIsLoading(true);
@@ -72,6 +75,8 @@ export const TerrenosView: React.FC = () => {
   };
 
   const openEdit = (plot: Plot) => {
+    // Editar desde el detalle: se cierra el detalle y se abre el formulario del maestro (no se duplica).
+    setDetailPlot(null);
     setEditingPlot(plot);
     setSubmitError(null);
     setModalOpen(true);
@@ -203,6 +208,7 @@ export const TerrenosView: React.FC = () => {
               key={plot.id}
               plot={plot}
               isBusy={busyPlotId === plot.id}
+              onOpenDetail={() => setDetailPlot(plot)}
               onEdit={() => openEdit(plot)}
               onToggleActive={() => void toggleActive(plot)}
             />
@@ -238,6 +244,9 @@ export const TerrenosView: React.FC = () => {
         }}
         onSubmit={(payload) => void handleSubmit(payload)}
       />
+
+      {/* Detalle con histórico (MVP-407): lectura, se abre desde la tarjeta */}
+      <TerrenoDetailModal plot={detailPlot} onClose={() => setDetailPlot(null)} onEdit={openEdit} />
     </div>
   );
 };
@@ -267,11 +276,12 @@ const EmptyState: React.FC<{ onAdd: () => void }> = ({ onAdd }) => (
 interface PlotCardProps {
   plot: Plot;
   isBusy: boolean;
+  onOpenDetail: () => void;
   onEdit: () => void;
   onToggleActive: () => void;
 }
 
-const PlotCard: React.FC<PlotCardProps> = ({ plot, isBusy, onEdit, onToggleActive }) => {
+const PlotCard: React.FC<PlotCardProps> = ({ plot, isBusy, onOpenDetail, onEdit, onToggleActive }) => {
   const incomplete = !plot.has_tree_count;
 
   return (
@@ -280,7 +290,13 @@ const PlotCard: React.FC<PlotCardProps> = ({ plot, isBusy, onEdit, onToggleActiv
         plot.is_active ? 'border-[#e5e2dd]' : 'border-[#dcd9d2] bg-[#faf8f4] opacity-90'
       }`}
     >
-      <div className="space-y-3">
+      {/* La cabecera y los datos abren el detalle con histórico (MVP-407); las acciones quedan aparte */}
+      <button
+        type="button"
+        onClick={onOpenDetail}
+        className="space-y-3 text-left w-full group focus:outline-none focus-visible:ring-2 focus-visible:ring-[#33450d]/40 rounded-xl"
+        aria-label={`Ver detalle de ${plot.name}`}
+      >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
@@ -298,7 +314,7 @@ const PlotCard: React.FC<PlotCardProps> = ({ plot, isBusy, onEdit, onToggleActiv
                 </span>
               )}
             </div>
-            <h3 className="font-headline font-bold text-lg text-[#1c1c19] tracking-tight mt-1.5 truncate">
+            <h3 className="font-headline font-bold text-lg text-[#1c1c19] tracking-tight mt-1.5 truncate group-hover:text-[#33450d] group-hover:underline decoration-1 underline-offset-2">
               {plot.name}
             </h3>
             {plot.location && (
@@ -334,7 +350,7 @@ const PlotCard: React.FC<PlotCardProps> = ({ plot, isBusy, onEdit, onToggleActiv
             Añade el nº de árboles para habilitar los KPIs por árbol del dashboard.
           </p>
         )}
-      </div>
+      </button>
 
       <div className="pt-3 border-t border-[#f0ede8] flex items-center justify-between gap-2">
         <button

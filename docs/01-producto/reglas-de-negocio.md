@@ -247,17 +247,31 @@ La trazabilidad debe cumplir privacidad por diseno y no registrar PII sensible e
 **Fuente**: producto
 **Módulos afectados**: temporadas, actividades, produccion, compras-consumo
 
-Toda actividad, cosecha y compra del MVP debe quedar asociada a una temporada. La UI autoselecciona la temporada activa del Workspace para minimizar friccion.
+Toda actividad, cosecha y compra del MVP debe quedar asociada a una temporada. La UI autoselecciona la **temporada de trabajo del usuario** (RN-022) para minimizar friccion; el campo queda visible y cambiable.
 
 ---
 
-### RN-022 — Una sola temporada activa por Workspace
+### RN-022 — Temporada de trabajo por usuario y estado independiente
 
 **Estado**: activa
 **Fuente**: producto
-**Módulos afectados**: temporadas, dashboard
+**Módulos afectados**: temporadas, dashboard, workspaces
 
-En MVP solo puede existir una temporada activa por Workspace.
+Reformulada en `MVP-209` (2026-07-30). El enunciado anterior —«una sola temporada activa por
+Workspace»— fundia dos conceptos distintos en el booleano `is_active`. Se separan:
+
+- **Estado de la temporada** (informativo, derivado, independiente de la de trabajo): `planificada`
+  (no cerrada y aun no iniciada, `start_date > hoy`), `abierta` (no cerrada y ya iniciada; incluye
+  campañas pasadas no cerradas, que siguen recibiendo registros tardios) y `cerrada` (cierre manual,
+  RN-024). Sobre las tres se puede añadir, editar y borrar.
+- **Temporada de trabajo**: sobre cual se registra por defecto y se carga al iniciar. Es **por
+  usuario** (`workspace_members.active_season_id`): un usuario puede trabajar en una campaña sin
+  cambiar la de otro miembro del mismo Workspace. Pueden coexistir varias campañas abiertas.
+
+Ya **no** hay «una unica activa por Workspace»: se retira el indice unico parcial
+`ux_seasons_workspace_active`. Sin temporada de trabajo fijada, se resuelve un defecto (la campaña
+abierta que contiene hoy, si la hay). Enunciado anterior corregido por decision del PO (2026-07-30,
+hallazgo `P-045`).
 
 ---
 
@@ -277,7 +291,11 @@ Si la fecha de un registro queda fuera del rango de la temporada asociada, el si
 **Fuente**: producto
 **Módulos afectados**: temporadas, actividades, produccion, compras-consumo
 
-El estado `cerrada` de una temporada es informativo en MVP y no bloquea nuevas altas ni ediciones.
+El estado `cerrada` de una temporada es informativo en MVP y no bloquea nuevas altas ni ediciones. Es
+el unico estado que fija una accion explicita del usuario (los otros dos se derivan de las fechas,
+RN-022). Cerrar significa «ya no espero mas registros aqui», pero la temporada sigue siendo editable;
+reabrir la devuelve a `abierta` o `planificada` segun sus fechas. Fijar una temporada cerrada como la de
+trabajo **no** la reabre (`MVP-209`).
 
 ---
 

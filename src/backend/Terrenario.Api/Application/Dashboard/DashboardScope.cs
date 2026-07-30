@@ -32,7 +32,7 @@ public sealed record DashboardScope(
 
 /// <summary>
 /// Resuelve el ámbito del dashboard aplicando los valores por defecto de RN-008: sin temporada, la
-/// <b>activa</b>; sin terrenos, <b>todos los activos</b>.
+/// temporada de <b>trabajo del usuario</b> (MVP-209); sin terrenos, <b>todos los activos</b>.
 ///
 /// Los terrenos pedidos se intersecan con los del Workspace: un id ajeno o inexistente se descarta en
 /// silencio en vez de responder un error. Es una **lectura**, no una escritura —a diferencia del alta
@@ -48,13 +48,14 @@ public sealed class DashboardScopeResolver(
     IPlotRepository plotRepository)
 {
     public async Task<DashboardScope> ResolveAsync(
+        Guid userId,
         Guid workspaceId,
         DashboardRequest request,
         CancellationToken ct = default)
     {
         var season = request.SeasonId is { } seasonId
             ? await seasonRepository.FindByIdAsync(workspaceId, seasonId, ct)
-            : await seasonRepository.FindActiveByWorkspaceAsync(workspaceId, ct);
+            : await seasonRepository.FindWorkingSeasonAsync(userId, workspaceId, ct);
 
         var all = await plotRepository.ListByWorkspaceAsync(workspaceId, null, null, ct);
 

@@ -1,6 +1,6 @@
 ﻿# Índice — MVP-002--maestros-operativos-y-onboarding: Maestros operativos y onboarding
 
-> **Progreso**: 9/9 completadas · **Hito**: Hito B — Base operativa preparada
+> **Progreso**: 10/10 completadas · **Hito**: Hito B — Base operativa preparada
 > _Generado automáticamente por `validar_kb.py`. No editar manualmente._
 
 | Historia | Título | Estado | Responsable | Prioridad |
@@ -13,4 +13,5 @@
 | [MVP-206](./MVP-206--ciclo-de-vida-del-workspace/spec.md) | Ciclo de vida del Workspace: renombrar, baja lógica y traspaso de propiedad | ✔️ completado | @andres | alta |
 | [MVP-207](./MVP-207--correcciones-de-cierre-de-maestros/spec.md) | Correcciones de cierre de la épica de maestros | ✔️ completado | @andres | alta |
 | [MVP-208](./MVP-208--identidad-del-responsable-y-correcciones-finales/spec.md) | Identidad del responsable y correcciones finales de la épica de maestros | ✔️ completado | @andres | alta |
+| [MVP-209](./MVP-209--estado-temporada-y-temporada-de-trabajo-por-usuario/spec.md) | Estado de temporada y temporada de trabajo por usuario | ✔️ completado | @andres | alta |
 | [MVP-299](./MVP-299--revision-epica/spec.md) | Revision epica | ✔️ completado | @andres | alta |

@@ -4,24 +4,19 @@ namespace Terrenario.Api.Domain.Seasons;
 
 /// <summary>
 /// Temporada (campaña) operativa de un Workspace. Es el eje temporal al que toda actividad, cosecha
-/// y compra del MVP queda asociada (RN-021). En MVP solo puede haber una temporada activa por
-/// Workspace (RN-022): la invariante la refuerza además un índice único parcial en persistencia.
+/// y compra del MVP queda asociada (RN-021).
 ///
-/// MVP-201 introdujo el agregado y la creación de la (primera) temporada activa. MVP-203 lo completa
-/// como maestro: alta de varias, edición, la máquina de estados planificada/activa/cerrada y el
-/// cambio de temporada activa. No hay temporada por defecto: la creación es siempre un acto explícito
-/// del usuario (cancelable en la UI).
-///
-/// Los estados se derivan de dos booleanos canónicos (<see cref="IsActive"/>, <see cref="IsClosed"/>,
-/// convención `is_` del modelo de datos), sin columna de estado ni cambio de esquema (RN-022 sigue
-/// materializada por el índice único parcial de "una activa por Workspace"):
+/// MVP-201 introdujo el agregado; MVP-203 lo completó como maestro. <b>MVP-209 separó dos conceptos que
+/// el modelo fundía</b> en el antiguo booleano <c>is_active</c>:
 /// <list type="bullet">
-///   <item><c>cerrada</c> ≡ <see cref="IsClosed"/> (informativa, no bloquea — RN-024).</item>
-///   <item><c>activa</c> ≡ <see cref="IsActive"/> y no cerrada.</item>
-///   <item><c>planificada</c> ≡ ni activa ni cerrada.</item>
+///   <item>El <b>estado</b> (informativo) de la temporada, que ahora vive aquí y se deriva de
+///   <see cref="IsClosed"/> y de <see cref="StartDate"/> frente a hoy (<see cref="StatusOn"/>).</item>
+///   <item>La <b>temporada de trabajo</b> —sobre cuál se registra por defecto—, que pasó a ser <b>por
+///   usuario</b> y vive en <c>workspace_members.active_season_id</c>, fuera del agregado.</item>
 /// </list>
-/// Las tres son mutuamente excluyentes porque las transiciones mantienen la invariante
-/// "activa ⇒ no cerrada": <see cref="Close"/> desactiva y <see cref="Activate"/> reabre.
+/// El estado es independiente de la de trabajo: una campaña pasada no cerrada está <c>abierta</c>
+/// (sigue recibiendo registros tardíos) aunque nadie trabaje sobre ella. Sobre las tres se puede añadir,
+/// editar y borrar (RN-024).
 /// </summary>
 public sealed class Season
 {
@@ -32,24 +27,27 @@ public sealed class Season
     public string Name { get; private set; } = string.Empty;
     public DateOnly StartDate { get; private set; }
     public DateOnly? EndDate { get; private set; }
-    public bool IsActive { get; private set; }
     public bool IsClosed { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
-    /// <summary>Estado derivado de los booleanos canónicos (planificada/activa/cerrada).</summary>
-    public SeasonStatus Status =>
+    /// <summary>
+    /// Estado informativo derivado (MVP-209), <b>independiente</b> de la temporada de trabajo: cerrada
+    /// si <see cref="IsClosed"/>; abierta si ya se inició (<c>start_date &lt;= reference</c>);
+    /// planificada si aún no. Recibe la fecha de referencia («hoy») en vez de leer el reloj, para no
+    /// acoplar el dominio al tiempo y poder probarlo de forma determinista.
+    /// </summary>
+    public SeasonStatus StatusOn(DateOnly reference) =>
         IsClosed ? SeasonStatus.Cerrada
-        : IsActive ? SeasonStatus.Activa
+        : StartDate <= reference ? SeasonStatus.Abierta
         : SeasonStatus.Planificada;
 
     private Season() { }
 
     /// <summary>
-    /// Crea una temporada activa para el Workspace (MVP-201). Nace activa (RN-021/RN-022) y abierta.
-    /// La fecha de fin es estimada y opcional. La invariante de "una sola activa por Workspace" se
-    /// garantiza al persistir (índice único parcial + <c>ISeasonRepository.ActivateExclusivelyAsync</c>),
-    /// no en el agregado, que no conoce a las demás temporadas.
+    /// Crea una temporada para el Workspace. Nace <b>abierta o planificada</b> según su fecha de inicio
+    /// (nunca cerrada). Que además pase a ser la temporada de trabajo del creador (P-017, ya por usuario)
+    /// lo decide el caso de uso, no el agregado: la temporada ya no conoce el concepto de «activa».
     /// </summary>
     public static Season Create(Guid workspaceId, string name, DateOnly startDate, DateOnly? endDate)
     {
@@ -70,7 +68,6 @@ public sealed class Season
             Name = normalizedName,
             StartDate = startDate,
             EndDate = endDate,
-            IsActive = true,
             IsClosed = false,
             CreatedAt = now,
             UpdatedAt = now
@@ -78,10 +75,10 @@ public sealed class Season
     }
 
     /// <summary>
-    /// Edita los datos descriptivos de la temporada (MVP-203, HU-1/CA-2). No cambia el estado: para
-    /// eso están <see cref="Activate"/>, <see cref="Close"/> y <see cref="Reopen"/>. La fecha de fin
-    /// sigue siendo opcional y flexible (no se bloquea por rango operativo: RN-023 es un aviso de las
-    /// historias operativas, no del maestro).
+    /// Edita los datos descriptivos de la temporada (MVP-203, HU-1/CA-2). No cierra ni reabre: para eso
+    /// están <see cref="Close"/> y <see cref="Reopen"/>. La fecha de fin sigue siendo opcional y
+    /// flexible (no se bloquea por rango operativo: RN-023 es un aviso de las historias operativas, no
+    /// del maestro). Editar la fecha de inicio puede cambiar el estado derivado (abierta/planificada).
     /// </summary>
     public void UpdateDetails(string name, DateOnly startDate, DateOnly? endDate)
     {
@@ -95,40 +92,25 @@ public sealed class Season
     }
 
     /// <summary>
-    /// Marca la temporada como activa (RN-022, MVP-203 HU-2). Reabre si estaba cerrada (una activa no
-    /// puede estar cerrada). El desbanque de la activa anterior lo orquesta el repositorio para no
-    /// violar el índice único parcial; el agregado solo fija su propio estado.
-    /// </summary>
-    public void Activate()
-    {
-        if (IsActive && !IsClosed) return;
-        IsActive = true;
-        IsClosed = false;
-        Touch();
-    }
-
-    /// <summary>
-    /// Cierra la temporada (estado informativo <c>cerrada</c>, RN-024). Cerrar la activa libera el
-    /// hueco de temporada activa del Workspace (decisión de producto MVP-203): el Workspace queda sin
-    /// activa y la UI ofrece activar otra o crear una nueva (coherente con la oferta de MVP-201).
+    /// Cierra la temporada (estado informativo <c>cerrada</c>, RN-024). No toca la temporada de trabajo
+    /// de nadie: desde MVP-209 esa es una preferencia por usuario, no un flag del agregado. Cerrar
+    /// significa «ya no espero más registros aquí», pero sigue siendo editable si hiciera falta.
     /// </summary>
     public void Close()
     {
-        if (IsClosed && !IsActive) return;
+        if (IsClosed) return;
         IsClosed = true;
-        IsActive = false;
         Touch();
     }
 
     /// <summary>
-    /// Reabre una temporada cerrada devolviéndola a <c>planificada</c> (no la activa por sí sola, para
-    /// no provocar un cambio de activa inesperado; el usuario la activa explícitamente si quiere).
+    /// Reabre una temporada cerrada. Vuelve a <c>abierta</c> o <c>planificada</c> según su fecha de
+    /// inicio (lo decide <see cref="StatusOn"/>); no la fija como temporada de trabajo de nadie.
     /// </summary>
     public void Reopen()
     {
         if (!IsClosed) return;
         IsClosed = false;
-        IsActive = false;
         Touch();
     }
 

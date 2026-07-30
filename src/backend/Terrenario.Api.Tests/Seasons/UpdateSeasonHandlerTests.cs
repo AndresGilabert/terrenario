@@ -12,6 +12,7 @@ public class UpdateSeasonHandlerTests
 {
     private readonly ISeasonRepository _seasonRepository = Substitute.For<ISeasonRepository>();
     private static readonly Guid WorkspaceId = Guid.NewGuid();
+    private static readonly Guid UserId = Guid.NewGuid();
 
     private UpdateSeasonHandler CreateSut() => new(_seasonRepository);
 
@@ -28,7 +29,7 @@ public class UpdateSeasonHandlerTests
         var sut = CreateSut();
 
         // Act — solo cambia el nombre; fechas y estado se conservan.
-        var result = await sut.HandleAsync(new UpdateSeasonCommand(
+        var result = await sut.HandleAsync(UserId, new UpdateSeasonCommand(
             WorkspaceId, season.Id,
             FieldUpdate<string>.Set("Campaña Oliva 2026"),
             FieldUpdate<DateOnly>.Absent,
@@ -40,7 +41,7 @@ public class UpdateSeasonHandlerTests
         result!.Name.Should().Be("Campaña Oliva 2026");
         result.StartDate.Should().Be(new DateOnly(2026, 1, 1));
         result.EndDate.Should().Be(new DateOnly(2026, 12, 31));
-        result.Status.Should().Be(SeasonStatus.Activa);
+        result.Status.Should().Be(SeasonStatus.Abierta);
         await _seasonRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -53,7 +54,7 @@ public class UpdateSeasonHandlerTests
         var sut = CreateSut();
 
         // Act
-        var result = await sut.HandleAsync(new UpdateSeasonCommand(
+        var result = await sut.HandleAsync(UserId, new UpdateSeasonCommand(
             WorkspaceId, season.Id,
             FieldUpdate<string>.Absent,
             FieldUpdate<DateOnly>.Absent,
@@ -62,7 +63,6 @@ public class UpdateSeasonHandlerTests
 
         // Assert — cerrar la activa la desactiva (RN-024 informativo, libera el hueco de activa).
         result!.IsClosed.Should().BeTrue();
-        result.IsActive.Should().BeFalse();
         result.Status.Should().Be(SeasonStatus.Cerrada);
     }
 
@@ -76,7 +76,7 @@ public class UpdateSeasonHandlerTests
         var sut = CreateSut();
 
         // Act
-        var result = await sut.HandleAsync(new UpdateSeasonCommand(
+        var result = await sut.HandleAsync(UserId, new UpdateSeasonCommand(
             WorkspaceId, seasonId,
             FieldUpdate<string>.Set("X"),
             FieldUpdate<DateOnly>.Absent,
@@ -99,7 +99,7 @@ public class UpdateSeasonHandlerTests
             .Returns(true);
         var sut = CreateSut();
 
-        var act = () => sut.HandleAsync(new UpdateSeasonCommand(
+        var act = () => sut.HandleAsync(UserId, new UpdateSeasonCommand(
             WorkspaceId, season.Id,
             FieldUpdate<string>.Set("2025/2026"),
             FieldUpdate<DateOnly>.Absent,
@@ -120,7 +120,7 @@ public class UpdateSeasonHandlerTests
         Seed(season);
         var sut = CreateSut();
 
-        await sut.HandleAsync(new UpdateSeasonCommand(
+        await sut.HandleAsync(UserId, new UpdateSeasonCommand(
             WorkspaceId, season.Id,
             FieldUpdate<string>.Set("CAMPAÑA 2026"),
             FieldUpdate<DateOnly>.Absent,
@@ -139,7 +139,7 @@ public class UpdateSeasonHandlerTests
         Seed(season);
         var sut = CreateSut();
 
-        await sut.HandleAsync(new UpdateSeasonCommand(
+        await sut.HandleAsync(UserId, new UpdateSeasonCommand(
             WorkspaceId, season.Id,
             FieldUpdate<string>.Absent,
             FieldUpdate<DateOnly>.Absent,

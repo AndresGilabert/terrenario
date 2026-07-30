@@ -6,10 +6,19 @@ public interface ISeasonRepository
     Task AddAsync(Season season, CancellationToken ct = default);
 
     /// <summary>
-    /// Temporada activa del Workspace (RN-021/RN-022). En MVP hay como mucho una; se usa para la
-    /// autoselección operativa y para el estado de la cabecera.
+    /// MVP-209 — Temporada de <b>trabajo</b> de un usuario en un Workspace (RN-021). Lee la fijada en su
+    /// membresía (<c>active_season_id</c>); si no hay ninguna, o la fijada ya no existe, resuelve un
+    /// defecto con <see cref="WorkingSeasonPolicy"/>. Es la que autoselecciona la operativa y el defecto
+    /// del dashboard. Devuelve <c>null</c> solo si el Workspace no tiene temporadas.
     /// </summary>
-    Task<Season?> FindActiveByWorkspaceAsync(Guid workspaceId, CancellationToken ct = default);
+    Task<Season?> FindWorkingSeasonAsync(Guid userId, Guid workspaceId, CancellationToken ct = default);
+
+    /// <summary>
+    /// MVP-209 — Fija la temporada de trabajo de un usuario (activar, o al crear una). Solo actualiza la
+    /// membresía del usuario indicado: no afecta a otros miembros del mismo Workspace (CA-2). No
+    /// persiste por sí sola.
+    /// </summary>
+    Task SetWorkingSeasonAsync(Guid userId, Guid workspaceId, Guid seasonId, CancellationToken ct = default);
 
     /// <summary>
     /// Temporada por id dentro del Workspace activo. Devuelve <c>null</c> si no existe o pertenece a
@@ -17,7 +26,7 @@ public interface ISeasonRepository
     /// </summary>
     Task<Season?> FindByIdAsync(Guid workspaceId, Guid seasonId, CancellationToken ct = default);
 
-    /// <summary>Temporadas del Workspace, ordenadas para el maestro (activa primero, luego por fecha).</summary>
+    /// <summary>Temporadas del Workspace, ordenadas para el maestro (abiertas primero, luego por fecha).</summary>
     Task<IReadOnlyList<Season>> ListByWorkspaceAsync(Guid workspaceId, CancellationToken ct = default);
 
     /// <summary>
@@ -30,18 +39,6 @@ public interface ISeasonRepository
         string name,
         Guid? excludeSeasonId = null,
         CancellationToken ct = default);
-
-    /// <summary>
-    /// Persiste <paramref name="season"/> como la <b>única</b> temporada activa del Workspace,
-    /// desactivando cualquier otra activa (RN-022, MVP-203 HU-2). Es la operación de "cambiar de
-    /// temporada activa" y también la de "crear una nueva que pasa a ser la activa".
-    ///
-    /// Hace el cambio en una transacción y en dos fases (primero desactivar la anterior, luego activar
-    /// la nueva) para no violar nunca el índice único parcial <c>ux_seasons_workspace_active</c>, que
-    /// en PostgreSQL se comprueba por fila y no admite dos activas ni de forma transitoria.
-    /// </summary>
-    /// <param name="isNew"><c>true</c> si <paramref name="season"/> aún no está persistida (alta).</param>
-    Task ActivateExclusivelyAsync(Season season, bool isNew, CancellationToken ct = default);
 
     Task SaveChangesAsync(CancellationToken ct = default);
 }

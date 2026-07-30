@@ -5,20 +5,23 @@ import { useApiClient } from './ApiContext';
 import { useWorkspace } from './WorkspaceContext';
 
 interface SeasonContextValue {
-  /** Temporada activa del Workspace en curso; `null` si ninguna lo está (RN-022). */
+  /**
+   * Temporada de **trabajo del usuario** en el Workspace en curso (MVP-209); `null` si el Workspace no
+   * tiene ninguna temporada. Es la que se autoselecciona al registrar y el defecto del dashboard. El
+   * nombre `activeSeason` se conserva por acotar el diff; su significado es «la que trabajo».
+   */
   activeSeason: Season | null;
   /**
-   * Todas las temporadas del Workspace en curso. Se necesita para no mentir cuando **hay**
-   * temporadas pero ninguna activa —estado alcanzable desde MVP-203 al cerrar la activa— y para
-   * poder ofrecer activar una existente en vez de solo crear otra (MVP-208, CA-8).
+   * Todas las temporadas del Workspace en curso. Se necesita para ofrecer crear la primera o elegir
+   * sobre cuál trabajar (MVP-208, CA-8).
    */
   seasons: Season[];
   isLoading: boolean;
   /** El usuario ya rechazó la oferta de temporada para el Workspace activo en esta sesión. */
   offerDismissed: boolean;
-  /** Crea la temporada activa del Workspace en curso (MVP-201). */
+  /** Crea una temporada, que pasa a ser la de trabajo del creador (MVP-201 · MVP-209). */
   createSeason: (payload: CreateSeasonPayload) => Promise<Season>;
-  /** Activa una temporada existente del Workspace en curso (MVP-203, RN-022). */
+  /** Fija una temporada existente como la de trabajo del usuario (MVP-209). */
   activateSeason: (seasonId: string) => Promise<Season>;
   /** Descarta la oferta de temporada para el Workspace activo (no crea ninguna). */
   dismissOffer: () => void;
@@ -37,8 +40,8 @@ const SeasonContext = createContext<SeasonContextValue | null>(null);
  * la primera, o activar una de las que ya hay. No se crea nada por defecto: la temporada es siempre
  * un acto explícito del usuario.
  *
- * Se carga con un único `GET /seasons` en vez de `GET /seasons/active`: la lista ya trae cuál está
- * activa (`is_active`), así que informar de las dos cosas no cuesta una petición más.
+ * Se carga con un único `GET /seasons` en vez de `GET /seasons/active`: la lista ya trae cuál es la de
+ * trabajo del usuario (`is_working`), así que informar de las dos cosas no cuesta una petición más.
  */
 export function SeasonProvider({ children }: { children: React.ReactNode }) {
   const http = useApiClient();
@@ -51,7 +54,7 @@ export function SeasonProvider({ children }: { children: React.ReactNode }) {
   const [dismissedWorkspaces, setDismissedWorkspaces] = useState<ReadonlySet<string>>(new Set());
 
   const workspaceId = activeWorkspace?.id ?? null;
-  const activeSeason = useMemo(() => seasons.find((s) => s.is_active) ?? null, [seasons]);
+  const activeSeason = useMemo(() => seasons.find((s) => s.is_working) ?? null, [seasons]);
 
   useEffect(() => {
     if (!workspaceId) {
@@ -91,8 +94,8 @@ export function SeasonProvider({ children }: { children: React.ReactNode }) {
   const createSeason = useCallback(
     async (payload: CreateSeasonPayload): Promise<Season> => {
       const season = await seasonService.createSeason(payload);
-      // La nueva nace activa y desbanca a la anterior (P-017): se recarga la lista entera para que
-      // el estado de las demás quede al día, no solo el de la creada.
+      // La nueva pasa a ser la de trabajo del creador (P-017, por usuario): se recarga la lista para
+      // que `is_working` quede al día en todas.
       await refresh();
       return season;
     },

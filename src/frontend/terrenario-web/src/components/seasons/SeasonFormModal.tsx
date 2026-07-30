@@ -11,8 +11,6 @@ interface SeasonFormModalProps {
   isOpen: boolean;
   /** Temporada a editar; `null` para alta. */
   season: Season | null;
-  /** Hay ya una temporada activa distinta de la que se edita (para avisar del cambio de activa al crear). */
-  hasActiveSeason: boolean;
   isSubmitting: boolean;
   errorMessage: string | null;
   onClose: () => void;
@@ -22,15 +20,14 @@ interface SeasonFormModalProps {
 const NAME_MAX = 120;
 
 /**
- * Alta y edición de una temporada (MVP-203). En alta, avisa de que la nueva pasará a ser la activa
- * (decisión de producto: crear cambia la activa) si ya hay una. La fecha de fin es estimada y opcional
- * y no se bloquea por rango operativo (RN-023 es un aviso de las historias operativas, no del maestro).
+ * Alta y edición de una temporada (MVP-203). En alta, avisa de que la nueva pasará a ser la temporada
+ * de trabajo del creador (MVP-209), sin desbancar a nadie. La fecha de fin es estimada y opcional y no
+ * se bloquea por rango operativo (RN-023 es un aviso de las historias operativas, no del maestro).
  * Reutiliza el shell y la paleta del prototipo (`TemporadasView`/`OnboardingStep2`).
  */
 export const SeasonFormModal: React.FC<SeasonFormModalProps> = ({
   isOpen,
   season,
-  hasActiveSeason,
   isSubmitting,
   errorMessage,
   onClose,
@@ -54,8 +51,9 @@ export const SeasonFormModal: React.FC<SeasonFormModalProps> = ({
   if (!isOpen) return null;
 
   const canSubmit = name.trim().length > 0 && startDate.length > 0 && !isSubmitting;
-  // Al crear con una activa ya presente, la nueva la desbancará (la actual pasará a planificada).
-  const willReplaceActive = !isEdit && hasActiveSeason;
+  // MVP-209 — al crear, la nueva pasa a ser MI temporada de trabajo (por usuario), sin desbancar a
+  // nadie ni cambiar el estado de las demás.
+  const willBecomeWorking = !isEdit;
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -151,10 +149,11 @@ export const SeasonFormModal: React.FC<SeasonFormModalProps> = ({
             </div>
           </div>
 
-          {willReplaceActive && (
+          {willBecomeWorking && (
             <p className="text-[11px] text-[#33450d] bg-[#eef2e0] border border-[#d3dcae] rounded-lg px-2.5 py-1.5 flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-sm" aria-hidden="true">swap_horiz</span>
-              Al crearla pasará a ser la temporada activa; la actual quedará como planificada.
+              <span className="material-symbols-outlined text-sm" aria-hidden="true">edit_note</span>
+              Al crearla pasará a ser tu temporada de trabajo (la que se autoselecciona al registrar). No
+              cambia la de tus compañeros.
             </p>
           )}
 

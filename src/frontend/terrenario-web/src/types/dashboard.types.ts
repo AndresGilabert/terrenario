@@ -13,7 +13,8 @@ export interface DashboardScope {
   season: {
     id: string;
     name: string;
-    is_active: boolean;
+    /** Estado derivado (planificada/abierta/cerrada), MVP-209. */
+    status: 'planificada' | 'abierta' | 'cerrada';
     start_date: string;
     end_date: string | null;
   } | null;

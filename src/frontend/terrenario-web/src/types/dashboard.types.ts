@@ -36,6 +36,20 @@ export interface DashboardSummary {
   harvests: number;
   /** Partidas con dato de aceite: permite decir sobre cuántas se ha promediado. */
   harvests_with_oil_data: number;
+  /**
+   * Kg por árbol del ámbito (MVP-405, CA-3, RN-010): Σkg / Σárboles de los terrenos que han producido
+   * **y tienen** número de árboles. `null` si ninguno de ellos lo tiene (desconocido, no cero).
+   */
+  kg_per_tree: number | null;
+  /** Árboles sobre los que se ha calculado `kg_per_tree` (denominador del KPI). */
+  trees_counted: number;
+  /** Terrenos con cosechas incluidos en `kg_per_tree` (tienen número de árboles). */
+  plots_counted: number;
+  /**
+   * Terrenos con cosechas **excluidos** del KPI por no tener número de árboles (RN-010). `> 0` ⇒ el
+   * widget avisa de que `kg_per_tree` es un dato incompleto.
+   */
+  plots_without_tree_count: number;
 }
 
 /** Kg por destino (CA-2). Las claves salen de la taxonomía cerrada de RN-012, incluido `desconocido`. */

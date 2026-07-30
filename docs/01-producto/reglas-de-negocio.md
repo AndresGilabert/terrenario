@@ -94,7 +94,9 @@ En MVP no existe actualizacion continua en segundo plano. Los datos se actualiza
 **Fuente**: producto
 **Módulos afectados**: dashboard
 
-La recarga manual del dashboard mantiene los filtros activos del usuario.
+La recarga manual del dashboard mantiene los filtros activos del usuario. Se materializa (MVP-405) con
+los filtros en la **URL** (`?season_id=…&plot_ids=…`): la recarga los conserva y el enlace es
+compartible.
 
 ---
 
@@ -104,7 +106,10 @@ La recarga manual del dashboard mantiene los filtros activos del usuario.
 **Fuente**: producto
 **Módulos afectados**: dashboard
 
-Al primer acceso se aplican por defecto todos los terrenos y la temporada actual.
+Al primer acceso (sin filtros en la URL) se aplican por defecto todos los terrenos activos y la
+**temporada de trabajo del usuario** (MVP-209; su `active_season_id` o, en su defecto, la
+`WorkingSeasonPolicy`). El servidor resuelve el defecto y lo devuelve en el `scope` para posicionar los
+filtros sin duplicar la regla en el cliente.
 
 ---
 

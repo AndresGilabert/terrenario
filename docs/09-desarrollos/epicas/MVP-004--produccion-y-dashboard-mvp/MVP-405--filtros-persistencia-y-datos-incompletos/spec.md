@@ -2,7 +2,7 @@
 id: "MVP-405"
 tipo: feature
 titulo: "Filtros, persistencia y datos incompletos"
-estado: borrador
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito D — Visibilidad operativa MVP"
@@ -11,7 +11,7 @@ tickets: []
 epica: "MVP-004--produccion-y-dashboard-mvp"
 depende_de: ["MVP-403", "MVP-404"]
 bloquea: ["MVP-005", "MVP-006"]
-relacionado_con: []
+relacionado_con: ["MVP-209"]
 responsable: "@andres"
 revisores: []
 ai_context:
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "dashboard", "filters"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-30"
 ---
 
 # MVP-405 — Filtros, persistencia y datos incompletos
@@ -64,9 +64,9 @@ Cerrar la experiencia operativa del dashboard con filtros coherentes, persistenc
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: El dashboard aplica por defecto temporada activa y todos los terrenos activos cuando no se informan filtros.
-- [ ] **CA-2**: La recarga manual conserva los filtros activos del usuario.
-- [ ] **CA-3**: El KPI `kg/árbol` excluye terrenos sin `num_arboles` e informa explícitamente que el dato es incompleto.
+- [x] **CA-1**: El dashboard aplica por defecto la **temporada de trabajo del usuario** (MVP-209) y todos los terrenos activos cuando no se informan filtros. _(Verificado: sin `query params`, ámbito = Campaña 2026 + 2 terrenos activos, controles posicionados desde `scope`.)_
+- [x] **CA-2**: La recarga manual conserva los filtros activos del usuario. _(Verificado: los filtros viven en la URL —`?season_id=…&plot_ids=…`—; recargar mantiene URL, controles y cifras. Decisión del PO: persistencia en URL frente a storage.)_
+- [x] **CA-3**: El KPI `kg/árbol` excluye terrenos sin `num_arboles` e informa explícitamente que el dato es incompleto. _(Verificado: con «Matorral» sin árboles, el KPI se calcula solo sobre «La Vía» y aparece el aviso de exclusión; restaurado el dato, vuelve al valor completo.)_
 
 ## Maquetas y referencias visuales
 
@@ -80,9 +80,13 @@ Cerrar la experiencia operativa del dashboard con filtros coherentes, persistenc
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| DashboardView - filtros | RN-007, RN-008 | parcial | Filtros visuales disponibles; no se valida persistencia real tras recarga |
-| TerrenosView + DashboardView | RN-010 | parcial | Hay estado incompleto en terrenos, falta regla completa en KPI global |
+| DashboardView - filtros | RN-007, RN-008 | cubierto | Filtros de temporada y terrenos en la URL; recarga conducida conserva URL, controles y cifras |
+| TerrenosView + DashboardView | RN-010 | cubierto | KPI `kg/árbol` excluye terrenos sin `tree_count` y avisa; verificado anulando y restaurando el dato de un terreno |
 
 ## Notas y decisiones
 
 - Esta historia cierra la experiencia completa del dashboard MVP antes del endurecimiento y la observabilidad.
+- **Persistencia de filtros en la URL** (decisión del PO, 2026-07-30) frente a `sessionStorage`/`localStorage`: recarga conservada (RN-007), enlace compartible y sin «pegarse» a un contexto viejo. Los defectos siguen siendo del servidor (RN-008): sin `query params`, la URL limpia significa «lo que el servidor considere por defecto hoy».
+- **Filtro de terrenos de selección múltiple** (decisión del PO) frente a la única del prototipo: el backend ya modelaba `plot_ids[]` y da valor a comparar un subconjunto de parcelas.
+- **El defecto de temporada es la de trabajo del usuario** (MVP-209), no «la activa del Workspace»: el rediseño previo dejó el `DashboardScopeResolver` ya resolviendo por usuario.
+- **`kg/árbol` se calcula sobre los terrenos con cosecha y con número de árboles**; los que produjeron sin `tree_count` se excluyen y disparan el aviso (RN-010). El backend ya aceptaba los filtros desde `MVP-403`, así que esta historia fue sobre todo cliente más este KPI.

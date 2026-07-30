@@ -1,32 +1,51 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { WorkspaceSwitcher } from '../workspace/WorkspaceSwitcher';
 
 /**
- * Barra lateral del área operativa (shell del prototipo). La navegación lista los módulos previstos
- * del producto; los que aún no están entregados (épicas MVP-002…004) se muestran deshabilitados con
- * la etiqueta "Pronto", de forma honesta y sin enlaces rotos, para que se enciendan al implementarse.
+ * Barra lateral del área operativa (shell del prototipo). Con los diez módulos del MVP encendidos, la
+ * navegación deja de ser una lista plana (MVP-406, `P-025`): se agrupa por lo que hago a diario
+ * (**Operativa**), los datos base (**Maestros**) y la **Configuración**. Cada entrada es un `NavLink`,
+ * así que la sección activa queda marcada visualmente y con `aria-current` (`P-037`), accesible por
+ * teclado y lector de pantalla.
  */
 
 interface NavItem {
   label: string;
   icon: string;
-  /** Ruta si el módulo ya está disponible; ausente = pendiente de una épica posterior. */
-  to?: string;
+  to: string;
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { label: 'Diario de Campo', icon: 'event_note', to: '/app/diario' },
-  { label: 'Visión General', icon: 'monitoring', to: '/app/vision-general' },
-  { label: 'Terrenos', icon: 'map', to: '/app/terrenos' },
-  { label: 'Cosechas', icon: 'agriculture', to: '/app/cosechas' },
-  { label: 'Temporadas', icon: 'calendar_today', to: '/app/temporadas' },
-  { label: 'Trabajadores', icon: 'group', to: '/app/trabajadores' },
-  { label: 'Tareas', icon: 'checklist', to: '/app/tareas' },
-  { label: 'Miembros y accesos', icon: 'manage_accounts', to: '/app/miembros' },
-  { label: 'Compras', icon: 'receipt_long', to: '/app/compras' },
-  { label: 'Ajustes', icon: 'settings', to: '/app/ajustes' },
+interface NavSection {
+  title: string;
+  items: NavItem[];
+}
+
+const NAV_SECTIONS: NavSection[] = [
+  {
+    title: 'Operativa',
+    items: [
+      { label: 'Diario de Campo', icon: 'event_note', to: '/app/diario' },
+      { label: 'Visión General', icon: 'monitoring', to: '/app/vision-general' },
+      { label: 'Cosechas', icon: 'agriculture', to: '/app/cosechas' },
+      { label: 'Compras', icon: 'receipt_long', to: '/app/compras' },
+    ],
+  },
+  {
+    title: 'Maestros',
+    items: [
+      { label: 'Terrenos', icon: 'map', to: '/app/terrenos' },
+      { label: 'Temporadas', icon: 'calendar_today', to: '/app/temporadas' },
+      { label: 'Trabajadores', icon: 'group', to: '/app/trabajadores' },
+      { label: 'Tareas', icon: 'checklist', to: '/app/tareas' },
+      { label: 'Miembros y accesos', icon: 'manage_accounts', to: '/app/miembros' },
+    ],
+  },
+  {
+    title: 'Configuración',
+    items: [{ label: 'Ajustes', icon: 'settings', to: '/app/ajustes' }],
+  },
 ];
 
 function initials(name: string | undefined): string {
@@ -70,38 +89,32 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({ onNavigate }) => {
           <WorkspaceSwitcher />
         </div>
 
-        {/* Navegación: módulos del producto (los pendientes, deshabilitados con "Pronto") */}
-        <nav className="space-y-1" aria-label="Navegación principal">
-          {NAV_ITEMS.map((item) => {
-            const available = Boolean(item.to);
-            return (
-              <button
-                key={item.label}
-                type="button"
-                disabled={!available}
-                onClick={() => {
-                  if (item.to) {
-                    navigate(item.to);
-                    onNavigate?.();
+        {/* Navegación agrupada (MVP-406). NavLink marca la sección activa (aria-current) por sí solo. */}
+        <nav className="space-y-5" aria-label="Navegación principal">
+          {NAV_SECTIONS.map((section) => (
+            <div key={section.title} className="space-y-1">
+              <p className="px-3.5 text-[11px] font-bold uppercase tracking-wider text-[#a2a496]">
+                {section.title}
+              </p>
+              {section.items.map((item) => (
+                <NavLink
+                  key={item.label}
+                  to={item.to}
+                  onClick={() => onNavigate?.()}
+                  className={({ isActive }) =>
+                    `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+                      isActive
+                        ? 'bg-[#33450d] text-white shadow-sm'
+                        : 'text-[#45483c] hover:bg-[#ebe8e3] hover:text-[#1c1c19]'
+                    }`
                   }
-                }}
-                title={available ? undefined : 'Disponible próximamente'}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
-                  available
-                    ? 'text-[#45483c] hover:bg-[#ebe8e3] hover:text-[#1c1c19]'
-                    : 'text-[#a2a496] cursor-not-allowed'
-                }`}
-              >
-                <span className="material-symbols-outlined text-xl" aria-hidden="true">{item.icon}</span>
-                <span className="flex-1 text-left">{item.label}</span>
-                {!available && (
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-[#a2a496] border border-[#dcd9d2] rounded-full px-1.5 py-0.5">
-                    Pronto
-                  </span>
-                )}
-              </button>
-            );
-          })}
+                >
+                  <span className="material-symbols-outlined text-xl" aria-hidden="true">{item.icon}</span>
+                  <span className="flex-1 text-left">{item.label}</span>
+                </NavLink>
+              ))}
+            </div>
+          ))}
         </nav>
       </div>
 

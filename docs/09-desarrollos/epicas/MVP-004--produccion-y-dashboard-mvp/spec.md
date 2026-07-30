@@ -2,7 +2,7 @@
 id: "MVP-004"
 tipo: epica
 titulo: "Producción y dashboard MVP"
-estado: borrador
+estado: completado
 prioridad: critica
 hito: "Hito D — Visibilidad operativa MVP"
 tickets: []
@@ -41,7 +41,7 @@ Permitir registrar cosechas consistentes y mostrar un dashboard operativo útil 
 
 ## Alcance
 
-- Registro y edición de cosechas con `producto`, `kgs`, `destino`, temporada y uno entre `rendimiento` o `litros`.
+- Registro y edición de cosechas con `producto`, `kgs`, `destino`, temporada y, **opcionalmente**, `rendimiento` o `litros` (como mucho uno de los dos, no ambos; RN-004).
 - Catálogo global fijo de productos de cosecha.
 - Soporte de destino `desconocido` y taxonomía cerrada de destinos.
 - Dashboard MVP en una sola pantalla con scroll vertical.
@@ -58,9 +58,9 @@ Permitir registrar cosechas consistentes y mostrar un dashboard operativo útil 
 
 ## Criterios de aceptación de la épica
 
-- [ ] **CA-1**: Todas las historias de la épica están en estado `completado`.
-- [ ] **CA-2**: El usuario puede registrar cosechas sin ambigüedad entre rendimiento y litros y ver los cuatro widgets mínimos sin error bloqueante.
-- [ ] **CA-3**: El dashboard respeta filtros, taxonomías y reglas de dato incompleto definidas en la KB.
+- [x] **CA-1**: Todas las historias de la épica están en estado `completado`. _(8/8 en `_indice.md`: `MVP-401`..`MVP-407` entregadas y `MVP-499` cerrada.)_
+- [x] **CA-2**: El usuario puede registrar cosechas sin ambigüedad entre rendimiento y litros y ver los cuatro widgets mínimos sin error bloqueante. _(`MVP-499`: XOR de RN-004 verificado vía API; los cuatro widgets renderizan sin error de consola.)_
+- [x] **CA-3**: El dashboard respeta filtros, taxonomías y reglas de dato incompleto definidas en la KB. _(`MVP-499`: filtros por temporada/terreno, taxonomía de destino con `desconocido`, `kg/árbol` con exclusión de RN-010, y totales que cuadran entre los cuatro agregados y el diario.)_
 
 ## Historias de esta épica
 
@@ -127,3 +127,12 @@ Matriz historia -> pantallas/componentes:
 - **`MVP-401` completa `RN-033`.** El diario cronológico que entrega `MVP-305` no puede incluir
   cosechas porque `HARVEST` no existe todavía; encenderlas en el diario es alcance de `MVP-401`
   (hallazgo `G-4` de la revisión previa de `MVP-003`).
+- **Cierre de la épica (`MVP-499`, 2026-07-30).** Las ocho historias quedan entregadas y verificadas
+  contra la API real y la UI conducida, y los **tres criterios de la épica se cumplen** (ver el veredicto
+  por CA en el `spec.md` de `MVP-499`). La revisión no encontró defectos de comportamiento —dashboard y
+  cosechas son fieles al contrato— y las correcciones menores detectadas (`R-03`..`R-06`, `R-08`: copy
+  obsoleto del Home, huecos de documentación del contrato de cosechas y un nit de comparador) se
+  resolvieron en la propia rama de revisión. De los puntos de producto asignados: **`P-040` se resolvió**
+  (el Home pasa a ser la Visión General cuando la explotación está preparada) y **`P-036`/`P-041`**
+  (borrado y fusión de maestros sin uso) se **difieren a post-MVP** por ser funcionalidad nueva que no
+  bloquea la salida. Ninguno rompe un criterio de la épica.

@@ -605,6 +605,15 @@ Validaciones clave:
 | Cosecha inexistente, de otro Workspace o ya eliminada | `RESOURCE_NOT_FOUND` (404) |
 | Edición o borrado con versión desfasada (ADR-0005) | `CONFLICT_VERSION_MISMATCH` (409) |
 
+**El alta (`POST`) y la edición (`PATCH`) no devuelven los mismos códigos** (mismo patrón que el resto
+de recursos; ver el aviso de la sección de terrenos, MVP-499/R-04). Los códigos de dominio de la tabla
+son los del **alta**. En el `PATCH`, un campo con **tipo mal formado** —`date` no `YYYY-MM-DD`,
+`plot_id`/`season_id` no-UUID, `kgs`/`yield`/`liters` no numéricos, `yield_unit` no-cadena— se rechaza
+en el borde con el genérico `VALIDATION_REQUIRED` (400), no con el código de dominio específico. Además,
+en el **alta** un `date` ausente o mal formado responde `VALIDATION_HARVEST_REQUIRED_FIELDS` (400), el
+mismo código que «terreno o temporada ausentes». Y un `from`/`to` mal formado en `GET /harvests`
+responde `VALIDATION_REQUIRED` (400), como en el diario (MVP-499/R-05).
+
 Reglas de contexto (MVP-401):
 
 | Regla | Comportamiento |

@@ -2,7 +2,7 @@
 id: "MVP-404"
 tipo: feature
 titulo: "Dashboard kg por terreno y evolución de rendimiento"
-estado: borrador
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito D — Visibilidad operativa MVP"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "dashboard", "historico"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-30"
 ---
 
 # MVP-404 — Dashboard kg por terreno y evolución de rendimiento
@@ -64,9 +64,9 @@ Mostrar la distribución de kilos por terreno y la evolución temporal del rendi
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: El widget de kg por terreno respeta el orden fijo definido por la KB.
-- [ ] **CA-2**: La evolución de rendimiento se muestra en unidad canónica y usa histórico básico solo cuando existe suficiente información.
-- [ ] **CA-3**: Ningún widget introduce agrupaciones o convenciones que contradigan las reglas de producto cerradas.
+- [x] **CA-1**: El widget de kg por terreno respeta el orden fijo definido por la KB.
+- [x] **CA-2**: La evolución de rendimiento se muestra en unidad canónica y usa histórico básico solo cuando existe suficiente información.
+- [x] **CA-3**: Ningún widget introduce agrupaciones o convenciones que contradigan las reglas de producto cerradas.
 
 ## Maquetas y referencias visuales
 
@@ -79,9 +79,21 @@ Mostrar la distribución de kilos por terreno y la evolución temporal del rendi
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| DashboardView - kg por terreno | RN-011 | parcial | Desglose por terreno disponible |
-| DashboardView - evolucion | RN-013, RN-015 | parcial | Serie temporal visible; faltan reglas de historico completas |
+| DashboardView - kg por terreno | RN-011 | cubierto | Barras en orden fijo kg desc + desempate alfabetico, resuelto en servidor; verificado end-to-end |
+| DashboardView - evolucion | RN-013, RN-015 | cubierto | Serie por mes/semana en L/100kg y comparativa historica basica presente solo con historico suficiente |
 
 ## Notas y decisiones
 
 - Esta historia completa los cuatro widgets mínimos del dashboard MVP.
+- **La comparativa histórica compara los mismos terrenos en años distintos** (RN-015): el filtro de
+  terreno viaja al histórico, no solo a la serie, y el «histórico suficiente» se cuenta sobre temporadas
+  **con dato**, no sobre el calendario. La media general aparece con una temporada previa con
+  rendimiento; las de 5 y 10 temporadas, solo con al menos 5 y 10. En este MVP una temporada es la
+  campaña anual, así que «5 temporadas» ≈ «5 años»; la distinción fina es post-MVP.
+- **Un periodo sin dato de aceite no dibuja punto**, igual que `null` ≠ 0 en el resumen: forzar un cero
+  fingiría una caída que no ocurrió.
+- **El orden de RN-011 se resuelve en servidor** —«no hay orden manual» es parte de la regla— y kg por
+  terreno excluye los terrenos que no produjeron, como kg por destino con las categorías vacías.
+- **Alcance que cierra `MVP-405`**: los filtros de temporada y terrenos en la UI con su persistencia
+  (RN-007) y el KPI `kg/árbol` con la exclusión de RN-010. El backend ya acepta `season_id`/`plot_ids`
+  y devuelve el `scope` resuelto en los cuatro endpoints. Detalle en el [tech-design](./tech-design.md).

@@ -79,7 +79,8 @@ public sealed class HarvestRepository(TerrenarioDbContext db) : IHarvestReposito
         // Solo las columnas que suman: sin `JOIN` a los maestros y sin orden, porque agregar no lo
         // necesita. Es la consulta más barata que responde a los cuatro widgets.
         return await live
-            .Select(h => new HarvestAggregateRow(h.PlotId, h.SeasonId, h.Kgs, h.Yield, h.Liters, h.Destination))
+            .Select(h => new HarvestAggregateRow(
+                h.PlotId, h.SeasonId, h.Date, h.Kgs, h.Yield, h.Liters, h.Destination))
             .ToListAsync(ct);
     }
 

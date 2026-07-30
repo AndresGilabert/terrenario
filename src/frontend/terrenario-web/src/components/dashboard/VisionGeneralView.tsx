@@ -3,11 +3,26 @@ import { useNavigate } from 'react-router-dom';
 import { useApiClient } from '../../contexts/ApiContext';
 import { createDashboardService } from '../../services/dashboard.service';
 import { HttpError } from '../../services/http-client';
-import type { DashboardKgByDestination, DashboardSummary } from '../../types/dashboard.types';
+import type {
+  DashboardKgByDestination,
+  DashboardKgByPlot,
+  DashboardSummary,
+  DashboardYieldEvolution,
+} from '../../types/dashboard.types';
 import { harvestDestinationLabel } from '../../types/harvest.types';
 
 const number = (value: number, decimals = 0) =>
   value.toLocaleString('es-ES', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+
+/** Etiqueta legible de un periodo `YYYY-MM` o `YYYY-Www` para el eje del gráfico de evolución. */
+function periodLabel(period: string): string {
+  const week = period.match(/^(\d{4})-W(\d{2})$/);
+  if (week) return `Sem. ${Number(week[2])}`;
+  const month = period.match(/^(\d{4})-(\d{2})$/);
+  if (!month) return period;
+  const date = new Date(Number(month[1]), Number(month[2]) - 1, 1);
+  return date.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' });
+}
 
 /**
  * Color de cada destino en el gráfico. El orden de la paleta acompaña al orden de lectura (kg
@@ -24,10 +39,10 @@ const DESTINATION_COLORS: Record<string, string> = {
 const colorFor = (destination: string) => DESTINATION_COLORS[destination] ?? 'bg-[#7a6a1f]';
 
 /**
- * Visión General del Workspace (MVP-403): los dos primeros widgets del dashboard MVP.
- *
- * **Una sola pantalla con scroll vertical** (RN-005) y **sin refresco continuo** (RN-006): los datos se
- * recalculan al entrar o al recargar, y la pantalla lo dice en vez de dejar creer que están vivos.
+ * Visión General del Workspace (MVP-403 · MVP-404): los **cuatro** widgets del dashboard MVP —resumen,
+ * kg por destino, kg por terreno y evolución de rendimiento— en **una sola pantalla con scroll
+ * vertical** (RN-005) y **sin refresco continuo** (RN-006): los datos se recalculan al entrar o al
+ * recargar, y la pantalla lo dice en vez de dejar creer que están vivos.
  *
  * Los filtros por temporada y terrenos, su persistencia tras recarga y el KPI de kg/árbol con su aviso
  * de dato incompleto son alcance de `MVP-405`; aquí el ámbito lo resuelve el servidor con los defectos
@@ -40,6 +55,8 @@ export const VisionGeneralView: React.FC = () => {
 
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [destinations, setDestinations] = useState<DashboardKgByDestination | null>(null);
+  const [plots, setPlots] = useState<DashboardKgByPlot | null>(null);
+  const [evolution, setEvolution] = useState<DashboardYieldEvolution | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -47,13 +64,17 @@ export const VisionGeneralView: React.FC = () => {
     setIsLoading(true);
     setLoadError(null);
     try {
-      // Las dos peticiones van juntas: agregan el mismo ámbito y la pantalla las presenta a la vez.
-      const [summaryData, destinationData] = await Promise.all([
+      // Las cuatro peticiones van juntas: agregan el mismo ámbito y la pantalla las presenta a la vez.
+      const [summaryData, destinationData, plotData, evolutionData] = await Promise.all([
         dashboardService.getSummary(),
         dashboardService.getKgByDestination(),
+        dashboardService.getKgByPlot(),
+        dashboardService.getYieldEvolution(),
       ]);
       setSummary(summaryData);
       setDestinations(destinationData);
+      setPlots(plotData);
+      setEvolution(evolutionData);
     } catch (error) {
       setLoadError(
         error instanceof HttpError ? error.message : 'No se pudo cargar la visión general.'
@@ -252,11 +273,157 @@ export const VisionGeneralView: React.FC = () => {
             )}
           </div>
 
+          {/* Kg por terreno (MVP-404, CA-1) — barras en orden fijo de RN-011 */}
+          {plots && plots.data.length > 0 && (
+            <KgByPlotWidget data={plots.data} totalKg={plots.meta.total_kg} />
+          )}
+
+          {/* Evolución de rendimiento (MVP-404, CA-2) — serie en L/100kg con histórico básico */}
+          {evolution && <YieldEvolutionWidget evolution={evolution} />}
+
           <p className="text-[11px] text-[#76786b] text-center">
             Los datos se calculan al entrar en la pantalla o al pulsar «Actualizar»; no se refrescan
             solos.
           </p>
         </>
+      )}
+    </div>
+  );
+};
+
+/**
+ * Kg por terreno (MVP-404, CA-1). Barras horizontales en el **orden fijo de RN-011** —kg descendentes,
+ * ya resuelto en servidor—, con la barra proporcional al mayor para comparar de un vistazo qué parcela
+ * aporta más. No hay orden manual (RN-011).
+ */
+const KgByPlotWidget: React.FC<{ data: DashboardKgByPlot['data']; totalKg: number }> = ({
+  data,
+  totalKg,
+}) => {
+  const max = data[0]?.kg ?? 0;
+  return (
+    <div className="bg-white p-6 rounded-2xl border border-[#e5e2dd] ambient-shadow space-y-5">
+      <div>
+        <h3 className="font-headline font-bold text-base text-[#1c1c19]">Kg por terreno</h3>
+        <p className="text-xs text-[#76786b]">Cuánto aporta cada parcela, de mayor a menor.</p>
+      </div>
+
+      <ul className="space-y-3">
+        {data.map((item) => {
+          const width = max > 0 ? (item.kg / max) * 100 : 0;
+          const share = totalKg > 0 ? (item.kg / totalKg) * 100 : 0;
+          return (
+            <li key={item.plot_id} className="space-y-1">
+              <div className="flex items-center justify-between text-xs font-semibold gap-2">
+                <span className="text-[#1c1c19] truncate">{item.plot_name}</span>
+                <span className="text-[#33450d] shrink-0">
+                  {number(item.kg)} kg <span className="text-[#76786b] font-normal">({number(share, 1)} %)</span>
+                </span>
+              </div>
+              <div className="w-full bg-[#f0ede8] h-3.5 rounded-lg overflow-hidden">
+                <div
+                  className="bg-[#33450d] h-full rounded-lg transition-all"
+                  style={{ width: `${width}%` }}
+                />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+};
+
+/**
+ * Evolución de rendimiento (MVP-404, CA-2). Serie del ámbito en la unidad canónica L/100kg (RN-013) y,
+ * cuando hay histórico suficiente, la **línea de referencia** de la media histórica (RN-015).
+ *
+ * La comparativa aparece solo si el servidor la calcula: sin temporadas previas con dato, `history` es
+ * `null` y no se dibuja una referencia inventada.
+ */
+const YieldEvolutionWidget: React.FC<{ evolution: DashboardYieldEvolution }> = ({ evolution }) => {
+  const { data, history } = evolution;
+  const reference = history.average;
+
+  // Escala común para las barras y la línea de referencia: el máximo de la serie y de la referencia,
+  // con un pequeño margen para que la barra más alta no toque el techo.
+  const peak = Math.max(...data.map((p) => p.yield_l_per_100kg), reference ?? 0);
+  const ceiling = peak > 0 ? peak * 1.1 : 1;
+
+  if (data.length === 0) {
+    return (
+      <div className="bg-white p-6 rounded-2xl border border-[#e5e2dd] ambient-shadow space-y-2">
+        <h3 className="font-headline font-bold text-base text-[#1c1c19]">Evolución del rendimiento</h3>
+        <p className="text-sm text-[#76786b] italic">
+          Aún no hay rendimiento registrado en esta temporada. Aparecerá aquí cuando declares el aceite
+          de alguna partida.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white p-6 rounded-2xl border border-[#e5e2dd] ambient-shadow space-y-5">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h3 className="font-headline font-bold text-base text-[#1c1c19]">Evolución del rendimiento</h3>
+          <p className="text-xs text-[#76786b]">Rendimiento medio por periodo, en litros por 100 kg.</p>
+        </div>
+        {reference !== null && (
+          <span className="text-[11px] font-semibold text-[#4a5d23] bg-[#eef2e0] border border-[#c9dba0] px-2.5 py-1 rounded-full">
+            Media histórica: {number(reference, 1)} L/100kg
+          </span>
+        )}
+      </div>
+
+      {/* Gráfico de barras con la referencia histórica superpuesta */}
+      <div className="relative h-44 flex items-end justify-between gap-3 pt-6 border-b border-[#e5e2dd] px-1">
+        {reference !== null && (
+          <div
+            className="absolute left-0 right-0 border-t-2 border-dashed border-[#4a5d23]/60 z-10"
+            style={{ bottom: `${(reference / ceiling) * 100}%` }}
+            title={`Media histórica: ${number(reference, 1)} L/100kg`}
+          />
+        )}
+        {data.map((point) => {
+          const height = ceiling > 0 ? (point.yield_l_per_100kg / ceiling) * 100 : 0;
+          return (
+            <div
+              key={point.period}
+              className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group min-w-0"
+            >
+              <span className="text-[10px] font-bold text-[#33450d]">
+                {number(point.yield_l_per_100kg, 1)}
+              </span>
+              <div className="w-full max-w-[40px] flex items-end h-full">
+                <div
+                  className="w-full bg-[#33450d] rounded-t-lg transition-all group-hover:bg-[#4a5d23]"
+                  style={{ height: `${height}%` }}
+                  title={`${periodLabel(point.period)}: ${number(point.yield_l_per_100kg, 1)} L/100kg sobre ${number(point.kg)} kg`}
+                />
+              </div>
+              <span className="text-[10px] font-semibold text-[#76786b] truncate w-full text-center">
+                {periodLabel(point.period)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* CA-2 — el histórico solo aparece cuando existe suficiente información; se dice sobre cuánto */}
+      {reference === null ? (
+        <p className="text-[11px] text-[#76786b] flex items-start gap-1.5">
+          <span className="material-symbols-outlined text-sm shrink-0" aria-hidden="true">info</span>
+          La comparativa histórica aparecerá cuando haya temporadas anteriores con rendimiento
+          registrado.
+        </p>
+      ) : (
+        <p className="text-[11px] text-[#76786b] flex items-start gap-1.5">
+          <span className="material-symbols-outlined text-sm shrink-0" aria-hidden="true">info</span>
+          La línea de referencia es la media de {history.prior_seasons_with_data}{' '}
+          {history.prior_seasons_with_data === 1 ? 'temporada anterior' : 'temporadas anteriores'} con
+          dato de rendimiento.
+        </p>
       )}
     </div>
   );

@@ -45,6 +45,33 @@ export interface DashboardKgByDestination {
   meta: { total_kg: number };
 }
 
+/** Kg por terreno (MVP-404, CA-1). El orden de `data` ya viene fijado por RN-011 (kg desc, alfabético). */
+export interface DashboardKgByPlot {
+  scope: DashboardScope;
+  data: { plot_id: string; plot_name: string; kg: number }[];
+  meta: { total_kg: number };
+}
+
+/**
+ * Evolución de rendimiento (MVP-404, CA-2). La serie es el rendimiento del ámbito por periodo en la
+ * unidad canónica L/100kg (RN-013); `history` es la comparativa histórica básica (RN-015), con `null`
+ * en cada media mientras no haya histórico suficiente.
+ */
+export interface DashboardYieldEvolution {
+  scope: DashboardScope;
+  granularity: 'month' | 'week';
+  data: { period: string; yield_l_per_100kg: number; kg: number }[];
+  history: {
+    /** Promedio histórico desde la primera temporada previa con dato. `null` si no hay ninguna. */
+    average: number | null;
+    /** Media de las 5 temporadas previas con dato; `null` con menos de 5. */
+    average_5_seasons: number | null;
+    /** Media de las 10 temporadas previas con dato; `null` con menos de 10. */
+    average_10_seasons: number | null;
+    prior_seasons_with_data: number;
+  };
+}
+
 /** P-021 — Producción agregada por temporada, para las tarjetas del maestro de temporadas. */
 export interface SeasonProductionResponse {
   data: { season_id: string; season_name: string; total_kg: number; harvests: number }[];

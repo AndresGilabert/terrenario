@@ -61,12 +61,15 @@ public sealed record HarvestAggregateFilter(
     IReadOnlyCollection<Guid>? PlotIds = null);
 
 /// <summary>
-/// Fila mínima de agregación (MVP-403): lo justo para sumar kilos, litros y rendimiento por terreno,
-/// destino y temporada. No lleva nombres resueltos porque quien agrupa ya tiene los maestros cargados.
+/// Fila mínima de agregación (MVP-403/MVP-404): lo justo para sumar kilos, litros y rendimiento por
+/// terreno, destino, temporada y <b>periodo</b>. No lleva nombres resueltos porque quien agrupa ya
+/// tiene los maestros cargados. <see cref="Date"/> se añadió en MVP-404 para poder agrupar la evolución
+/// de rendimiento por mes o semana.
 /// </summary>
 public sealed record HarvestAggregateRow(
     Guid PlotId,
     Guid SeasonId,
+    DateOnly Date,
     decimal Kgs,
     decimal? Yield,
     decimal? Liters,

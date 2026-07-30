@@ -2,7 +2,9 @@ import type { HttpClient } from './http-client';
 import type {
   DashboardFilters,
   DashboardKgByDestination,
+  DashboardKgByPlot,
   DashboardSummary,
+  DashboardYieldEvolution,
   SeasonProductionResponse,
 } from '../types/dashboard.types';
 
@@ -26,6 +28,23 @@ export function createDashboardService(http: HttpClient) {
     async getKgByDestination(filters?: DashboardFilters): Promise<DashboardKgByDestination> {
       return http.request<DashboardKgByDestination>('/api/v1/dashboard/kg-by-destination', {
         query: { season_id: filters?.seasonId, plot_ids: filters?.plotIds },
+      });
+    },
+
+    /** Kg por terreno con el orden fijo de RN-011 (kg descendentes, desempate alfabético). */
+    async getKgByPlot(filters?: DashboardFilters): Promise<DashboardKgByPlot> {
+      return http.request<DashboardKgByPlot>('/api/v1/dashboard/kg-by-plot', {
+        query: { season_id: filters?.seasonId, plot_ids: filters?.plotIds },
+      });
+    },
+
+    /** Evolución de rendimiento en L/100kg por periodo, con la comparativa histórica básica (RN-015). */
+    async getYieldEvolution(
+      filters?: DashboardFilters,
+      granularity: 'month' | 'week' = 'month'
+    ): Promise<DashboardYieldEvolution> {
+      return http.request<DashboardYieldEvolution>('/api/v1/dashboard/yield-evolution', {
+        query: { season_id: filters?.seasonId, plot_ids: filters?.plotIds, granularity },
       });
     },
 

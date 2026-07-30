@@ -715,8 +715,8 @@ Reglas de contexto (MVP-303):
 | Resumen temporada | `GET /api/v1/dashboard/summary` | `season_id?`, `plot_ids?[]` | `200 { scope, total_kg, total_liters, average_yield, harvests, harvests_with_oil_data, kg_per_tree, incomplete }` |
 | Kg por destino | `GET /api/v1/dashboard/kg-by-destination` | `season_id?`, `plot_ids?[]` | `200 { scope, data:[{ destination, kg }], meta:{ total_kg } }` |
 | Kg por temporada (MVP-403) | `GET /api/v1/dashboard/kg-by-season` | — | `200 { data:[{ season_id, season_name, total_kg, harvests }], meta:{ total } }` |
-| Kg por terreno | `GET /api/v1/dashboard/kg-by-plot` | `season_id?` | `200 { data:[{ plot_id, plot_name, kg }] }` |
-| Evolución rendimiento | `GET /api/v1/dashboard/yield-evolution` | `season_id?`, `granularity?=month\|week` | `200 { data:[{ period, yield }] }` |
+| Kg por terreno (MVP-404) | `GET /api/v1/dashboard/kg-by-plot` | `season_id?`, `plot_ids?[]` | `200 { scope, data:[{ plot_id, plot_name, kg }], meta:{ total_kg } }` |
+| Evolución rendimiento (MVP-404) | `GET /api/v1/dashboard/yield-evolution` | `season_id?`, `plot_ids?[]`, `granularity?=month\|week` | `200 { scope, granularity, data:[{ period, yield_l_per_100kg, kg }], history:{ average, average_5_years, average_10_years, prior_years_with_data, window } }` |
 
 El dashboard es de **solo lectura** y no se refresca en segundo plano (RN-006): se recalcula al entrar
 en la pantalla o a petición explícita. `plot_ids` es un parámetro **repetible**
@@ -744,6 +744,9 @@ Reglas de cálculo (MVP-403):
 | `meta.total_kg` | Calculado en servidor, para que el porcentaje del gráfico no pueda discrepar del resumen por un redondeo |
 | `kg-by-season` | Sin filtro de terreno (la tarjeta del maestro habla de la campaña completa) y en una sola petición. Una campaña sin cosechas aparece con `total_kg: 0`, que es información («no se recolectó nada»), no ausencia de dato. Cierra `P-021` |
 | `kg_per_tree` / `incomplete` | **Pendientes de `MVP-405`**, que es quien tiene la regla RN-010 (excluir terrenos sin `num_arboles` y avisar de dato incompleto). `MVP-403` no los emite: publicar un `kg/árbol` sin esa exclusión sería publicar una cifra mal calculada |
+| `kg-by-plot` (MVP-404) | Orden **fijo** por kg descendente y desempate alfabético por nombre de terreno (RN-011). No hay orden manual, así que se resuelve en servidor y el cliente pinta la lista tal cual. Solo los terrenos que **produjeron**: uno sin cosechas sería una barra a cero |
+| `yield-evolution` — `data` (MVP-404) | Serie del rendimiento del ámbito por periodo en la unidad canónica L/100kg (RN-013), ponderado por kilos. `period` es `YYYY-MM` (mes) o `YYYY-Www` (semana ISO). Un periodo sin dato de aceite **no aparece**: forzar un cero fingiría una caída que no ocurrió |
+| `yield-evolution` — `history` (MVP-404) | Comparativa histórica básica (RN-015): `{ average, average_5_years, average_10_years, prior_years_with_data, window:{ from, to } }`. Es una **ventana de calendario**, no campañas agrupadas: los mismos días de años anteriores a los de las cosechas de la campaña activa —su rango de fechas ensanchado ±7 días para captar más histórico—, buscados en cada año previo. Una cosecha de otra época del año queda fuera. Respeta el filtro de terreno (compara las mismas parcelas). Cada media es `null` mientras no haya «histórico suficiente», medido por profundidad: la general con un año previo con dato; la de 5 años solo si el histórico llega 5 años atrás, la de 10 si llega 10. **Aparece aunque la campaña activa aún no tenga cosechas** (`data` vacío, solo `history`): entonces la ventana la fija el calendario de la temporada. `window` es el tramo (`MM-DD`) usado, para que la UI lo explique |
 
 ### 9) Alcance de sincronización MVP
 

@@ -69,6 +69,74 @@ public sealed class DashboardController(
         });
     }
 
+    /// <summary>Kilos por terreno, con el orden fijo de RN-011 —kg descendentes, desempate alfabético— (CA-1).</summary>
+    [HttpGet("kg-by-plot")]
+    public async Task<IActionResult> KgByPlot(
+        [FromQuery(Name = "season_id")] Guid? seasonId,
+        [FromQuery(Name = "plot_ids")] Guid[]? plotIds,
+        CancellationToken ct)
+    {
+        var (scope, totals, totalKg) = await dashboardQueryService.GetKgByPlotAsync(
+            workspaceContext.WorkspaceId, new DashboardRequest(seasonId, plotIds), ct);
+
+        return Ok(new
+        {
+            scope = ToScope(scope),
+            data = totals.Select(total => new
+            {
+                plot_id = total.PlotId,
+                plot_name = total.PlotName,
+                kg = total.Kg
+            }),
+            meta = new { total_kg = totalKg }
+        });
+    }
+
+    /// <summary>
+    /// Evolución de rendimiento en L/100kg (RN-013) por mes o semana, con la comparativa histórica
+    /// básica de RN-015 —presente solo cuando hay histórico suficiente— (CA-2).
+    /// </summary>
+    [HttpGet("yield-evolution")]
+    public async Task<IActionResult> YieldEvolution(
+        [FromQuery(Name = "season_id")] Guid? seasonId,
+        [FromQuery(Name = "plot_ids")] Guid[]? plotIds,
+        [FromQuery] string? granularity,
+        CancellationToken ct)
+    {
+        // Solo `week` cambia el defecto: cualquier otro valor —o su ausencia— es el mes del prototipo.
+        var resolved = string.Equals(granularity, "week", StringComparison.OrdinalIgnoreCase)
+            ? YieldGranularity.Week
+            : YieldGranularity.Month;
+
+        var evolution = await dashboardQueryService.GetYieldEvolutionAsync(
+            workspaceContext.WorkspaceId, new DashboardRequest(seasonId, plotIds), resolved, ct);
+
+        return Ok(new
+        {
+            scope = ToScope(evolution.Scope),
+            granularity = evolution.Granularity == YieldGranularity.Week ? "week" : "month",
+            data = evolution.Series.Select(point => new
+            {
+                period = point.Period,
+                yield_l_per_100kg = point.Yield,
+                kg = point.Kg
+            }),
+            // RN-015 — la comparativa histórica de la **ventana estacional**: `null` mientras no haya
+            // histórico suficiente, para que la UI no dibuje una referencia inventada. `window` es el
+            // tramo de calendario (MM-DD) sobre el que se compara, para que la pantalla lo explique.
+            history = new
+            {
+                average = evolution.History.Average,
+                average_5_years = evolution.History.Average5Years,
+                average_10_years = evolution.History.Average10Years,
+                prior_years_with_data = evolution.History.PriorYearsWithData,
+                window = evolution.History.Window is null
+                    ? null
+                    : new { from = evolution.History.Window.From, to = evolution.History.Window.To }
+            }
+        });
+    }
+
     /// <summary>
     /// P-021 — Producción agregada por temporada. La consume el maestro de temporadas (MVP-203), que
     /// omitió el dato porque <c>HARVEST</c> no existía todavía.

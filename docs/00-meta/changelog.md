@@ -26,6 +26,8 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/).
 
 ### Cambiado
 
+- **Hito D (`MVP-004`)**: alta de la entidad `HARVEST` y del maestro de producción —cosechas con producto/kgs/destino y regla XOR rendimiento/litros (`RN-004`)— y de los endpoints `/api/v1/harvests` y `/api/v1/dashboard/*` (los cuatro widgets del dashboard MVP). Actualizados modelo de datos y contratos de API.
+- **Rediseño del modelo de temporadas (`MVP-209`)**: se separa el **estado** de la campaña (`planificada`/`abierta`/`cerrada`, derivado de `is_closed` y las fechas) de la **temporada de trabajo**, ahora **por usuario** en `workspace_members.active_season_id`. Se retira `seasons.is_active` y el índice `ux_seasons_workspace_active`; `GET /seasons` expone `is_working`/`status` en vez de `is_active`. Actualizados modelo de datos y contratos de API. Cierra `P-045`.
 - Cerrada la historia `MVP-104` (membresía y selector de Workspace activo): estados de membresía por catálogo `worker_member_status`, contexto activo persistido en `users.active_workspace_id`, endpoints `GET /api/v1/workspaces` y `PUT /api/v1/workspaces/active`, y selector de Workspace en la UI. Actualizados modelo de datos y contratos de API.
 - Registrados los puntos `P-002` (administración/revocación de miembros) y `P-003` (materialización del estado `invitado`) en `MVP-999` como pendientes de coherencia detectados durante `MVP-104`.
 - Actualizada documentacion de producto para reflejar definicion funcional confirmada del dashboard MVP (alcance, reglas, journeys y KPIs iniciales).

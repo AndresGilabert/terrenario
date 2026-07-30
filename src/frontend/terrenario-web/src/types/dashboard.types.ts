@@ -54,21 +54,27 @@ export interface DashboardKgByPlot {
 
 /**
  * Evolución de rendimiento (MVP-404, CA-2). La serie es el rendimiento del ámbito por periodo en la
- * unidad canónica L/100kg (RN-013); `history` es la comparativa histórica básica (RN-015), con `null`
- * en cada media mientras no haya histórico suficiente.
+ * unidad canónica L/100kg (RN-013); `history` es la comparativa histórica básica (RN-015).
+ *
+ * El histórico son **los mismos días de años anteriores** a los de las cosechas de la campaña activa
+ * (`window`), no campañas agrupadas: así la parcela se compara con lo que ella misma rindió en esas
+ * fechas otros años. Aparece incluso sin cosechas todavía en la campaña actual (solo la referencia,
+ * `data` vacío). Cada media es `null` mientras no haya histórico suficiente.
  */
 export interface DashboardYieldEvolution {
   scope: DashboardScope;
   granularity: 'month' | 'week';
   data: { period: string; yield_l_per_100kg: number; kg: number }[];
   history: {
-    /** Promedio histórico desde la primera temporada previa con dato. `null` si no hay ninguna. */
+    /** Promedio histórico de la ventana desde el primer año previo con dato. `null` si no hay ninguno. */
     average: number | null;
-    /** Media de las 5 temporadas previas con dato; `null` con menos de 5. */
-    average_5_seasons: number | null;
-    /** Media de las 10 temporadas previas con dato; `null` con menos de 10. */
-    average_10_seasons: number | null;
-    prior_seasons_with_data: number;
+    /** Media de los últimos 5 años en la ventana; `null` si el histórico no llega 5 años atrás. */
+    average_5_years: number | null;
+    /** Media de los últimos 10 años en la ventana; `null` si el histórico no llega 10 años atrás. */
+    average_10_years: number | null;
+    prior_years_with_data: number;
+    /** Tramo de calendario (`MM-DD`) sobre el que se compara. `null` si no hay ámbito resoluble. */
+    window: { from: string; to: string } | null;
   };
 }
 

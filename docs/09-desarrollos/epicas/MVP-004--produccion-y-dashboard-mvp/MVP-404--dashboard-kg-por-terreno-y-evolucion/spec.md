@@ -85,11 +85,16 @@ Mostrar la distribución de kilos por terreno y la evolución temporal del rendi
 ## Notas y decisiones
 
 - Esta historia completa los cuatro widgets mínimos del dashboard MVP.
-- **La comparativa histórica compara los mismos terrenos en años distintos** (RN-015): el filtro de
-  terreno viaja al histórico, no solo a la serie, y el «histórico suficiente» se cuenta sobre temporadas
-  **con dato**, no sobre el calendario. La media general aparece con una temporada previa con
-  rendimiento; las de 5 y 10 temporadas, solo con al menos 5 y 10. En este MVP una temporada es la
-  campaña anual, así que «5 temporadas» ≈ «5 años»; la distinción fina es post-MVP.
+- **La comparativa histórica es una ventana de calendario, no campañas agrupadas** (decisión del PO,
+  2026-07-30). El histórico son «los mismos días de años anteriores» a los de las cosechas de la campaña
+  activa: el rango de fechas de esas cosechas —ensanchado una semana por lado para capturar más
+  histórico— buscado en cada año anterior. Una cosecha de otra época del año queda fuera por no ser
+  comparable, y el filtro de terreno viaja al histórico, así que se comparan las mismas parcelas. El
+  «histórico suficiente» (CA-2) se mide por profundidad: la media general con un año previo con dato;
+  la de 5 años solo si el histórico llega 5 años atrás, y la de 10 si llega 10.
+- **El histórico aparece aunque la campaña activa no tenga cosechas todavía** (petición del PO): al
+  empezar una campaña no hay línea actual, pero sí interesa ver a cuánto rindieron esas fechas otros
+  años. Sin cosechas, la ventana la fija el calendario de la propia temporada.
 - **Un periodo sin dato de aceite no dibuja punto**, igual que `null` ≠ 0 en el resumen: forzar un cero
   fingiría una caída que no ocurrió.
 - **El orden de RN-011 se resuelve en servidor** —«no hay orden manual» es parte de la regla— y kg por

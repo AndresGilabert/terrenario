@@ -26,6 +26,12 @@ public class DashboardQueryServiceTests
     private readonly Plot _bajo = Plot.Create(WorkspaceId, "Olivar Bajo", "propia");
     private readonly Plot _retirado = Plot.Create(WorkspaceId, "Olivar Viejo", "cedida");
 
+    /// <summary>
+    /// Cosechas de años anteriores pertenecen a campañas anteriores, no a la activa: el histórico se
+    /// calcula por fecha, pero deben quedar fuera de la serie de la temporada actual.
+    /// </summary>
+    private static readonly Guid PriorSeasonId = Guid.NewGuid();
+
     public DashboardQueryServiceTests()
     {
         _active.Activate();
@@ -406,40 +412,116 @@ public class DashboardQueryServiceTests
     [Fact]
     public async Task Evolucion_NoDeberia_TenerComparativa_SinHistorico()
     {
-        // CA-2 — el histórico solo aparece cuando existe suficiente información. Con una sola temporada
-        // no hay nada con qué comparar.
-        _seasons.ListByWorkspaceAsync(WorkspaceId, Arg.Any<CancellationToken>()).Returns([_active]);
+        // CA-2 — el histórico solo aparece cuando existe suficiente información. Con solo la campaña
+        // actual no hay años anteriores con qué comparar.
         Seed(Row(1000m, yield: 20m, date: new DateOnly(2026, 10, 5)));
 
         var evolution = await CreateSut().GetYieldEvolutionAsync(
             WorkspaceId, new DashboardRequest(), YieldGranularity.Month);
 
         evolution.History.Average.Should().BeNull();
-        evolution.History.PriorSeasonsWithData.Should().Be(0);
+        evolution.History.PriorYearsWithData.Should().Be(0);
     }
 
     [Fact]
-    public async Task Evolucion_Deberia_CompararConLaMediaHistorica_DeTemporadasPrevias()
+    public async Task Evolucion_Deberia_CompararConLaMediaHistorica_DeLosMismosDiasEnAnosAnteriores()
     {
-        // RN-015 — promedio histórico desde la primera temporada disponible, sobre las anteriores a la
-        // que se mira. La comparación es de los mismos terrenos en años distintos.
-        var pasada = Season.Create(WorkspaceId, "2025/2026", new DateOnly(2025, 9, 1), new DateOnly(2026, 2, 28));
-        pasada.Close();
-        _seasons.ListByWorkspaceAsync(WorkspaceId, Arg.Any<CancellationToken>()).Returns([_active, pasada]);
+        // RN-015 — la ventana la fijan las cosechas de la campaña activa (5-oct, ±7 días); el histórico
+        // son los mismos días de años anteriores, no las campañas agrupadas.
         Seed(
-            Row(1000m, yield: 22m, seasonId: _active.Id, date: new DateOnly(2026, 10, 5)),
-            Row(1000m, yield: 16m, seasonId: pasada.Id, date: new DateOnly(2025, 10, 5)));
+            Row(1000m, yield: 22m, date: new DateOnly(2026, 10, 5)),
+            Row(1000m, yield: 16m, seasonId: PriorSeasonId, date: new DateOnly(2025, 10, 3)),  // año -1
+            Row(1000m, yield: 18m, seasonId: PriorSeasonId, date: new DateOnly(2024, 10, 8))); // año -2
 
         var evolution = await CreateSut().GetYieldEvolutionAsync(
             WorkspaceId, new DashboardRequest(), YieldGranularity.Month);
 
-        // La serie es de la temporada actual; el histórico, de la anterior.
+        // La serie es de la campaña actual; el histórico, de los dos años anteriores (media de 16 y 18).
         evolution.Series.Single().Yield.Should().Be(22m);
+        evolution.History.Average.Should().Be(17m);
+        evolution.History.PriorYearsWithData.Should().Be(2);
+        // El histórico no llega a 5 ni 10 años atrás, así que esas medias no aparecen.
+        evolution.History.Average5Years.Should().BeNull();
+        evolution.History.Average10Years.Should().BeNull();
+        // La ventana estacional se expone para que la UI la explique.
+        evolution.History.Window!.From.Should().Be("09-28");
+        evolution.History.Window!.To.Should().Be("10-12");
+    }
+
+    [Fact]
+    public async Task Evolucion_NoDeberia_ContarCosechas_DeOtraEpocaDelAno()
+    {
+        // La comparación es «los mismos días»: una cosecha de primavera no es comparable con una campaña
+        // de otoño, aunque sea del mismo terreno y de un año anterior.
+        Seed(
+            Row(1000m, yield: 22m, date: new DateOnly(2026, 10, 5)),
+            Row(1000m, yield: 16m, seasonId: PriorSeasonId, date: new DateOnly(2025, 4, 20))); // abril
+
+        var evolution = await CreateSut().GetYieldEvolutionAsync(
+            WorkspaceId, new DashboardRequest(), YieldGranularity.Month);
+
+        evolution.History.Average.Should().BeNull();
+        evolution.History.PriorYearsWithData.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Evolucion_Deberia_CapturarHistorico_DentroDelEnsanchadoDeUnaSemana()
+    {
+        // El ±7 días amplía la ventana para recoger más histórico: una cosecha del año anterior a 6 días
+        // del rango exacto entra; a 10 días, no.
+        Seed(
+            Row(1000m, yield: 22m, date: new DateOnly(2026, 10, 10)),
+            Row(1000m, yield: 16m, seasonId: PriorSeasonId, date: new DateOnly(2025, 10, 16)),  // +6 días: entra
+            Row(1000m, yield: 30m, seasonId: PriorSeasonId, date: new DateOnly(2024, 10, 20))); // +10 días: fuera
+
+        var evolution = await CreateSut().GetYieldEvolutionAsync(
+            WorkspaceId, new DashboardRequest(), YieldGranularity.Month);
+
         evolution.History.Average.Should().Be(16m);
-        evolution.History.PriorSeasonsWithData.Should().Be(1);
-        // Sin 5 ni 10 temporadas previas, esas medias no aparecen.
-        evolution.History.Average5Seasons.Should().BeNull();
-        evolution.History.Average10Seasons.Should().BeNull();
+        evolution.History.PriorYearsWithData.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Evolucion_Deberia_MostrarSoloHistorico_CuandoLaCampanaAunNoTieneCosechas()
+    {
+        // Escenario del PO: la temporada activa aún no tiene recolección. No hay línea actual, pero sí
+        // interesa el histórico; la ventana la fija entonces el calendario de la campaña.
+        var enCurso = Season.Create(WorkspaceId, "2026/2027", new DateOnly(2026, 9, 1), new DateOnly(2027, 2, 28));
+        enCurso.Activate();
+        _seasons.FindActiveByWorkspaceAsync(WorkspaceId, Arg.Any<CancellationToken>()).Returns(enCurso);
+        _seasons.FindByIdAsync(WorkspaceId, enCurso.Id, Arg.Any<CancellationToken>()).Returns(enCurso);
+        // Sin cosechas en la campaña activa; sí en años anteriores dentro del calendario sept-feb.
+        Seed(
+            Row(1000m, yield: 20m, seasonId: PriorSeasonId, date: new DateOnly(2025, 11, 15)),  // año -1
+            Row(1000m, yield: 24m, seasonId: PriorSeasonId, date: new DateOnly(2024, 12, 10))); // año -2
+
+        var evolution = await CreateSut().GetYieldEvolutionAsync(
+            WorkspaceId, new DashboardRequest(), YieldGranularity.Month);
+
+        evolution.Series.Should().BeEmpty();
+        evolution.History.Average.Should().Be(22m);
+        evolution.History.PriorYearsWithData.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Evolucion_Deberia_GatearLaMediaDe5Anos_PorLaProfundidadDelHistorico()
+    {
+        // «5 años» solo si el histórico llega al menos 5 años atrás. Con dato en los años -1 y -6, la
+        // media general los toma los dos; la de 5 años solo el -1 (el -6 queda fuera de su ventana).
+        Seed(
+            Row(1000m, yield: 22m, date: new DateOnly(2026, 10, 5)),
+            Row(2000m, yield: 18m, seasonId: PriorSeasonId, date: new DateOnly(2025, 10, 4)),   // año -1
+            Row(1000m, yield: 12m, seasonId: PriorSeasonId, date: new DateOnly(2020, 10, 6)));  // año -6
+
+        var evolution = await CreateSut().GetYieldEvolutionAsync(
+            WorkspaceId, new DashboardRequest(), YieldGranularity.Month);
+
+        // General: ponderada de 18 (2000 kg) y 12 (1000 kg) = (360+120)/3000*100 = 16.
+        evolution.History.Average.Should().Be(16m);
+        // El histórico alcanza 6 años atrás, así que la media de 5 años aparece: solo el año -1 → 18.
+        evolution.History.Average5Years.Should().Be(18m);
+        // Pero no llega a 10 años.
+        evolution.History.Average10Years.Should().BeNull();
     }
 
     [Fact]

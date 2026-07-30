@@ -121,14 +121,18 @@ public sealed class DashboardController(
                 yield_l_per_100kg = point.Yield,
                 kg = point.Kg
             }),
-            // RN-015 — la comparativa histórica: `null` mientras no haya histórico suficiente, para que
-            // la UI no dibuje una línea de referencia inventada.
+            // RN-015 — la comparativa histórica de la **ventana estacional**: `null` mientras no haya
+            // histórico suficiente, para que la UI no dibuje una referencia inventada. `window` es el
+            // tramo de calendario (MM-DD) sobre el que se compara, para que la pantalla lo explique.
             history = new
             {
                 average = evolution.History.Average,
-                average_5_seasons = evolution.History.Average5Seasons,
-                average_10_seasons = evolution.History.Average10Seasons,
-                prior_seasons_with_data = evolution.History.PriorSeasonsWithData
+                average_5_years = evolution.History.Average5Years,
+                average_10_years = evolution.History.Average10Years,
+                prior_years_with_data = evolution.History.PriorYearsWithData,
+                window = evolution.History.Window is null
+                    ? null
+                    : new { from = evolution.History.Window.From, to = evolution.History.Window.To }
             }
         });
     }

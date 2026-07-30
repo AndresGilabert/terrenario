@@ -24,6 +24,16 @@ function periodLabel(period: string): string {
   return date.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' });
 }
 
+/** Etiqueta legible de un extremo de la ventana estacional (`MM-DD`) → «13 dic». */
+function windowLabel(monthDay: string): string {
+  const parts = monthDay.match(/^(\d{2})-(\d{2})$/);
+  if (!parts) return monthDay;
+  return new Date(2000, Number(parts[1]) - 1, Number(parts[2])).toLocaleDateString('es-ES', {
+    day: 'numeric',
+    month: 'short',
+  });
+}
+
 /**
  * Color de cada destino en el gráfico. El orden de la paleta acompaña al orden de lectura (kg
  * descendentes), y `desconocido` va siempre en gris: no es una categoría más, es la ausencia de
@@ -91,6 +101,10 @@ export const VisionGeneralView: React.FC = () => {
   const season = summary?.scope.season ?? null;
   const totalKg = destinations?.meta.total_kg ?? 0;
   const hasProduction = (summary?.harvests ?? 0) > 0;
+  // La evolución puede tener histórico de estas mismas fechas aunque la campaña actual aún no tenga
+  // cosechas: en ese caso el resto de widgets están vacíos, pero el histórico sí interesa (petición
+  // del PO), así que la pantalla no se queda del todo en blanco.
+  const hasHistoryOnly = !hasProduction && (evolution?.history.average ?? null) !== null;
 
   if (isLoading) {
     return (
@@ -142,13 +156,17 @@ export const VisionGeneralView: React.FC = () => {
           onAction={() => navigate('/app/temporadas')}
         />
       ) : !hasProduction ? (
-        <EmptyState
-          icon="agriculture"
-          title={`Sin cosechas en ${season.name}`}
-          message="En cuanto registres la primera partida verás aquí los kilos, el aceite obtenido y el reparto por destino."
-          actionLabel="Registrar cosecha"
-          onAction={() => navigate('/app/cosechas')}
-        />
+        <>
+          <EmptyState
+            icon="agriculture"
+            title={`Sin cosechas en ${season.name}`}
+            message="En cuanto registres la primera partida verás aquí los kilos, el aceite obtenido y el reparto por destino."
+            actionLabel="Registrar cosecha"
+            onAction={() => navigate('/app/cosechas')}
+          />
+          {/* Aunque la campaña aún no tenga cosechas, el histórico de estas fechas sí es útil */}
+          {hasHistoryOnly && evolution && <YieldEvolutionWidget evolution={evolution} />}
+        </>
       ) : (
         <>
           {/* Resumen de temporada (CA-1) */}
@@ -335,96 +353,122 @@ const KgByPlotWidget: React.FC<{ data: DashboardKgByPlot['data']; totalKg: numbe
 };
 
 /**
- * Evolución de rendimiento (MVP-404, CA-2). Serie del ámbito en la unidad canónica L/100kg (RN-013) y,
- * cuando hay histórico suficiente, la **línea de referencia** de la media histórica (RN-015).
+ * Evolución de rendimiento (MVP-404, CA-2). Serie de la campaña activa en la unidad canónica L/100kg
+ * (RN-013) y, cuando hay histórico suficiente, la comparativa de RN-015.
  *
- * La comparativa aparece solo si el servidor la calcula: sin temporadas previas con dato, `history` es
- * `null` y no se dibuja una referencia inventada.
+ * El histórico son **los mismos días de años anteriores** a los de las cosechas de la campaña, no
+ * campañas agrupadas: la media general se dibuja como línea de referencia y las de 5 y 10 años, como
+ * chips. Como la comparativa no depende de que la campaña actual tenga ya cosechas, el widget también
+ * muestra **solo el histórico** cuando aún no ha empezado la recolección (sin barras, sin línea
+ * inventada): eso es información útil de cara a la campaña que empieza.
  */
 const YieldEvolutionWidget: React.FC<{ evolution: DashboardYieldEvolution }> = ({ evolution }) => {
   const { data, history } = evolution;
   const reference = history.average;
+  const hasSeries = data.length > 0;
+  const hasHistory = reference !== null;
 
-  // Escala común para las barras y la línea de referencia: el máximo de la serie y de la referencia,
-  // con un pequeño margen para que la barra más alta no toque el techo.
-  const peak = Math.max(...data.map((p) => p.yield_l_per_100kg), reference ?? 0);
-  const ceiling = peak > 0 ? peak * 1.1 : 1;
+  const windowText =
+    history.window !== null
+      ? `${windowLabel(history.window.from)} – ${windowLabel(history.window.to)}`
+      : null;
 
-  if (data.length === 0) {
+  // Ni serie ni histórico: no hay nada que enseñar todavía.
+  if (!hasSeries && !hasHistory) {
     return (
       <div className="bg-white p-6 rounded-2xl border border-[#e5e2dd] ambient-shadow space-y-2">
         <h3 className="font-headline font-bold text-base text-[#1c1c19]">Evolución del rendimiento</h3>
         <p className="text-sm text-[#76786b] italic">
-          Aún no hay rendimiento registrado en esta temporada. Aparecerá aquí cuando declares el aceite
-          de alguna partida.
+          Aún no hay rendimiento registrado, ni en esta temporada ni en años anteriores. Aparecerá aquí
+          cuando declares el aceite de alguna partida.
         </p>
       </div>
     );
   }
 
+  // Chips con las medias históricas disponibles (RN-015): general, últimos 5 y últimos 10 años.
+  const historyChips = [
+    { label: 'Media histórica', value: reference },
+    { label: 'Últimos 5 años', value: history.average_5_years },
+    { label: 'Últimos 10 años', value: history.average_10_years },
+  ].filter((chip): chip is { label: string; value: number } => chip.value !== null);
+
+  // Escala común para barras y línea de referencia, con margen para que la más alta no toque el techo.
+  const peak = Math.max(...data.map((p) => p.yield_l_per_100kg), reference ?? 0);
+  const ceiling = peak > 0 ? peak * 1.1 : 1;
+
   return (
     <div className="bg-white p-6 rounded-2xl border border-[#e5e2dd] ambient-shadow space-y-5">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h3 className="font-headline font-bold text-base text-[#1c1c19]">Evolución del rendimiento</h3>
-          <p className="text-xs text-[#76786b]">Rendimiento medio por periodo, en litros por 100 kg.</p>
-        </div>
-        {reference !== null && (
-          <span className="text-[11px] font-semibold text-[#4a5d23] bg-[#eef2e0] border border-[#c9dba0] px-2.5 py-1 rounded-full">
-            Media histórica: {number(reference, 1)} L/100kg
-          </span>
-        )}
+      <div>
+        <h3 className="font-headline font-bold text-base text-[#1c1c19]">Evolución del rendimiento</h3>
+        <p className="text-xs text-[#76786b]">
+          {hasSeries
+            ? 'Rendimiento medio por periodo, en litros por 100 kg.'
+            : 'Todavía no hay cosechas esta temporada: se muestra el histórico de estas mismas fechas.'}
+        </p>
       </div>
 
-      {/* Gráfico de barras con la referencia histórica superpuesta */}
-      <div className="relative h-44 flex items-end justify-between gap-3 pt-6 border-b border-[#e5e2dd] px-1">
-        {reference !== null && (
-          <div
-            className="absolute left-0 right-0 border-t-2 border-dashed border-[#4a5d23]/60 z-10"
-            style={{ bottom: `${(reference / ceiling) * 100}%` }}
-            title={`Media histórica: ${number(reference, 1)} L/100kg`}
-          />
-        )}
-        {data.map((point) => {
-          const height = ceiling > 0 ? (point.yield_l_per_100kg / ceiling) * 100 : 0;
-          return (
+      {/* Gráfico de barras con la referencia histórica superpuesta (solo si hay serie que dibujar) */}
+      {hasSeries && (
+        <div className="relative h-44 flex items-end justify-between gap-3 pt-6 border-b border-[#e5e2dd] px-1">
+          {reference !== null && (
             <div
-              key={point.period}
-              className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group min-w-0"
-            >
-              <span className="text-[10px] font-bold text-[#33450d]">
-                {number(point.yield_l_per_100kg, 1)}
-              </span>
-              <div className="w-full max-w-[40px] flex items-end h-full">
-                <div
-                  className="w-full bg-[#33450d] rounded-t-lg transition-all group-hover:bg-[#4a5d23]"
-                  style={{ height: `${height}%` }}
-                  title={`${periodLabel(point.period)}: ${number(point.yield_l_per_100kg, 1)} L/100kg sobre ${number(point.kg)} kg`}
-                />
+              className="absolute left-0 right-0 border-t-2 border-dashed border-[#4a5d23]/60 z-10"
+              style={{ bottom: `${(reference / ceiling) * 100}%` }}
+              title={`Media histórica: ${number(reference, 1)} L/100kg`}
+            />
+          )}
+          {data.map((point) => {
+            const height = ceiling > 0 ? (point.yield_l_per_100kg / ceiling) * 100 : 0;
+            return (
+              <div
+                key={point.period}
+                className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group min-w-0"
+              >
+                <span className="text-[10px] font-bold text-[#33450d]">
+                  {number(point.yield_l_per_100kg, 1)}
+                </span>
+                <div className="w-full max-w-[40px] flex items-end h-full">
+                  <div
+                    className="w-full bg-[#33450d] rounded-t-lg transition-all group-hover:bg-[#4a5d23]"
+                    style={{ height: `${height}%` }}
+                    title={`${periodLabel(point.period)}: ${number(point.yield_l_per_100kg, 1)} L/100kg sobre ${number(point.kg)} kg`}
+                  />
+                </div>
+                <span className="text-[10px] font-semibold text-[#76786b] truncate w-full text-center">
+                  {periodLabel(point.period)}
+                </span>
               </div>
-              <span className="text-[10px] font-semibold text-[#76786b] truncate w-full text-center">
-                {periodLabel(point.period)}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* CA-2 — el histórico solo aparece cuando existe suficiente información; se dice sobre cuánto */}
-      {reference === null ? (
-        <p className="text-[11px] text-[#76786b] flex items-start gap-1.5">
-          <span className="material-symbols-outlined text-sm shrink-0" aria-hidden="true">info</span>
-          La comparativa histórica aparecerá cuando haya temporadas anteriores con rendimiento
-          registrado.
-        </p>
-      ) : (
-        <p className="text-[11px] text-[#76786b] flex items-start gap-1.5">
-          <span className="material-symbols-outlined text-sm shrink-0" aria-hidden="true">info</span>
-          La línea de referencia es la media de {history.prior_seasons_with_data}{' '}
-          {history.prior_seasons_with_data === 1 ? 'temporada anterior' : 'temporadas anteriores'} con
-          dato de rendimiento.
-        </p>
+            );
+          })}
+        </div>
       )}
+
+      {/* Medias históricas disponibles (RN-015) */}
+      {historyChips.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {historyChips.map((chip) => (
+            <span
+              key={chip.label}
+              className="text-[11px] font-semibold text-[#4a5d23] bg-[#eef2e0] border border-[#c9dba0] px-2.5 py-1 rounded-full"
+            >
+              {chip.label}: {number(chip.value, 1)} L/100kg
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* CA-2 — se explica sobre qué ventana y con cuánto histórico se compara */}
+      <p className="text-[11px] text-[#76786b] flex items-start gap-1.5">
+        <span className="material-symbols-outlined text-sm shrink-0" aria-hidden="true">info</span>
+        {hasHistory
+          ? `El histórico compara los mismos días de años anteriores${
+              windowText ? ` (${windowText})` : ''
+            }: ${history.prior_years_with_data} ${
+              history.prior_years_with_data === 1 ? 'año anterior' : 'años anteriores'
+            } con dato de rendimiento.`
+          : 'La comparativa histórica aparecerá cuando haya cosechas de estas mismas fechas en años anteriores.'}
+      </p>
     </div>
   );
 };

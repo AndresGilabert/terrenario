@@ -131,13 +131,37 @@ por decisión del PO: el login es Google OIDC y automatizarlo exige sembrar sesi
 de desarrollo. El hueco se registra como **`P-064`** en `MVP-999` y debe tenerse presente al leer el
 gate de `MVP-504`.
 
-### Hallazgos derivados
+### Hallazgos derivados y su corrección
 
-La cobertura nueva destapó tres cosas. Ninguna se corrige aquí —esta historia es de cobertura— y las
-tres tienen destino:
+La cobertura nueva destapó tres cosas. **Decisión del PO (2026-07-31): los defectos se corrigen en
+esta misma rama**, para no arrastrar deuda conocida al PR.
 
-- **`F-01` → `P-065`**: `expiresLabel` rotula «Caduca mañana» una invitación que vence hoy por la
-  tarde, y «Caduca hoy» solo cuando ya ha caducado.
-- **`F-02` → `MVP-502`**: `react-router` 7.12–8.2 arrastra un aviso de seguridad **high**. No es
-  explotable en una SPA sin modo RSC, pero es una dependencia con CVE abierto de cara al gate.
-- **`F-03` → `P-064`**: el hueco de E2E de navegador descrito arriba.
+- **`F-01` — corregido aquí.** `expiresLabel` contaba los días con `Math.ceil` sobre una fracción, así
+  que una invitación que vencía **hoy a las 18:00** rotulaba «Caduca mañana» y «Caduca hoy» solo
+  aparecía cuando **ya había caducado** —momento en el que además era falso—. Ahora se cuenta en
+  **días de calendario** y una invitación vencida se rotula «Caducada». `P-065` nace y se cierra en la
+  misma pasada.
+- **`F-02` — corregido aquí.** `react-router` 7.12–8.2 arrastra un aviso de seguridad **high**
+  (`GHSA-qwww-vcr4-c8h2`). **No hay arreglo en la línea 7.x**: la corrección está en **8.3.0**, y
+  `react-router-dom` no publica 8.x porque en v8 el paquete se consolidó en `react-router`. Se migra
+  el frontend entero (28 ficheros) de `react-router-dom` a `react-router@8.3.0`. `npm audit` pasa de
+  2 avisos *high* a **0 vulnerabilidades**.
+- **`F-03` → `P-064`**: el hueco de E2E de navegador descrito arriba. **No es un defecto**, sino la
+  consecuencia de la decisión de alcance sobre el arnés; queda pendiente de decisión de producto.
+
+### Verificación de la migración a `react-router` 8
+
+Un salto de *major* no se da por bueno con el build en verde. Verificado en navegador real, con la
+API y PostgreSQL de desarrollo levantados y sesión sembrada:
+
+| Qué | Resultado |
+|---|---|
+| Landing y render inicial | correcto |
+| `useNavigate` («Acceder» → `/login`) | correcto |
+| Guardas `ProtectedRoute` + `RequireWorkspace` | correcto |
+| Rutas anidadas y `Outlet` (shell `AppLayout`) | correcto |
+| `NavLink` del lateral (navegación de cliente) | correcto |
+| `useSearchParams` (persistencia de filtros del dashboard, MVP-405) | correcto |
+| Ruta comodín `/app/*` → 404 dentro del shell | correcto |
+| Consola del navegador | sin errores |
+| Llamadas a la API | todas `200` |

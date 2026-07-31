@@ -36,8 +36,9 @@ La historia monta **las dos capas que faltaban** de la pirámide de
 - **Smoke E2E.** Un recorrido en secuencia por el núcleo del MVP (login → Workspace → temporada →
   maestros → labor → cosecha → compra → imputación → diario → dashboard), sobre ese mismo arnés.
 
-Sin cambios en código de producción: esta historia **solo añade cobertura**. Los defectos que la
-cobertura ha destapado se registran, no se arreglan aquí (ver «Hallazgos»).
+El núcleo de la historia **solo añade cobertura**. Los dos defectos que esa cobertura destapó se
+corrigen también aquí por decisión del PO (2026-07-31): no pasar el PR con deuda conocida. Son
+cambios acotados y con test de regresión propio (ver «Hallazgos y su corrección»).
 
 ## Componentes afectados
 
@@ -49,6 +50,8 @@ cobertura ha destapado se registran, no se arreglan aquí (ver «Hallazgos»).
 | `src/frontend/terrenario-web/package.json` | modificado | Dependencias del arnés y scripts `test`, `test:watch`, `test:coverage` |
 | `src/backend/Terrenario.Api.Tests/Integration/` | nuevo | Arnés de integración (`TerrenarioApiFactory`, `ApiSession`) y sus tests |
 | `src/backend/Terrenario.Api.Tests/*.csproj` | modificado | `Microsoft.AspNetCore.Mvc.Testing` |
+| `src/frontend/terrenario-web/src/lib/invitation-ui.ts` | modificado | Corrección de `F-01`: caducidad por días de calendario |
+| `src/frontend/.../*.tsx` (28 ficheros) | modificado | Corrección de `F-02`: `react-router-dom` → `react-router@8` |
 | `docs/04-ingenieria/estrategia-testing.md` | modificado | El arnés real, sus herramientas y el hueco de E2E de navegador |
 
 ## Diseño detallado
@@ -152,23 +155,83 @@ npm test --prefix src/frontend/terrenario-web
 | Backend (integración + smoke E2E) | 0 | 19 |
 | Frontend | **no existía arnés** | 70 |
 
-## Hallazgos
+## Hallazgos y su corrección
 
-Defectos reales que ha destapado la cobertura. Ninguno se corrige aquí: esta historia es de
-cobertura, y arreglar de paso lo que los tests encuentran mezclaría el diagnóstico con la cura.
+La cobertura nueva destapó tres cosas. Los **dos defectos** se corrigen en esta rama por decisión del
+PO (2026-07-31): no arrastrar deuda conocida al PR. El tercero no es un defecto.
 
-| Hallazgo | Qué pasa | Destino |
-|---|---|---|
-| `F-01` | `expiresLabel` calcula los días con `Math.ceil` sobre una fracción: una invitación que vence **hoy a las 18:00** rotula «Caduca mañana», y «Caduca hoy» solo aparece cuando **ya ha caducado**. El test lo fija como comportamiento actual, con nota | `P-065` en `MVP-999` |
-| `F-02` | `react-router` 7.12–8.2 tiene un aviso de seguridad **high** (bypass de CSRF en modo RSC). La aplicación es una SPA y no usa modo RSC, así que no es explotable hoy, pero es una dependencia con CVE abierto de cara al gate de release | `MVP-502` (hardening) |
-| `F-03` | No hay cobertura E2E de **navegador**: lo que se entrega es E2E de servidor | `P-064` en `MVP-999` |
+### `F-01` — La etiqueta de caducidad mentía el último día
+
+`expiresLabel` contaba con `Math.ceil` sobre una fracción de día. Consecuencia: cualquier invitación
+con tiempo restante —aunque venciera esa misma tarde— rotulaba «Caduca mañana», y «Caduca hoy» solo
+salía cuando **ya había caducado**, que es justo cuando el texto es falso.
+
+Se pasa a contar **días de calendario** (diferencia entre medianoches locales), que es como cuenta
+una persona: «mañana» es el día siguiente en el calendario, no «dentro de más de 24 horas». Una
+invitación vencida se rotula **«Caducada»**, coherente con el badge `CADUCADA` que ya usa «Miembros y
+accesos». El servidor no devuelve caducadas en la bandeja, pero una invitación puede vencer con la
+pantalla abierta y ahí el texto tiene que decir la verdad.
+
+Cubierto por seis casos, incluidos los dos límites que fallaban (vence esta tarde, vence de
+madrugada) y el de fracción contra calendario (7 días y 10 horas ⇒ «7 días», no «8»).
+
+### `F-02` — Aviso de seguridad *high* en `react-router`
+
+`GHSA-qwww-vcr4-c8h2` afecta a `react-router` **7.12.0–8.2.0**. No es explotable en esta aplicación
+(SPA sin modo RSC), pero es un CVE abierto que el gate de `MVP-504` tendría que justificar.
+
+**No hay salida dentro de 7.x**: la corrección está en **8.3.0**, y `react-router-dom` no publica
+8.x porque en v8 el paquete se consolidó en `react-router` (`react-router-dom` queda como legado de
+v6/v7). Las tres opciones eran:
+
+| Opción | Por qué se descartó / eligió |
+|---|---|
+| Bajar a `react-router-dom@7.11.0` | Lo que propone `npm audit fix --force`. Sale del rango vulnerable retrocediendo siete *minors*: cambia deuda de seguridad por deuda de versión |
+| Aceptar el aviso con justificación | Deja el CVE vivo en el gate y obliga a re-justificarlo en cada release |
+| **Migrar a `react-router@8.3.0`** | **Elegida.** Es la línea mantenida y elimina el aviso de raíz |
+
+La migración es mecánica: los 12 símbolos que usa el proyecto —`BrowserRouter`, `MemoryRouter`,
+`Routes`, `Route`, `Navigate`, `Outlet`, `Link`, `NavLink`, `useNavigate`, `useLocation`, `useParams`,
+`useSearchParams`— los exporta `react-router` directamente. 28 ficheros cambian solo el especificador
+del import. El agrupador de *chunks* de `vite.config.ts` (`node_modules[\\/]react-router`) sigue
+casando sin tocarlo.
+
+`npm audit` pasa de **2 avisos *high*** a **0 vulnerabilidades**.
+
+#### Verificación de la migración
+
+Un salto de *major* no se da por bueno con el build en verde. Verificado en navegador real, con API y
+PostgreSQL de desarrollo levantados y sesión sembrada:
+
+| Qué | Resultado |
+|---|---|
+| Landing y render inicial | correcto |
+| `useNavigate` («Acceder» → `/login`) | correcto |
+| Guardas `ProtectedRoute` + `RequireWorkspace` | correcto |
+| Rutas anidadas y `Outlet` (shell `AppLayout`) | correcto |
+| `NavLink` del lateral (navegación de cliente, sin recarga) | correcto |
+| `useSearchParams` (persistencia de filtros del dashboard, MVP-405) | correcto |
+| Ruta comodín `/app/*` → 404 dentro del shell | correcto |
+| Consola del navegador | sin errores |
+| Llamadas a la API | todas `200` |
+
+### `F-03` — Sin E2E de navegador
+
+**No es un defecto**: es la consecuencia de la decisión de alcance sobre el arnés (Playwright
+descartado). Se registra como `P-064` y queda pendiente de decisión de producto.
 
 ## Lo que esta historia no cierra
 
-- **`P-031`** (EF+SQLite y `ORDER BY` sobre `DateTimeOffset`) sigue **abierto**. La decisión de no usar
-  PostgreSQL en el arnés lo mantiene tal cual: los órdenes en memoria que existen solo por el test no
-  se pueden revertir todavía.
-- **E2E de navegador**: ver `F-03`.
+Dos puntos, y los dos son consecuencia de decisiones de alcance sobre el arnés, no defectos del
+código entregado:
+
+- **`P-031`** (EF+SQLite y `ORDER BY` sobre `DateTimeOffset`) sigue **abierto**. Montar la integración
+  sobre SQLite en vez de PostgreSQL no da la condición que ese punto necesitaba —ejercitar el SQL de
+  producción—, así que los órdenes en memoria que existen solo por el test no se pueden revertir.
+- **`P-064`**: E2E de navegador, ver `F-03`.
+
+Ambos se resuelven con la misma clase de decisión: aceptar Docker en el arnés (Testcontainers) y
+montar Playwright con sesión sembrada.
 
 ## Checklist de implementación
 
@@ -176,5 +239,8 @@ cobertura, y arreglar de paso lo que los tests encuentran mezclaría el diagnós
 - [x] Sin migraciones (esta historia no toca el esquema)
 - [x] Tests escritos y pasando
 - [x] `estrategia-testing.md` actualizada con el arnés real
-- [x] Hallazgos registrados en `MVP-999`
+- [x] Defectos detectados (`F-01`, `F-02`) corregidos y con regresión propia
+- [x] Migración de *major* verificada en navegador real, no solo con el build
+- [x] `npm audit` sin vulnerabilidades
+- [x] Hallazgos y pendientes registrados en `MVP-999`
 - [x] Sin `TODO` sin resolver en este documento

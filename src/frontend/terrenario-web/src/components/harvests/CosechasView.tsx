@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useApiClient } from '../../contexts/ApiContext';
 import { useSeason } from '../../contexts/SeasonContext';
 import { createHarvestService } from '../../services/harvest.service';

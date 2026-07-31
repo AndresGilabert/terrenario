@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router';
 import { authService, AuthServiceError } from '../../services/auth.service';
 import { useAuth } from '../../contexts/AuthContext';
 import { consumePostLoginRedirect } from '../../lib/post-login-redirect';

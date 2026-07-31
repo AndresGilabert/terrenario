@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 
 /**
  * Landing pública. Recupera el lenguaje visual del prototipo (marca `eco`, tipografía display y

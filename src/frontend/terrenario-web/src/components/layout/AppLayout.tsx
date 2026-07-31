@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router';
 import { AppSidebar } from './AppSidebar';
 import { AppTopbar } from './AppTopbar';
 import { InvitationModal } from '../notifications/InvitationModal';

@@ -39,8 +39,11 @@ describe('invitation-ui', () => {
   });
 
   describe('expiresLabel', () => {
-    /** Instante fijo: la etiqueta se calcula contra «ahora» y sin congelarlo el test es aleatorio. */
-    const now = new Date('2026-07-30T10:00:00.000Z');
+    /**
+     * Instante fijo: la etiqueta se calcula contra «ahora» y sin congelarlo el test es aleatorio.
+     * Mediodía local para que el día de calendario sea el mismo en cualquier huso donde corra el CI.
+     */
+    const now = new Date(2026, 6, 30, 12, 0, 0);
 
     const labelAt = (expiresAt: string): string => {
       vi.useFakeTimers();
@@ -52,24 +55,36 @@ describe('invitation-ui', () => {
       }
     };
 
-    it('Deberia_DecirQueCaducaHoy_Cuando_LaFechaYaPaso', () => {
-      expect(labelAt('2026-07-29T10:00:00.000Z')).toBe('Caduca hoy');
+    /** Fecha local, para que el día de calendario no dependa del huso donde corra el test. */
+    const local = (year: number, month: number, day: number, hour: number) =>
+      new Date(year, month - 1, day, hour).toISOString();
+
+    it('Deberia_DecirQueYaCaduco_Cuando_LaFechaYaPaso', () => {
+      // Antes decía «Caduca hoy», que además de confuso era falso: ya había caducado (`P-065`).
+      expect(labelAt(local(2026, 7, 29, 10))).toBe('Caducada');
     });
 
-    // Comportamiento **actual**, no el deseable: `Math.ceil` sobre la fracción de día hace que
-    // cualquier invitación con tiempo restante —aunque venza esta misma tarde— rotule «Caduca
-    // mañana», y que «Caduca hoy» solo salga cuando ya ha caducado. Registrado como hallazgo de
-    // MVP-501; la corrección no es de esta historia (que es cobertura, no arreglos de UX).
-    it('Deberia_DecirQueCaducaManana_Cuando_FaltanHorasDelMismoDia (comportamiento actual)', () => {
-      expect(labelAt('2026-07-30T18:00:00.000Z')).toBe('Caduca mañana');
+    it('Deberia_DecirQueCaducaHoy_Cuando_VenceMasTardeElMismoDia', () => {
+      // El caso que destapó `P-065`: quedan horas, pero es hoy, no mañana.
+      expect(labelAt(local(2026, 7, 30, 18))).toBe('Caduca hoy');
+    });
+
+    it('Deberia_DecirQueCaducaManana_Cuando_VenceElDiaSiguiente', () => {
+      // Vence de madrugada: faltan menos de 24 horas, pero en el calendario es mañana.
+      expect(labelAt(local(2026, 7, 31, 2))).toBe('Caduca mañana');
     });
 
     it('Deberia_DecirQueCaducaManana_Cuando_FaltaUnDiaExacto', () => {
-      expect(labelAt('2026-07-31T10:00:00.000Z')).toBe('Caduca mañana');
+      expect(labelAt(local(2026, 7, 31, 12))).toBe('Caduca mañana');
     });
 
     it('Deberia_DecirLosDiasQueFaltan_Cuando_QuedaMasDeUnDia', () => {
-      expect(labelAt('2026-08-06T10:00:00.000Z')).toBe('Caduca en 7 días');
+      expect(labelAt(local(2026, 8, 6, 10))).toBe('Caduca en 7 días');
+    });
+
+    it('Deberia_ContarPorDiasDeCalendario_Cuando_ElVencimientoEsPorLaNoche', () => {
+      // 7 días y 10 horas por reloj: contar fracciones daba «8 días», pero en el calendario son 7.
+      expect(labelAt(local(2026, 8, 6, 22))).toBe('Caduca en 7 días');
     });
   });
 });

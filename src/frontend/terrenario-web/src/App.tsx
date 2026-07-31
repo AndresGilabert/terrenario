@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { WorkspaceProvider, useWorkspace } from './contexts/WorkspaceContext';
 import { ApiProvider } from './contexts/ApiContext';

@@ -36,12 +36,16 @@ public sealed class GetWorkspaceClosureOptionsHandler(IWorkspaceRepository works
         var isOwner = actingMember?.Role == WorkspaceRoles.Owner;
 
         // Mismo criterio que el traspaso automático del repositorio (copropietario activo más
-        // antiguo): así el nombre que anuncia la confirmación es el del sucesor real (CA-5).
+        // antiguo, con desempate por identificador): así el nombre que anuncia la confirmación es el
+        // del sucesor real (CA-5). El desempate tiene que estar **también aquí**: sin él, con dos
+        // copropietarios de igual `joined_at` la pantalla podía anunciar a una persona y el traspaso
+        // acabar en otra (MVP-502).
         var successor = members
             .Where(m => m.Status == WorkspaceMemberStatuses.Active
                 && m.UserId != actingUserId
                 && m.Role == WorkspaceRoles.Owner)
             .OrderBy(m => m.JoinedAt)
+            .ThenBy(m => m.UserId)
             .FirstOrDefault();
 
         var mode = (isOwner, successor) switch

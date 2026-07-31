@@ -247,7 +247,7 @@ public sealed class ActivitiesController(
 
     private static FieldUpdate<string> ReadString(Dictionary<string, JsonElement> body, string key)
         => body.TryGetValue(key, out var el)
-            ? FieldUpdate<string>.Set(el.ValueKind == JsonValueKind.Null ? null : el.GetString())
+            ? FieldUpdate<string>.Set(JsonText.Read(el, key))
             : FieldUpdate<string>.Absent;
 
     private static FieldUpdate<DateOnly> ReadDate(Dictionary<string, JsonElement> body, string key)
@@ -255,7 +255,7 @@ public sealed class ActivitiesController(
         if (!body.TryGetValue(key, out var el)) return FieldUpdate<DateOnly>.Absent;
 
         if (el.ValueKind == JsonValueKind.String
-            && DateOnly.TryParseExact(el.GetString(), "yyyy-MM-dd", CultureInfo.InvariantCulture,
+            && DateOnly.TryParseExact(JsonText.Read(el, key), "yyyy-MM-dd", CultureInfo.InvariantCulture,
                 DateTimeStyles.None, out var parsed))
             return FieldUpdate<DateOnly>.Set(parsed);
 
@@ -266,7 +266,7 @@ public sealed class ActivitiesController(
     private static FieldUpdate<Guid> ReadGuid(Dictionary<string, JsonElement> body, string key)
     {
         if (!body.TryGetValue(key, out var el)) return FieldUpdate<Guid>.Absent;
-        if (el.ValueKind == JsonValueKind.String && Guid.TryParse(el.GetString(), out var parsed))
+        if (el.ValueKind == JsonValueKind.String && Guid.TryParse(JsonText.Read(el, key), out var parsed))
             return FieldUpdate<Guid>.Set(parsed);
 
         throw new ActivityValidationException(
@@ -278,7 +278,7 @@ public sealed class ActivitiesController(
     {
         if (!body.TryGetValue(key, out var el)) return FieldUpdate<Guid?>.Absent;
         if (el.ValueKind == JsonValueKind.Null) return FieldUpdate<Guid?>.Set(null);
-        if (el.ValueKind == JsonValueKind.String && Guid.TryParse(el.GetString(), out var parsed))
+        if (el.ValueKind == JsonValueKind.String && Guid.TryParse(JsonText.Read(el, key), out var parsed))
             return FieldUpdate<Guid?>.Set(parsed);
 
         throw new ActivityValidationException(
@@ -351,7 +351,7 @@ public sealed class ActivitiesController(
 /// porque es una regla de negocio y no de forma.
 /// </summary>
 public sealed record CreateActivityRequest(
-    [Required(ErrorMessage = "La fecha de la actividad es obligatoria.")]
+    [RequiredField(ErrorCodes.ValidationActivityRequiredFields, "La fecha de la actividad es obligatoria.")]
     string Date,
     [property: JsonPropertyName("plot_id")] Guid PlotId,
     [property: JsonPropertyName("season_id")] Guid SeasonId,

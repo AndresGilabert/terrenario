@@ -153,9 +153,9 @@ public sealed class WorkspaceInvitationsController(
 }
 
 public sealed record CreateInvitationRequest(
-    [Required(ErrorMessage = "El canal de invitación es obligatorio.")]
+    [RequiredField(ErrorCodes.ValidationInvitationChannelInvalid, "El canal de invitación es obligatorio.")]
     string Channel,
-    [StringLength(WorkspaceInvitation.EmailMaxLength, ErrorMessage = "El email de la persona invitada es demasiado largo.")]
+    [MaxTextLength(WorkspaceInvitation.EmailMaxLength, ErrorCodes.ValidationInvitationEmailInvalid, "El email de la persona invitada es demasiado largo.")]
     string? Email);
 
 /// <summary>

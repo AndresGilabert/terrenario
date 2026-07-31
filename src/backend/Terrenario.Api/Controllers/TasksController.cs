@@ -7,6 +7,7 @@ using Terrenario.Api.Application.Tasks;
 using Terrenario.Api.Application.Tasks.Commands;
 using Terrenario.Api.Common;
 using Terrenario.Api.Common.Errors;
+using Terrenario.Api.Common.Http;
 using Terrenario.Api.Common.Workspaces;
 using Terrenario.Api.Domain.Tasks;
 
@@ -83,17 +84,12 @@ public sealed class TasksController(
         [FromBody] Dictionary<string, JsonElement>? body,
         CancellationToken ct)
     {
-        body ??= new Dictionary<string, JsonElement>();
+        // Lector común del borde de transporte (MVP-502, P-027).
+        var fields = PartialUpdateBody.From(body);
 
-        FieldUpdate<bool> isActive;
-        try
-        {
-            isActive = ReadBool(body, "is_active");
-        }
-        catch (TaskValidationException ex)
-        {
-            return BadRequest(new ApiErrorResponse(ApiError.Validation(ex.ErrorCode, ex.Message)));
-        }
+        if (!fields.TryReadBool("is_active", out var isActive))
+            return BadRequest(new ApiErrorResponse(ApiError.Validation(
+                ErrorCodes.ValidationRequired, "El campo 'is_active' debe ser booleano.")));
 
         try
         {
@@ -101,7 +97,7 @@ public sealed class TasksController(
                 new UpdateTaskCommand(
                     workspaceContext.WorkspaceId,
                     taskId,
-                    ReadString(body, "name"),
+                    fields.ReadString("name"),
                     isActive),
                 ct);
 
@@ -120,21 +116,6 @@ public sealed class TasksController(
         }
     }
 
-    private static FieldUpdate<string> ReadString(Dictionary<string, JsonElement> body, string key)
-        => body.TryGetValue(key, out var el)
-            ? FieldUpdate<string>.Set(el.ValueKind == JsonValueKind.Null ? null : el.GetString())
-            : FieldUpdate<string>.Absent;
-
-    private static FieldUpdate<bool> ReadBool(Dictionary<string, JsonElement> body, string key)
-    {
-        if (!body.TryGetValue(key, out var el)) return FieldUpdate<bool>.Absent;
-        if (el.ValueKind is JsonValueKind.True or JsonValueKind.False)
-            return FieldUpdate<bool>.Set(el.GetBoolean());
-
-        throw new TaskValidationException(
-            ErrorCodes.ValidationRequired, $"El campo '{key}' debe ser booleano.");
-    }
-
     private static object ToResponse(TaskSummary task) => new
     {
         id = task.Id,
@@ -149,7 +130,7 @@ public sealed class TasksController(
 /// tarea ya inactiva (por defecto nace activa).
 /// </summary>
 public sealed record CreateTaskRequest(
-    [Required(ErrorMessage = "El nombre de la tarea es obligatorio.")]
-    [StringLength(TaskItem.NameMaxLength, ErrorMessage = "El nombre de la tarea es demasiado largo.")]
+    [RequiredField(ErrorCodes.ValidationRequiredTaskName, "El nombre de la tarea es obligatorio.")]
+    [MaxTextLength(TaskItem.NameMaxLength, ErrorCodes.ValidationTaskNameLength, "El nombre de la tarea es demasiado largo.")]
     string Name,
     [property: JsonPropertyName("is_active")] bool? IsActive);

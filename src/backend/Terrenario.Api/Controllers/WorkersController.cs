@@ -7,6 +7,7 @@ using Terrenario.Api.Application.Workers;
 using Terrenario.Api.Application.Workers.Commands;
 using Terrenario.Api.Common;
 using Terrenario.Api.Common.Errors;
+using Terrenario.Api.Common.Http;
 using Terrenario.Api.Common.Workspaces;
 using Terrenario.Api.Domain.Workers;
 
@@ -100,19 +101,16 @@ public sealed class WorkersController(
         [FromBody] Dictionary<string, JsonElement>? body,
         CancellationToken ct)
     {
-        body ??= new Dictionary<string, JsonElement>();
+        // Lector común del borde de transporte (MVP-502, P-027).
+        var fields = PartialUpdateBody.From(body);
 
-        FieldUpdate<decimal?> hourlyRate;
-        FieldUpdate<bool> isActive;
-        try
-        {
-            hourlyRate = ReadHourlyRate(body);
-            isActive = ReadBool(body, "is_active");
-        }
-        catch (WorkerValidationException ex)
-        {
-            return BadRequest(new ApiErrorResponse(ApiError.Validation(ex.ErrorCode, ex.Message)));
-        }
+        if (!fields.TryReadDecimal("hourly_rate", out var hourlyRate))
+            return BadRequest(new ApiErrorResponse(ApiError.Validation(
+                ErrorCodes.ValidationRangeHourlyRate, "El precio por hora debe ser un número válido.")));
+
+        if (!fields.TryReadBool("is_active", out var isActive))
+            return BadRequest(new ApiErrorResponse(ApiError.Validation(
+                ErrorCodes.ValidationRequired, "El campo 'is_active' debe ser booleano.")));
 
         try
         {
@@ -120,7 +118,7 @@ public sealed class WorkersController(
                 new UpdateWorkerCommand(
                     workspaceContext.WorkspaceId,
                     workerId,
-                    ReadString(body, "name"),
+                    fields.ReadString("name"),
                     hourlyRate,
                     isActive),
                 ct);
@@ -146,32 +144,6 @@ public sealed class WorkersController(
         }
     }
 
-    private static FieldUpdate<string> ReadString(Dictionary<string, JsonElement> body, string key)
-        => body.TryGetValue(key, out var el)
-            ? FieldUpdate<string>.Set(el.ValueKind == JsonValueKind.Null ? null : el.GetString())
-            : FieldUpdate<string>.Absent;
-
-    private static FieldUpdate<decimal?> ReadHourlyRate(Dictionary<string, JsonElement> body)
-    {
-        if (!body.TryGetValue("hourly_rate", out var el)) return FieldUpdate<decimal?>.Absent;
-        if (el.ValueKind == JsonValueKind.Null) return FieldUpdate<decimal?>.Set(null);
-        if (el.ValueKind == JsonValueKind.Number && el.TryGetDecimal(out var value))
-            return FieldUpdate<decimal?>.Set(value);
-
-        throw new WorkerValidationException(
-            ErrorCodes.ValidationRangeHourlyRate, "La tarifa horaria debe ser un número válido.");
-    }
-
-    private static FieldUpdate<bool> ReadBool(Dictionary<string, JsonElement> body, string key)
-    {
-        if (!body.TryGetValue(key, out var el)) return FieldUpdate<bool>.Absent;
-        if (el.ValueKind is JsonValueKind.True or JsonValueKind.False)
-            return FieldUpdate<bool>.Set(el.GetBoolean());
-
-        throw new WorkerValidationException(
-            ErrorCodes.ValidationRequired, $"El campo '{key}' debe ser booleano.");
-    }
-
     private static object ToResponse(WorkerSummary worker) => new
     {
         id = worker.Id,
@@ -188,7 +160,7 @@ public sealed class WorkersController(
 
 /// <summary>Alta de trabajador de cuadrilla. Solo <c>name</c> es obligatorio (CA-2); <c>hourly_rate</c> es de referencia.</summary>
 public sealed record CreateWorkerRequest(
-    [Required(ErrorMessage = "El nombre del trabajador es obligatorio.")]
-    [StringLength(Worker.NameMaxLength, ErrorMessage = "El nombre del trabajador es demasiado largo.")]
+    [RequiredField(ErrorCodes.ValidationRequiredName, "El nombre del trabajador es obligatorio.")]
+    [MaxTextLength(Worker.NameMaxLength, ErrorCodes.ValidationWorkerNameLength, "El nombre del trabajador es demasiado largo.")]
     string Name,
     [property: JsonPropertyName("hourly_rate")] decimal? HourlyRate);

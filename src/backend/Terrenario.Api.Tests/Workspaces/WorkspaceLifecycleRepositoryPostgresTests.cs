@@ -94,12 +94,41 @@ public sealed class WorkspaceLifecycleRepositoryPostgresTests : RepositoryTestBa
             WorkspaceMember.CreateMember(workspace.Id, miembro.Id));
         await Db.SaveChangesAsync();
 
-        // El orden de inserción no manda: manda joined_at.
+        // El orden de inserción no manda: manda `joined_at` y, a igualdad, el identificador. El
+        // desempate es imprescindible aquí: los dos copropietarios se crean con milisegundos de
+        // diferencia —o ninguna, según la resolución del reloj—, así que sin él el resultado
+        // dependería del orden físico de las filas y CA-5 exige que sea determinista (MVP-502).
         var successor = await _repository.FindOtherActiveOwnerAsync(workspace.Id, owner.Id);
 
+        var esperado = new[] { copropietarioAntiguo, copropietarioReciente }
+            .OrderBy(m => m.JoinedAt)
+            .ThenBy(m => m.UserId)
+            .First();
+
         successor.Should().NotBeNull();
-        successor!.UserId.Should().Be(
-            copropietarioAntiguo.JoinedAt <= copropietarioReciente.JoinedAt ? antiguo.Id : reciente.Id);
+        successor!.UserId.Should().Be(esperado.UserId);
+    }
+
+    [Fact]
+    public async Task FindOtherActiveOwnerAsync_Deberia_SerDeterminista_Cuando_DosCopropietariosCompartenFecha()
+    {
+        // La regresión de la que sale el desempate: repetir la consulta debe dar siempre lo mismo.
+        var owner = await SeedUserAsync("-det-owner", "Antonio");
+        var unoId = await SeedUserAsync("-det-uno", "Bruno");
+        var otroId = await SeedUserAsync("-det-otro", "Zoe");
+        var workspace = await SeedWorkspaceAsync(owner, "Finca Determinista");
+
+        Db.WorkspaceMembers.AddRange(
+            WorkspaceMember.CreateOwner(workspace.Id, unoId.Id),
+            WorkspaceMember.CreateOwner(workspace.Id, otroId.Id));
+        await Db.SaveChangesAsync();
+
+        var primera = await _repository.FindOtherActiveOwnerAsync(workspace.Id, owner.Id);
+        var segunda = await _repository.FindOtherActiveOwnerAsync(workspace.Id, owner.Id);
+
+        primera!.UserId.Should().Be(segunda!.UserId);
+        // Y coincide con el menor identificador, que es lo que fija el desempate.
+        primera.UserId.Should().Be(unoId.Id < otroId.Id ? unoId.Id : otroId.Id);
     }
 
     [Fact]

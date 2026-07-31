@@ -117,8 +117,13 @@ public sealed class WorkspaceRepository(TerrenarioDbContext db) : IWorkspaceRepo
                 && m.Role == WorkspaceRoles.Owner,
             ct);
 
-    // Sucesor determinista del traspaso automático (CA-5): el copropietario activo más antiguo.
-    // Orden y `LIMIT 1` en base de datos desde MVP-501 (P-031).
+    // Sucesor del traspaso automático (RN-038, CA-5): el copropietario activo más antiguo. Orden y
+    // `LIMIT 1` en base de datos desde MVP-501 (P-031).
+    //
+    // El desempate por `UserId` no es decorativo: dos personas pueden tener **el mismo** `joined_at`
+    // —la resolución del reloj es de milisegundos y una alta en lote entra a la vez—, y sin él quien
+    // hereda el Workspace lo decide el orden físico de las filas. CA-5 exige que sea determinista,
+    // así que la regla se cierra aquí en vez de depender de la suerte (MVP-502).
     public Task<WorkspaceMember?> FindOtherActiveOwnerAsync(
         Guid workspaceId,
         Guid excludingUserId,
@@ -129,6 +134,7 @@ public sealed class WorkspaceRepository(TerrenarioDbContext db) : IWorkspaceRepo
                 && m.Status == WorkspaceMemberStatuses.Active
                 && m.Role == WorkspaceRoles.Owner)
             .OrderBy(m => m.JoinedAt)
+            .ThenBy(m => m.UserId)
             .FirstOrDefaultAsync(ct);
 
     public async Task<IReadOnlyList<SoleOwnedWorkspace>> ListSoleOwnedAsync(

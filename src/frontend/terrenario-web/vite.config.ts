@@ -1,10 +1,70 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
+/**
+ * MVP-502 — Content-Security-Policy del documento del SPA.
+ *
+ * La API ya emitía CSP desde MVP-105 (`SecurityHeadersMiddleware`, P-005), pero eso protege poco:
+ * sus respuestas son JSON, que no es un contexto de ejecución de scripts. **Donde la CSP mitiga XSS
+ * es en el HTML de la aplicación**, y ahí no había ninguna. Importa especialmente aquí porque el
+ * token de acceso vive en `sessionStorage`: un script inyectado podría leerlo.
+ *
+ * Se inyecta **solo en el build de producción**: en desarrollo, Vite necesita scripts en línea para
+ * el preámbulo de React Refresh y un WebSocket para el HMR, así que una política estricta rompería
+ * el arranque sin proteger nada (el servidor de desarrollo no se expone).
+ *
+ * `connect-src` incluye el origen real de la API porque el front y el back no comparten origen.
+ * El ideal es que la CSP la emita como **cabecera** quien sirva el estático; mientras no exista esa
+ * capa, el `meta` deja la política aplicada y versionada con el código en vez de pendiente.
+ */
+function contentSecurityPolicy(apiBaseUrl: string): Plugin {
+  const apiOrigin = (() => {
+    try {
+      return new URL(apiBaseUrl).origin
+    } catch {
+      return ''
+    }
+  })()
+
+  const policy = [
+    "default-src 'self'",
+    "script-src 'self'",
+    // Tailwind emite una hoja propia, pero el enlace de Google Fonts es una hoja externa y hay
+    // cinco `style={{ width: … }}` que pintan barras del dashboard con valores calculados.
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data:",
+    `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ''}`,
+    // La aplicación no embebe nada ni se deja embeber: sin esto, `X-Frame-Options` es el único
+    // freno al clickjacking y no lo respetan todos los navegadores.
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "object-src 'none'",
+  ].join('; ')
+
+  return {
+    name: 'terrenario-csp',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler: (html) =>
+        html.replace(
+          '<head>',
+          `<head>\n    <meta http-equiv="Content-Security-Policy" content="${policy}" />`
+        ),
+    },
+  }
+}
+
 // https://vite.dev/config/
-export default defineConfig({
-  plugins: [tailwindcss(), react()],
+export default defineConfig(({ mode }) => ({
+  plugins: [
+    tailwindcss(),
+    react(),
+    contentSecurityPolicy(loadEnv(mode, process.cwd(), 'VITE_').VITE_API_BASE_URL ?? ''),
+  ],
   build: {
     // Separa las dependencias que casi nunca cambian (React y el router) del código propio de la app.
     // No reduce la primera carga —el total gzip es el mismo— pero el chunk de vendor se cachea entre
@@ -24,4 +84,4 @@ export default defineConfig({
       },
     },
   },
-})
+}))

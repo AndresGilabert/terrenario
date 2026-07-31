@@ -17,6 +17,14 @@ public static class ErrorCodes
 
     // Validation errors
     public const string ValidationRequired = "VALIDATION_REQUIRED";
+
+    /// <summary>
+    /// MVP-502 (P-027/P-043) — El valor llegó, pero con un formato que no se puede interpretar: una
+    /// fecha que no lo es, un número donde se esperaba un entero, o un cuerpo cuyos bytes no son
+    /// UTF-8 válido. Se distingue de <see cref="ValidationRequired"/> ("falta") a propósito: son dos
+    /// arreglos distintos para el cliente.
+    /// </summary>
+    public const string ValidationFormatInvalid = "VALIDATION_FORMAT_INVALID";
     public const string ValidationRequiredWorkspaceName = "VALIDATION_REQUIRED_WORKSPACE_NAME";
     public const string ValidationWorkspaceNameLength = "VALIDATION_WORKSPACE_NAME_LENGTH";
     public const string ValidationRequiredWorkspaceOwner = "VALIDATION_REQUIRED_WORKSPACE_OWNER";

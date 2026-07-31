@@ -44,6 +44,10 @@ actualizado_en: "2026-07-29"
 - Todas las respuestas incluyen `X-Request-Id` para trazabilidad.
 - Concurrencia de escritura: `If-Match` obligatorio en `PATCH`/`DELETE` de entidades críticas.
 - El servidor devuelve `409 CONFLICT_VERSION_MISMATCH` cuando la versión enviada no coincide.
+- **El cuerpo debe ir codificado en UTF-8.** Un cuerpo con bytes que no lo son responde `400`
+  `VALIDATION_FORMAT_INVALID`, no `500`: es un error de quien llama (MVP-502, `P-027`).
+- **Los mensajes de error van siempre en español.** Ningún texto por defecto del framework llega al
+  cliente (MVP-502, `P-043`).
 
 ### Eventos (mensajería asíncrona)
 
@@ -250,11 +254,11 @@ esta sección):
 
 | Regla | Alta (`POST`) | Edición (`PATCH`) |
 |---|---|---|
-| `name` ausente o nulo | `VALIDATION_REQUIRED` (400) | — (omitirlo mantiene el valor) |
-| `name` en blanco | `VALIDATION_REQUIRED` (400) | `VALIDATION_REQUIRED_NAME` (400) |
-| `name` demasiado largo (> 150) | `VALIDATION_REQUIRED` (400) | `VALIDATION_PLOT_NAME_LENGTH` (400) |
-| `ownership_type` ausente o nulo (RN-028) | `VALIDATION_REQUIRED` (400) | — (omitirlo mantiene el valor) |
-| `ownership_type` en blanco | `VALIDATION_REQUIRED` (400) | `VALIDATION_REQUIRED_PLOT_OWNERSHIP_TYPE` (400) |
+| `name` ausente o nulo | `VALIDATION_REQUIRED_NAME` (400) | — (omitirlo mantiene el valor) |
+| `name` en blanco | `VALIDATION_REQUIRED_NAME` (400) | `VALIDATION_REQUIRED_NAME` (400) |
+| `name` demasiado largo (> 150) | `VALIDATION_PLOT_NAME_LENGTH` (400) | `VALIDATION_PLOT_NAME_LENGTH` (400) |
+| `ownership_type` ausente o nulo (RN-028) | `VALIDATION_REQUIRED_PLOT_OWNERSHIP_TYPE` (400) | — (omitirlo mantiene el valor) |
+| `ownership_type` en blanco | `VALIDATION_REQUIRED_PLOT_OWNERSHIP_TYPE` (400) | `VALIDATION_REQUIRED_PLOT_OWNERSHIP_TYPE` (400) |
 | `ownership_type` fuera de `plot_ownership_type` | `VALIDATION_PLOT_OWNERSHIP_TYPE_INVALID` (400) | `VALIDATION_PLOT_OWNERSHIP_TYPE_INVALID` (400) |
 | `tree_count >= 0` (entero) | `VALIDATION_RANGE_TREE_COUNT` (400) | `VALIDATION_RANGE_TREE_COUNT` (400) |
 | Alias, propietario, referencia catastral o ubicación demasiado largos | `VALIDATION_PLOT_*_LENGTH` (400) | `VALIDATION_PLOT_*_LENGTH` (400) |
@@ -273,15 +277,21 @@ Reglas de contexto (MVP-202):
 | `PATCH` de campos parciales | Un campo ausente mantiene su valor; presente (incluido vacío) lo asigna/limpia |
 | `location` | Texto libre. Coordenadas/mapas y `soil_metadata` quedan fuera de alcance del MVP |
 
-> **Códigos del alta frente a los de la edición** (MVP-208, CA-9; corregido en la 3ª pasada de
-> `MVP-299`, hallazgo `R-24`; aplica igual a terrenos, temporadas, tareas y trabajadores). En el
-> `POST`, todo lo que rechaza el enlace de modelo se colapsa hoy en `VALIDATION_REQUIRED`, con el
-> motivo concreto en `message`: campos obligatorios **ausentes**, **en blanco** —`[Required]` no
-> admite cadenas vacías, así que el valor no llega al dominio— y longitudes máximas anotadas. Solo lo
-> que llega al dominio emite su código propio. En el `PATCH` no hay anotaciones, así que valida
-> siempre el dominio y el código es específico. Un cliente no puede, por tanto, distinguir «falta» de
-> «en blanco» ni de «demasiado largo» en el alta. Unificarlo es transversal a toda la API y está en
-> `MVP-999` (`P-043`, con `P-027`); este contrato describe lo que la API hace hoy.
+> **Los códigos del alta y los de la edición coinciden** desde `MVP-502` (`P-043`, resuelto junto a
+> `P-027`; aplica igual a terrenos, temporadas, tareas y trabajadores). Hasta entonces el `POST`
+> colapsaba **todo** lo que rechazaba el enlace de modelo en `VALIDATION_REQUIRED` —ausente, en
+> blanco y demasiado largo daban lo mismo— mientras el `PATCH` sí emitía el código de dominio, así
+> que un cliente no podía saber qué arreglar. Ahora cada anotación declara su propio código y la
+> respuesta es la misma por las dos vías.
+>
+> Dos consecuencias del cambio, que conviene tener presentes al leer las tablas:
+>
+> - **`VALIDATION_FORMAT_INVALID`** es nuevo y significa «el valor llegó, pero no se puede
+>   interpretar»: una fecha que no lo es, un número donde se esperaba un entero, o un cuerpo cuyos
+>   bytes no son UTF-8 válido. Se distingue de `VALIDATION_REQUIRED` («falta») a propósito.
+> - **Ningún mensaje sale ya en inglés.** Antes, cuando el fallo lo generaba el enlace de modelo, la
+>   respuesta arrastraba el texto por defecto de ASP.NET («The request field is required.») y la UI
+>   lo mostraba tal cual.
 
 ### 2) Seasons (temporadas)
 
@@ -307,10 +317,11 @@ sección de terrenos):
 
 | Regla | Alta (`POST`) | Edición (`PATCH`) |
 |---|---|---|
-| `name` ausente o nulo | `VALIDATION_REQUIRED` (400) | — (omitirlo mantiene el valor) |
-| `name` en blanco | `VALIDATION_REQUIRED` (400) | `VALIDATION_REQUIRED_SEASON_NAME` (400) |
-| `name` demasiado largo (> 120) | `VALIDATION_REQUIRED` (400) | `VALIDATION_SEASON_NAME_LENGTH` (400) |
-| `start_date` ausente o con formato no válido (`YYYY-MM-DD`) | `VALIDATION_REQUIRED` (400) | `VALIDATION_SEASON_DATE_RANGE` (400) |
+| `name` ausente o nulo | `VALIDATION_REQUIRED_SEASON_NAME` (400) | — (omitirlo mantiene el valor) |
+| `name` en blanco | `VALIDATION_REQUIRED_SEASON_NAME` (400) | `VALIDATION_REQUIRED_SEASON_NAME` (400) |
+| `name` demasiado largo (> 120) | `VALIDATION_SEASON_NAME_LENGTH` (400) | `VALIDATION_SEASON_NAME_LENGTH` (400) |
+| `start_date` ausente | `VALIDATION_REQUIRED` (400) | — (omitirlo mantiene el valor) |
+| `start_date` con formato no válido (`YYYY-MM-DD`) | `VALIDATION_FORMAT_INVALID` (400) | `VALIDATION_SEASON_DATE_RANGE` (400) |
 | `start_date <= end_date` | `VALIDATION_SEASON_DATE_RANGE` (400) | `VALIDATION_SEASON_DATE_RANGE` (400) |
 | Nombre ya usado en el Workspace, ignorando mayúsculas (MVP-207) | `CONFLICT_SEASON_NAME_DUPLICATE` (409) | `CONFLICT_SEASON_NAME_DUPLICATE` (409) |
 | Temporada inexistente o de otro Workspace | — | `SEASON_NOT_FOUND` (404) |
@@ -346,9 +357,9 @@ sección de terrenos):
 
 | Regla | Alta (`POST`) | Edición (`PATCH`) |
 |---|---|---|
-| `name` ausente o nulo | `VALIDATION_REQUIRED` (400) | — (omitirlo mantiene el valor) |
-| `name` en blanco | `VALIDATION_REQUIRED` (400) | `VALIDATION_REQUIRED_TASK_NAME` (400) |
-| `name` demasiado largo (> 120) | `VALIDATION_REQUIRED` (400) | `VALIDATION_TASK_NAME_LENGTH` (400) |
+| `name` ausente o nulo | `VALIDATION_REQUIRED_TASK_NAME` (400) | — (omitirlo mantiene el valor) |
+| `name` en blanco | `VALIDATION_REQUIRED_TASK_NAME` (400) | `VALIDATION_REQUIRED_TASK_NAME` (400) |
+| `name` demasiado largo (> 120) | `VALIDATION_TASK_NAME_LENGTH` (400) | `VALIDATION_TASK_NAME_LENGTH` (400) |
 | Nombre ya usado en el Workspace, ignorando mayúsculas | `CONFLICT_TASK_NAME_DUPLICATE` (409) | `CONFLICT_TASK_NAME_DUPLICATE` (409) |
 | Tarea inexistente o de otro Workspace | — | `RESOURCE_NOT_FOUND` (404) |
 | `workspace_id` implícito desde token | `AUTH_WORKSPACE_SCOPE_REQUIRED` (403) | `AUTH_WORKSPACE_SCOPE_REQUIRED` (403) |
@@ -391,9 +402,9 @@ sección de terrenos):
 
 | Regla | Alta (`POST`) | Edición (`PATCH`) |
 |---|---|---|
-| `name` ausente o nulo | `VALIDATION_REQUIRED` (400) | — (omitirlo mantiene el valor) |
-| `name` en blanco | `VALIDATION_REQUIRED` (400) | `VALIDATION_REQUIRED_NAME` (400) |
-| `name` demasiado largo (> 150) | `VALIDATION_REQUIRED` (400) | `VALIDATION_WORKER_NAME_LENGTH` (400) |
+| `name` ausente o nulo | `VALIDATION_REQUIRED_NAME` (400) | — (omitirlo mantiene el valor) |
+| `name` en blanco | `VALIDATION_REQUIRED_NAME` (400) | `VALIDATION_REQUIRED_NAME` (400) |
+| `name` demasiado largo (> 150) | `VALIDATION_WORKER_NAME_LENGTH` (400) | `VALIDATION_WORKER_NAME_LENGTH` (400) |
 | `hourly_rate >= 0` y numérico (opcional, de referencia) | `VALIDATION_RANGE_HOURLY_RATE` (400) | `VALIDATION_RANGE_HOURLY_RATE` (400) |
 | Nombre ya usado en el Workspace, ignorando mayúsculas (MVP-207) | `CONFLICT_WORKER_NAME_DUPLICATE` (409) | `CONFLICT_WORKER_NAME_DUPLICATE` (409) |
 | Renombrar a un responsable con cuenta (RN-036) | — | `BUSINESS_RULE_WORKER_IDENTITY_MANAGED` (422) |

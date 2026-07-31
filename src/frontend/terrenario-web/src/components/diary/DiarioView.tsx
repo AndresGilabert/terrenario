@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useApiClient } from '../../contexts/ApiContext';
 import { useSeason } from '../../contexts/SeasonContext';
@@ -21,6 +21,7 @@ import {
 import {
   DIARY_ENTRY_NOUNS,
   DIARY_ENTRY_STYLES,
+  DIARY_PAGE_SIZE,
   type DiaryEntry,
   type DiaryEntryType,
   type DiaryListResponse,
@@ -40,6 +41,8 @@ import { ActivityFormModal } from './ActivityFormModal';
 
 const EMPTY_SUMMARY: DiaryListResponse['meta'] = {
   total: 0,
+  page: 1,
+  limit: DIARY_PAGE_SIZE,
   total_cost: 0,
   imputed_cost: 0,
   activities: 0,
@@ -115,7 +118,14 @@ export const DiarioView: React.FC = () => {
   const [plotFilter, setPlotFilter] = useState('todos');
   const [seasonFilter, setSeasonFilter] = useState('todas');
   const [typeFilter, setTypeFilter] = useState<DiaryEntryType | 'todos'>('todos');
+  const [workerFilter, setWorkerFilter] = useState('todos');
   const [searchTerm, setSearchTerm] = useState('');
+  /**
+   * MVP-506 — El término que ya ha viajado al servidor. La búsqueda se resuelve allí (`P-052`),
+   * pero teclear no puede disparar una petición por letra: se espera a que la persona pare.
+   */
+  const [appliedSearch, setAppliedSearch] = useState('');
+  const [page, setPage] = useState(1);
 
   const [isModalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Activity | null>(null);
@@ -133,7 +143,18 @@ export const DiarioView: React.FC = () => {
   const [isDeleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  /**
+   * MVP-506 — Secuencia de la última carga pedida. Con filtros y paginación en servidor pueden
+   * quedar dos peticiones en vuelo, y la lenta puede contestar después de la rápida: sin esta guarda,
+   * una respuesta vieja pisa a la nueva y el muro acaba mostrando algo que ya no corresponde a los
+   * filtros de la pantalla. Detectado al probar la búsqueda en el navegador.
+   */
+  const requestSeq = useRef(0);
+
   const reload = useCallback(async () => {
+    const seq = ++requestSeq.current;
+    const isStale = () => seq !== requestSeq.current;
+
     setIsLoading(true);
     setLoadError(null);
     try {
@@ -142,6 +163,10 @@ export const DiarioView: React.FC = () => {
           plotId: plotFilter === 'todos' ? undefined : plotFilter,
           seasonId: seasonFilter === 'todas' ? undefined : seasonFilter,
           types: typeFilter === 'todos' ? undefined : [typeFilter],
+          workerId: workerFilter === 'todos' ? undefined : workerFilter,
+          search: appliedSearch.trim() === '' ? undefined : appliedSearch.trim(),
+          page,
+          limit: DIARY_PAGE_SIZE,
         }),
         // Los maestros se piden activos: es lo que se ofrece para registros nuevos. El catálogo de
         // tareas se trae entero por el aviso de duplicado de MVP-302.
@@ -149,32 +174,74 @@ export const DiarioView: React.FC = () => {
         workerService.listWorkers({ isActive: true }),
         taskService.listTasks(),
       ]);
+
+      // Mientras se esperaba, la persona pudo cambiar de filtro o de página: esta respuesta ya no
+      // es la que la pantalla está pidiendo y pintarla sería mostrar datos de otra consulta.
+      if (isStale()) return;
+
       setEntries(diary.data);
       setSummary(diary.meta);
       setPlots(plotList);
       setWorkers(workerList);
       setTasks(taskList);
     } catch (error) {
+      if (isStale()) return;
       setLoadError(error instanceof HttpError ? error.message : 'No se pudo cargar el diario.');
     } finally {
-      setIsLoading(false);
+      if (!isStale()) setIsLoading(false);
     }
-  }, [diaryService, plotService, workerService, taskService, plotFilter, seasonFilter, typeFilter]);
+  }, [
+    diaryService,
+    plotService,
+    workerService,
+    taskService,
+    plotFilter,
+    seasonFilter,
+    typeFilter,
+    workerFilter,
+    appliedSearch,
+    page,
+  ]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
 
-  /** La búsqueda es local sobre lo ya filtrado en servidor (ver `MVP-999`, `P-052`). */
-  const visibleEntries = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-    if (!term) return entries;
-    return entries.filter((entry) =>
-      [entry.title, entry.plot_name ?? '', entry.worker_name ?? '', entry.description ?? ''].some(
-        (field) => field.toLowerCase().includes(term)
-      )
-    );
-  }, [entries, searchTerm]);
+  /**
+   * MVP-506 — La búsqueda viaja al servidor, pero no en cada pulsación: se espera a que la persona
+   * pare de teclear. Sin esta espera, escribir «sulfatado» serían nueve peticiones y nueve repintados
+   * del muro; con ella, una.
+   */
+  useEffect(() => {
+    if (searchTerm.trim() === appliedSearch) return;
+
+    const timer = setTimeout(() => {
+      setAppliedSearch(searchTerm.trim());
+      setPage(1);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchTerm, appliedSearch]);
+
+  /**
+   * Cualquier cambio de filtro devuelve a la primera página: seguir en la página 4 de un diario que
+   * acaba de reducirse a 12 entradas dejaría la pantalla vacía sin explicar por qué.
+   *
+   * Se hace **junto al cambio de filtro**, no en un efecto aparte: en un efecto, React llegaría a
+   * pintar un estado intermedio (filtro nuevo + página vieja) y saldría una petición de más, cuya
+   * respuesta puede además llegar la última. Aquí las dos actualizaciones van en el mismo lote.
+   */
+  const changeFilter = (apply: () => void) => {
+    apply();
+    setPage(1);
+  };
+
+  const totalPages = Math.max(1, Math.ceil(summary.total / DIARY_PAGE_SIZE));
+  const hasFilters =
+    plotFilter !== 'todos' ||
+    seasonFilter !== 'todas' ||
+    typeFilter !== 'todos' ||
+    workerFilter !== 'todos' ||
+    appliedSearch !== '';
 
   const missingMasters = useMemo(() => {
     const missing: { label: string; to: string }[] = [];
@@ -491,9 +558,9 @@ export const DiarioView: React.FC = () => {
         </div>
       )}
 
-      {/* Filtros */}
-      {(entries.length > 0 || typeFilter !== 'todos' || plotFilter !== 'todos' || seasonFilter !== 'todas') && (
-        <div className="bg-white p-4 rounded-2xl border border-[#e5e2dd] grid grid-cols-1 sm:grid-cols-4 gap-3">
+      {/* Filtros. Todos viajan al servidor desde MVP-506, también la búsqueda por texto. */}
+      {(entries.length > 0 || hasFilters) && (
+        <div className="bg-white p-4 rounded-2xl border border-[#e5e2dd] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <div className="relative">
             <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#76786b] text-lg" aria-hidden="true">search</span>
             <label htmlFor="diary-search" className="sr-only">Buscar en el diario</label>
@@ -512,7 +579,7 @@ export const DiarioView: React.FC = () => {
             <select
               id="diary-type"
               value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value as DiaryEntryType | 'todos')}
+              onChange={(e) => changeFilter(() => setTypeFilter(e.target.value as DiaryEntryType | 'todos'))}
               className="w-full px-3 py-2 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-xs font-medium text-[#1c1c19] focus:outline-none focus:border-[#33450d]"
             >
               <option value="todos">Todos los tipos</option>
@@ -528,7 +595,7 @@ export const DiarioView: React.FC = () => {
             <select
               id="diary-plot"
               value={plotFilter}
-              onChange={(e) => setPlotFilter(e.target.value)}
+              onChange={(e) => changeFilter(() => setPlotFilter(e.target.value))}
               className="w-full px-3 py-2 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-xs font-medium text-[#1c1c19] focus:outline-none focus:border-[#33450d]"
             >
               <option value="todos">Todos los terrenos</option>
@@ -543,7 +610,7 @@ export const DiarioView: React.FC = () => {
             <select
               id="diary-season"
               value={seasonFilter}
-              onChange={(e) => setSeasonFilter(e.target.value)}
+              onChange={(e) => changeFilter(() => setSeasonFilter(e.target.value))}
               className="w-full px-3 py-2 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-xs font-medium text-[#1c1c19] focus:outline-none focus:border-[#33450d]"
             >
               <option value="todas">Todas las temporadas</option>
@@ -552,15 +619,43 @@ export const DiarioView: React.FC = () => {
               ))}
             </select>
           </div>
+
+          {/* MVP-506 (`P-056`) — «qué hizo Antonio esta semana» es una pregunta natural con cuadrilla
+              y hasta ahora solo se podía responder desde la API. */}
+          <div>
+            <label htmlFor="diary-worker" className="sr-only">Filtrar por responsable</label>
+            <select
+              id="diary-worker"
+              value={workerFilter}
+              onChange={(e) => changeFilter(() => setWorkerFilter(e.target.value))}
+              className="w-full px-3 py-2 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-xs font-medium text-[#1c1c19] focus:outline-none focus:border-[#33450d]"
+            >
+              <option value="todos">Todos los responsables</option>
+              {workers.map((worker) => (
+                <option key={worker.id} value={worker.id}>{worker.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
       )}
 
       {/* Filtrar por terreno deja fuera las compras por definición, no por error */}
-      {plotFilter !== 'todos' && (typeFilter === 'todos' || typeFilter === 'compra') && (
+      {plotFilter !== 'todos' && workerFilter === 'todos' && (typeFilter === 'todos' || typeFilter === 'compra') && (
         <p className="text-[11px] text-[#76786b] flex items-start gap-1.5">
           <span className="material-symbols-outlined text-sm shrink-0" aria-hidden="true">info</span>
           Al filtrar por terreno no se muestran compras: una compra es del Workspace y solo se
           reparte por terrenos al imputarla.
+        </p>
+      )}
+
+      {/* MVP-506 — Filtrar por responsable deja fuera los otros tres tipos, por el mismo motivo que
+          el terreno deja fuera las compras: no tienen responsable. Se dice, en vez de que el muro
+          parezca vacío sin explicación. */}
+      {workerFilter !== 'todos' && (
+        <p className="text-[11px] text-[#76786b] flex items-start gap-1.5">
+          <span className="material-symbols-outlined text-sm shrink-0" aria-hidden="true">info</span>
+          Al filtrar por responsable solo se muestran labores: cosechas, compras y consumos no tienen
+          persona asignada.
         </p>
       )}
 
@@ -596,14 +691,18 @@ export const DiarioView: React.FC = () => {
           <div className="w-8 h-8 border-4 border-[#33450d] border-t-transparent rounded-full animate-spin" />
         </div>
       ) : entries.length === 0 ? (
-        <EmptyDiary canRegister={missingMasters.length === 0} onRegister={openCreate} />
-      ) : visibleEntries.length === 0 ? (
-        <p className="text-sm text-[#76786b] italic bg-white p-6 rounded-2xl border border-[#e5e2dd] text-center">
-          No hay registros que coincidan con los filtros.
-        </p>
+        // MVP-506 — con filtrado en servidor, «no hay nada» y «no hay nada que coincida» llegan igual:
+        // una lista vacía. Los distingue si hay filtros puestos, porque son dos mensajes distintos.
+        hasFilters ? (
+          <p className="text-sm text-[#76786b] italic bg-white p-6 rounded-2xl border border-[#e5e2dd] text-center">
+            No hay registros que coincidan con los filtros.
+          </p>
+        ) : (
+          <EmptyDiary canRegister={missingMasters.length === 0} onRegister={openCreate} />
+        )
       ) : (
         <ol className="relative pl-6 space-y-4 before:absolute before:left-3.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-[#c6c8b8]">
-          {visibleEntries.map((entry) => (
+          {entries.map((entry) => (
             <DiaryCard
               key={`${entry.type}-${entry.id}`}
               entry={entry}
@@ -620,6 +719,43 @@ export const DiarioView: React.FC = () => {
             />
           ))}
         </ol>
+      )}
+
+      {/* Paginación (MVP-506). Solo aparece cuando hay más de una página: en un Workspace recién
+          estrenado sería un control que no lleva a ninguna parte. */}
+      {!isLoading && totalPages > 1 && (
+        <nav
+          aria-label="Paginación del diario"
+          className="flex items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-[#e5e2dd]"
+        >
+          <button
+            type="button"
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+            disabled={page <= 1}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-[#33450d] hover:bg-[#f0ede8] disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+          >
+            <span className="material-symbols-outlined text-base" aria-hidden="true">chevron_left</span>
+            Anteriores
+          </button>
+
+          {/* Se dice el total, no solo la página: es lo que permite saber si merece la pena seguir. */}
+          <p className="text-xs text-[#76786b]" aria-live="polite">
+            Página {page} de {totalPages}
+            <span className="hidden sm:inline">
+              {' '}· {summary.total} {summary.total === 1 ? 'registro' : 'registros'}
+            </span>
+          </p>
+
+          <button
+            type="button"
+            onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+            disabled={page >= totalPages}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-[#33450d] hover:bg-[#f0ede8] disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+          >
+            Siguientes
+            <span className="material-symbols-outlined text-base" aria-hidden="true">chevron_right</span>
+          </button>
+        </nav>
       )}
 
       <ActivityFormModal

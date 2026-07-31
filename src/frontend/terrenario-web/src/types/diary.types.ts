@@ -60,7 +60,14 @@ export interface DiaryEntry {
 export interface DiaryListResponse {
   data: DiaryEntry[];
   meta: {
+    /**
+     * MVP-506 — Entradas del diario **filtrado completo**, no de la página: es lo que permite saber
+     * cuántas páginas hay. El resto de contadores e importes también son del conjunto, porque son la
+     * cabecera del muro y cambiarían en cada avance si contaran solo lo visible.
+     */
     total: number;
+    page: number;
+    limit: number;
     /**
      * Gasto real de lo que se está viendo: labores + compras + consumos **sin compra**. Las
      * imputaciones quedan fuera porque reparten dinero que la compra ya aportó (MVP-399, `R-01`).
@@ -85,7 +92,20 @@ export interface DiaryFilters {
   plotId?: string;
   seasonId?: string;
   types?: DiaryEntryType[];
+  /**
+   * MVP-506 (`P-056`) — Responsable de la labor. Solo las actividades lo tienen, así que filtrar por
+   * él deja fuera compras, consumos y cosechas por definición, igual que filtrar por terreno deja
+   * fuera las compras.
+   */
+  workerId?: string;
+  /** MVP-506 (`P-052`) — Búsqueda por texto, resuelta en servidor sobre el diario completo. */
+  search?: string;
+  page?: number;
+  limit?: number;
 }
+
+/** Tamaño de página del diario. Coincide con el defecto del servidor (`contratos-api.md`). */
+export const DIARY_PAGE_SIZE = 20;
 
 /** Cómo se pinta cada tipo en el muro. La cosecha (MVP-401) fue una entrada más aquí. */
 export const DIARY_ENTRY_STYLES: Record<

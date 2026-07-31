@@ -21,6 +21,7 @@ using Terrenario.Api.Common.Http;
 using Terrenario.Api.Common.Workspaces;
 using Terrenario.Api.Domain.Activities;
 using Terrenario.Api.Domain.Consumptions;
+using Terrenario.Api.Domain.Diary;
 using Terrenario.Api.Domain.Harvests;
 using Terrenario.Api.Domain.Plots;
 using Terrenario.Api.Domain.Purchases;
@@ -167,6 +168,9 @@ builder.Services.AddScoped<DashboardScopeResolver>();
 builder.Services.AddScoped<DashboardQueryService>();
 // Diario cronológico unificado (MVP-305): agrega las cuatro entidades operativas, de solo lectura.
 // MVP-401 enciende la cosecha, que es lo que completa RN-033 (hallazgo `G-4`).
+// MVP-506 mueve la mezcla a SQL con su propio repositorio: paginar sobre cuatro listas ya
+// materializadas no es paginar (`P-051`).
+builder.Services.AddScoped<IDiaryRepository, DiaryRepository>();
 builder.Services.AddScoped<DiaryQueryService>();
 builder.Services.AddScoped<ListWorkspacePeopleHandler>();
 builder.Services.AddScoped<RevokeMemberHandler>();

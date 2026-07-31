@@ -528,11 +528,11 @@ Reglas de contexto (MVP-301):
 > Alcance de implementación: `MVP-301`/`MVP-303`/`MVP-304` para actividades, compras e imputaciones, y
 > `MVP-401` para cosechas —**las cuatro implementadas**—.
 
-### 5.b) Diary (diario cronológico unificado, MVP-305)
+### 5.b) Diary (diario cronológico unificado, MVP-305 · MVP-506)
 
 | Operación | Método y ruta | Request (query) | Respuesta 2xx |
 |---|---|---|---|
-| Diario del Workspace | `GET /api/v1/diary` | `from?`, `to?`, `plot_id?`, `season_id?`, `type?` (repetible) | `200 { data, meta }` |
+| Diario del Workspace | `GET /api/v1/diary` | `from?`, `to?`, `plot_id?`, `season_id?`, `type?` (repetible), `worker_id?`, `search?`, `page?`, `limit?` | `200 { data, meta }` |
 
 Es **la vista principal del MVP** (RN-033) y es de **solo lectura**: cada registro se crea, corrige y
 elimina por el recurso al que pertenece (`/activities`, `/purchases`, `/consumptions`), que es donde
@@ -552,10 +552,11 @@ destination, yield }`. Los campos específicos de un tipo llegan a `null` en los
 | `yield` | Solo en cosechas (MVP-402): el rendimiento **efectivo** en L/100kg, declarado o derivado de los litros (RN-013/RN-014) |
 
 `meta` es
-`{ total, total_cost, imputed_cost, activities, purchases, consumptions, consumptions_without_purchase, harvests, total_kg }`:
+`{ total, page, limit, total_cost, imputed_cost, activities, purchases, consumptions, consumptions_without_purchase, harvests, total_kg }`:
 
 | Campo de `meta` | Qué mide |
 |---|---|
+| `total` · `page` · `limit` | MVP-506 — posición dentro del conjunto. **`total` es el del diario filtrado completo, no el de la página**: es lo que permite saber cuántas páginas hay. El resto de contadores e importes también son del conjunto, porque son la cabecera del muro y cambiarían en cada avance si contaran solo lo visible |
 | `total_cost` | **Gasto real** de lo que se está viendo: labores + compras + consumos **sin compra**. **No** incluye las imputaciones: reparten dinero que la compra ya aportó, así que sumarlas contaría el mismo gasto dos veces (`MVP-399`, hallazgo `R-01`). Es el criterio que debe heredar el dashboard de `MVP-004` |
 | `imputed_cost` | Lo repartido por terrenos: **desglose** de `total_cost`, no gasto añadido |
 | `consumptions_without_purchase` | Consumos sin compra previa. Su coste consta como `0` porque se desconoce (RN-032), así que el gasto real fue algo mayor; la UI lo advierte (CA-3 de `MVP-003`) |
@@ -572,9 +573,13 @@ Reglas de contexto:
 | Orden | Fecha de **negocio** descendente (RN-033) y, a igualdad, fecha de captura descendente |
 | Filtro `type` | Ahorra trabajo, no solo oculta: los tipos no pedidos ni se consultan |
 | Filtro `plot_id` | Deja fuera las **compras** por definición: una compra es del Workspace y solo se reparte por terrenos al imputarla (MVP-304). El cliente lo explica para que no parezca un fallo. Las **cosechas sí se conservan**: una cosecha es de un terreno (RN-001) |
+| Filtro `worker_id` (MVP-506) | Deja fuera **cosechas, compras y consumos**, por el mismo motivo que `plot_id` deja fuera las compras: no tienen responsable. El cliente lo explica. Combinarlo con `type` de un tipo sin responsable devuelve vacío, que es la respuesta honesta |
+| `search` (MVP-506) | Texto libre, sin distinguir mayúsculas, sobre titular, terreno, responsable y descripción —cada tipo busca en los campos que tiene—. Se resuelve **en servidor**: sobre una vista paginada, buscar solo en lo visible daría un resultado falso |
 | `type=cosecha` | Vivo desde `MVP-401`, que es quien crea `HARVEST` (hallazgo `G-4`). Con los cuatro tipos, `RN-033` queda cumplida entera |
 | `cost` de una cosecha | Siempre `0`: la cosecha **no tiene coste** (RN-029, que deja fuera precio, molturación y balance). No es «gratis» ni «desconocido»: la magnitud no aplica, y por eso la tarjeta muestra kilos donde las demás muestran dinero |
-| Sin paginación | Igual que el resto de listados del MVP (`MVP-999`, `P-051`) |
+| Paginación (MVP-506) | `page` (def. `1`) y `limit` (def. `20`, **acotado a `100`**). Pedir más del máximo no es un error del cliente, pero servirlo sí sería un problema del servidor: se acota en silencio y `meta.limit` dice lo que se aplicó. `page` o `limit` no positivos responden `400 VALIDATION_FORMAT_INVALID` |
+| Mezcla en SQL (MVP-506) | Los cuatro tipos se unen con `UNION ALL` y la base de datos resuelve orden, página y totales. Antes se mezclaban **en memoria** sobre los cuatro listados: equivalente mientras no había paginación, pero paginar sobre cuatro listas ya materializadas no es paginar (`P-051`) |
+| Estabilidad de la paginación | El orden desempata por `id` tras fecha de negocio y fecha de captura: sin ese tercer criterio, dos entradas del mismo instante pueden repetirse o perderse entre páginas |
 
 ### 6) Harvests (cosechas)
 

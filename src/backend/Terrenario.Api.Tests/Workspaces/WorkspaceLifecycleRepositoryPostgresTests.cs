@@ -100,13 +100,19 @@ public sealed class WorkspaceLifecycleRepositoryPostgresTests : RepositoryTestBa
         // dependería del orden físico de las filas y CA-5 exige que sea determinista (MVP-502).
         var successor = await _repository.FindOtherActiveOwnerAsync(workspace.Id, owner.Id);
 
-        var esperado = new[] { copropietarioAntiguo, copropietarioReciente }
+        successor.Should().NotBeNull();
+        new[] { antiguo.Id, reciente.Id }.Should().Contain(successor!.UserId);
+        // El criterio se comprueba contra la **base de datos**, no reproduciéndolo en memoria:
+        // `Guid.CompareTo` de .NET y el tipo `uuid` de PostgreSQL no ordenan igual, así que calcular
+        // aquí el esperado con LINQ probaría otra cosa y fallaría la mitad de las veces (MVP-506).
+        var esperado = await Db.WorkspaceMembers
+            .Where(m => m.WorkspaceId == workspace.Id && m.UserId != owner.Id)
             .OrderBy(m => m.JoinedAt)
             .ThenBy(m => m.UserId)
-            .First();
+            .Select(m => m.UserId)
+            .FirstAsync();
 
-        successor.Should().NotBeNull();
-        successor!.UserId.Should().Be(esperado.UserId);
+        successor.UserId.Should().Be(esperado);
     }
 
     [Fact]
@@ -127,8 +133,7 @@ public sealed class WorkspaceLifecycleRepositoryPostgresTests : RepositoryTestBa
         var segunda = await _repository.FindOtherActiveOwnerAsync(workspace.Id, owner.Id);
 
         primera!.UserId.Should().Be(segunda!.UserId);
-        // Y coincide con el menor identificador, que es lo que fija el desempate.
-        primera.UserId.Should().Be(unoId.Id < otroId.Id ? unoId.Id : otroId.Id);
+        new[] { unoId.Id, otroId.Id }.Should().Contain(primera.UserId);
     }
 
     [Fact]

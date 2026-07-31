@@ -2,7 +2,7 @@
 id: "MVP-506"
 tipo: feature
 titulo: "Navegación y escala del diario: paginación, búsqueda en servidor y filtro por responsable"
-estado: borrador
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito E — Salida controlada a MVP"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "diario", "escala", "hardening"]
   nivel_riesgo: medio
 creado_en: "2026-07-30"
-actualizado_en: "2026-07-30"
+actualizado_en: "2026-07-31"
 ---
 
 # MVP-506 — Navegación y escala del diario: paginación, búsqueda en servidor y filtro por responsable
@@ -89,12 +89,12 @@ solo sobre una página.
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: `GET /api/v1/diary` pagina en servidor (`page`/`limit` + `meta:{ total, page, limit }`) y
+- [x] **CA-1**: `GET /api/v1/diary` pagina en servidor (`page`/`limit` + `meta:{ total, page, limit }`) y
   la mezcla de los tres tipos se resuelve **en SQL**, de modo que la paginación es real (no un recorte de
   tres listas ya materializadas en memoria).
-- [ ] **CA-2**: La búsqueda por texto del diario se resuelve en servidor y el filtro por **responsable**
+- [x] **CA-2**: La búsqueda por texto del diario se resuelve en servidor y el filtro por **responsable**
   (`worker_id`) está disponible; ambos operan sobre el diario completo, no sobre la página visible.
-- [ ] **CA-3**: `DiarioView` consume la paginación y delega búsqueda y filtro por responsable al
+- [x] **CA-3**: `DiarioView` consume la paginación y delega búsqueda y filtro por responsable al
   servidor, sin regresión de los filtros ya existentes (terreno, temporada, tipo).
 
 ## Maquetas y referencias visuales
@@ -117,3 +117,64 @@ solo sobre una página.
   (2026-07-30).
 - **`P-052` está parcialmente resuelto** desde MVP-305 (terreno/temporada/tipo ya en servidor); aquí se
   cierra su parte pendiente (la búsqueda por texto).
+
+## Resultado de la entrega (2026-07-31)
+
+Diseño técnico completo en [tech-design.md](./tech-design.md).
+
+**Decisión tomada (la que el spec dejaba abierta): paginación clásica `page`/`limit`.** Es la que ya
+definen las convenciones de `contratos-api.md`, la de menor riesgo, y el scroll infinito sigue siendo
+una capa de cliente que puede añadirse encima sin tocar el contrato.
+
+| Pieza | Antes | Después |
+|---|---|---|
+| Mezcla de los cuatro tipos | En memoria, sobre los cuatro puertos operativos | `UNION ALL` en SQL |
+| Paginación | No había | `page`/`limit` con `meta:{ total, page, limit }` |
+| Búsqueda por texto | Local, sobre lo ya traído | En servidor, sobre el diario completo |
+| Filtro por responsable | No existía | `worker_id` |
+| Totales de cabecera | Sumados en memoria sobre la lista completa | Una consulta agregada sobre el conjunto filtrado |
+
+`P-051`, `P-052` y `P-056` quedan cerrados.
+
+### Lo importante de `P-051`: no bastaba con añadir `page` y `limit`
+
+Recortar la página sobre cuatro listas ya materializadas habría seguido trayendo el histórico entero
+a memoria en cada petición: una interfaz paginada sobre un backend que no lo está. Por eso la mezcla
+se mueve a SQL en la misma pasada, que es lo que el punto exigía expresamente.
+
+### Qué queda fuera de cada filtro, y por qué
+
+El filtro por responsable deja fuera cosechas, compras y consumos. No es una limitación: **no tienen
+responsable**, igual que una compra no tiene terreno. Se sigue el precedente que ya existía con el
+filtro de terreno, aviso en la UI incluido, para que el muro no parezca vacío sin explicación.
+
+### Lo que la verificación en navegador destapó
+
+Con los tests en verde, probar contra la API real con 37 entradas dejaba el muro **vacío** al buscar,
+aunque la API devolvía 11 resultados. Dos defectos encadenados que ningún test veía:
+
+1. El reinicio de página vivía en un efecto aparte, así que salía una petición de más con la página
+   vieja y el término nuevo.
+2. Esa respuesta —vacía, porque el resultado cabía en una página— llegaba **la última** y pisaba a la
+   buena.
+
+Corregido en los dos frentes, con test de regresión: el reinicio de página va en el mismo lote que el
+cambio de filtro, y la recarga descarta cualquier respuesta que ya no corresponda a lo que la pantalla
+está pidiendo. La segunda corrección elimina la clase entera de fallo, no solo este caso.
+
+### Corrección arrastrada de `MVP-502`
+
+La suite destapó que el desempate del sucesor de Workspace (`P-068`) estaba **a medias**:
+`Guid.CompareTo` de .NET no ordena igual que el tipo `uuid` de PostgreSQL, así que el repositorio
+—que ordena en SQL— y el handler que anuncia al sucesor —que lo reproducía en memoria— podían elegir
+personas distintas. Justo el defecto que ese punto venía a cerrar. Ahora el handler **pregunta al
+repositorio**: un único sitio decide y no puede haber discrepancia.
+
+### Verificación
+
+- Backend: **654 tests** en verde (631 antes). Los 13 comportamientos que fijaban los tests antiguos
+  del diario se conservan uno a uno, ahora contra PostgreSQL real.
+- Frontend: **81 tests** en verde (72 antes); `npm run build` y `npm run lint` sin errores nuevos.
+- Verificación conducida en navegador con API y PostgreSQL reales: paginación (37 registros en 2
+  páginas, `page=2` pedida al servidor), búsqueda (11 resultados, **una** sola petición) y filtro por
+  responsable con su aviso. La siembra temporal de datos se retiró al terminar, comprobado.

@@ -23,6 +23,23 @@ public class GetWorkspaceClosureOptionsHandlerTests
         _workspaceRepository.FindByIdAsync(_workspace.Id, Arg.Any<CancellationToken>()).Returns(_workspace);
         _workspaceRepository.ListMembersAsync(_workspace.Id, Arg.Any<CancellationToken>())
             .Returns(members.ToList());
+
+        // MVP-506 — el sucesor lo decide el repositorio, no este handler: reproducir el criterio en
+        // memoria era incorrecto, porque el desempate por identificador no ordena igual en .NET que
+        // en PostgreSQL. El doble aplica aquí el mismo criterio que la consulta real.
+        var successor = members
+            .Where(m => m.Status == WorkspaceMemberStatuses.Active
+                && m.UserId != ActingUserId
+                && m.Role == WorkspaceRoles.Owner)
+            .OrderBy(m => m.JoinedAt)
+            .ThenBy(m => m.UserId)
+            .Select(m => WorkspaceMember.CreateOwner(_workspace.Id, m.UserId))
+            .FirstOrDefault();
+
+        _workspaceRepository
+            .FindOtherActiveOwnerAsync(_workspace.Id, ActingUserId, Arg.Any<CancellationToken>())
+            .Returns(successor);
+
         return new GetWorkspaceClosureOptionsHandler(_workspaceRepository);
     }
 

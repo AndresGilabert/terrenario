@@ -183,6 +183,93 @@ public sealed class DiaryIntegrationTests : IAsyncLifetime
         meta.GetProperty("imputed_cost").GetDecimal().Should().Be(100m);
     }
 
+    // ── MVP-506: paginación, búsqueda y responsable en el contrato HTTP ────────
+
+    [Fact]
+    public async Task Deberia_PublicarLaPosicionEnLaColeccion_Cuando_SePagina()
+    {
+        var (entries, meta) = await DiaryAsync("?page=1&limit=2");
+
+        entries.Should().HaveCount(2);
+        meta.GetProperty("page").GetInt32().Should().Be(1);
+        meta.GetProperty("limit").GetInt32().Should().Be(2);
+        // `total` es el del diario completo, no el de la página: es lo que permite saber cuántas
+        // páginas hay y lo que sostiene la cabecera.
+        meta.GetProperty("total").GetInt32().Should().Be(4);
+    }
+
+    [Fact]
+    public async Task Deberia_DevolverElResto_Cuando_SePideLaSegundaPagina()
+    {
+        var (primera, _) = await DiaryAsync("?page=1&limit=3");
+        var (segunda, _) = await DiaryAsync("?page=2&limit=3");
+
+        segunda.Should().ContainSingle();
+        var ids = primera.Concat(segunda).Select(e => e.GetProperty("id").GetGuid()).ToList();
+        ids.Should().OnlyHaveUniqueItems().And.HaveCount(4);
+    }
+
+    [Fact]
+    public async Task Deberia_ResponderConValoresPorDefecto_Cuando_NoSePidePagina()
+    {
+        var (_, meta) = await DiaryAsync();
+
+        meta.GetProperty("page").GetInt32().Should().Be(1);
+        meta.GetProperty("limit").GetInt32().Should().Be(20);
+    }
+
+    [Fact]
+    public async Task Deberia_AcotarElTamanoDePagina_Cuando_SePideDemasiado()
+    {
+        // Pedir de más no es un error del cliente, pero servirlo sí sería un problema del servidor.
+        var (_, meta) = await DiaryAsync("?limit=5000");
+
+        meta.GetProperty("limit").GetInt32().Should().Be(100);
+    }
+
+    [Theory]
+    [InlineData("?page=0")]
+    [InlineData("?limit=0")]
+    [InlineData("?page=-3")]
+    public async Task Deberia_RechazarLaPaginacion_Cuando_NoEsUnEnteroPositivo(string query)
+    {
+        var response = await _session.GetAsync($"/api/v1/diary{query}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Deberia_BuscarEnServidor_Cuando_LlegaElParametroSearch()
+    {
+        var (entries, meta) = await DiaryAsync("?search=riego");
+
+        entries.Should().ContainSingle().Which.GetProperty("title").GetString().Should().Be("Riego");
+        // La cabecera resume lo encontrado, no el diario entero.
+        meta.GetProperty("total").GetInt32().Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Deberia_FiltrarPorResponsable_Cuando_LlegaWorkerId()
+    {
+        var (entries, meta) = await DiaryAsync($"?worker_id={_workerId}");
+
+        // `P-056` — «qué hizo Antonio esta semana» ya se puede responder desde la vista principal.
+        entries.Should().HaveCount(2);
+        entries.Should().OnlyContain(e => e.GetProperty("type").GetString() == "actividad");
+        meta.GetProperty("total").GetInt32().Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Deberia_CombinarBusquedaYPaginacion_Cuando_LleganJuntas()
+    {
+        var (entries, meta) = await DiaryAsync("?search=o&page=1&limit=1");
+
+        entries.Should().ContainSingle();
+        // El total es el de la búsqueda completa, no el de la página: sin eso el cliente no sabría
+        // que hay más resultados fuera de lo que ve.
+        meta.GetProperty("total").GetInt32().Should().BeGreaterThan(1);
+    }
+
     [Fact]
     public async Task Deberia_ContarLosConsumosSinCompra_Cuando_SeRegistraUnoSuelto()
     {

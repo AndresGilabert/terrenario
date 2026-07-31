@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DiarioView } from './DiarioView';
 import { createFakeHttpClient, type FakeHttpClient } from '../../test/http';
+import type { RequestOptions } from '../../services/http-client';
 import type { DiaryEntry, DiaryListResponse } from '../../types/diary.types';
 
 let http: FakeHttpClient;
@@ -49,6 +50,8 @@ describe('DiarioView', () => {
 
   const meta = (overrides: Partial<DiaryListResponse['meta']> = {}): DiaryListResponse['meta'] => ({
     total: 1,
+    page: 1,
+    limit: 20,
     total_cost: 120,
     imputed_cost: 0,
     activities: 1,
@@ -147,55 +150,211 @@ describe('DiarioView', () => {
     });
   });
 
-  describe('búsqueda por texto (P-052: hoy es local)', () => {
+  describe('búsqueda por texto en servidor (MVP-506, P-052)', () => {
     const entries = [
       entry({ id: 'a-1', title: 'Poda', plot_name: 'La Vega', worker_name: 'Antonio' }),
       entry({ id: 'a-2', title: 'Riego', plot_name: 'El Cerro', worker_name: 'Lucía' }),
     ];
 
-    it('Deberia_NoLlamarAlServidor_Cuando_SeEscribeEnLaBusqueda', async () => {
-      const user = userEvent.setup();
-      renderWith({ data: entries, meta: meta({ total: 2, activities: 2 }) });
-      await screen.findByText('Poda');
-
-      const before = http.callsTo('/api/v1/diary').length;
-      await user.type(screen.getByLabelText('Buscar en el diario'), 'riego');
-
-      // Comportamiento actual: teclear no dispara una petición por letra. `MVP-506` lo cambia.
-      expect(http.callsTo('/api/v1/diary')).toHaveLength(before);
-    });
-
-    it('Deberia_DejarSoloLoQueCoincide_Cuando_SeBuscaPorTitulo', async () => {
+    it('Deberia_MandarElTerminoAlServidor_Cuando_SeDejaDeTeclear', async () => {
       const user = userEvent.setup();
       renderWith({ data: entries, meta: meta({ total: 2, activities: 2 }) });
       await screen.findByText('Poda');
 
       await user.type(screen.getByLabelText('Buscar en el diario'), 'riego');
 
-      expect(screen.queryByText('Poda')).not.toBeInTheDocument();
-      expect(screen.getByText('Riego')).toBeInTheDocument();
+      // Sobre una vista paginada, buscar solo en lo visible daría un resultado falso: el término
+      // tiene que viajar al servidor (`P-052`).
+      await waitFor(() => expect(lastDiaryQuery().search).toBe('riego'));
     });
 
-    it('Deberia_BuscarTambienPorResponsable_Cuando_ElTerminoNoEstaEnElTitulo', async () => {
+    it('Deberia_NoDispararUnaPeticionPorLetra_Cuando_SeEscribeDeSeguido', async () => {
       const user = userEvent.setup();
       renderWith({ data: entries, meta: meta({ total: 2, activities: 2 }) });
       await screen.findByText('Poda');
 
-      await user.type(screen.getByLabelText('Buscar en el diario'), 'lucía');
+      const antes = http.callsTo('/api/v1/diary').length;
+      await user.type(screen.getByLabelText('Buscar en el diario'), 'riego');
+      await waitFor(() => expect(lastDiaryQuery().search).toBe('riego'));
 
-      expect(screen.getByText('Riego')).toBeInTheDocument();
-      expect(screen.queryByText('Poda')).not.toBeInTheDocument();
+      // Se espera a que la persona pare de teclear: cinco letras no pueden ser cinco peticiones.
+      expect(http.callsTo('/api/v1/diary').length - antes).toBeLessThanOrEqual(2);
     });
 
-    it('Deberia_DecirloExplicitamente_Cuando_LaBusquedaNoDejaNada', async () => {
+    it('Deberia_NoVolverAFiltrarEnCliente_Cuando_ElServidorYaHaFiltrado', async () => {
       const user = userEvent.setup();
+      // El servidor responde lo que él decide; la vista lo pinta y no lo filtra otra vez.
       renderWith({ data: entries, meta: meta({ total: 2, activities: 2 }) });
       await screen.findByText('Poda');
 
       await user.type(screen.getByLabelText('Buscar en el diario'), 'zzz');
+      await waitFor(() => expect(lastDiaryQuery().search).toBe('zzz'));
+
+      expect(screen.getByText('Poda')).toBeInTheDocument();
+      expect(screen.getByText('Riego')).toBeInTheDocument();
+    });
+
+    it('Deberia_DecirloExplicitamente_Cuando_LaBusquedaNoDejaNada', async () => {
+      const user = userEvent.setup();
+      // El doble responde como el servidor: con resultados hasta que la búsqueda no encuentra nada.
+      http = createFakeHttpClient({
+        '/api/v1/diary': (options: RequestOptions) =>
+          options.query?.search
+            ? { data: [], meta: meta({ total: 0, activities: 0, total_cost: 0 }) }
+            : { data: entries, meta: meta({ total: 2, activities: 2 }) },
+        '/api/v1/plots': { data: [{ id: 'p-1', name: 'La Vega', is_active: true }] },
+        '/api/v1/workers': { data: [{ id: 'w-1', name: 'Antonio', is_active: true }] },
+        '/api/v1/tasks': { data: [{ id: 't-1', name: 'Poda', is_active: true }] },
+      });
+      render(
+        <MemoryRouter>
+          <DiarioView />
+        </MemoryRouter>
+      );
+      await screen.findByText('Poda');
+
+      await user.type(screen.getByLabelText('Buscar en el diario'), 'zzz');
+      await waitFor(() => expect(lastDiaryQuery().search).toBe('zzz'));
 
       // Un muro vacío sin explicación se lee como «no hay nada registrado», que es otra cosa.
-      expect(screen.getByText(/no hay registros que coincidan con los filtros/i)).toBeInTheDocument();
+      expect(
+        await screen.findByText(/no hay registros que coincidan con los filtros/i)
+      ).toBeInTheDocument();
+    });
+  });
+
+  describe('carreras entre peticiones (MVP-506)', () => {
+    it('Deberia_IgnorarLaRespuestaVieja_Cuando_LlegaDespuesDeUnaNueva', async () => {
+      const user = userEvent.setup();
+      // El servidor tarda más en la petición sin filtro que en la filtrada, así que la vieja
+      // contesta la última. Es lo que pasó al probar la búsqueda en el navegador: el muro se
+      // quedaba vacío aunque la API había devuelto resultados.
+      let liberarLenta: (() => void) | null = null;
+
+      http = createFakeHttpClient({
+        '/api/v1/diary': (options: RequestOptions) => {
+          // La petición de «compras» se queda colgada; la de «cosechas» contesta al vuelo.
+          if (options.query?.type === 'compra') {
+            return new Promise((resolve) => {
+              liberarLenta = () => resolve({ data: [], meta: meta({ total: 0, activities: 0 }) });
+            });
+          }
+          if (options.query?.type === 'cosecha') {
+            return { data: [entry({ id: 'a-9', title: 'Sulfatado' })], meta: meta({ total: 1 }) };
+          }
+          return { data: [entry()], meta: meta() };
+        },
+        '/api/v1/plots': { data: [{ id: 'p-1', name: 'La Vega', is_active: true }] },
+        '/api/v1/workers': { data: [{ id: 'w-1', name: 'Antonio', is_active: true }] },
+        '/api/v1/tasks': { data: [{ id: 't-1', name: 'Poda', is_active: true }] },
+      });
+
+      render(
+        <MemoryRouter>
+          <DiarioView />
+        </MemoryRouter>
+      );
+      await screen.findByText('Poda');
+
+      await user.selectOptions(screen.getByLabelText('Filtrar por tipo de registro'), 'compra');
+      await waitFor(() => expect(liberarLenta).not.toBeNull());
+
+      await user.selectOptions(screen.getByLabelText('Filtrar por tipo de registro'), 'cosecha');
+      await screen.findByText('Sulfatado');
+
+      // Ahora contesta la lenta, ya obsoleta: no puede borrar lo que la pantalla está mostrando.
+      liberarLenta!();
+
+      await waitFor(() => expect(screen.getByText('Sulfatado')).toBeInTheDocument());
+      expect(screen.queryByText(/no hay registros que coincidan/i)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('paginación (MVP-506, P-051)', () => {
+    const lote = (n: number) =>
+      Array.from({ length: n }, (_, i) => entry({ id: `a-${i}`, title: `Labor ${i}` }));
+
+    it('Deberia_PedirLaPrimeraPagina_Cuando_SeAbreLaVista', async () => {
+      renderWith({ data: lote(20), meta: meta({ total: 45, activities: 45 }) });
+      await screen.findByText('Labor 0');
+
+      expect(lastDiaryQuery().page).toBe(1);
+      expect(lastDiaryQuery().limit).toBe(20);
+    });
+
+    it('Deberia_OcultarLosControles_Cuando_TodoCabeEnUnaPagina', async () => {
+      renderWith({ data: lote(3), meta: meta({ total: 3, activities: 3 }) });
+      await screen.findByText('Labor 0');
+
+      // Un control que no lleva a ninguna parte solo estorba.
+      expect(screen.queryByRole('navigation', { name: /paginación/i })).not.toBeInTheDocument();
+    });
+
+    it('Deberia_DecirEnQuePaginaSeEsta_Cuando_HayVarias', async () => {
+      renderWith({ data: lote(20), meta: meta({ total: 45, activities: 45 }) });
+      await screen.findByText('Labor 0');
+
+      const nav = within(screen.getByRole('navigation', { name: /paginación/i }));
+      expect(nav.getByText(/página 1 de 3/i)).toBeInTheDocument();
+      // Se dice el total: es lo que permite saber si merece la pena seguir pasando páginas.
+      expect(nav.getByText(/45 registros/i)).toBeInTheDocument();
+    });
+
+    it('Deberia_PedirLaSiguiente_Cuando_SePulsaAvanzar', async () => {
+      const user = userEvent.setup();
+      renderWith({ data: lote(20), meta: meta({ total: 45, activities: 45 }) });
+      await screen.findByText('Labor 0');
+
+      await user.click(screen.getByRole('button', { name: /siguientes/i }));
+
+      await waitFor(() => expect(lastDiaryQuery().page).toBe(2));
+    });
+
+    it('Deberia_DesactivarRetroceder_Cuando_SeEstaEnLaPrimera', async () => {
+      renderWith({ data: lote(20), meta: meta({ total: 45, activities: 45 }) });
+      await screen.findByText('Labor 0');
+
+      expect(screen.getByRole('button', { name: /anteriores/i })).toBeDisabled();
+    });
+
+    it('Deberia_VolverALaPrimeraPagina_Cuando_CambiaUnFiltro', async () => {
+      const user = userEvent.setup();
+      renderWith({ data: lote(20), meta: meta({ total: 45, activities: 45 }) });
+      await screen.findByText('Labor 0');
+
+      await user.click(screen.getByRole('button', { name: /siguientes/i }));
+      await waitFor(() => expect(lastDiaryQuery().page).toBe(2));
+
+      await user.selectOptions(screen.getByLabelText('Filtrar por tipo de registro'), 'cosecha');
+
+      // Seguir en la página 2 de un diario que acaba de reducirse dejaría la pantalla vacía sin
+      // explicar por qué.
+      await waitFor(() => expect(lastDiaryQuery().page).toBe(1));
+    });
+  });
+
+  describe('filtro por responsable (MVP-506, P-056)', () => {
+    it('Deberia_MandarElResponsableAlServidor_Cuando_SeFiltra', async () => {
+      const user = userEvent.setup();
+      renderWith();
+      await screen.findByText('Poda');
+
+      await user.selectOptions(screen.getByLabelText('Filtrar por responsable'), 'w-1');
+
+      await waitFor(() => expect(lastDiaryQuery().worker_id).toBe('w-1'));
+    });
+
+    it('Deberia_ExplicarQueSoloSeVenLabores_Cuando_SeFiltraPorResponsable', async () => {
+      const user = userEvent.setup();
+      renderWith();
+      await screen.findByText('Poda');
+
+      await user.selectOptions(screen.getByLabelText('Filtrar por responsable'), 'w-1');
+
+      // Cosechas, compras y consumos no tienen responsable: quedan fuera por definición, y se dice.
+      expect(
+        await screen.findByText(/al filtrar por responsable solo se muestran labores/i)
+      ).toBeInTheDocument();
     });
   });
 

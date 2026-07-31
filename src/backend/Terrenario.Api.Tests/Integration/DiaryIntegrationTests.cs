@@ -23,6 +23,7 @@ public sealed class DiaryIntegrationTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        await _factory.InitializeAsync();
         _factory.Google.WithIdentity("codigo", "sub", "Andrés", "andres@ejemplo.test");
         _session = await ApiSession.LoginAsync(_factory, "codigo");
         await _session.CreateWorkspaceAsync("Finca El Olivar");

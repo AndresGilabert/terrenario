@@ -1,5 +1,4 @@
 using FluentAssertions;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Terrenario.Api.Domain.Consumptions;
 using Terrenario.Api.Domain.Plots;
@@ -9,52 +8,38 @@ using Terrenario.Api.Domain.Users;
 using Terrenario.Api.Domain.Workspaces;
 using Terrenario.Api.Infrastructure.Data;
 using Terrenario.Api.Infrastructure.Data.Repositories;
+using Terrenario.Api.Tests.Integration;
 
 namespace Terrenario.Api.Tests.Consumptions;
 
 /// <summary>
-/// Tests del repositorio de consumos contra SQLite real (MVP-304): traducción a SQL de la proyección,
+/// Tests del repositorio de consumos contra PostgreSQL real (MVP-304): traducción a SQL de la proyección,
 /// del filtro de baja lógica, del orden por fecha de negocio (CA-4) y —lo más delicado— de las
 /// **sumas por compra** que sostienen la guarda de sobre-imputación y el «imputado / total» del libro.
 /// </summary>
-public sealed class ConsumptionRepositorySqliteTests : IDisposable
+public sealed class ConsumptionRepositoryPostgresTests : RepositoryTestBase
 {
-    private readonly SqliteConnection _connection;
-    private readonly TerrenarioDbContext _db;
     private readonly Guid _userId = Guid.NewGuid();
-
-    public ConsumptionRepositorySqliteTests()
-    {
-        _connection = new SqliteConnection("DataSource=:memory:");
-        _connection.Open();
-
-        var options = new DbContextOptionsBuilder<TerrenarioDbContext>()
-            .UseSqlite(_connection)
-            .Options;
-
-        _db = new TerrenarioDbContext(options);
-        _db.Database.EnsureCreated();
-    }
 
     private sealed record Fixture(Workspace Workspace, Season Season, Plot Plot, Purchase Purchase);
 
     private async Task<Fixture> SeedAsync(string suffix)
     {
         var user = User.Create($"google-sub{suffix}", "Andrés", $"andres{suffix}@ejemplo.com");
-        _db.Users.Add(user);
+        Db.Users.Add(user);
         var workspace = Workspace.Create(user.Id, $"Finca {suffix}");
-        _db.Workspaces.Add(workspace);
+        Db.Workspaces.Add(workspace);
         var season = Season.Create(
             workspace.Id, $"2026/2027 {suffix}", new DateOnly(2026, 9, 1), new DateOnly(2027, 2, 28));
-        _db.Seasons.Add(season);
+        Db.Seasons.Add(season);
         var plot = Plot.Create(workspace.Id, $"Olivar Alto {suffix}", "propia");
-        _db.Plots.Add(plot);
-        await _db.SaveChangesAsync();
+        Db.Plots.Add(plot);
+        await Db.SaveChangesAsync();
 
         var purchase = Purchase.Create(
             workspace.Id, season.Id, new DateOnly(2026, 10, 1), "Abono NPK", 500m, 250m, _userId);
-        _db.Purchases.Add(purchase);
-        await _db.SaveChangesAsync();
+        Db.Purchases.Add(purchase);
+        await Db.SaveChangesAsync();
 
         return new Fixture(workspace, season, plot, purchase);
     }
@@ -74,11 +59,11 @@ public sealed class ConsumptionRepositorySqliteTests : IDisposable
     {
         // CA-2/CA-4 — el consumo sin compra se lee igual que una imputación, con `has_purchase: false`
         var fixture = await SeedAsync("-a");
-        _db.PurchaseConsumptions.Add(Imputed(fixture, new DateOnly(2026, 10, 12)));
-        _db.PurchaseConsumptions.Add(WithoutPurchase(fixture, new DateOnly(2026, 10, 13)));
-        await _db.SaveChangesAsync();
+        Db.PurchaseConsumptions.Add(Imputed(fixture, new DateOnly(2026, 10, 12)));
+        Db.PurchaseConsumptions.Add(WithoutPurchase(fixture, new DateOnly(2026, 10, 13)));
+        await Db.SaveChangesAsync();
 
-        var repository = new ConsumptionRepository(_db);
+        var repository = new ConsumptionRepository(Db);
 
         var views = await repository.ListAsync(fixture.Workspace.Id, new ConsumptionFilter());
 
@@ -96,13 +81,13 @@ public sealed class ConsumptionRepositorySqliteTests : IDisposable
         // CA-4 — un consumo capturado después pero de fecha anterior queda debajo
         var fixture = await SeedAsync("-b");
         var reciente = WithoutPurchase(fixture, new DateOnly(2026, 10, 20));
-        _db.PurchaseConsumptions.Add(reciente);
-        await _db.SaveChangesAsync();
+        Db.PurchaseConsumptions.Add(reciente);
+        await Db.SaveChangesAsync();
         var antiguo = WithoutPurchase(fixture, new DateOnly(2026, 10, 1));
-        _db.PurchaseConsumptions.Add(antiguo);
-        await _db.SaveChangesAsync();
+        Db.PurchaseConsumptions.Add(antiguo);
+        await Db.SaveChangesAsync();
 
-        var repository = new ConsumptionRepository(_db);
+        var repository = new ConsumptionRepository(Db);
 
         (await repository.ListAsync(fixture.Workspace.Id, new ConsumptionFilter()))
             .Select(v => v.Id).Should().ContainInOrder(reciente.Id, antiguo.Id);
@@ -116,15 +101,15 @@ public sealed class ConsumptionRepositorySqliteTests : IDisposable
         var vivo = WithoutPurchase(mine, new DateOnly(2026, 10, 12));
         var borrado = WithoutPurchase(mine, new DateOnly(2026, 10, 13));
         borrado.Delete(_userId);
-        _db.PurchaseConsumptions.AddRange(vivo, borrado, WithoutPurchase(other, new DateOnly(2026, 10, 14)));
-        await _db.SaveChangesAsync();
+        Db.PurchaseConsumptions.AddRange(vivo, borrado, WithoutPurchase(other, new DateOnly(2026, 10, 14)));
+        await Db.SaveChangesAsync();
 
-        var repository = new ConsumptionRepository(_db);
+        var repository = new ConsumptionRepository(Db);
 
         (await repository.ListAsync(mine.Workspace.Id, new ConsumptionFilter()))
             .Should().ContainSingle().Which.Id.Should().Be(vivo.Id);
         (await repository.FindByIdAsync(mine.Workspace.Id, borrado.Id)).Should().BeNull();
-        (await _db.PurchaseConsumptions.CountAsync()).Should().Be(3);
+        (await Db.PurchaseConsumptions.CountAsync()).Should().Be(3);
     }
 
     [Fact]
@@ -132,17 +117,17 @@ public sealed class ConsumptionRepositorySqliteTests : IDisposable
     {
         var fixture = await SeedAsync("-e");
         var otroTerreno = Plot.Create(fixture.Workspace.Id, "Olivar Bajo -e", "cedida");
-        _db.Plots.Add(otroTerreno);
-        await _db.SaveChangesAsync();
+        Db.Plots.Add(otroTerreno);
+        await Db.SaveChangesAsync();
 
-        _db.PurchaseConsumptions.Add(Imputed(fixture, new DateOnly(2026, 10, 12)));
-        _db.PurchaseConsumptions.Add(WithoutPurchase(fixture, new DateOnly(2026, 12, 1)));
-        _db.PurchaseConsumptions.Add(PurchaseConsumption.RegisterWithoutPurchase(
+        Db.PurchaseConsumptions.Add(Imputed(fixture, new DateOnly(2026, 10, 12)));
+        Db.PurchaseConsumptions.Add(WithoutPurchase(fixture, new DateOnly(2026, 12, 1)));
+        Db.PurchaseConsumptions.Add(PurchaseConsumption.RegisterWithoutPurchase(
             fixture.Workspace.Id, fixture.Season.Id, otroTerreno.Id, new DateOnly(2026, 10, 13),
             "Otro material", 5m, _userId));
-        await _db.SaveChangesAsync();
+        await Db.SaveChangesAsync();
 
-        var repository = new ConsumptionRepository(_db);
+        var repository = new ConsumptionRepository(Db);
         var workspaceId = fixture.Workspace.Id;
 
         (await repository.ListAsync(workspaceId, new ConsumptionFilter(
@@ -166,11 +151,11 @@ public sealed class ConsumptionRepositorySqliteTests : IDisposable
         var retirada = Imputed(fixture, new DateOnly(2026, 10, 14), 200m);
         retirada.Delete(_userId);
         // Un consumo sin compra no cuenta para el reparto de ninguna compra.
-        _db.PurchaseConsumptions.AddRange(
+        Db.PurchaseConsumptions.AddRange(
             primera, segunda, retirada, WithoutPurchase(fixture, new DateOnly(2026, 10, 15), 999m));
-        await _db.SaveChangesAsync();
+        await Db.SaveChangesAsync();
 
-        var repository = new ConsumptionRepository(_db);
+        var repository = new ConsumptionRepository(Db);
         var workspaceId = fixture.Workspace.Id;
 
         (await repository.SumImputedQuantityAsync(workspaceId, fixture.Purchase.Id)).Should().Be(250m);
@@ -184,7 +169,7 @@ public sealed class ConsumptionRepositorySqliteTests : IDisposable
         // `SUM` sobre conjunto vacío es NULL en SQL: si no se colapsa, la guarda reventaría
         var fixture = await SeedAsync("-g");
 
-        var repository = new ConsumptionRepository(_db);
+        var repository = new ConsumptionRepository(Db);
 
         (await repository.SumImputedQuantityAsync(fixture.Workspace.Id, fixture.Purchase.Id))
             .Should().Be(0m);
@@ -196,17 +181,17 @@ public sealed class ConsumptionRepositorySqliteTests : IDisposable
         var fixture = await SeedAsync("-h");
         var otraCompra = Purchase.Create(
             fixture.Workspace.Id, fixture.Season.Id, new DateOnly(2026, 10, 2), "Gasóleo", 100m, 145m, _userId);
-        _db.Purchases.Add(otraCompra);
-        await _db.SaveChangesAsync();
+        Db.Purchases.Add(otraCompra);
+        await Db.SaveChangesAsync();
 
-        _db.PurchaseConsumptions.Add(Imputed(fixture, new DateOnly(2026, 10, 12), 100m));
-        _db.PurchaseConsumptions.Add(Imputed(fixture, new DateOnly(2026, 10, 13), 50m));
-        _db.PurchaseConsumptions.Add(PurchaseConsumption.ImputeFromPurchase(
+        Db.PurchaseConsumptions.Add(Imputed(fixture, new DateOnly(2026, 10, 12), 100m));
+        Db.PurchaseConsumptions.Add(Imputed(fixture, new DateOnly(2026, 10, 13), 50m));
+        Db.PurchaseConsumptions.Add(PurchaseConsumption.ImputeFromPurchase(
             fixture.Workspace.Id, otraCompra.Id, fixture.Season.Id, otraCompra.Product,
             otraCompra.UnitPrice, fixture.Plot.Id, new DateOnly(2026, 10, 14), 30m, _userId));
-        await _db.SaveChangesAsync();
+        await Db.SaveChangesAsync();
 
-        var repository = new ConsumptionRepository(_db);
+        var repository = new ConsumptionRepository(Db);
 
         var totals = await repository.SumImputedQuantityByPurchaseAsync(
             fixture.Workspace.Id, new[] { fixture.Purchase.Id, otraCompra.Id });
@@ -223,10 +208,10 @@ public sealed class ConsumptionRepositorySqliteTests : IDisposable
         var viva = Imputed(fixture, new DateOnly(2026, 10, 12));
         var retirada = Imputed(fixture, new DateOnly(2026, 10, 13));
         retirada.Delete(_userId);
-        _db.PurchaseConsumptions.AddRange(viva, retirada);
-        await _db.SaveChangesAsync();
+        Db.PurchaseConsumptions.AddRange(viva, retirada);
+        await Db.SaveChangesAsync();
 
-        var repository = new ConsumptionRepository(_db);
+        var repository = new ConsumptionRepository(Db);
 
         (await repository.CountLiveByPurchaseAsync(fixture.Workspace.Id, fixture.Purchase.Id))
             .Should().Be(1);
@@ -238,16 +223,16 @@ public sealed class ConsumptionRepositorySqliteTests : IDisposable
         // CA-3 — registrar una compra posterior no recalcula lo ya guardado (RN-032)
         var fixture = await SeedAsync("-j");
         var consumo = WithoutPurchase(fixture, new DateOnly(2026, 10, 12));
-        _db.PurchaseConsumptions.Add(consumo);
-        await _db.SaveChangesAsync();
+        Db.PurchaseConsumptions.Add(consumo);
+        await Db.SaveChangesAsync();
 
         // Aparece después una compra del mismo material.
-        _db.Purchases.Add(Purchase.Create(
+        Db.Purchases.Add(Purchase.Create(
             fixture.Workspace.Id, fixture.Season.Id, new DateOnly(2026, 10, 20),
             "Abono de la nave", 100m, 90m, _userId));
-        await _db.SaveChangesAsync();
+        await Db.SaveChangesAsync();
 
-        var repository = new ConsumptionRepository(_db);
+        var repository = new ConsumptionRepository(Db);
 
         var view = (await repository.GetViewAsync(fixture.Workspace.Id, consumo.Id))!;
         view.HasPurchase.Should().BeFalse();
@@ -255,9 +240,4 @@ public sealed class ConsumptionRepositorySqliteTests : IDisposable
         view.UnitPrice.Should().Be(0m);
     }
 
-    public void Dispose()
-    {
-        _db.Dispose();
-        _connection.Dispose();
-    }
 }

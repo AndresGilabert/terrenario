@@ -1,51 +1,36 @@
 using FluentAssertions;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Terrenario.Api.Domain.Users;
 using Terrenario.Api.Domain.Workers;
 using Terrenario.Api.Domain.Workspaces;
 using Terrenario.Api.Infrastructure.Data;
 using Terrenario.Api.Infrastructure.Data.Repositories;
+using Terrenario.Api.Tests.Integration;
 
 namespace Terrenario.Api.Tests.Workers;
 
 /// <summary>
-/// Tests del repositorio de trabajadores contra SQLite real (MVP-204): ejercitan la traducción a SQL
+/// Tests del repositorio de trabajadores contra PostgreSQL real (MVP-204): ejercitan la traducción a SQL
 /// del filtro por estado y del aislamiento por Workspace, que los mocks no ven (lección de P-014).
 /// </summary>
-public sealed class WorkerRepositorySqliteTests : IDisposable
+public sealed class WorkerRepositoryPostgresTests : RepositoryTestBase
 {
-    private readonly SqliteConnection _connection;
-    private readonly TerrenarioDbContext _db;
-
-    public WorkerRepositorySqliteTests()
-    {
-        _connection = new SqliteConnection("DataSource=:memory:");
-        _connection.Open();
-
-        var options = new DbContextOptionsBuilder<TerrenarioDbContext>()
-            .UseSqlite(_connection)
-            .Options;
-
-        _db = new TerrenarioDbContext(options);
-        _db.Database.EnsureCreated();
-    }
 
     private async Task<Workspace> SeedWorkspaceAsync(string suffix = "")
     {
         var user = User.Create($"google-sub{suffix}", "Andrés", $"andres{suffix}@ejemplo.com");
-        _db.Users.Add(user);
+        Db.Users.Add(user);
         var workspace = Workspace.Create(user.Id, $"Finca El Olivar {suffix}");
-        _db.Workspaces.Add(workspace);
-        await _db.SaveChangesAsync();
+        Db.Workspaces.Add(workspace);
+        await Db.SaveChangesAsync();
         return workspace;
     }
 
     private async Task<User> SeedUserAsync(string suffix, string displayName)
     {
         var user = User.Create($"google-sub{suffix}", displayName, $"cuenta{suffix}@ejemplo.com");
-        _db.Users.Add(user);
-        await _db.SaveChangesAsync();
+        Db.Users.Add(user);
+        await Db.SaveChangesAsync();
         return user;
     }
 
@@ -54,11 +39,11 @@ public sealed class WorkerRepositorySqliteTests : IDisposable
     {
         var mine = await SeedWorkspaceAsync("-a");
         var other = await SeedWorkspaceAsync("-b");
-        _db.Workers.Add(Worker.Create(mine.Id, "Antonio"));
-        _db.Workers.Add(Worker.Create(other.Id, "Ajeno"));
-        await _db.SaveChangesAsync();
+        Db.Workers.Add(Worker.Create(mine.Id, "Antonio"));
+        Db.Workers.Add(Worker.Create(other.Id, "Ajeno"));
+        await Db.SaveChangesAsync();
 
-        var repository = new WorkerRepository(_db);
+        var repository = new WorkerRepository(Db);
 
         var result = await repository.ListByWorkspaceAsync(mine.Id, null, default);
 
@@ -72,10 +57,10 @@ public sealed class WorkerRepositorySqliteTests : IDisposable
         var activo = Worker.Create(workspace.Id, "Beatriz");
         var inactivo = Worker.Create(workspace.Id, "Alfredo");
         inactivo.SetActive(false);
-        _db.Workers.AddRange(activo, inactivo);
-        await _db.SaveChangesAsync();
+        Db.Workers.AddRange(activo, inactivo);
+        await Db.SaveChangesAsync();
 
-        var repository = new WorkerRepository(_db);
+        var repository = new WorkerRepository(Db);
 
         var soloActivos = await repository.ListByWorkspaceAsync(workspace.Id, isActive: true, default);
         soloActivos.Should().ContainSingle().Which.Name.Should().Be("Beatriz");
@@ -91,10 +76,10 @@ public sealed class WorkerRepositorySqliteTests : IDisposable
         var mine = await SeedWorkspaceAsync("-d");
         var other = await SeedWorkspaceAsync("-e");
         var ajeno = Worker.Create(other.Id, "Ajeno");
-        _db.Workers.Add(ajeno);
-        await _db.SaveChangesAsync();
+        Db.Workers.Add(ajeno);
+        await Db.SaveChangesAsync();
 
-        var repository = new WorkerRepository(_db);
+        var repository = new WorkerRepository(Db);
 
         var found = await repository.FindByIdAsync(mine.Id, ajeno.Id, default);
 
@@ -107,10 +92,10 @@ public sealed class WorkerRepositorySqliteTests : IDisposable
         // MVP-207 (CA-2) — mismo criterio que el índice único ux_workers_workspace_name.
         var mine = await SeedWorkspaceAsync("-dup-a");
         var other = await SeedWorkspaceAsync("-dup-b");
-        _db.Workers.Add(Worker.Create(mine.Id, "Juan Pérez"));
-        await _db.SaveChangesAsync();
+        Db.Workers.Add(Worker.Create(mine.Id, "Juan Pérez"));
+        await Db.SaveChangesAsync();
 
-        var repository = new WorkerRepository(_db);
+        var repository = new WorkerRepository(Db);
 
         (await repository.ExistsWithNameAsync(mine.Id, "Juan Pérez", null, default)).Should().BeTrue();
         (await repository.ExistsWithNameAsync(mine.Id, "juan pérez", null, default)).Should().BeTrue();
@@ -127,10 +112,10 @@ public sealed class WorkerRepositorySqliteTests : IDisposable
         var propio = Worker.Create(workspace.Id, "Juan Pérez");
         var inactivo = Worker.Create(workspace.Id, "Antonio");
         inactivo.SetActive(false);
-        _db.Workers.AddRange(propio, inactivo);
-        await _db.SaveChangesAsync();
+        Db.Workers.AddRange(propio, inactivo);
+        await Db.SaveChangesAsync();
 
-        var repository = new WorkerRepository(_db);
+        var repository = new WorkerRepository(Db);
 
         // Cambiar solo las mayúsculas del propio nombre no es un conflicto consigo mismo.
         (await repository.ExistsWithNameAsync(workspace.Id, "JUAN PÉREZ", propio.Id, default)).Should().BeFalse();
@@ -147,10 +132,10 @@ public sealed class WorkerRepositorySqliteTests : IDisposable
         // dar de alta cuadrilla con su mismo nombre respondía 201 y dejaba dos personas indistinguibles.
         var workspace = await SeedWorkspaceAsync("-union");
         var cuenta = await SeedUserAsync("-union-m", "Andrés Gilabert");
-        _db.Workers.Add(Worker.CreateForMember(workspace.Id, cuenta.Id, "Andrés Gilabert"));
-        await _db.SaveChangesAsync();
+        Db.Workers.Add(Worker.CreateForMember(workspace.Id, cuenta.Id, "Andrés Gilabert"));
+        await Db.SaveChangesAsync();
 
-        var repository = new WorkerRepository(_db);
+        var repository = new WorkerRepository(Db);
 
         (await repository.ExistsWithNameAsync(workspace.Id, "andrés gilabert", null, default))
             .Should().BeTrue();
@@ -162,10 +147,10 @@ public sealed class WorkerRepositorySqliteTests : IDisposable
         var mine = await SeedWorkspaceAsync("-acc-a");
         var other = await SeedWorkspaceAsync("-acc-b");
         var cuenta = await SeedUserAsync("-acc", "Bruno");
-        _db.Workers.Add(Worker.CreateForMember(mine.Id, cuenta.Id, "Bruno"));
-        await _db.SaveChangesAsync();
+        Db.Workers.Add(Worker.CreateForMember(mine.Id, cuenta.Id, "Bruno"));
+        await Db.SaveChangesAsync();
 
-        var repository = new WorkerRepository(_db);
+        var repository = new WorkerRepository(Db);
 
         (await repository.FindByUserAccountAsync(mine.Id, cuenta.Id, default)).Should().NotBeNull();
         (await repository.FindByUserAccountAsync(other.Id, cuenta.Id, default)).Should().BeNull();
@@ -178,12 +163,12 @@ public sealed class WorkerRepositorySqliteTests : IDisposable
         var uno = await SeedWorkspaceAsync("-sync-a");
         var dos = await SeedWorkspaceAsync("-sync-b");
         var cuenta = await SeedUserAsync("-sync", "Clara");
-        _db.Workers.Add(Worker.CreateForMember(uno.Id, cuenta.Id, "Clara"));
-        _db.Workers.Add(Worker.CreateForMember(dos.Id, cuenta.Id, "Clara"));
-        _db.Workers.Add(Worker.Create(uno.Id, "Cuadrilla sin cuenta"));
-        await _db.SaveChangesAsync();
+        Db.Workers.Add(Worker.CreateForMember(uno.Id, cuenta.Id, "Clara"));
+        Db.Workers.Add(Worker.CreateForMember(dos.Id, cuenta.Id, "Clara"));
+        Db.Workers.Add(Worker.Create(uno.Id, "Cuadrilla sin cuenta"));
+        await Db.SaveChangesAsync();
 
-        var repository = new WorkerRepository(_db);
+        var repository = new WorkerRepository(Db);
 
         var filas = await repository.ListByUserAccountAsync(cuenta.Id, default);
 
@@ -198,10 +183,10 @@ public sealed class WorkerRepositorySqliteTests : IDisposable
         // cuadrilla, nunca la del miembro.
         var workspace = await SeedWorkspaceAsync("-ocupante");
         var cuadrilla = Worker.Create(workspace.Id, "Andrés Gilabert");
-        _db.Workers.Add(cuadrilla);
-        await _db.SaveChangesAsync();
+        Db.Workers.Add(cuadrilla);
+        await Db.SaveChangesAsync();
 
-        var repository = new WorkerRepository(_db);
+        var repository = new WorkerRepository(Db);
 
         var ocupante = await repository.FindByNameAsync(workspace.Id, "ANDRÉS GILABERT", null, default);
 
@@ -216,17 +201,12 @@ public sealed class WorkerRepositorySqliteTests : IDisposable
         // CA-1 — `user_account_id` es una identidad, no una etiqueta: ux_workers_workspace_user_account.
         var workspace = await SeedWorkspaceAsync("-idx");
         var cuenta = await SeedUserAsync("-idx-cuenta", "Diego");
-        _db.Workers.Add(Worker.CreateForMember(workspace.Id, cuenta.Id, "Diego"));
-        _db.Workers.Add(Worker.CreateForMember(workspace.Id, cuenta.Id, "Diego bis"));
+        Db.Workers.Add(Worker.CreateForMember(workspace.Id, cuenta.Id, "Diego"));
+        Db.Workers.Add(Worker.CreateForMember(workspace.Id, cuenta.Id, "Diego bis"));
 
-        var act = async () => await _db.SaveChangesAsync();
+        var act = async () => await Db.SaveChangesAsync();
 
         await act.Should().ThrowAsync<DbUpdateException>();
     }
 
-    public void Dispose()
-    {
-        _db.Dispose();
-        _connection.Dispose();
-    }
 }

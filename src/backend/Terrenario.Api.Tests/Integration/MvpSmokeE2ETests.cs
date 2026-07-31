@@ -23,10 +23,10 @@ public sealed class MvpSmokeE2ETests : IAsyncLifetime
 {
     private readonly TerrenarioApiFactory _factory = new();
 
-    public Task InitializeAsync()
+    public async Task InitializeAsync()
     {
+        await _factory.InitializeAsync();
         _factory.Google.WithIdentity("codigo-de-andres", "google-sub-andres", "Andrés", "andres@ejemplo.test");
-        return Task.CompletedTask;
     }
 
     public Task DisposeAsync()

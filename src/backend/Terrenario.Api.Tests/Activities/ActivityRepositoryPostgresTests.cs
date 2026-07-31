@@ -1,5 +1,4 @@
 using FluentAssertions;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Terrenario.Api.Domain.Activities;
 using Terrenario.Api.Domain.Operations;
@@ -11,53 +10,38 @@ using Terrenario.Api.Domain.Workers;
 using Terrenario.Api.Domain.Workspaces;
 using Terrenario.Api.Infrastructure.Data;
 using Terrenario.Api.Infrastructure.Data.Repositories;
+using Terrenario.Api.Tests.Integration;
 
 namespace Terrenario.Api.Tests.Activities;
 
 /// <summary>
-/// Tests del repositorio de actividades contra SQLite real (MVP-301): ejercitan la traducción a SQL
+/// Tests del repositorio de actividades contra PostgreSQL real (MVP-301): ejercitan la traducción a SQL
 /// de la proyección con <c>JOIN</c> a tres maestros más el <c>LEFT JOIN</c> al catálogo de tareas,
 /// del filtro de baja lógica, de los filtros del listado y del orden por fecha de negocio. Los mocks
 /// no ven nada de esto (lección de P-014).
 /// </summary>
-public sealed class ActivityRepositorySqliteTests : IDisposable
+public sealed class ActivityRepositoryPostgresTests : RepositoryTestBase
 {
-    private readonly SqliteConnection _connection;
-    private readonly TerrenarioDbContext _db;
     private readonly Guid _userId;
-
-    public ActivityRepositorySqliteTests()
-    {
-        _connection = new SqliteConnection("DataSource=:memory:");
-        _connection.Open();
-
-        var options = new DbContextOptionsBuilder<TerrenarioDbContext>()
-            .UseSqlite(_connection)
-            .Options;
-
-        _db = new TerrenarioDbContext(options);
-        _db.Database.EnsureCreated();
-        _userId = Guid.NewGuid();
-    }
 
     private sealed record Fixture(Workspace Workspace, Plot Plot, Season Season, Worker Worker);
 
     private async Task<Fixture> SeedAsync(string suffix)
     {
         var user = User.Create($"google-sub{suffix}", "Andrés", $"andres{suffix}@ejemplo.com");
-        _db.Users.Add(user);
+        Db.Users.Add(user);
         var workspace = Workspace.Create(user.Id, $"Finca El Olivar {suffix}");
-        _db.Workspaces.Add(workspace);
+        Db.Workspaces.Add(workspace);
 
         var plot = Plot.Create(workspace.Id, $"Olivar Alto {suffix}", "propia");
         var season = Season.Create(
             workspace.Id, $"2026/2027 {suffix}", new DateOnly(2026, 9, 1), new DateOnly(2027, 2, 28));
         var worker = Worker.Create(workspace.Id, $"Antonio {suffix}");
-        _db.Plots.Add(plot);
-        _db.Seasons.Add(season);
-        _db.Workers.Add(worker);
+        Db.Plots.Add(plot);
+        Db.Seasons.Add(season);
+        Db.Workers.Add(worker);
 
-        await _db.SaveChangesAsync();
+        await Db.SaveChangesAsync();
 
         return new Fixture(workspace, plot, season, worker);
     }
@@ -76,11 +60,11 @@ public sealed class ActivityRepositorySqliteTests : IDisposable
     {
         var fixture = await SeedAsync("-a");
         var task = TaskItem.Create(fixture.Workspace.Id, "Poda de mantenimiento");
-        _db.Tasks.Add(task);
-        _db.Activities.Add(NewActivity(fixture, new DateOnly(2026, 10, 5), task.Id, null));
-        await _db.SaveChangesAsync();
+        Db.Tasks.Add(task);
+        Db.Activities.Add(NewActivity(fixture, new DateOnly(2026, 10, 5), task.Id, null));
+        await Db.SaveChangesAsync();
 
-        var repository = new ActivityRepository(_db);
+        var repository = new ActivityRepository(Db);
 
         var result = await repository.ListAsync(fixture.Workspace.Id, new ActivityFilter());
 
@@ -98,10 +82,10 @@ public sealed class ActivityRepositorySqliteTests : IDisposable
         // RN-025 — una actividad con tarea en texto libre no tiene fila en el catálogo: el LEFT JOIN
         // es lo que impide que desaparezca del diario.
         var fixture = await SeedAsync("-b");
-        _db.Activities.Add(NewActivity(fixture, new DateOnly(2026, 10, 5), null, "Riego de emergencia"));
-        await _db.SaveChangesAsync();
+        Db.Activities.Add(NewActivity(fixture, new DateOnly(2026, 10, 5), null, "Riego de emergencia"));
+        await Db.SaveChangesAsync();
 
-        var repository = new ActivityRepository(_db);
+        var repository = new ActivityRepository(Db);
 
         var view = (await repository.ListAsync(fixture.Workspace.Id, new ActivityFilter()))
             .Should().ContainSingle().Which;
@@ -115,11 +99,11 @@ public sealed class ActivityRepositorySqliteTests : IDisposable
     {
         var mine = await SeedAsync("-c");
         var other = await SeedAsync("-d");
-        _db.Activities.Add(NewActivity(mine, new DateOnly(2026, 10, 5)));
-        _db.Activities.Add(NewActivity(other, new DateOnly(2026, 10, 6)));
-        await _db.SaveChangesAsync();
+        Db.Activities.Add(NewActivity(mine, new DateOnly(2026, 10, 5)));
+        Db.Activities.Add(NewActivity(other, new DateOnly(2026, 10, 6)));
+        await Db.SaveChangesAsync();
 
-        var repository = new ActivityRepository(_db);
+        var repository = new ActivityRepository(Db);
 
         (await repository.ListAsync(mine.Workspace.Id, new ActivityFilter()))
             .Should().ContainSingle().Which.PlotName.Should().Be("Olivar Alto -c");
@@ -133,16 +117,16 @@ public sealed class ActivityRepositorySqliteTests : IDisposable
         var viva = NewActivity(fixture, new DateOnly(2026, 10, 5));
         var borrada = NewActivity(fixture, new DateOnly(2026, 10, 6));
         borrada.Delete(_userId);
-        _db.Activities.AddRange(viva, borrada);
-        await _db.SaveChangesAsync();
+        Db.Activities.AddRange(viva, borrada);
+        await Db.SaveChangesAsync();
 
-        var repository = new ActivityRepository(_db);
+        var repository = new ActivityRepository(Db);
 
         (await repository.ListAsync(fixture.Workspace.Id, new ActivityFilter()))
             .Should().ContainSingle().Which.Id.Should().Be(viva.Id);
         (await repository.FindByIdAsync(fixture.Workspace.Id, borrada.Id)).Should().BeNull();
         // …pero la fila sigue en base de datos.
-        (await _db.Activities.CountAsync()).Should().Be(2);
+        (await Db.Activities.CountAsync()).Should().Be(2);
     }
 
     [Fact]
@@ -153,12 +137,12 @@ public sealed class ActivityRepositorySqliteTests : IDisposable
         var fixture = await SeedAsync("-f");
         var antigua = NewActivity(fixture, new DateOnly(2026, 10, 1));
         var reciente = NewActivity(fixture, new DateOnly(2026, 10, 20));
-        _db.Activities.Add(reciente);
-        await _db.SaveChangesAsync();
-        _db.Activities.Add(antigua);
-        await _db.SaveChangesAsync();
+        Db.Activities.Add(reciente);
+        await Db.SaveChangesAsync();
+        Db.Activities.Add(antigua);
+        await Db.SaveChangesAsync();
 
-        var repository = new ActivityRepository(_db);
+        var repository = new ActivityRepository(Db);
 
         (await repository.ListAsync(fixture.Workspace.Id, new ActivityFilter()))
             .Select(v => v.Id).Should().ContainInOrder(reciente.Id, antigua.Id);
@@ -169,18 +153,18 @@ public sealed class ActivityRepositorySqliteTests : IDisposable
     {
         var fixture = await SeedAsync("-g");
         var otroTerreno = Plot.Create(fixture.Workspace.Id, "Olivar Bajo -g", "cedida");
-        _db.Plots.Add(otroTerreno);
-        await _db.SaveChangesAsync();
+        Db.Plots.Add(otroTerreno);
+        await Db.SaveChangesAsync();
 
         var enRango = NewActivity(fixture, new DateOnly(2026, 10, 10));
         var fueraDeRango = NewActivity(fixture, new DateOnly(2026, 12, 1));
         var enOtroTerreno = Activity.Create(
             fixture.Workspace.Id, otroTerreno.Id, fixture.Season.Id, fixture.Worker.Id,
             new DateOnly(2026, 10, 11), 2m, null, "Riego", 10m, null, _userId);
-        _db.Activities.AddRange(enRango, fueraDeRango, enOtroTerreno);
-        await _db.SaveChangesAsync();
+        Db.Activities.AddRange(enRango, fueraDeRango, enOtroTerreno);
+        await Db.SaveChangesAsync();
 
-        var repository = new ActivityRepository(_db);
+        var repository = new ActivityRepository(Db);
         var workspaceId = fixture.Workspace.Id;
 
         (await repository.ListAsync(workspaceId, new ActivityFilter(
@@ -204,10 +188,10 @@ public sealed class ActivityRepositorySqliteTests : IDisposable
         var fixture = await SeedAsync("-h");
         var dentro = NewActivity(fixture, new DateOnly(2026, 10, 5));
         var fuera = NewActivity(fixture, new DateOnly(2026, 8, 15));
-        _db.Activities.AddRange(dentro, fuera);
-        await _db.SaveChangesAsync();
+        Db.Activities.AddRange(dentro, fuera);
+        await Db.SaveChangesAsync();
 
-        var repository = new ActivityRepository(_db);
+        var repository = new ActivityRepository(Db);
 
         (await repository.GetViewAsync(fixture.Workspace.Id, dentro.Id))!
             .IsOutOfSeasonRange.Should().BeFalse();
@@ -221,10 +205,10 @@ public sealed class ActivityRepositorySqliteTests : IDisposable
         var mine = await SeedAsync("-i");
         var other = await SeedAsync("-j");
         var ajena = NewActivity(other, new DateOnly(2026, 10, 5));
-        _db.Activities.Add(ajena);
-        await _db.SaveChangesAsync();
+        Db.Activities.Add(ajena);
+        await Db.SaveChangesAsync();
 
-        var repository = new ActivityRepository(_db);
+        var repository = new ActivityRepository(Db);
 
         (await repository.FindByIdAsync(mine.Workspace.Id, ajena.Id)).Should().BeNull();
     }
@@ -236,26 +220,21 @@ public sealed class ActivityRepositorySqliteTests : IDisposable
         // acabar en un 500. El token de concurrencia de EF es la última línea de defensa.
         var fixture = await SeedAsync("-k");
         var activity = NewActivity(fixture, new DateOnly(2026, 10, 5));
-        _db.Activities.Add(activity);
-        await _db.SaveChangesAsync();
+        Db.Activities.Add(activity);
+        await Db.SaveChangesAsync();
 
         // Otra sesión sube la versión por debajo, sin pasar por el contexto en curso.
-        await _db.Database.ExecuteSqlRawAsync(
+        await Db.Database.ExecuteSqlRawAsync(
             "UPDATE activities SET version = version + 1 WHERE id = {0}", activity.Id);
 
         activity.Update(
             fixture.Plot.Id, fixture.Season.Id, fixture.Worker.Id,
             new DateOnly(2026, 10, 5), 5m, null, "Poda", 70m, null, _userId);
 
-        var repository = new ActivityRepository(_db);
+        var repository = new ActivityRepository(Db);
 
         await repository.Invoking(r => r.SaveChangesAsync())
             .Should().ThrowAsync<ConcurrencyConflictException>();
     }
 
-    public void Dispose()
-    {
-        _db.Dispose();
-        _connection.Dispose();
-    }
 }

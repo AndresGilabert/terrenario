@@ -41,14 +41,12 @@ public sealed class ConsumptionRepository(TerrenarioDbContext db) : IConsumption
             live = live.Where(c => c.Product.ToLower().Contains(needle));
         }
 
-        // Orden por fecha de negocio en SQL (CA-4) y desempate por fecha de captura en memoria:
-        // EF+SQLite no traduce `ORDER BY` sobre `DateTimeOffset` (P-031).
-        var rows = await ProjectViews(live.OrderByDescending(c => c.Date)).ToListAsync(ct);
-
-        return rows
-            .OrderByDescending(v => v.Date)
-            .ThenByDescending(v => v.CreatedAt)
-            .ToList();
+        // Orden por fecha de negocio (CA-4) y desempate por fecha de captura, los dos en SQL desde
+        // MVP-501: el desempate se hacía en memoria porque EF+SQLite no traduce `ORDER BY` sobre
+        // `DateTimeOffset` (P-031).
+        return await ProjectViews(
+                live.OrderByDescending(c => c.Date).ThenByDescending(c => c.CreatedAt))
+            .ToListAsync(ct);
     }
 
     public Task<ConsumptionView?> GetViewAsync(

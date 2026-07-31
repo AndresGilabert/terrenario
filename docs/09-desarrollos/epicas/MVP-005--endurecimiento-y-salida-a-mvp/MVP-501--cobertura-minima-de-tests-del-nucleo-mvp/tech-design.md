@@ -14,7 +14,7 @@ ai_context:
   etiquetas: ["mvp", "testing", "quality-gate"]
   nivel_riesgo: alto
 creado_en: "2026-07-30"
-actualizado_en: "2026-07-30"
+actualizado_en: "2026-07-31"
 ---
 
 # TDD: MVP-501 — Cobertura mínima de tests del núcleo MVP
@@ -30,9 +30,10 @@ La historia monta **las dos capas que faltaban** de la pirámide de
   cubierto; no había nada que construir. El **frontend no tenía arnés ninguno** desde `MVP-106`
   (`P-012`/`P-023`): se monta **Vitest + Testing Library** y se cubre la lógica de decisión que hasta
   hoy solo sostenían el tipado, el build y la QA manual.
-- **Integración.** Nuevo arnés de **API real** con `WebApplicationFactory` sobre **SQLite**: levanta
-  el `Program.cs` de producción entero —autenticación JWT, middlewares, filtros de scope,
-  controladores, handlers, dominio, EF— contra una base de datos de verdad.
+- **Integración.** Nuevo arnés de **API real** con `WebApplicationFactory` sobre **PostgreSQL en
+  contenedor**: levanta el `Program.cs` de producción entero —autenticación JWT, middlewares, filtros
+  de scope, controladores, handlers, dominio, EF— contra el **mismo motor que producción**. Los tests
+  de repositorio, que corrían sobre SQLite, se mueven al mismo arnés.
 - **Smoke E2E.** Un recorrido en secuencia por el núcleo del MVP (login → Workspace → temporada →
   maestros → labor → cosecha → compra → imputación → diario → dashboard), sobre ese mismo arnés.
 
@@ -48,8 +49,10 @@ cambios acotados y con test de regresión propio (ver «Hallazgos y su correcci�
 | `src/frontend/terrenario-web/src/test/` | nuevo | Preparación común (`setup.ts`) y doble del cliente HTTP (`http.ts`) |
 | `src/frontend/terrenario-web/tsconfig.test.json` | nuevo | Comprobación de tipos de los tests, fuera del build de producción |
 | `src/frontend/terrenario-web/package.json` | modificado | Dependencias del arnés y scripts `test`, `test:watch`, `test:coverage` |
-| `src/backend/Terrenario.Api.Tests/Integration/` | nuevo | Arnés de integración (`TerrenarioApiFactory`, `ApiSession`) y sus tests |
-| `src/backend/Terrenario.Api.Tests/*.csproj` | modificado | `Microsoft.AspNetCore.Mvc.Testing` |
+| `src/backend/Terrenario.Api.Tests/Integration/` | nuevo | Arnés (`PostgresTestServer`, `RepositoryTestBase`, `TerrenarioApiFactory`, `ApiSession`) y sus tests |
+| `src/backend/Terrenario.Api.Tests/*/*RepositorySqliteTests.cs` | renombrado | Pasan a `*RepositoryPostgresTests` sobre el arnés común (11 ficheros) |
+| `src/backend/Terrenario.Api/Infrastructure/Data/Repositories/` | modificado | `P-031`: ocho órdenes en memoria devueltos a SQL |
+| `src/backend/Terrenario.Api.Tests/*.csproj` | modificado | `Microsoft.AspNetCore.Mvc.Testing`; SQLite fuera, `Testcontainers.PostgreSql` dentro |
 | `src/frontend/terrenario-web/src/lib/invitation-ui.ts` | modificado | Corrección de `F-01`: caducidad por días de calendario |
 | `src/frontend/.../*.tsx` (28 ficheros) | modificado | Corrección de `F-02`: `react-router-dom` → `react-router@8` |
 | `docs/04-ingenieria/estrategia-testing.md` | modificado | El arnés real, sus herramientas y el hueco de E2E de navegador |
@@ -86,27 +89,50 @@ Qué se cubre y por qué:
 
 ### Arnés de integración y smoke E2E
 
-`TerrenarioApiFactory : WebApplicationFactory<Program>` levanta la aplicación real. Solo se sustituyen
-**dos** cosas, y las dos por un motivo declarado:
+`TerrenarioApiFactory : WebApplicationFactory<Program>` levanta la aplicación real contra la base que
+prepara `PostgresTestServer`. Lo **único** que se sustituye es **Google** (`IGoogleOidcService`): es un
+proveedor externo cuyo consentimiento no se puede automatizar. Todo lo demás del login —alta de
+usuario, emisión del JWT, cookie de refresco, resolución del Workspace— sí se ejercita.
 
-1. **PostgreSQL por SQLite en memoria**, una base por clase de test. Mantiene el arnés sin dependencia
-   de Docker (decisión del PO al abrir la historia). El precio está registrado: ver «Lo que esta
-   historia no cierra».
-2. **Google** (`IGoogleOidcService`). Es un proveedor externo cuyo consentimiento no se puede
-   automatizar. Todo lo demás del login —alta de usuario, emisión del JWT, cookie de refresco,
-   resolución del Workspace— sí se ejercita.
+`PostgresTestServer` levanta **un contenedor por ejecución** (`postgres:15-alpine`, la misma familia
+que el entorno de desarrollo) y crea **una base de datos por clase de test**: las clases siguen
+corriendo en paralelo sin pisarse los datos y el arranque del contenedor, que es lo caro, se paga una
+vez. El esquema se crea aplicando las **migraciones reales** en vez de `EnsureCreated`, lo que de paso
+valida que aplican limpias — algo que SQLite no podía comprobar de ninguna manera.
 
 Dos detalles de fontanería que costaron y conviene no volver a descubrir:
 
-- Sustituir `DbContextOptions` **no basta**. Desde EF 9 cada `AddDbContext` deja registrada su acción
-  de configuración (`IDbContextOptionsConfiguration<TContext>`) y **todas** se aplican al mismo objeto
-  de opciones: sin retirar la de Npgsql, el contexto acaba con dos proveedores y EF se niega a
-  arrancar. Hay que quitar esos descriptores, no solo las opciones.
-- La base en memoria de SQLite vive mientras haya **una conexión abierta**. El arnés abre una en el
-  constructor y la cierra al final; si no, el esquema desaparece entre peticiones.
+- **El pool hay que acotarlo.** Con el pool por defecto (100 conexiones por origen) y ~20 clases en
+  paralelo, PostgreSQL responde `53300: sorry, too many clients already` y el fallo aparece en
+  `InitializeAsync`, donde se lee como un fallo del test y no del arnés. El arnés fija
+  `MaxPoolSize=4` por base y arranca el contenedor con `max_connections=400`.
+- **Un `Dispose()` heredado no basta**: la base se prepara en `InitializeAsync` (es asíncrona), así que
+  cualquier campo que dependa de ella no puede inicializarse en el constructor.
 
 `ApiSession` encapsula el token y la cabecera `If-Match`, para que los tests hablen de flujos («da de
 alta un terreno») y no de cabeceras.
+
+### `P-031` — Devolver a SQL lo que el test había echado a memoria
+
+Este es el motivo por el que el arnés acabó en PostgreSQL y no en SQLite. EF+SQLite no traduce
+`ORDER BY` sobre `DateTimeOffset`, y eso había dejado **ocho consultas de producción escritas hacia
+atrás**, todas con el mismo comentario: «se ordena en memoria porque el test». Un test que obliga a
+empeorar el código que prueba deja de ser una red de seguridad.
+
+| Consulta | Cómo estaba | Cómo queda |
+|---|---|---|
+| `WorkspaceRepository.FindDefaultForUserAsync` | Traía **todas** las membresías activas para quedarse con una | `ORDER BY` + `LIMIT 1` en SQL |
+| `WorkspaceRepository.FindOtherActiveOwnerAsync` | Traía **todos** los copropietarios para quedarse con uno | `ORDER BY` + `LIMIT 1` en SQL |
+| `WorkspaceInvitationRepository.ListPendingAsync` | Sin `ORDER BY`; reordenaban dos handlers | `ORDER BY created_at DESC` en SQL |
+| `WorkspaceReactivationRequestRepository.ListPendingAuthorizationsAsync` | Ordenaba tras materializar | `ORDER BY` antes de proyectar |
+| `Activity` · `Harvest` · `Purchase` · `Consumption` `ListAsync` | Fecha en SQL, desempate por captura en memoria | Orden completo en SQL |
+
+Las dos primeras no eran solo estética: materializaban la tabla para descartarla. Los dos `OrderBy`
+redundantes que quedaban en `ListWorkspaceInvitationsHandler` y `ListWorkspacePeopleHandler` se
+retiran también.
+
+El riesgo de mover el desempate a SQL era que EF perdiera el orden al proyectar sobre un `JOIN`; los
+tests de repositorio y el smoke E2E lo comprueban de punta a punta y pasan.
 
 El **smoke E2E** es un solo test que recorre el flujo entero, a propósito. Trocearlo obligaría a
 resembrar el estado en cada trozo y dejaría de comprobar lo único que aporta: que las piezas encajan
@@ -116,7 +142,7 @@ resembrar el estado en cada trozo y dejaría de comprobar lo único que aporta: 
 
 | Alternativa | Por qué se descartó |
 |---|---|
-| Integración contra PostgreSQL real con Testcontainers | Decisión del PO: exige Docker en local y en CI y sube el tiempo de cada corrida. Deja `P-031` abierto, que queda registrado |
+| Mantener SQLite en el arnés | Primera versión de esta historia. Se revierte al cerrar `P-031`: no compensa un arnés que obliga a degradar ocho consultas de producción. Contrapartida aceptada: los tests del backend **exigen Docker** |
 | Smoke E2E de navegador con Playwright | Decisión del PO. El login es Google OIDC y no se puede automatizar sin sembrar sesión inyectando un JWT; el coste no compensaba en esta pasada. Hueco registrado como `P-064` |
 | Doblar `fetch` en vez del cliente HTTP en los tests de vista | Acoplaría cada test de vista al transporte, que ya tiene su propia cobertura. Los tests dirían menos y se romperían más |
 | Trocear el smoke E2E en un test por paso | Cada trozo tendría que resembrar el estado y se perdería justo lo que el smoke aporta: la secuencia |
@@ -125,7 +151,8 @@ resembrar el estado en cada trozo y dejaría de comprobar lo único que aporta: 
 
 | Riesgo | Probabilidad | Mitigación |
 |---|---|---|
-| SQLite no reproduce el SQL de PostgreSQL (tipos de fecha, índices funcionales) | alta | Registrado en `P-031`; el arnés cubre traducción de LINQ y contratos HTTP, que es donde estaban los fallos reales (`P-014`) |
+| Los tests del backend dejan de correr sin Docker | media | Contrapartida asumida al cerrar `P-031`, declarada en `estrategia-testing.md`. Docker ya estaba en el entorno de desarrollo (`terrenario-pg`) y lo hay en el CI |
+| El contenedor alarga la ejecución de la suite | media | Un contenedor por ejecución y una base por clase: la suite completa (595 tests) tarda ~28 s |
 | El smoke E2E se vuelve frágil al crecer el flujo | media | Un único test, con secciones numeradas y aserciones sobre contrato, no sobre textos de UI |
 | Los tests de vista se acoplan a las clases de Tailwind | baja | Se consulta por rol, etiqueta accesible y texto visible; nunca por clase CSS |
 
@@ -151,9 +178,11 @@ npm test --prefix src/frontend/terrenario-web
 
 | Suite | Antes | Después |
 |---|---|---|
-| Backend (unitarios + repos SQLite) | 576 | 576 |
-| Backend (integración + smoke E2E) | 0 | 19 |
-| Frontend | **no existía arnés** | 70 |
+| Backend — unitarios y repositorios | 576 (repos sobre SQLite) | 576 (repos sobre **PostgreSQL real**) |
+| Backend — integración y smoke E2E | 0 | 19 |
+| Frontend | **no existía arnés** | 72 |
+
+La suite completa del backend (595 tests, contenedor incluido) tarda unos **28 s**.
 
 ## Hallazgos y su corrección
 
@@ -222,16 +251,13 @@ descartado). Se registra como `P-064` y queda pendiente de decisión de producto
 
 ## Lo que esta historia no cierra
 
-Dos puntos, y los dos son consecuencia de decisiones de alcance sobre el arnés, no defectos del
-código entregado:
+Queda **un** punto, y no es un defecto del código entregado sino una decisión de alcance:
 
-- **`P-031`** (EF+SQLite y `ORDER BY` sobre `DateTimeOffset`) sigue **abierto**. Montar la integración
-  sobre SQLite en vez de PostgreSQL no da la condición que ese punto necesitaba —ejercitar el SQL de
-  producción—, así que los órdenes en memoria que existen solo por el test no se pueden revertir.
-- **`P-064`**: E2E de navegador, ver `F-03`.
+- **`P-064`** — E2E de **navegador**. Playwright sigue descartado (ver `F-03`). El gate de `MVP-504`
+  debe leer «smoke E2E en verde» sabiendo que es de servidor.
 
-Ambos se resuelven con la misma clase de decisión: aceptar Docker en el arnés (Testcontainers) y
-montar Playwright con sesión sembrada.
+`P-031` **sí queda cerrado**: era el otro punto de esta lista y se resolvió moviendo el arnés a
+PostgreSQL real.
 
 ## Checklist de implementación
 

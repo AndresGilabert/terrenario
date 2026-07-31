@@ -23,11 +23,13 @@ public sealed class WorkspaceReactivationRequestRepository(TerrenarioDbContext d
         Guid authorizerUserId,
         CancellationToken ct = default)
         // Join a Workspace y a la cuenta solicitante para que la pantalla de decisión no tenga que
-        // resolver nombres por su cuenta. Sin ORDER BY en base de datos: ordenar por DateTimeOffset
-        // no lo traduce EF+SQLite (mismo criterio que las invitaciones pendientes de MVP-204).
-        => (await db.WorkspaceReactivationRequests
+        // resolver nombres por su cuenta. El orden va sobre la columna real **antes** de proyectar
+        // (lección de P-014: EF no traduce un OrderBy sobre el DTO construido en el Select). Hasta
+        // MVP-501 se ordenaba en memoria tras materializar, por SQLite (P-031).
+        => await db.WorkspaceReactivationRequests
             .Where(r => r.AuthorizerUserId == authorizerUserId
                 && r.Status == ReactivationRequestStatuses.Requested)
+            .OrderByDescending(r => r.RequestedAt)
             .Join(db.Workspaces, r => r.WorkspaceId, w => w.Id, (r, w) => new { Request = r, Workspace = w })
             .Join(db.Users, x => x.Request.RecipientUserId, u => u.Id, (x, u) => new { x.Request, x.Workspace, User = u })
             .Select(x => new ReactivationRequestDetail(
@@ -39,9 +41,7 @@ public sealed class WorkspaceReactivationRequestRepository(TerrenarioDbContext d
                 x.User.Email,
                 x.Request.RequestedAt!.Value,
                 x.Request.ExpiresAt))
-            .ToListAsync(ct))
-            .OrderByDescending(r => r.RequestedAt)
-            .ToList();
+            .ToListAsync(ct);
 
     public async Task<IReadOnlyList<WorkspaceReactivationRequest>> ListOpenForWorkspaceAsync(
         Guid workspaceId,

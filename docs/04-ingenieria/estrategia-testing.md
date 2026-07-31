@@ -82,7 +82,7 @@ public class CosechaServiceTests
 |------------|-----------|
 | xUnit | Runner de tests unitarios e integración (backend) |
 | FluentAssertions · NSubstitute | Aserciones y dobles del backend |
-| EF Core + SQLite (en memoria) | Repositorios y arnés de integración con SQL real |
+| Testcontainers + PostgreSQL | Repositorios y arnés de integración contra el motor de producción |
 | ASP.NET Core WebApplicationFactory | Tests de API/integración HTTP y smoke E2E de servidor |
 | Vitest · Testing Library · jsdom | Tests unitarios y de vista del frontend |
 | Playwright | Tests E2E de navegador — **no montado todavía**, ver más abajo |
@@ -92,12 +92,29 @@ public class CosechaServiceTests
 ### Backend
 
 - **Unitarios**: dominio y handlers, con repositorios doblados.
-- **Repositorio sobre SQLite real** (no `InMemory`): ejercitan la traducción a SQL de EF y cazan los
+- **Repositorio contra PostgreSQL real**: ejercitan la traducción a SQL de EF y cazan los
   «could not be translated» que los mocks no ven. La lección viene de `P-014`, un `HTTP 500` en
   `GET /workspaces` que sobrevivió a 130 tests en verde.
 - **Integración y smoke E2E**: `WebApplicationFactory` levanta el `Program.cs` real —autenticación
-  JWT, middlewares, filtros de scope, controladores, EF— contra una base SQLite propia de cada clase
-  de test. Solo se sustituyen la base de datos y el proveedor de identidad de Google.
+  JWT, middlewares, filtros de scope, controladores, EF— contra esa misma base. Lo único que se
+  sustituye es el proveedor de identidad de Google, que es externo.
+
+El motor lo levanta **Testcontainers**: un contenedor por ejecución y una **base de datos por clase
+de test**, así que las clases siguen corriendo en paralelo sin pisarse. El esquema se crea aplicando
+las **migraciones reales**, lo que de paso valida que aplican limpias.
+
+> **Requiere Docker** para ejecutar los tests del backend.
+
+### Por qué no SQLite (P-031)
+
+El arnés nació sobre SQLite y hubo que revertirlo. EF+SQLite no traduce `ORDER BY` sobre
+`DateTimeOffset`, así que **ocho consultas de producción estaban escritas hacia atrás** —ordenando en
+memoria lo que la base sabe ordenar, y en dos casos materializando la tabla entera para quedarse con
+una fila— únicamente para que el arnés pudiera ejecutarlas.
+
+Un test que obliga a empeorar el código que prueba deja de ser una red de seguridad. Contra el motor
+real esa presión desaparece y, además, entra en cobertura todo lo que SQLite no podía representar:
+`timestamptz`, índices funcionales sobre `lower(name)`, `jsonb` y las propias migraciones.
 
 ```bash
 dotnet test src/backend/Terrenario.sln

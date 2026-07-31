@@ -42,16 +42,12 @@ public sealed class ActivityRepository(TerrenarioDbContext db) : IActivityReposi
         // Filtros y orden se aplican sobre columnas reales **antes** de proyectar, que es lo que EF
         // sabe traducir (lección de P-014): sobre el registro ya proyectado, `OrderBy(v => v.Date)`
         // no es traducible porque `ActivityView` es un tipo posicional, no una entidad mapeada.
-        var rows = await ProjectViews(live.OrderByDescending(a => a.Date)).ToListAsync(ct);
-
-        // El desempate por fecha de captura se reaplica en memoria: EF+SQLite no traduce `ORDER BY`
-        // sobre `DateTimeOffset` (P-031) y degradar la consulta de producción para que el arnés de
-        // tests la ejercite sería justo el error que ese punto describe. Reordenar aquí además
-        // garantiza el orden aunque el proveedor lo pierda al proyectar sobre un `JOIN`.
-        return rows
-            .OrderByDescending(v => v.Date)
-            .ThenByDescending(v => v.CreatedAt)
-            .ToList();
+        // El desempate por fecha de captura va también en SQL desde MVP-501. Antes se reaplicaba en
+        // memoria porque EF+SQLite no traduce `ORDER BY` sobre `DateTimeOffset` y el arnés corría
+        // sobre SQLite; con PostgreSQL real esa presión desaparece (P-031).
+        return await ProjectViews(
+                live.OrderByDescending(a => a.Date).ThenByDescending(a => a.CreatedAt))
+            .ToListAsync(ct);
     }
 
     public Task<ActivityView?> GetViewAsync(Guid workspaceId, Guid activityId, CancellationToken ct = default)

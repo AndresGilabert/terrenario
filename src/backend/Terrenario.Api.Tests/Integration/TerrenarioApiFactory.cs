@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -14,43 +13,25 @@ namespace Terrenario.Api.Tests.Integration;
 /// MVP-501 — Arnés de <b>integración y smoke E2E de API</b> (CA-2/CA-3).
 ///
 /// Levanta la aplicación real —el mismo <c>Program.cs</c>, con sus filtros, su autenticación JWT, su
-/// pipeline de middlewares y sus controladores— contra una base de datos SQLite propia de cada clase
-/// de test. Es la diferencia con los tests de handler que ya existían: allí los repositorios van
-/// mockeados y por eso pasaron 130 tests con <c>GET /workspaces</c> devolviendo 500 (`P-014`); aquí
-/// la consulta se traduce a SQL de verdad y el 500 sale a la primera.
+/// pipeline de middlewares y sus controladores— contra una base de datos <b>PostgreSQL real</b>
+/// (<see cref="PostgresTestServer"/>), propia de cada clase de test. Es la diferencia con los tests
+/// de handler que ya existían: allí los repositorios van mockeados y por eso pasaron 130 tests con
+/// <c>GET /workspaces</c> devolviendo 500 (<c>P-014</c>); aquí la consulta se traduce al SQL de
+/// producción y el fallo sale a la primera.
 ///
-/// Dos cosas se sustituyen a propósito, y solo dos:
-/// <list type="bullet">
-/// <item><b>PostgreSQL por SQLite</b>. Mantiene el arnés sin dependencia de Docker (decisión del PO
-/// en `MVP-501`). El precio está registrado: `P-031` sigue abierto —EF+SQLite no traduce
-/// <c>ORDER BY</c> sobre <c>DateTimeOffset</c>— y la cobertura contra PostgreSQL real queda
-/// pendiente.</item>
-/// <item><b>Google</b> (<see cref="IGoogleOidcService"/>). Es un proveedor externo: no se puede
-/// automatizar su consentimiento ni tiene sentido probarlo aquí. Todo lo demás del login —creación
-/// de usuario, emisión del JWT, cookie de refresco, resolución de Workspace— sí se ejercita.</item>
-/// </list>
+/// Lo único que se sustituye es <b>Google</b> (<see cref="IGoogleOidcService"/>): es un proveedor
+/// externo, no se puede automatizar su consentimiento y no aporta nada probarlo aquí. Todo lo demás
+/// del login —creación de usuario, emisión del JWT, cookie de refresco, resolución de Workspace— sí
+/// se ejercita.
 ///
 /// Las claves RS256 se generan por proceso: el arnés no puede depender de secretos de la máquina.
 /// </summary>
-public sealed class TerrenarioApiFactory : WebApplicationFactory<Program>
+public sealed class TerrenarioApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
-    private readonly string _databaseName = $"terrenario-test-{Guid.NewGuid():N}";
-    private readonly SqliteConnection _keepAlive;
+    private string _connectionString = string.Empty;
 
     /// <summary>Identidad que devolverá el doble de Google en el siguiente intercambio de código.</summary>
     public FakeGoogleOidcService Google { get; } = new();
-
-    public TerrenarioApiFactory()
-    {
-        // La base en memoria de SQLite vive mientras haya una conexión abierta contra ella. Esta se
-        // abre antes que nada y se cierra al final: es lo que hace que el esquema y los datos
-        // sobrevivan entre peticiones dentro de un mismo test.
-        _keepAlive = new SqliteConnection(ConnectionString);
-        _keepAlive.Open();
-
-        using var db = CreateDbContext();
-        db.Database.EnsureCreated();
-    }
 
     private static readonly Lazy<(string Private, string Public)> KeyPair = new(() =>
     {
@@ -58,10 +39,22 @@ public sealed class TerrenarioApiFactory : WebApplicationFactory<Program>
         return (rsa.ExportPkcs8PrivateKeyPem(), rsa.ExportSubjectPublicKeyInfoPem());
     });
 
+    /// <summary>Prepara la base de datos antes de que arranque el host. Lo llama xUnit.</summary>
+    public async Task InitializeAsync()
+    {
+        _connectionString = await PostgresTestServer.CreateDatabaseAsync();
+    }
+
+    Task IAsyncLifetime.DisposeAsync()
+    {
+        Dispose();
+        return Task.CompletedTask;
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        // «Testing» y no «Development»: en Development el arranque aplica migraciones de PostgreSQL
-        // (`Program.cs`), que aquí no existen ni harían falta.
+        // «Testing» y no «Development»: en Development el arranque vuelve a aplicar migraciones
+        // (`Program.cs`), que el arnés ya dejó aplicadas al crear la base.
         builder.UseEnvironment("Testing");
 
         // `UseSetting` entra en la configuración del host, que es la que lee `Program.cs` al construir
@@ -70,37 +63,19 @@ public sealed class TerrenarioApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Auth:Jwt:PublicKeyPem", KeyPair.Value.Public);
         builder.UseSetting("Auth:Jwt:Issuer", "terrenario-api");
         builder.UseSetting("Auth:Jwt:Audience", "terrenario-web");
-        builder.UseSetting("ConnectionStrings:DefaultConnection", string.Empty);
+        builder.UseSetting("ConnectionStrings:DefaultConnection", _connectionString);
         builder.UseSetting("Invitations:BaseUrl", "https://terrenario.test");
         builder.UseSetting("Workspaces:BaseUrl", "https://terrenario.test");
 
         builder.ConfigureServices(services =>
         {
-            // No basta con sustituir `DbContextOptions`: desde EF 9 cada `AddDbContext` deja además
-            // registrada su acción de configuración (`IDbContextOptionsConfiguration<TContext>`), y
-            // **todas** las registradas se aplican al mismo objeto de opciones. Sin retirar la de
-            // Npgsql, el contexto acabaría con dos proveedores y EF se niega a arrancar.
-            foreach (var descriptor in services
-                         .Where(d => d.ServiceType.IsGenericType
-                                     && d.ServiceType.Name.StartsWith("IDbContextOptionsConfiguration", StringComparison.Ordinal)
-                                     && d.ServiceType.GetGenericArguments()[0] == typeof(TerrenarioDbContext))
-                         .ToList())
-                services.Remove(descriptor);
-
-            services.RemoveAll<DbContextOptions<TerrenarioDbContext>>();
-            services.RemoveAll<DbContextOptions>();
-            services.AddDbContext<TerrenarioDbContext>(options => options.UseSqlite(ConnectionString));
-
             services.RemoveAll<IGoogleOidcService>();
             services.AddSingleton<IGoogleOidcService>(Google);
         });
     }
 
-    private string ConnectionString => $"DataSource={_databaseName};Mode=Memory;Cache=Shared";
-
     /// <summary>Abre un contexto contra la misma base que usa la API, para sembrar o comprobar datos.</summary>
-    public TerrenarioDbContext CreateDbContext()
-        => new(new DbContextOptionsBuilder<TerrenarioDbContext>().UseSqlite(ConnectionString).Options);
+    public TerrenarioDbContext CreateDbContext() => PostgresTestServer.CreateDbContext(_connectionString);
 
     /// <summary>
     /// Cliente HTTP que <b>no sigue redirecciones</b>: un 302 inesperado debe fallar el test, no
@@ -108,12 +83,6 @@ public sealed class TerrenarioApiFactory : WebApplicationFactory<Program>
     /// </summary>
     public HttpClient CreateApiClient()
         => CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-
-    protected override void Dispose(bool disposing)
-    {
-        base.Dispose(disposing);
-        if (disposing) _keepAlive.Dispose();
-    }
 }
 
 /// <summary>

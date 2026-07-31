@@ -24,6 +24,7 @@ public sealed class WorkspaceScopeIntegrationTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        await _factory.InitializeAsync();
         _factory.Google
             .WithIdentity("codigo-andres", "sub-andres", "Andrés", "andres@ejemplo.test")
             .WithIdentity("codigo-lucia", "sub-lucia", "Lucía", "lucia@ejemplo.test");

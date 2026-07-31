@@ -16,11 +16,12 @@ public sealed class WorkspaceInvitationRepository(TerrenarioDbContext db) : IWor
     public async Task<IReadOnlyList<WorkspaceInvitation>> ListPendingAsync(
         Guid workspaceId,
         CancellationToken ct = default)
-        // Sin ORDER BY en base de datos: el caso de uso ordena en memoria. Evita ordenar por
-        // DateTimeOffset, que EF+SQLite no traduce (aunque PostgreSQL sí), para no romper el test
-        // de repositorio contra SQLite real.
+        // Las más recientes primero, ordenado en base de datos. Hasta MVP-501 salía sin ORDER BY y el
+        // caso de uso reordenaba en memoria, solo porque EF+SQLite no traducía el orden sobre
+        // DateTimeOffset y habría roto el test de repositorio (P-031).
         => await db.WorkspaceInvitations
             .Where(i => i.WorkspaceId == workspaceId && i.Status == InvitationStatuses.Pending)
+            .OrderByDescending(i => i.CreatedAt)
             .ToListAsync(ct);
 
     public async Task<IReadOnlyList<WorkspaceInvitation>> ListReceivedPendingAsync(

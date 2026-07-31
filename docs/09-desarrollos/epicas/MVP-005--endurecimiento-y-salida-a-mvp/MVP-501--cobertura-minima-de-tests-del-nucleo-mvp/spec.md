@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "testing", "quality-gate"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-30"
+actualizado_en: "2026-07-31"
 ---
 
 # MVP-501 — Cobertura mínima de tests del núcleo MVP
@@ -83,7 +83,7 @@ Cubrir el núcleo funcional del MVP con la batería mínima de tests requerida p
 |---|---|---|---|
 | App shell | docs/04-ingenieria/estrategia-testing.md | cubierto | Smoke E2E de servidor sobre el núcleo del MVP (19 tests de integración) |
 | Build Vite | docs/04-ingenieria/estrategia-testing.md | cubierto | Evidencia: `npm run build` y `npm run lint` en verde |
-| Vistas React | docs/04-ingenieria/estrategia-testing.md | parcial | 70 tests de Vitest sobre la lógica de decisión; sin E2E de navegador (`P-064`) |
+| Vistas React | docs/04-ingenieria/estrategia-testing.md | parcial | 72 tests de Vitest sobre la lógica de decisión; sin E2E de navegador (`P-064`) |
 
 ## Notas y decisiones
 
@@ -101,23 +101,26 @@ Cubrir el núcleo funcional del MVP con la batería mínima de tests requerida p
   - La cobertura de **integración contra PostgreSQL** es además la que habría cazado `P-014` (el 500
     de `GET /workspaces`), que pasó 130 tests con repositorios mockeados.
 
-## Resultado de la entrega (2026-07-30)
+## Resultado de la entrega (2026-07-30 · 2ª pasada 2026-07-31)
 
 Diseño técnico completo en [tech-design.md](./tech-design.md).
 
 | Suite | Antes | Después |
 |---|---|---|
-| Backend — unitarios y repositorios sobre SQLite | 576 | 576 |
+| Backend — unitarios y repositorios | 576 (repos sobre SQLite) | 576 (repos sobre **PostgreSQL real**) |
 | Backend — integración y smoke E2E de servidor | 0 | 19 |
-| Frontend | **no existía arnés** | 70 |
+| Frontend | **no existía arnés** | 72 |
 
 - **`P-012` + `P-023` resueltos**: el frontend tiene arnés (Vitest + Testing Library) y la lógica de
   decisión señalada está cubierta —cliente HTTP común, `NotificationsContext` con su tracking de
   «vistas», gating de `can_revoke`/`is_self`/canal en «Miembros y accesos», filtros y borrado del
   diario, y el filtro de destino post-login—.
-- **`P-031` sigue abierto**: la decisión del PO de montar la integración sobre **SQLite** en vez de
-  PostgreSQL (sin dependencia de Docker) mantiene el punto tal cual. Los órdenes en memoria que
-  existen solo por el test no se pueden revertir todavía.
+- **`P-031` resuelto** (2ª pasada, decisión del PO 2026-07-31): el arnés pasa de SQLite a
+  **PostgreSQL real en contenedor** (Testcontainers), y con él los 11 ficheros de tests de
+  repositorio. Eso permite **revertir las ocho consultas de producción** que estaban escritas hacia
+  atrás —ordenando en memoria lo que la base sabe ordenar, y en dos casos materializando la tabla
+  entera para quedarse con una fila— solo para que el arnés pudiera ejecutarlas. Contrapartida
+  aceptada: **los tests del backend exigen Docker**.
 
 ### Alcance de CA-3: E2E de servidor, no de navegador
 
@@ -147,7 +150,8 @@ esta misma rama**, para no arrastrar deuda conocida al PR.
   el frontend entero (28 ficheros) de `react-router-dom` a `react-router@8.3.0`. `npm audit` pasa de
   2 avisos *high* a **0 vulnerabilidades**.
 - **`F-03` → `P-064`**: el hueco de E2E de navegador descrito arriba. **No es un defecto**, sino la
-  consecuencia de la decisión de alcance sobre el arnés; queda pendiente de decisión de producto.
+  consecuencia de la decisión de alcance sobre el arnés; queda pendiente de decisión de producto y es
+  lo único que esta historia deja abierto.
 
 ### Verificación de la migración a `react-router` 8
 

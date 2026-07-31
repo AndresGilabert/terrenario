@@ -1,43 +1,28 @@
 using FluentAssertions;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Terrenario.Api.Domain.Plots;
 using Terrenario.Api.Domain.Users;
 using Terrenario.Api.Domain.Workspaces;
 using Terrenario.Api.Infrastructure.Data;
 using Terrenario.Api.Infrastructure.Data.Repositories;
+using Terrenario.Api.Tests.Integration;
 
 namespace Terrenario.Api.Tests.Plots;
 
 /// <summary>
-/// Tests del repositorio de terrenos contra SQLite real (MVP-202): ejercitan la traducción a SQL de
+/// Tests del repositorio de terrenos contra PostgreSQL real (MVP-202): ejercitan la traducción a SQL de
 /// los filtros de listado y del aislamiento por Workspace, que los mocks no ven (lección de P-014).
 /// </summary>
-public sealed class PlotRepositorySqliteTests : IDisposable
+public sealed class PlotRepositoryPostgresTests : RepositoryTestBase
 {
-    private readonly SqliteConnection _connection;
-    private readonly TerrenarioDbContext _db;
-
-    public PlotRepositorySqliteTests()
-    {
-        _connection = new SqliteConnection("DataSource=:memory:");
-        _connection.Open();
-
-        var options = new DbContextOptionsBuilder<TerrenarioDbContext>()
-            .UseSqlite(_connection)
-            .Options;
-
-        _db = new TerrenarioDbContext(options);
-        _db.Database.EnsureCreated();
-    }
 
     private async Task<Workspace> SeedWorkspaceAsync(string suffix = "")
     {
         var user = User.Create($"google-sub{suffix}", "Andrés", $"andres{suffix}@ejemplo.com");
-        _db.Users.Add(user);
+        Db.Users.Add(user);
         var workspace = Workspace.Create(user.Id, $"Finca El Olivar {suffix}");
-        _db.Workspaces.Add(workspace);
-        await _db.SaveChangesAsync();
+        Db.Workspaces.Add(workspace);
+        await Db.SaveChangesAsync();
         return workspace;
     }
 
@@ -46,11 +31,11 @@ public sealed class PlotRepositorySqliteTests : IDisposable
     {
         var mine = await SeedWorkspaceAsync("-a");
         var other = await SeedWorkspaceAsync("-b");
-        _db.Plots.Add(Plot.Create(mine.Id, "La Hoya", PlotOwnershipTypes.Propia));
-        _db.Plots.Add(Plot.Create(other.Id, "Ajena", PlotOwnershipTypes.Cedida));
-        await _db.SaveChangesAsync();
+        Db.Plots.Add(Plot.Create(mine.Id, "La Hoya", PlotOwnershipTypes.Propia));
+        Db.Plots.Add(Plot.Create(other.Id, "Ajena", PlotOwnershipTypes.Cedida));
+        await Db.SaveChangesAsync();
 
-        var repository = new PlotRepository(_db);
+        var repository = new PlotRepository(Db);
 
         var result = await repository.ListByWorkspaceAsync(mine.Id, null, null, default);
 
@@ -65,10 +50,10 @@ public sealed class PlotRepositorySqliteTests : IDisposable
         var activo = Plot.Create(workspace.Id, "Olivar Alto", PlotOwnershipTypes.Propia, location: "Sector Norte");
         var inactivo = Plot.Create(workspace.Id, "Olivar Bajo", PlotOwnershipTypes.Propia);
         inactivo.SetActive(false);
-        _db.Plots.AddRange(activo, inactivo);
-        await _db.SaveChangesAsync();
+        Db.Plots.AddRange(activo, inactivo);
+        await Db.SaveChangesAsync();
 
-        var repository = new PlotRepository(_db);
+        var repository = new PlotRepository(Db);
 
         // Filtro por estado
         var soloActivos = await repository.ListByWorkspaceAsync(workspace.Id, null, isActive: true, default);
@@ -89,10 +74,10 @@ public sealed class PlotRepositorySqliteTests : IDisposable
         var mine = await SeedWorkspaceAsync("-d");
         var other = await SeedWorkspaceAsync("-e");
         var ajeno = Plot.Create(other.Id, "Ajena", PlotOwnershipTypes.Cedida);
-        _db.Plots.Add(ajeno);
-        await _db.SaveChangesAsync();
+        Db.Plots.Add(ajeno);
+        await Db.SaveChangesAsync();
 
-        var repository = new PlotRepository(_db);
+        var repository = new PlotRepository(Db);
 
         var found = await repository.FindByIdAsync(mine.Id, ajeno.Id, default);
 
@@ -105,10 +90,10 @@ public sealed class PlotRepositorySqliteTests : IDisposable
         // MVP-207 (CA-2) — mismo criterio que el índice único ux_plots_workspace_name.
         var mine = await SeedWorkspaceAsync("-dup-a");
         var other = await SeedWorkspaceAsync("-dup-b");
-        _db.Plots.Add(Plot.Create(mine.Id, "La Hoya", PlotOwnershipTypes.Propia));
-        await _db.SaveChangesAsync();
+        Db.Plots.Add(Plot.Create(mine.Id, "La Hoya", PlotOwnershipTypes.Propia));
+        await Db.SaveChangesAsync();
 
-        var repository = new PlotRepository(_db);
+        var repository = new PlotRepository(Db);
 
         (await repository.ExistsWithNameAsync(mine.Id, "La Hoya", null, default)).Should().BeTrue();
         (await repository.ExistsWithNameAsync(mine.Id, "la hoya", null, default)).Should().BeTrue();
@@ -125,10 +110,10 @@ public sealed class PlotRepositorySqliteTests : IDisposable
         var propio = Plot.Create(workspace.Id, "La Hoya", PlotOwnershipTypes.Propia, alias: "El Cerro");
         var inactivo = Plot.Create(workspace.Id, "El Llano", PlotOwnershipTypes.Cedida);
         inactivo.SetActive(false);
-        _db.Plots.AddRange(propio, inactivo);
-        await _db.SaveChangesAsync();
+        Db.Plots.AddRange(propio, inactivo);
+        await Db.SaveChangesAsync();
 
-        var repository = new PlotRepository(_db);
+        var repository = new PlotRepository(Db);
 
         // Cambiar solo las mayúsculas del propio nombre no es un conflicto consigo mismo.
         (await repository.ExistsWithNameAsync(workspace.Id, "LA HOYA", propio.Id, default)).Should().BeFalse();
@@ -139,9 +124,4 @@ public sealed class PlotRepositorySqliteTests : IDisposable
     }
 
 
-    public void Dispose()
-    {
-        _db.Dispose();
-        _connection.Dispose();
-    }
 }

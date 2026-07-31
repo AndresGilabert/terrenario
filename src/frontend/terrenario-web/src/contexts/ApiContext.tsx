@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import {
   AUTH_UNAUTHENTICATED,
   AUTH_WORKSPACE_FORBIDDEN,

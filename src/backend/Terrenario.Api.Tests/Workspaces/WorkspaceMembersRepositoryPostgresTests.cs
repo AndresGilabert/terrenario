@@ -1,41 +1,26 @@
 using FluentAssertions;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Terrenario.Api.Domain.Users;
 using Terrenario.Api.Domain.Workspaces;
 using Terrenario.Api.Infrastructure.Data;
 using Terrenario.Api.Infrastructure.Data.Repositories;
+using Terrenario.Api.Tests.Integration;
 
 namespace Terrenario.Api.Tests.Workspaces;
 
 /// <summary>
-/// Tests contra SQLite real de las consultas que sostienen la administración de miembros (MVP-204):
+/// Tests contra PostgreSQL real de las consultas que sostienen la administración de miembros (MVP-204):
 /// el listado de personas (join <c>workspace_members</c> × <c>users</c> ordenado por columna real,
 /// lección de P-014), los contadores de la invariante CA-8 y las invitaciones por email pendientes.
 /// </summary>
-public sealed class WorkspaceMembersRepositorySqliteTests : IDisposable
+public sealed class WorkspaceMembersRepositoryPostgresTests : RepositoryTestBase
 {
-    private readonly SqliteConnection _connection;
-    private readonly TerrenarioDbContext _db;
-
-    public WorkspaceMembersRepositorySqliteTests()
-    {
-        _connection = new SqliteConnection("DataSource=:memory:");
-        _connection.Open();
-
-        var options = new DbContextOptionsBuilder<TerrenarioDbContext>()
-            .UseSqlite(_connection)
-            .Options;
-
-        _db = new TerrenarioDbContext(options);
-        _db.Database.EnsureCreated();
-    }
 
     private async Task<User> SeedUserAsync(string suffix, string displayName)
     {
         var user = User.Create($"google-sub{suffix}", displayName, $"user{suffix}@ejemplo.com");
-        _db.Users.Add(user);
-        await _db.SaveChangesAsync();
+        Db.Users.Add(user);
+        await Db.SaveChangesAsync();
         return user;
     }
 
@@ -47,16 +32,16 @@ public sealed class WorkspaceMembersRepositorySqliteTests : IDisposable
         var active = await SeedUserAsync("-active", "Ana");
         var revoked = await SeedUserAsync("-revoked", "Bruno");
         var workspace = Workspace.Create(owner.Id, "Finca");
-        _db.Workspaces.Add(workspace);
+        Db.Workspaces.Add(workspace);
 
-        _db.WorkspaceMembers.Add(WorkspaceMember.CreateOwner(workspace.Id, owner.Id));
-        _db.WorkspaceMembers.Add(WorkspaceMember.CreateMember(workspace.Id, active.Id));
+        Db.WorkspaceMembers.Add(WorkspaceMember.CreateOwner(workspace.Id, owner.Id));
+        Db.WorkspaceMembers.Add(WorkspaceMember.CreateMember(workspace.Id, active.Id));
         var revokedMember = WorkspaceMember.CreateMember(workspace.Id, revoked.Id);
         revokedMember.Revoke();
-        _db.WorkspaceMembers.Add(revokedMember);
-        await _db.SaveChangesAsync();
+        Db.WorkspaceMembers.Add(revokedMember);
+        await Db.SaveChangesAsync();
 
-        var repository = new WorkspaceRepository(_db);
+        var repository = new WorkspaceRepository(Db);
 
         // Act — antes fallaría si el OrderBy fuese sobre el DTO proyectado (P-014)
         var members = await repository.ListMembersAsync(workspace.Id);
@@ -75,16 +60,16 @@ public sealed class WorkspaceMembersRepositorySqliteTests : IDisposable
         var active = await SeedUserAsync("-a", "Ana");
         var revoked = await SeedUserAsync("-r", "Bruno");
         var workspace = Workspace.Create(owner.Id, "Finca");
-        _db.Workspaces.Add(workspace);
+        Db.Workspaces.Add(workspace);
 
-        _db.WorkspaceMembers.Add(WorkspaceMember.CreateOwner(workspace.Id, owner.Id));
-        _db.WorkspaceMembers.Add(WorkspaceMember.CreateMember(workspace.Id, active.Id));
+        Db.WorkspaceMembers.Add(WorkspaceMember.CreateOwner(workspace.Id, owner.Id));
+        Db.WorkspaceMembers.Add(WorkspaceMember.CreateMember(workspace.Id, active.Id));
         var revokedMember = WorkspaceMember.CreateMember(workspace.Id, revoked.Id);
         revokedMember.Revoke();
-        _db.WorkspaceMembers.Add(revokedMember);
-        await _db.SaveChangesAsync();
+        Db.WorkspaceMembers.Add(revokedMember);
+        await Db.SaveChangesAsync();
 
-        var repository = new WorkspaceRepository(_db);
+        var repository = new WorkspaceRepository(Db);
 
         (await repository.CountActiveMembersAsync(workspace.Id)).Should().Be(2);
         (await repository.CountActiveOwnersAsync(workspace.Id)).Should().Be(1);
@@ -105,8 +90,8 @@ public sealed class WorkspaceMembersRepositorySqliteTests : IDisposable
         var owner = await SeedUserAsync("-o2", "Zoe");
         var acceptor = await SeedUserAsync("-acc", "Otro");
         var workspace = Workspace.Create(owner.Id, "Finca");
-        _db.Workspaces.Add(workspace);
-        await _db.SaveChangesAsync();
+        Db.Workspaces.Add(workspace);
+        await Db.SaveChangesAsync();
 
         var pendingEmail = WorkspaceInvitation.Create(
             workspace.Id, owner.Id, InvitationChannels.Email, "invitado@ejemplo.com", "hash-e", TimeSpan.FromDays(7));
@@ -115,10 +100,10 @@ public sealed class WorkspaceMembersRepositorySqliteTests : IDisposable
         var accepted = WorkspaceInvitation.Create(
             workspace.Id, owner.Id, InvitationChannels.Email, "otro@ejemplo.com", "hash-a", TimeSpan.FromDays(7));
         accepted.Accept(acceptor.Id, "otro@ejemplo.com", DateTimeOffset.UtcNow);
-        _db.WorkspaceInvitations.AddRange(pendingEmail, link, accepted);
-        await _db.SaveChangesAsync();
+        Db.WorkspaceInvitations.AddRange(pendingEmail, link, accepted);
+        await Db.SaveChangesAsync();
 
-        var repository = new WorkspaceInvitationRepository(_db);
+        var repository = new WorkspaceInvitationRepository(Db);
 
         var invited = await repository.ListPendingAsync(workspace.Id);
 
@@ -129,9 +114,4 @@ public sealed class WorkspaceMembersRepositorySqliteTests : IDisposable
             .Which.Email.Should().BeNull();
     }
 
-    public void Dispose()
-    {
-        _db.Dispose();
-        _connection.Dispose();
-    }
 }

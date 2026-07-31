@@ -37,15 +37,11 @@ public sealed class PurchaseRepository(TerrenarioDbContext db) : IPurchaseReposi
         }
 
         // Filtros y orden sobre columnas reales antes de proyectar (lección de P-014).
-        var rows = await ProjectViews(live.OrderByDescending(p => p.PurchaseDate)).ToListAsync(ct);
-
-        // Desempate por fecha de captura en memoria: EF+SQLite no traduce `ORDER BY` sobre
-        // `DateTimeOffset` (P-031), y degradar la consulta de producción por el arnés sería el error
-        // que ese punto describe.
-        return rows
-            .OrderByDescending(v => v.PurchaseDate)
-            .ThenByDescending(v => v.CreatedAt)
-            .ToList();
+        // Orden completo en SQL desde MVP-501, desempate incluido: antes el `ThenBy` se reaplicaba en
+        // memoria solo porque EF+SQLite no lo traducía sobre `DateTimeOffset` (P-031).
+        return await ProjectViews(
+                live.OrderByDescending(p => p.PurchaseDate).ThenByDescending(p => p.CreatedAt))
+            .ToListAsync(ct);
     }
 
     public Task<PurchaseView?> GetViewAsync(Guid workspaceId, Guid purchaseId, CancellationToken ct = default)

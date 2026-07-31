@@ -10,10 +10,12 @@
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.2" />
     <PackageReference Include="FluentAssertions" Version="6.12.*" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.*" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.*" />
-    <!-- SQLite real (no InMemory) para que los tests de repositorio ejerciten la traducción a SQL
-         de EF Core y cacen errores "could not be translated" que los mocks no ven (MVP-107). -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.*" />
+    <!-- PostgreSQL real en contenedor (MVP-501): los tests de repositorio y el arnés de API
+         ejercitan el MISMO motor que producción. Antes se usaba SQLite, y eso obligaba a degradar
+         consultas de producción para que el arnés pudiera ejecutarlas (P-031). Requiere Docker. -->
+    <PackageReference Include="Testcontainers.PostgreSql" Version="4.13.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="NSubstitute" Version="5.3.*" />
     <PackageReference Include="xunit" Version="2.9.2" />

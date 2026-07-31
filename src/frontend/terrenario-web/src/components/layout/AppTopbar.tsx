@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { NotificationBell } from '../notifications/NotificationBell';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useSeason } from '../../contexts/SeasonContext';

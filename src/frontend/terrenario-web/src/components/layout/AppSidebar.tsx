@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { WorkspaceSwitcher } from '../workspace/WorkspaceSwitcher';
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import type { WorkspaceMembership } from '../../types/workspace.types';
 import { WorkspaceServiceError } from '../../services/workspace.service';

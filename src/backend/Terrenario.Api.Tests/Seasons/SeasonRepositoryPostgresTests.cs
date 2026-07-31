@@ -1,42 +1,24 @@
 using FluentAssertions;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Terrenario.Api.Domain.Seasons;
 using Terrenario.Api.Domain.Users;
 using Terrenario.Api.Domain.Workspaces;
 using Terrenario.Api.Infrastructure.Data;
 using Terrenario.Api.Infrastructure.Data.Repositories;
+using Terrenario.Api.Tests.Integration;
 
 namespace Terrenario.Api.Tests.Seasons;
 
 /// <summary>
-/// Tests del repositorio de temporadas contra SQLite real (MVP-203 · MVP-209): ejercitan la traducción
+/// Tests del repositorio de temporadas contra PostgreSQL real (MVP-203 · MVP-209): ejercitan la traducción
 /// a SQL (que los mocks no ven) y, sobre todo, la <b>temporada de trabajo por usuario</b> —resuelta
 /// desde <c>workspace_members.active_season_id</c> con su regla de defecto— y su <b>aislamiento entre
 /// usuarios</b>.
 ///
-/// Se usa un <see cref="TerrenarioDbContext"/> nuevo por operación (compartiendo la conexión en
-/// memoria), reproduciendo el ámbito por petición de producción y evitando artefactos del identity-map.
+/// Se usa un <see cref="TerrenarioDbContext"/> nuevo por operación (sobre la misma base de datos), reproduciendo el ámbito por petición de producción y evitando artefactos del identity-map.
 /// </summary>
-public sealed class SeasonRepositorySqliteTests : IDisposable
+public sealed class SeasonRepositoryPostgresTests : RepositoryTestBase
 {
-    private readonly SqliteConnection _connection;
-    private readonly DbContextOptions<TerrenarioDbContext> _options;
-
-    public SeasonRepositorySqliteTests()
-    {
-        _connection = new SqliteConnection("DataSource=:memory:");
-        _connection.Open();
-
-        _options = new DbContextOptionsBuilder<TerrenarioDbContext>()
-            .UseSqlite(_connection)
-            .Options;
-
-        using var db = NewDb();
-        db.Database.EnsureCreated();
-    }
-
-    private TerrenarioDbContext NewDb() => new(_options);
 
     private sealed record Fixture(Workspace Workspace, Guid UserId);
 
@@ -213,8 +195,4 @@ public sealed class SeasonRepositorySqliteTests : IDisposable
         (await repository.ExistsWithNameAsync(f.Workspace.Id, "campaña 2025", null, default)).Should().BeTrue();
     }
 
-    public void Dispose()
-    {
-        _connection.Dispose();
-    }
 }

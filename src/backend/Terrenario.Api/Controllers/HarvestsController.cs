@@ -234,7 +234,7 @@ public sealed class HarvestsController(
 
     private static FieldUpdate<string> ReadString(Dictionary<string, JsonElement> body, string key)
         => body.TryGetValue(key, out var el)
-            ? FieldUpdate<string>.Set(el.ValueKind == JsonValueKind.Null ? null : el.GetString())
+            ? FieldUpdate<string>.Set(JsonText.Read(el, key))
             : FieldUpdate<string>.Absent;
 
     /// <summary>
@@ -246,7 +246,7 @@ public sealed class HarvestsController(
     {
         if (!body.TryGetValue(key, out var el)) return null;
         if (el.ValueKind == JsonValueKind.Null) return null;
-        if (el.ValueKind == JsonValueKind.String) return el.GetString();
+        if (el.ValueKind == JsonValueKind.String) return JsonText.Read(el, key);
 
         throw new HarvestValidationException(
             ErrorCodes.ValidationRequired, $"El campo '{key}' debe ser texto.");
@@ -257,7 +257,7 @@ public sealed class HarvestsController(
         if (!body.TryGetValue(key, out var el)) return FieldUpdate<DateOnly>.Absent;
 
         if (el.ValueKind == JsonValueKind.String
-            && DateOnly.TryParseExact(el.GetString(), "yyyy-MM-dd", CultureInfo.InvariantCulture,
+            && DateOnly.TryParseExact(JsonText.Read(el, key), "yyyy-MM-dd", CultureInfo.InvariantCulture,
                 DateTimeStyles.None, out var parsed))
             return FieldUpdate<DateOnly>.Set(parsed);
 
@@ -268,7 +268,7 @@ public sealed class HarvestsController(
     private static FieldUpdate<Guid> ReadGuid(Dictionary<string, JsonElement> body, string key)
     {
         if (!body.TryGetValue(key, out var el)) return FieldUpdate<Guid>.Absent;
-        if (el.ValueKind == JsonValueKind.String && Guid.TryParse(el.GetString(), out var parsed))
+        if (el.ValueKind == JsonValueKind.String && Guid.TryParse(JsonText.Read(el, key), out var parsed))
             return FieldUpdate<Guid>.Set(parsed);
 
         throw new HarvestValidationException(
@@ -336,7 +336,7 @@ public sealed class HarvestsController(
 /// negocio, no de forma.
 /// </summary>
 public sealed record CreateHarvestRequest(
-    [Required(ErrorMessage = "La fecha de la cosecha es obligatoria.")]
+    [RequiredField(ErrorCodes.ValidationHarvestRequiredFields, "La fecha de la cosecha es obligatoria.")]
     string Date,
     [property: JsonPropertyName("plot_id")] Guid PlotId,
     [property: JsonPropertyName("season_id")] Guid SeasonId,

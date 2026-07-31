@@ -9,6 +9,7 @@ using Terrenario.Api.Application.Seasons.Commands;
 using Terrenario.Api.Common;
 using Terrenario.Api.Common.Auth;
 using Terrenario.Api.Common.Errors;
+using Terrenario.Api.Common.Http;
 using Terrenario.Api.Common.Workspaces;
 using Terrenario.Api.Domain.Seasons;
 
@@ -170,13 +171,13 @@ public sealed class SeasonsController(
 
     private static FieldUpdate<string> ReadString(Dictionary<string, JsonElement> body, string key)
         => body.TryGetValue(key, out var el)
-            ? FieldUpdate<string>.Set(el.ValueKind == JsonValueKind.Null ? null : el.GetString())
+            ? FieldUpdate<string>.Set(JsonText.Read(el, key))
             : FieldUpdate<string>.Absent;
 
     private static FieldUpdate<DateOnly> ReadDate(Dictionary<string, JsonElement> body, string key)
     {
         if (!body.TryGetValue(key, out var el)) return FieldUpdate<DateOnly>.Absent;
-        if (TryReadDate(el, out var date)) return FieldUpdate<DateOnly>.Set(date);
+        if (TryReadDate(el, key, out var date)) return FieldUpdate<DateOnly>.Set(date);
 
         throw new SeasonValidationException(
             ErrorCodes.ValidationSeasonDateRange, $"El campo '{key}' debe ser una fecha válida (YYYY-MM-DD).");
@@ -186,17 +187,17 @@ public sealed class SeasonsController(
     {
         if (!body.TryGetValue(key, out var el)) return FieldUpdate<DateOnly?>.Absent;
         if (el.ValueKind == JsonValueKind.Null) return FieldUpdate<DateOnly?>.Set(null);
-        if (TryReadDate(el, out var date)) return FieldUpdate<DateOnly?>.Set(date);
+        if (TryReadDate(el, key, out var date)) return FieldUpdate<DateOnly?>.Set(date);
 
         throw new SeasonValidationException(
             ErrorCodes.ValidationSeasonDateRange, $"El campo '{key}' debe ser una fecha válida (YYYY-MM-DD) o nulo.");
     }
 
-    private static bool TryReadDate(JsonElement el, out DateOnly date)
+    private static bool TryReadDate(JsonElement el, string key, out DateOnly date)
     {
         date = default;
         if (el.ValueKind != JsonValueKind.String) return false;
-        var raw = el.GetString();
+        var raw = JsonText.Read(el, key);
         return raw is not null
             && DateOnly.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.None, out date);
     }
@@ -228,11 +229,11 @@ public sealed class SeasonsController(
 }
 
 public sealed record CreateSeasonRequest(
-    [Required(ErrorMessage = "El nombre de la temporada es obligatorio.")]
-    [StringLength(Season.NameMaxLength, ErrorMessage = "El nombre de la temporada es demasiado largo.")]
+    [RequiredField(ErrorCodes.ValidationRequiredSeasonName, "El nombre de la temporada es obligatorio.")]
+    [MaxTextLength(Season.NameMaxLength, ErrorCodes.ValidationSeasonNameLength, "El nombre de la temporada es demasiado largo.")]
     string Name,
     [property: JsonPropertyName("start_date")]
-    [Required(ErrorMessage = "La fecha de inicio de la temporada es obligatoria.")]
+    [RequiredField(ErrorCodes.ValidationRequired, "La fecha de inicio de la temporada es obligatoria.")]
     DateOnly StartDate,
     [property: JsonPropertyName("end_date")]
     DateOnly? EndDate);

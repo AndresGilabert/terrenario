@@ -225,23 +225,20 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers(options =>
 {
     options.Filters.Add<WorkspaceAccessExceptionFilter>();
+    // Un cuerpo que el cliente envió mal codificado es un 400, no un 500 (MVP-502, P-027).
+    options.Filters.Add<InvalidRequestBodyFilter>();
 });
 builder.Services.AddOpenApi();
 
 // Los errores de validación de modelo deben respetar el contrato { error: { code, message } }
 // definido en docs/02-arquitectura/contratos-api.md, en lugar del ProblemDetails por defecto.
+// La traducción vive en ModelStateErrorTranslator (MVP-502, P-043): emite el código de dominio que
+// declara cada anotación y no deja salir a la UI los mensajes en inglés del binder.
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
-    {
-        var firstError = context.ModelState
-            .SelectMany(entry => entry.Value?.Errors ?? [])
-            .Select(error => error.ErrorMessage)
-            .FirstOrDefault(message => !string.IsNullOrWhiteSpace(message));
-
-        return new BadRequestObjectResult(new ApiErrorResponse(
-            ApiError.Validation(ErrorCodes.ValidationRequired, firstError ?? "Datos de entrada no válidos.")));
-    };
+        new BadRequestObjectResult(new ApiErrorResponse(
+            ModelStateErrorTranslator.Translate(context.ModelState)));
 });
 
 var app = builder.Build();

@@ -233,10 +233,12 @@ verificarlo contra el sistema en vez de leerlo.
 
 - Backend: **666 tests** (654 antes), 12 de ellos de la baja contra API y PostgreSQL reales,
   comprobando **qué queda escrito** y no solo el código de respuesta.
-  **Aviso**: al cerrar la historia, Smart App Control de Windows empezó a bloquear el ensamblado de
-  Testcontainers y la suite dejó de poder ejecutarse entera en esta máquina (`P-069`). Los 666 se
-  verificaron antes del bloqueo; los 510 que no dependen de Testcontainers siguen pasando y **ningún
-  fallo es de lógica**: todos son el mismo error de carga del ensamblado.
+  **Incidencia de entorno resuelta**: al cerrar la historia, Smart App Control de Windows bloqueó el
+  ensamblado de Testcontainers y la suite cayó a 156 fallos sin ningún cambio de código. El PO
+  desactivó la protección y la suite **vuelve a pasar entera (666)**, lo que confirma que ninguno de
+  esos fallos era de lógica. La causa de fondo —el arnés depende de un ensamblado que cualquier
+  política de Application Control puede bloquear— queda registrada como `P-069` para el gate de
+  `MVP-504`.
 - Frontend: **87 tests** (81 antes); build, lint y `npm audit` limpios.
 - En navegador: páginas legales, enlaces vivos en login y landing, panel de privacidad, panel de baja
   correctamente bloqueado con datos reales, y **cero peticiones a dominios de Google**.

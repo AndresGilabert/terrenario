@@ -12,7 +12,7 @@ import { LegalPage, Placeholder } from './LegalPage';
  * Los datos del responsable van como marcadores: solo el negocio puede aportarlos (decisión del PO).
  */
 export const PrivacyPolicyPage: React.FC = () => (
-  <LegalPage title="Política de Privacidad" updatedAt="31 de julio de 2026">
+  <LegalPage title="Política de Privacidad" updatedAt="3 de agosto de 2026">
     <p>
       Esta política explica qué datos personales trata Terrenario, con qué finalidad, durante cuánto
       tiempo y qué derechos tienes sobre ellos.
@@ -99,8 +99,8 @@ export const PrivacyPolicyPage: React.FC = () => (
         técnicos de acceso).
       </li>
       <li>
-        <strong>Consentimiento</strong>: hoy no lo necesitamos, porque no usamos ninguna tecnología
-        no esencial. Si eso cambiara, te lo pediríamos antes de activarla.
+        <strong>Consentimiento</strong>: hoy no lo necesitamos, porque todo lo que usamos está exento.
+        Si incorporáramos cualquier tecnología no esencial, te lo pediríamos antes de activarla.
       </li>
     </ul>
 
@@ -158,10 +158,12 @@ export const PrivacyPolicyPage: React.FC = () => (
 
     <h2>6. Cookies y almacenamiento en tu navegador</h2>
     <p>
-      Terrenario usa <strong>solo</strong> las tecnologías estrictamente necesarias para mantener tu
-      sesión y que la aplicación funcione. No usamos analítica, publicidad ni perfilado, y las
-      tipografías se sirven desde nuestro propio servidor para no comunicar tu dirección IP a
-      terceros. Por eso no verás un banner de cookies: no hay nada que consentir.
+      Terrenario usa <strong>solo</strong> tecnologías exentas de consentimiento: las estrictamente
+      necesarias para mantener tu sesión y que la aplicación funcione, más la medición del embudo de
+      acceso descrita arriba, que es propia, agregada y sin datos que te identifiquen. No hay
+      analítica de terceros, publicidad ni perfilado, y las tipografías se sirven desde nuestro propio
+      servidor para no comunicar tu dirección IP a nadie. Por eso no verás un banner de cookies: no
+      hay nada que consentir.
     </p>
     <p>
       Puedes consultar el inventario completo desde <strong>Ajustes → Privacidad</strong> dentro de la

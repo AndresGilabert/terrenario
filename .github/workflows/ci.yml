@@ -1,0 +1,100 @@
+name: CI
+
+# MVP-504 (CA-1) — El gate de salida, ejecutable.
+#
+# Hasta esta historia el CI solo validaba la KB: ni compilaba el código ni ejecutaba un solo test.
+# Un gate que no corre automáticamente no es un gate — es una intención. `estrategia-testing.md`
+# exige unitarios, integración crítica y smoke E2E en verde para permitir despliegue, y esto es lo
+# que hace que esa exigencia sea comprobable en cada PR en vez de depender de que alguien se acuerde.
+#
+# El backend corre en **Linux**, que es el entorno de referencia: la suite levanta PostgreSQL con
+# Testcontainers y en Windows depende de que la política de Application Control lo permita
+# (`MVP-999`, `P-069`).
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+# Un push nuevo sobre la misma rama cancela la ejecución anterior: no tiene sentido gastar minutos
+# validando un commit que ya está superado.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend — build y tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Restaurar
+        run: dotnet restore src/backend/Terrenario.sln
+
+      - name: Compilar
+        run: dotnet build src/backend/Terrenario.sln --no-restore --configuration Release
+
+      # Docker viene preinstalado en los runners de GitHub, así que Testcontainers levanta
+      # PostgreSQL sin preparación adicional. Sin `--no-build` la suite tardaría el doble.
+      - name: Tests
+        run: dotnet test src/backend/Terrenario.sln --no-build --configuration Release --verbosity normal
+
+  frontend:
+    name: Frontend — build, lint y tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/frontend/terrenario-web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: src/frontend/terrenario-web/package-lock.json
+
+      # `npm ci` y no `npm install`: instala exactamente el lockfile y falla si ha divergido del
+      # `package.json`, que es lo que se quiere de un gate.
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      # `npm run build` incluye `tsc -b`, así que también comprueba los tipos de los tests.
+      - name: Build
+        run: npm run build
+
+      - name: Tests
+        run: npm test
+
+  seguridad:
+    name: Seguridad — dependencias del cliente
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/frontend/terrenario-web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: src/frontend/terrenario-web/package-lock.json
+
+      - run: npm ci
+
+      # Bloquea a partir de severidad alta. La lección viene de `MVP-501`: `react-router` arrastraba
+      # un aviso *high* que nadie habría visto hasta el gate final, cuando ya cuesta más arreglarlo.
+      - name: npm audit
+        run: npm audit --audit-level=high

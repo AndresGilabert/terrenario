@@ -53,6 +53,11 @@ export const PrivacyPolicyPage: React.FC = () => (
           <td>Poder asignar labores a cada persona</td>
         </tr>
         <tr>
+          <td>Nombre del propietario de un terreno cedido</td>
+          <td>Lo introduces tú (campo opcional)</td>
+          <td>Saber de quién es cada parcela que trabajas</td>
+        </tr>
+        <tr>
           <td>Datos de tu explotación (terrenos, labores, cosechas, compras)</td>
           <td>Los introduces tú</td>
           <td>Prestarte el servicio</td>
@@ -62,6 +67,25 @@ export const PrivacyPolicyPage: React.FC = () => (
     <p>
       <strong>No tratamos datos de categorías especiales</strong> (salud, ideología, biometría) ni
       datos de menores. No elaboramos perfiles ni tomamos decisiones automatizadas sobre ti.
+    </p>
+    <p>
+      Medimos el <strong>embudo de acceso</strong> (si se vio la pantalla de login, si se pulsó el
+      botón y si se abandonó) con un identificador aleatorio que no está vinculado a ti y que
+      desaparece al cerrar la pestaña. Es medición propia y agregada: no hay analítica de terceros ni
+      seguimiento entre sitios.
+    </p>
+
+    <h2>2 bis. Datos de otras personas que introduces tú</h2>
+    <p>
+      Si registras a tu cuadrilla, al propietario de un terreno cedido o mencionas a alguien en el
+      texto de una labor, <strong>esos datos los aportas tú</strong>. En ese caso eres quien decide
+      tratarlos y quien debe informar a esas personas y tener base legítima para hacerlo; nosotros los
+      tratamos por tu cuenta.
+    </p>
+    <p>
+      Esas personas no tienen cuenta, así que <strong>no pueden ejercer sus derechos desde la
+      aplicación</strong>: deben dirigirse a ti o al contacto de privacidad. Te pedimos que introduzcas
+      solo los datos que necesites.
     </p>
 
     <h2>3. Base jurídica</h2>

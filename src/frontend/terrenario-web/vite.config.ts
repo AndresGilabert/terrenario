@@ -30,10 +30,11 @@ function contentSecurityPolicy(apiBaseUrl: string): Plugin {
   const policy = [
     "default-src 'self'",
     "script-src 'self'",
-    // Tailwind emite una hoja propia, pero el enlace de Google Fonts es una hoja externa y hay
-    // cinco `style={{ width: … }}` que pintan barras del dashboard con valores calculados.
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com",
+    // MVP-505 — Las tipografías se autoalojan (RN-042), así que ya no hace falta abrir la política
+    // a los dominios de Google: se cierra a 'self'. `'unsafe-inline'` sigue solo por los cinco
+    // `style={{ width: … }}` que pintan barras del dashboard con valores calculados.
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self'",
     "img-src 'self' data:",
     `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ''}`,
     // La aplicación no embebe nada ni se deja embeber: sin esto, `X-Frame-Options` es el único

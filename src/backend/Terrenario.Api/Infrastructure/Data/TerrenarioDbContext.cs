@@ -46,6 +46,9 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
             entity.Property(u => u.ActiveWorkspaceId).HasColumnName("active_workspace_id");
             entity.Property(u => u.CreatedAt).HasColumnName("created_at");
             entity.Property(u => u.UpdatedAt).HasColumnName("updated_at");
+            // MVP-505 (CA-3) — Baja de cuenta: la fila sobrevive anonimizada y esta fecha marca el
+            // inicio del plazo de retención (RN-041).
+            entity.Property(u => u.DeletedAt).HasColumnName("deleted_at");
 
             entity.HasIndex(u => u.GoogleSub).IsUnique();
 

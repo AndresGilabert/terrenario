@@ -6,6 +6,8 @@ import { createWorkspaceLifecycleService } from '../../services/workspace-lifecy
 import { HttpError } from '../../services/http-client';
 import type { WorkspaceClosureOptions } from '../../types/workspace-lifecycle.types';
 import { CloseWorkspaceModal } from './CloseWorkspaceModal';
+import { PrivacyPanel } from './PrivacyPanel';
+import { DeleteAccountPanel } from './DeleteAccountPanel';
 
 /**
  * MVP-206 — Ajustes del Workspace activo: renombrar (HU-1/CA-1) y la zona de propiedad y baja
@@ -226,6 +228,12 @@ export const AjustesView: React.FC = () => {
           </div>
         )}
       </section>
+
+      {/* MVP-505 — Privacidad y baja de cuenta. Van **después** de la zona del Workspace: primero lo
+          que se hace a diario, y al final lo irreversible. El orden importa en una pantalla que
+          contiene la única acción del producto que no tiene vuelta atrás. */}
+      <PrivacyPanel />
+      <DeleteAccountPanel />
 
       {isModalOpen && options !== null && (
         <CloseWorkspaceModal

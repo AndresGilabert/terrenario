@@ -1,3 +1,4 @@
+import { Link } from 'react-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { authService } from '../../services/auth.service';
 import { generateCodeVerifier, generateCodeChallenge, generateState } from '../../lib/pkce';
@@ -99,32 +100,18 @@ export const LoginPage: React.FC = () => {
         </button>
       </div>
 
-      {/*
-        Enlaces legales (MVP-106, CA-3): el contenido legal (Política de Privacidad y Términos del
-        Servicio) está diferido a P-008 (MVP-999). Hasta que exista, se muestran deshabilitados con
-        indicación "próximamente" en vez de navegar a rutas inexistentes que el catch-all redirigía
-        a la landing (recarga incluida). No inician ninguna navegación.
-      */}
+      {/* MVP-505 (CA-1) — Enlaces legales **vivos**. Hasta ahora eran botones deshabilitados con
+          «próximamente» porque el contenido no existía (`P-008`): MVP-106 arregló el enlace roto, no
+          la falta de contenido. Ahora llevan a páginas reales, que es lo que HU-1 pide: poder leer a
+          qué te comprometes **antes** de entrar. */}
       <footer className="mt-8 text-center text-xs text-[#76786b] space-x-4">
-        <button
-          type="button"
-          disabled
-          title="Disponible próximamente"
-          aria-label="Política de Privacidad (disponible próximamente)"
-          className="cursor-not-allowed opacity-60"
-        >
+        <Link to="/legal/privacidad" className="hover:underline hover:text-[#33450d]">
           Política de Privacidad
-        </button>
+        </Link>
         <span aria-hidden="true">•</span>
-        <button
-          type="button"
-          disabled
-          title="Disponible próximamente"
-          aria-label="Términos del Servicio (disponible próximamente)"
-          className="cursor-not-allowed opacity-60"
-        >
+        <Link to="/legal/terminos" className="hover:underline hover:text-[#33450d]">
           Términos del Servicio
-        </button>
+        </Link>
       </footer>
     </div>
   );

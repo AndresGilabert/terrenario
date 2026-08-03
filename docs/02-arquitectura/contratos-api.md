@@ -125,6 +125,41 @@ Reglas de contexto:
 | `transferred` revoca a quien lo pidió (MVP-299, `R-25`) | Su membresía pasa a `revocado` **y su fila de `workers` se inactiva**, igual que al retirarle el acceso a mano: deja de ser responsable seleccionable sin invalidar lo que ya la referencie (MVP-208, CA-4). La baja `deleted` no revoca a nadie, así que no toca el maestro |
 | `is_clear: false` en obligaciones de propiedad (MVP-206) | La baja de cuenta no puede completarse: hay Workspaces de propiedad única sin resolver (RN-038, CA-9). El flujo completo de baja de cuenta es alcance posterior (`MVP-999`, P-024) |
 
+### 0.a bis) Account (baja de cuenta, MVP-505)
+
+| Operación | Método y ruta | Request | Respuesta 2xx |
+|---|---|---|---|
+| Qué bloquea la baja y qué alcance tendrá | `GET /api/v1/account/closure` | — | `200 { is_clear, obligations[], active_memberships, active_sessions, confirmation_phrase, retention_months }` |
+| Eliminar la cuenta | `POST /api/v1/account/closure` | `confirmation*` | `200 { revoked_sessions, revoked_memberships, cancelled_invitations, purge_after }` |
+
+Es el **derecho de supresión** (RGPD art. 17) ejercido por la propia persona, sin escribir a nadie.
+
+**No exige ámbito de Workspace**, a diferencia del resto de recursos: la baja es de la *cuenta*, y
+quien no tenga ningún Workspace —o lo haya perdido— también tiene derecho a ejercerla.
+
+| Regla | Comportamiento |
+|---|---|
+| Confirmación explícita (CA-3) | `confirmation` debe ser exactamente la frase que devuelve el `GET` (`ELIMINAR MI CUENTA`), sensible a mayúsculas. Se comprueba **en servidor**: una operación irreversible no puede depender de que el cliente se porte bien. Si no coincide, `400` |
+| No-orfandad (CA-4, RN-038) | Si la cuenta es propietaria única de algún Workspace, `422 BUSINESS_RULE_WORKSPACE_OWNERSHIP_UNRESOLVED` y `obligations` los lista. **Reutiliza la guarda de MVP-206**, no la reimplementa |
+| Qué desaparece | Nombre, correo e identificador del proveedor de identidad, en la cuenta, en los maestros de responsables de sus Workspaces (RN-036) y en las invitaciones pendientes dirigidas a su correo |
+| Qué se conserva | La **fila anonimizada**, porque cada actividad, cosecha y compra guarda quién la registró: borrarla dejaría el histórico operativo de terceros sin autoría. Ya no identifica a nadie |
+| Sesiones | Todas las vivas se revocan y la cookie de refresco se borra: sin eso, un token emitido antes seguiría sirviendo |
+| Volver a entrar | El `google_sub` deja de coincidir con el de Google, así que entrar con la misma cuenta crea una **cuenta nueva y vacía**. Es lo que hace que la supresión sea de verdad y no una desactivación |
+| Retención (CA-5, RN-041) | `purge_after` dice cuándo se purgará físicamente la fila anonimizada: **24 meses**. Se devuelve para que la persona sepa qué queda y hasta cuándo, no solo que «se ha borrado» |
+| Irreversible | No hay periodo de gracia ni papelera |
+
+### 0.a ter) Páginas legales (MVP-505)
+
+No son API: son rutas públicas del cliente, listadas aquí porque forman parte del contrato de salida.
+
+| Ruta | Contenido | Enlazada desde |
+|---|---|---|
+| `/legal/privacidad` | Política de Privacidad | Login, landing y Ajustes |
+| `/legal/terminos` | Términos del Servicio | Login, landing y Ajustes |
+
+Sustituyen a los enlaces rotos del login (`P-008`). Son **públicas** a propósito: se leen antes de
+entrar, que es cuando hacen falta.
+
 ### 0.b bis) Reactivación de un Workspace dado de baja (MVP-206)
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |

@@ -7,6 +7,8 @@ import { SeasonProvider, useSeason } from './contexts/SeasonContext';
 import { NotificationsProvider, useNotifications } from './contexts/NotificationsContext';
 import { LandingPage } from './components/marketing/LandingPage';
 import { LoginPage } from './components/auth/LoginPage';
+import { PrivacyPolicyPage } from './components/legal/PrivacyPolicyPage';
+import { TermsPage } from './components/legal/TermsPage';
 import { OAuthCallback } from './components/auth/OAuthCallback';
 import { CreateWorkspacePage } from './components/onboarding/CreateWorkspacePage';
 import { SeasonSetupPage } from './components/onboarding/SeasonSetupPage';
@@ -42,6 +44,11 @@ function AppRoutes() {
         element={isAuthenticated ? <Navigate to="/app" replace /> : <LoginPage />}
       />
       <Route path="/auth/callback" element={<OAuthCallback />} />
+
+      {/* MVP-505 (CA-1) — Páginas legales **públicas**: se leen antes de entrar, que es justo cuando
+          hacen falta (HU-1). Sustituyen a los enlaces rotos del login (`P-008`). */}
+      <Route path="/legal/privacidad" element={<PrivacyPolicyPage />} />
+      <Route path="/legal/terminos" element={<TermsPage />} />
 
       {/* Protected area */}
       <Route element={<ProtectedRoute />}>

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Mvc;
+using Terrenario.Api.Application.Account;
 using Terrenario.Api.Application.Activities;
 using Terrenario.Api.Application.Auth;
 using Terrenario.Api.Application.Consumptions;
@@ -186,6 +187,10 @@ builder.Services.AddScoped<RequestReactivationHandler>();
 builder.Services.AddScoped<ListReactivationRequestsHandler>();
 builder.Services.AddScoped<ResolveReactivationHandler>();
 builder.Services.AddScoped<ReopenWorkspaceHandler>();
+// Baja de cuenta y politica de retencion (MVP-505): el derecho de supresion, que reutiliza la
+// guarda de no-orfandad de MVP-206 en vez de reimplementarla (RN-038, CA-4).
+builder.Services.AddSingleton<AccountRetentionPolicy>();
+builder.Services.AddScoped<CloseAccountHandler>();
 builder.Services.AddScoped<IWorkspaceInvitationRepository, WorkspaceInvitationRepository>();
 builder.Services.AddScoped<InvitationTokenService>();
 builder.Services.AddScoped<IInvitationTokenService>(sp => sp.GetRequiredService<InvitationTokenService>());

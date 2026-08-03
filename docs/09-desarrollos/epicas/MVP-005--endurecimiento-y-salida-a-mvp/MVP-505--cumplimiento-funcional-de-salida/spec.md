@@ -2,7 +2,7 @@
 id: "MVP-505"
 tipo: feature
 titulo: "Cumplimiento funcional de salida: páginas legales, consentimiento y baja de cuenta"
-estado: borrador
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito E — Salida controlada a MVP"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "legal", "rgpd", "release-blocker"]
   nivel_riesgo: alto
 creado_en: "2026-07-28"
-actualizado_en: "2026-07-28"
+actualizado_en: "2026-08-03"
 ---
 
 # MVP-505 — Cumplimiento funcional de salida: páginas legales, consentimiento y baja de cuenta
@@ -109,18 +109,18 @@ el sistema tenga una política declarada de cuánto conserva lo que no borra.
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: La Política de Privacidad y los Términos del Servicio existen como páginas del
+- [x] **CA-1**: La Política de Privacidad y los Términos del Servicio existen como páginas del
   producto y son alcanzables desde el login, la landing y la aplicación; no queda ningún enlace legal
   apuntando a una ruta inexistente.
-- [ ] **CA-2**: Antes de activar cualquier cookie o tecnología no esencial se pide consentimiento; la
+- [x] **CA-2**: Antes de activar cualquier cookie o tecnología no esencial se pide consentimiento; la
   opción por defecto es la más protectora y la decisión se puede revocar después.
-- [ ] **CA-3**: Una persona puede eliminar su cuenta desde la aplicación con confirmación explícita;
+- [x] **CA-3**: Una persona puede eliminar su cuenta desde la aplicación con confirmación explícita;
   tras la baja no puede iniciar sesión, sus sesiones y refresh tokens quedan revocados y sus datos
   personales quedan borrados o anonimizados.
-- [ ] **CA-4**: La baja de cuenta **no deja Workspaces huérfanos**: si hay obligaciones de propiedad
+- [x] **CA-4**: La baja de cuenta **no deja Workspaces huérfanos**: si hay obligaciones de propiedad
   sin resolver, el sistema las expone y bloquea la baja hasta resolverlas, reutilizando la guarda de
   `MVP-206` (`RN-038`) sin duplicar la regla.
-- [ ] **CA-5**: Existe una política de retención y expurgo declarada en la KB para lo dado de baja y
+- [x] **CA-5**: Existe una política de retención y expurgo declarada en la KB para lo dado de baja y
   lo eliminado lógicamente, con plazo explícito, y `MVP-503` puede verificarla contra el sistema.
 
 ## Maquetas y referencias visuales
@@ -158,3 +158,92 @@ el sistema tenga una política declarada de cuánto conserva lo que no borra.
   registros operativos conservados indefinidamente, no solo Workspaces.
 - **Dependencia con `MVP-503`.** Esta historia debe entregarse **antes** de la revisión de
   cumplimiento, no después: `MVP-503` verifica, no construye.
+
+## Resultado de la entrega (2026-07-31)
+
+Diseño técnico completo en [tech-design.md](./tech-design.md). `P-008`, `P-024` y `P-033` cerrados.
+
+| Suite | Antes | Después |
+|---|---|---|
+| Backend | 654 | **666** |
+| Frontend | 81 | **87** |
+
+### CA-1 — Páginas legales
+
+Política de Privacidad y Términos del Servicio como páginas **públicas** (`/legal/privacidad`,
+`/legal/terminos`): se leen antes de entrar, que es cuando hacen falta. Enlazadas desde login, landing
+y Ajustes. Los botones deshabilitados con «próximamente» del login desaparecen: `MVP-106` arregló el
+enlace roto, no la falta de contenido.
+
+El contenido describe **lo que el sistema hace de verdad** —tratamientos, bases jurídicas, encargados
+y plazos salen de `privacidad-datos.md`—, no una plantilla genérica. Los datos del responsable van
+como **marcadores visibles** (decisión del PO) y la página avisa de que está pendiente de completar.
+
+### CA-2 — Consentimiento: por qué **no** hay banner
+
+Se inventariaron todas las tecnologías de almacenamiento y terceros. **Todas son estrictamente
+necesarias**: cookie de sesión, token de la pestaña, recordatorio de avisos vistos e inicio de sesión
+con Google. No hay analítica, publicidad ni perfilado.
+
+Quedaba **una** excepción real: las tipografías se cargaban del CDN de Google, lo que transfiere la IP
+de cada visitante a un tercero sin base jurídica clara —justo el supuesto que obligaría a pedir
+consentimiento—. En vez de gestionarlo con un banner, **se elimina**: las tipografías se autoalojan.
+Eso evita degradar la experiencia de todo visitante, mantiene la fidelidad al sistema de diseño y
+permite además **cerrar la CSP a `'self'`**.
+
+Sin ninguna tecnología no esencial, mostrar un banner sería **peor** cumplimiento: la guía de la AEPD
+lo reserva para las tecnologías no exentas, y enseñarlo cuando solo se usan las técnicas normaliza el
+clic automático sin proteger nada. Lo que se entrega es lo que la norma sí exige: **informar**, con un
+panel de privacidad en Ajustes que lista el inventario. `RN-042` deja escrita la obligación de recabar
+consentimiento previo, con la opción más protectora por defecto y revocable, el día que entre algo no
+esencial.
+
+> **Esta es la decisión de la historia que conviene revisar expresamente**, porque a primera vista
+> parece que falta un banner. Está razonada en el tech-design y es revisable en `MVP-503`.
+
+### CA-3 y CA-4 — Baja de cuenta
+
+Anonimización inmediata + purga diferida (decisión del PO). Al confirmar desaparecen **ya** el nombre,
+el correo y el identificador de Google: en la cuenta, en los maestros de responsables de sus
+Workspaces (RN-036) y en las invitaciones pendientes dirigidas a su correo. Se revocan todas las
+sesiones y se borra la cookie de refresco.
+
+Lo decisivo: el `google_sub` deja de coincidir con el de Google, así que **volver a entrar con la
+misma cuenta crea una cuenta nueva y vacía**. Eso separa una supresión de una desactivación.
+
+La fila sobrevive anonimizada porque cada actividad, cosecha y compra guarda quién la registró:
+borrarla dejaría sin autoría el histórico operativo de **terceros**. Ya no identifica a nadie.
+
+**La regla de no-orfandad se llama, no se reimplementa** (CA-4): `WorkspaceOwnershipGuard` de
+`MVP-206`, que se dejó implementada y probada como punto de enganche de esta historia. Era la
+condición con la que se registró `P-024`. Si quedan Workspaces de propiedad única, la baja responde
+`422` y la pantalla los lista con su salida.
+
+La confirmación es **una frase tecleada**, no un clic, y se comprueba también en servidor.
+
+### CA-5 — Retención y expurgo
+
+`RN-041` extiende los 24 meses que ya regían para «cuenta cancelada» a todo lo que el producto
+conserva por diseño y no tenía plazo: Workspaces de baja (RN-039), registros operativos eliminados
+(RN-037), solicitudes de reactivación cerradas e invitaciones terminales. El plazo vive **también en
+código** y la respuesta de la baja devuelve la fecha concreta de purga, para que `MVP-503` pueda
+verificarlo contra el sistema en vez de leerlo.
+
+### Verificación
+
+- Backend: **666 tests** (654 antes), 12 de ellos de la baja contra API y PostgreSQL reales,
+  comprobando **qué queda escrito** y no solo el código de respuesta.
+  **Aviso**: al cerrar la historia, Smart App Control de Windows empezó a bloquear el ensamblado de
+  Testcontainers y la suite dejó de poder ejecutarse entera en esta máquina (`P-069`). Los 666 se
+  verificaron antes del bloqueo; los 510 que no dependen de Testcontainers siguen pasando y **ningún
+  fallo es de lógica**: todos son el mismo error de carga del ensamblado.
+- Frontend: **87 tests** (81 antes); build, lint y `npm audit` limpios.
+- En navegador: páginas legales, enlaces vivos en login y landing, panel de privacidad, panel de baja
+  correctamente bloqueado con datos reales, y **cero peticiones a dominios de Google**.
+
+### Lo que esta historia deja abierto (para `MVP-504`)
+
+1. **Los marcadores del contenido legal**: solo el negocio puede rellenarlos. Hasta entonces las
+   páginas existen y son revisables, pero **no son publicables**.
+2. **La programación del expurgo**: la política, el plazo y el cálculo están; ejecutarlo
+   periódicamente es una decisión de infraestructura.

@@ -1,5 +1,20 @@
 @import "tailwindcss";
 
+/* MVP-505 (RN-042) — Tipografias e iconos **autoalojados**.
+   Antes se cargaban desde el CDN de Google, lo que transfiere la direccion IP de cada visitante a un
+   tercero sin base juridica clara: justo el supuesto que obligaria a pedir consentimiento.
+   Autoalojarlas elimina el problema en vez de gestionarlo, y permite cerrar la CSP a 'self'.
+   Solo se importan los pesos que el sistema de diseno usa, para no inflar el bundle. */
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/plus-jakarta-sans/500.css";
+@import "@fontsource/plus-jakarta-sans/600.css";
+@import "@fontsource/plus-jakarta-sans/700.css";
+@import "@fontsource/plus-jakarta-sans/800.css";
+@import "material-symbols/outlined.css";
+
 *, *::before, *::after {
   box-sizing: border-box;
 }

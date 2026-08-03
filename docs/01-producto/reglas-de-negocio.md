@@ -477,6 +477,41 @@ baja el Workspace; al autorizarla, el Workspace vuelve a estar activo y su propi
 solicito. Quien dio de baja el Workspace puede ademas volver a levantarlo por su cuenta en cualquier
 momento.
 
+### RN-041 — Todo lo que se conserva tiene plazo
+
+**Estado**: activa
+**Fuente**: cumplimiento (RGPD, principio de limitacion del almacenamiento)
+**Módulos afectados**: identidad, workspaces, diario, produccion
+
+El producto conserva por diseno lo que se da de baja: la baja de un Workspace es logica (RN-039), la
+eliminacion de un registro operativo tambien (RN-037) y una cuenta dada de baja conserva su fila
+anonimizada porque el historico operativo guarda quien lo registro. Todo eso se conserva **24 meses**
+desde su baja y despues se purga fisicamente.
+
+Los **datos personales no esperan a ese plazo**: la baja de cuenta los borra o anonimiza en el acto
+—nombre, correo e identificador del proveedor de identidad, tanto en la cuenta como en los maestros de
+sus Workspaces y en las invitaciones que la nombraban—. Lo que se conserva es la fila anonimizada, que
+ya no identifica a nadie.
+
+El plazo vive tambien en codigo, no solo en la documentacion, para que sea verificable.
+
+### RN-042 — Ninguna tecnologia no esencial se activa sin consentimiento
+
+**Estado**: activa
+**Fuente**: cumplimiento (LSSI-CE, ePrivacy)
+**Módulos afectados**: cliente web
+
+Toda cookie, almacenamiento o recurso de terceros debe estar inventariado y clasificado antes de
+activarse (ver `docs/07-seguridad/privacidad-datos.md`). Las **estrictamente necesarias** —las que
+sostienen el servicio que la persona ha pedido— no requieren consentimiento. Cualquier otra exige
+consentimiento **previo**, con la opcion mas protectora por defecto y revocable en cualquier momento.
+
+El MVP no usa ninguna tecnologia no esencial: no hay analitica, publicidad ni perfilado, y las
+tipografias se autoalojan para no transferir la IP de cada visitante a un tercero. Por eso **no se
+muestra banner de cookies**: la guia de la AEPD reserva el banner para las tecnologias no exentas, y
+mostrarlo cuando solo se usan las tecnicas normaliza el clic automatico sin proteger nada. Lo que si
+hay es un panel donde consultar el inventario.
+
 ## Reglas obsoletas
 
 | ID | Nombre | Motivo de obsolescencia | Fecha |

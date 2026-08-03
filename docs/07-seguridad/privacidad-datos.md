@@ -1,7 +1,7 @@
 ﻿---
 bloque: 07-seguridad
 documento: privacidad-datos
-actualizado_en: "2026-07-31"
+actualizado_en: "2026-08-03"
 ---
 
 # Privacidad de Datos y GDPR
@@ -54,9 +54,36 @@ actualizado_en: "2026-07-31"
 | Categoría | Ejemplos | Tratamiento |
 |-----------|---------|-------------|
 | **PII básico** | Nombre, email, teléfono | Cifrado en reposo, acceso restringido |
+| **PII de terceros introducida por el usuario** | Nombre de una persona de la cuadrilla (`workers.name`), nombre del propietario de un terreno cedido (`plots.owner_name`), texto libre de una labor (`activities.description`) | El usuario del Workspace es quien la introduce y **responde de tener base legítima**; el producto la trata por su cuenta (encargo). Ver más abajo |
 | **PII sensible** | Datos bancarios, documentos de identidad | Cifrado en reposo + en tránsito, acceso muy restringido |
 | **Datos de comportamiento** | Logs de uso, historial | Minimizacion, pseudonimizacion y/o anonimizacion segun finalidad |
 | **Datos públicos** | IDs, referencias | Sin restricciones especiales |
+
+## Datos personales de terceros introducidos por el usuario (MVP-503)
+
+Verificado sobre el esquema real: además de los datos de la cuenta, el producto almacena datos
+personales que **el usuario introduce sobre otras personas**, y que esas personas no han facilitado
+ni pueden gestionar por sí mismas.
+
+| Dato | Dónde | Quién es esa persona |
+|---|---|---|
+| Nombre de la cuadrilla | `workers.name` | Alguien que trabaja en la explotación y puede no tener cuenta |
+| Nombre del propietario del terreno | `plots.owner_name` | El arrendador de un terreno cedido (RN-028) |
+| Texto libre de una labor | `activities.description` | Puede mencionar a cualquiera |
+
+Consecuencias, y por qué importan:
+
+1. **El titular del Workspace es responsable del tratamiento** de esos datos; el producto actúa como
+   encargado. Los Términos del Servicio lo dicen expresamente: quien registra a su cuadrilla debe
+   informarles y tener base legítima.
+2. **Esas personas no pueden ejercer sus derechos desde el producto**, porque no tienen cuenta. Su vía
+   es el titular del Workspace, o el contacto de privacidad.
+3. **La baja de cuenta no los borra**, y es correcto: pertenecen al Workspace, no a la cuenta de quien
+   se va. Se van con el Workspace cuando este se da de baja (RN-039 + RN-041).
+4. **Minimización**: `owner_name` y `description` son opcionales y de texto libre. La política pide no
+   introducir más datos de terceros de los necesarios; el producto no lo puede impedir.
+
+---
 
 ## Reglas especificas para autenticacion social
 
@@ -158,19 +185,48 @@ declarado: la respuesta de la baja devuelve la fecha de purga concreta.
 Evidencia para la revisión de LSSI-CE / ePrivacy. Se mantiene actualizado: **toda tecnología nueva
 entra en esta tabla antes de activarse**.
 
+> **Verificado contra el código en `MVP-503`** (2026-08-03). La primera versión de esta tabla, escrita
+> en `MVP-505`, declaraba una clave que no existía y omitía cinco que sí. Un inventario de
+> cumplimiento que no coincide con el sistema no sirve de evidencia: esta tabla se contrasta con
+> `grep` sobre el cliente, no de memoria.
+
 | Tecnología | Dónde | Para qué | Clasificación |
 |---|---|---|---|
 | Cookie `refresh_token` | Navegador (`HttpOnly`, `SameSite=Strict`, `Path=/api/v1/auth`) | Mantener la sesión que la persona ha pedido al entrar | **Estrictamente necesaria** |
-| `sessionStorage.terrenario_at` | Navegador | Token de acceso de la sesión en curso; muere al cerrar la pestaña | **Estrictamente necesaria** |
-| `localStorage` `terrenario:seen_invitations` | Navegador | No repetir el aviso de una invitación ya vista | **Estrictamente necesaria** (funcional: es el servicio que la persona está usando) |
-| `localStorage` `terrenario:privacy_ack` | Navegador | Recordar que se ha visto el aviso de privacidad | **Estrictamente necesaria** (funcional) |
+| `sessionStorage` `terrenario_at` | Navegador | Token de acceso de la sesión en curso; muere al cerrar la pestaña | **Estrictamente necesaria** |
+| `sessionStorage` `pkce_code_verifier` | Navegador | Verificador PKCE del intercambio OAuth. Sin él el acceso no es seguro | **Estrictamente necesaria** (seguridad) |
+| `sessionStorage` `oauth_state` | Navegador | Parámetro `state` anti-CSRF del retorno de Google | **Estrictamente necesaria** (seguridad) |
+| `sessionStorage` `terrenario_post_login_redirect` | Navegador | Recordar a dónde iba quien abrió un enlace de invitación sin sesión | **Estrictamente necesaria** (funcional) |
+| `localStorage` `terrenario:seen_invitations` | Navegador | No repetir el aviso de una invitación ya vista | **Estrictamente necesaria** (funcional) |
+| `sessionStorage` `terrenario_login_flow` y `terrenario_login_started` | Navegador | Correlacionar el embudo de login (RN-020) | **Medición propia** — ver más abajo |
 | Google Identity (OIDC) | Servidor | Autenticación de acceso (RN-036) | **Estrictamente necesaria**: es el método de acceso que la persona elige |
 | Tipografías e iconos | **Autoalojados** | Sistema de diseño | Sin transferencia a terceros |
 
-**No hay analítica, publicidad, perfilado ni ninguna tecnología no esencial.** Por eso el producto
-**no muestra banner de cookies**: la guía de la AEPD es explícita en que el banner es para las
-tecnologías **no exentas**, y mostrarlo cuando solo se usan las técnicas es una mala práctica que
-además normaliza el clic automático.
+### El matiz de la telemetría del embudo de login (RN-020)
+
+`MVP-505` afirmó que «no hay analítica». **Es más exacto decir que no hay analítica de terceros ni
+perfilado**: sí existe una medición propia del embudo de login (`MVP-105`, RN-020), que guarda un
+identificador de flujo aleatorio en `sessionStorage` y emite tres eventos —pantalla vista, clic en
+Google y abandono— para saber dónde se cae el acceso.
+
+Por qué se concluye que **no requiere consentimiento**:
+
+- Es **de primera parte**: no interviene ningún tercero y el dato no sale del sistema.
+- **No contiene PII**: solo el nombre del evento y un identificador aleatorio, no vinculado a la
+  cuenta (la traza de éxito y error se emite en servidor, no desde el cliente).
+- **No hay seguimiento entre sitios ni perfilado**, ni se conserva más allá de la sesión: el
+  identificador vive en `sessionStorage` y muere al cerrar la pestaña.
+- Es **medición de audiencia estrictamente propia y agregada** de un único flujo, que es el supuesto
+  que las autoridades europeas tratan como exento o de riesgo mínimo.
+
+Queda registrado como decisión motivada, no como omisión. Si la medición creciera —más eventos, más
+retención, o cualquier herramienta de terceros— dejaría de encajar en este supuesto y `RN-042`
+obligaría a recabar consentimiento previo.
+
+**No hay publicidad, perfilado ni tecnologías de terceros.** Por eso el producto **no muestra banner
+de cookies**: la guía de la AEPD es explícita en que el banner es para las tecnologías **no exentas**,
+y mostrarlo cuando solo se usan las técnicas es una mala práctica que además normaliza el clic
+automático.
 
 Lo que sí hay es un **aviso de privacidad accesible** desde la aplicación y un panel donde la persona
 puede consultar este inventario en cualquier momento. Si en el futuro se incorpora cualquier

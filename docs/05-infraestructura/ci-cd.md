@@ -46,6 +46,13 @@ implementado hoy es:
 |---|---|---|
 | `.github/workflows/ci.yml` | Backend (build + toda la suite, con PostgreSQL vía Testcontainers), cliente (lint, build con comprobación de tipos, tests) y `npm audit` a partir de severidad alta | Sí |
 | `.github/workflows/validar-kb.yml` | Estructura, frontmatter, índices y markdownlint | Sí |
+| `.github/workflows/deploy.yml` | **Publicación a producción**, disparada por un tag `v*`: exige el gate en verde para ese commit, despliega API y cliente, y hace un smoke de lo publicado | — |
+
+El disparador de la publicación es el **tag** y no el merge a `main` a propósito: promocionar y
+publicar son dos decisiones distintas, y separarlas permite promocionar hoy y publicar cuando se
+quiera, o volver a publicar una versión ya promocionada sin tocar ramas. El montaje inicial de la
+infraestructura está en
+[`runbooks/publicacion-inicial-en-azure.md`](./runbooks/publicacion-inicial-en-azure.md).
 
 Se ejecutan en `push` y `pull_request` sobre `main` y `develop`. El backend corre en **Linux**, que es
 el entorno de referencia: la suite necesita Docker y en Windows depende de la política de Application

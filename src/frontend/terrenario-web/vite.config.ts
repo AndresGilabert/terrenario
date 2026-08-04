@@ -15,8 +15,14 @@ import tailwindcss from '@tailwindcss/vite'
  * el arranque sin proteger nada (el servidor de desarrollo no se expone).
  *
  * `connect-src` incluye el origen real de la API porque el front y el back no comparten origen.
- * El ideal es que la CSP la emita como **cabecera** quien sirva el estático; mientras no exista esa
- * capa, el `meta` deja la política aplicada y versionada con el código en vez de pendiente.
+ *
+ * `P-067` — Además del `meta`, el plugin emite la política en `csp.policy`, que la API lee para
+ * servirla como **cabecera**. Importa por dos motivos: hay directivas que el navegador **ignora en
+ * un `meta`** —`frame-ancestors` es una de ellas, y es la que frena el clickjacking— y una cabecera
+ * se aplica antes de parsear el documento.
+ *
+ * Los dos salen de la **misma cadena**, que es el punto: si se generaran por separado acabarían
+ * divergiendo y nadie se enteraría hasta que fallara la que no se estaba mirando.
  */
 function contentSecurityPolicy(apiBaseUrl: string): Plugin {
   const apiOrigin = (() => {
@@ -48,6 +54,15 @@ function contentSecurityPolicy(apiBaseUrl: string): Plugin {
   return {
     name: 'terrenario-csp',
     apply: 'build',
+
+    // La política, también como fichero, para que quien sirva el estático pueda emitirla como
+    // **cabecera**. La sirve la propia API (`SecurityHeadersMiddleware`), que la lee de aquí en vez
+    // de reescribirla en C#: duplicarla sería la divergencia silenciosa de siempre, y además el
+    // backend no conoce el origen que este build inyecta en `connect-src`.
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'csp.policy', source: policy })
+    },
+
     transformIndexHtml: {
       order: 'post',
       handler: (html) =>

@@ -168,16 +168,32 @@ az webapp log tail --resource-group rg-terrenario-prod --name app-terrenario-api
 porque así puedes exigir aprobación manual antes de cada publicación (recomendado: marca *Required
 reviewers* contigo mismo).
 
-Secretos:
+**Sin secretos.** El despliegue usa **identidad federada (OIDC)**: GitHub emite un token de un solo
+uso en cada ejecución y Azure solo lo acepta si viene de este repositorio y del entorno `produccion`.
+No hay ninguna credencial almacenada que rotar ni que se pueda filtrar.
 
-| Secreto | De dónde sale |
-|---------|---------------|
-| `AZURE_WEBAPP_PUBLISH_PROFILE` | `az webapp deployment list-publishing-profiles --resource-group rg-terrenario-prod --name app-terrenario-api --xml` |
+La alternativa —perfil de publicación— **no funciona**: Azure trae desactivada la autenticación básica
+de publicación (`scm` y `ftp` en `false`) desde hace años, así que el perfil llega sin credenciales y
+el despliegue falla con «Publish profile is invalid». Reactivarla sería el único punto del montaje
+donde se elige la opción menos segura.
 
-Variables (no son secretos: acaban en el bundle, que es público):
+El montaje de la identidad, una sola vez:
+
+```bash
+az ad app create --display-name "terrenario-deploy"
+```
+
+Después: crear el *service principal*, añadir una credencial federada con sujeto
+`repo:AndresGilabert/terrenario:environment:produccion`, y asignarle el rol **Website Contributor**
+acotado a **la aplicación web**, no al grupo de recursos.
+
+Variables del entorno (ninguna es secreta):
 
 | Variable | Valor |
 |----------|-------|
+| `AZURE_CLIENT_ID` | El `appId` del registro de aplicación |
+| `AZURE_TENANT_ID` | El identificador del inquilino |
+| `AZURE_SUBSCRIPTION_ID` | El identificador de la suscripción |
 | `AZURE_WEBAPP_NAME` | `app-terrenario-api` |
 | `VITE_GOOGLE_CLIENT_ID` | El identificador de cliente de Google |
 | `PUBLIC_WEB_URL` | `https://app.terrenario.com` |

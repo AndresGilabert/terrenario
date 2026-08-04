@@ -38,22 +38,48 @@ jobs:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
       # Publicar un commit cuyo CI falló sería saltarse el gate de MVP-504 por la puerta de atrás.
+      #
+      # **Espera** en vez de fallar cuando el gate está a medias: lo normal es promocionar y poner el
+      # tag seguido, así que el CI de `main` suele estar todavía corriendo. Sin esta espera, la
+      # publicación se caería con «gate en rojo» cuando en realidad no había terminado —el peor tipo
+      # de error, porque el diagnóstico correcto es «vuelve a intentarlo».
       - name: Exigir CI en verde para este commit
         uses: actions/github-script@v7
         with:
           script: |
-            const { data } = await github.rest.checks.listForRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: context.sha,
-            });
-            const gate = data.check_runs.filter(c => /Backend|Frontend|Seguridad/.test(c.name));
-            if (gate.length === 0)
-              throw new Error('No hay ejecución de CI para este commit: no se puede publicar a ciegas.');
-            const fallidos = gate.filter(c => c.conclusion !== 'success');
-            if (fallidos.length > 0)
-              throw new Error('Gate en rojo: ' + fallidos.map(c => c.name).join(', '));
-            core.info('Gate en verde: ' + gate.map(c => c.name).join(', '));
+            const ESPERA_MS = 20000;
+            const INTENTOS = 45; // 15 minutos: el CI completo tarda unos 2
+
+            for (let intento = 1; intento <= INTENTOS; intento++) {
+              const { data } = await github.rest.checks.listForRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: context.sha,
+              });
+
+              // El propio job de publicación aparece en la lista: filtrarlo, o se esperaría a sí mismo.
+              const gate = data.check_runs.filter(c => /^(Backend|Frontend|Seguridad)/.test(c.name));
+              const pendientes = gate.filter(c => c.status !== 'completed');
+              const fallidos = gate.filter(c => c.status === 'completed' && c.conclusion !== 'success');
+
+              if (fallidos.length > 0)
+                throw new Error('Gate en rojo: ' + fallidos.map(c => `${c.name} (${c.conclusion})`).join(', '));
+
+              if (gate.length > 0 && pendientes.length === 0) {
+                core.info('Gate en verde: ' + gate.map(c => c.name).join(', '));
+                return;
+              }
+
+              const motivo = gate.length === 0
+                ? 'todavía no hay ejecución de CI para este commit'
+                : `faltan por terminar: ${pendientes.map(c => c.name).join(', ')}`;
+              core.info(`Intento ${intento}/${INTENTOS} — ${motivo}`);
+              await new Promise(r => setTimeout(r, ESPERA_MS));
+            }
+
+            // Que no aparezca ninguna ejecución tras 15 minutos no es «tarda»: es que ese commit no
+            // pasó por el CI. Publicar a ciegas es justo lo que este paso existe para impedir.
+            throw new Error('El gate no llegó a estar en verde. Comprueba que el CI se ejecutó sobre este commit.');
 
   publicar:
     name: Publicar aplicación

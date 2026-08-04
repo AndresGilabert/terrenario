@@ -63,6 +63,23 @@ ok "Región $REGION disponible"
 # España. Crear el servidor en otra región convertiría ese documento en falso.
 [ "$REGION" = "spaincentral" ] || avis "Región distinta de España: hay que corregir la Política de Privacidad y privacidad-datos.md"
 
+# ── 0 bis. Proveedores de recursos ────────────────────────────────────────────
+#
+# Una suscripción nueva no tiene registrados los proveedores hasta que se usan. Algunos comandos lo
+# hacen solos —`webapp create` avisa y registra `Microsoft.Web`— pero **PostgreSQL no**: falla con
+# `MissingSubscriptionRegistration` después de haber empezado a crear el servidor, que es el peor
+# momento para enterarse. Registrarlos aquí cuesta segundos y es idempotente.
+paso "Proveedores de recursos"
+for ns in Microsoft.DBforPostgreSQL Microsoft.Web; do
+  estado=$("$AZ" provider show --namespace "$ns" --query registrationState -o tsv 2>/dev/null || echo "NotRegistered")
+  if [ "$estado" = "Registered" ]; then
+    ok "$ns ya registrado"
+  else
+    "$AZ" provider register --namespace "$ns" --wait -o none
+    ok "$ns registrado"
+  fi
+done
+
 # ── 1. Grupo de recursos ──────────────────────────────────────────────────────
 paso "Grupo de recursos"
 if existe group show --name "$GRUPO"; then

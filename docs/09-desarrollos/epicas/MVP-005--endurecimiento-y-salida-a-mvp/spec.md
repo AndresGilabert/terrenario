@@ -2,7 +2,7 @@
 id: "MVP-005"
 tipo: epica
 titulo: "Endurecimiento y salida a MVP"
-estado: borrador
+estado: completado
 prioridad: alta
 hito: "Hito E — Salida controlada a MVP"
 tickets: []
@@ -19,7 +19,7 @@ ai_context:
   etiquetas: ["mvp", "hardening", "release"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-30"
+actualizado_en: "2026-08-04"
 ---
 
 # EPICA MVP-005 — Endurecimiento y salida a MVP
@@ -58,9 +58,13 @@ Llevar el núcleo funcional del MVP a un estado desplegable con riesgo controlad
 
 ## Criterios de aceptación de la épica
 
-- [ ] **CA-1**: Todas las historias de la épica están en estado `completado`.
-- [ ] **CA-2**: Los gates mínimos de tests definidos en la KB están en verde para el alcance MVP.
-- [ ] **CA-3**: Existe evidencia documental suficiente de cumplimiento y salida controlada antes de pasar a producción.
+- [x] **CA-1**: Todas las historias de la épica están en estado `completado`.
+- [x] **CA-2**: Los gates mínimos de tests definidos en la KB están en verde para el alcance MVP, y
+  **se ejecutan solos en cada PR** desde `MVP-504`: antes de esa historia el CI ni siquiera compilaba
+  el código.
+- [x] **CA-3**: Existe evidencia documental suficiente de cumplimiento y salida controlada, verificada
+  contra el sistema real (`MVP-503`) y consolidada en el gate de salida (`MVP-504`), con sus cuatro
+  bloqueos cerrados.
 
 ## Historias de esta épica
 
@@ -116,3 +120,22 @@ Matriz historia -> utilidad del prototipo:
 - **`P-027` y `P-043` se resuelven en `MVP-502`** (validación en bordes API) y `P-012`/`P-023`/`P-031`
   en `MVP-501`, retargeteados en la misma revisión: ya estaban señalados hacia esta épica y ahora
   tienen historia concreta.
+
+## Cierre de la épica (2026-08-04)
+
+Las siete historias entregadas y verificada en `MVP-599` sobre el sistema en marcha, no sobre la
+documentación. **El MVP queda desplegable a `staging` sin reservas** y a producción una vez cumplidos
+los criterios de promoción del [gate de salida](../../../08-procesos/gate-salida-mvp.md).
+
+Lo que la épica cambió de verdad:
+
+- **El gate dejó de ser una intención.** El CI solo validaba la KB: ni compilaba ni ejecutaba un test,
+  mientras la estrategia de testing exigía verde para desplegar. Ahora corre en cada PR.
+- **Había una promesa incumplida desde el día uno**: `RN-041` fijaba 24 meses de retención y no los
+  aplicaba nadie. `MVP-504` entregó la rutina que los ejecuta.
+- **La separación entre construcción y salida** resultó ser el hallazgo principal: de los cuatro
+  bloqueos de salida, **tres no eran de desarrollo**. Sin el gate se habrían confundido con deuda
+  técnica.
+
+Los pendientes derivados —`P-064`, `P-069`, `P-070`, `P-071`, `P-072`— quedan en `MVP-999` con su
+análisis, no como una línea suelta.

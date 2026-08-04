@@ -30,14 +30,13 @@ REGION="${REGION:-spaincentral}"
 GRUPO="${GRUPO:-rg-terrenario-prod}"
 PLAN="${PLAN:-plan-terrenario-prod}"
 API="${API:-app-terrenario-api}"
-WEB="${WEB:-swa-terrenario-web}"
 PG="${PG:-psql-terrenario-prod}"
 PG_USUARIO="${PG_USUARIO:-terrenario}"
 PG_BD="${PG_BD:-terrenario}"
 
-# Static Web Apps: `Free` basta para la validación —admite dominio propio y certificado gestionado—.
-# `Standard` solo aporta SLA, backend enlazado y red privada, que aquí no se usan.
-SKU_WEB="${SKU_WEB:-Free}"
+# El cliente lo sirve la propia API, así que no hay recurso de hosting estático: Azure Static Web
+# Apps **no tiene región europea abierta a altas nuevas**, y servirlo desde EE. UU. haría falsas dos
+# frases de la Política de Privacidad. Un solo origen, todo en Spain Central.
 # App Service: `B1` es el escalón **mínimo con dominio propio y TLS**. `F1` y `D1` no valen: sin HTTPS
 # la cookie de refresco no puede ser `Secure` y la sesión no funciona.
 SKU_API="${SKU_API:-B1}"
@@ -139,36 +138,20 @@ fi
 "$AZ" webapp config set --resource-group "$GRUPO" --name "$API" --min-tls-version 1.2 -o none
 ok "HTTPS obligatorio y TLS mínimo 1.2"
 
-# ── 4. Static Web App ─────────────────────────────────────────────────────────
-paso "Static Web App (cliente)"
-if existe staticwebapp show --resource-group "$GRUPO" --name "$WEB"; then
-  ok "$WEB ya existe"
-else
-  # Sin `--source`: el despliegue lo hace el workflow de este repositorio. Si se conectara aquí a
-  # GitHub, Azure crearía su propio workflow y habría dos despliegues compitiendo.
-  "$AZ" staticwebapp create \
-    --resource-group "$GRUPO" --name "$WEB" --location "westeurope" --sku "$SKU_WEB" -o none
-  ok "$WEB creado ($SKU_WEB)"
-  avis "Static Web Apps no está en Spain Central; el contenido es estático y público, sin dato personal"
-fi
-
-# ── 5. Lo que hay que hacer a mano ────────────────────────────────────────────
+# ── 4. Lo que hay que hacer a mano ────────────────────────────────────────────
 paso "Datos para los siguientes pasos"
 
 ASUID=$("$AZ" webapp show --resource-group "$GRUPO" --name "$API" \
   --query customDomainVerificationId -o tsv)
-WEB_HOST=$("$AZ" staticwebapp show --resource-group "$GRUPO" --name "$WEB" \
-  --query defaultHostname -o tsv)
 
 cat <<FIN
 
   Crea estos registros DNS en el proveedor de $DOMINIO:
 
-    api            CNAME   $API.azurewebsites.net
-    asuid.api      TXT     $ASUID
-    app            CNAME   $WEB_HOST
+    app            CNAME   $API.azurewebsites.net
+    asuid.app      TXT     $ASUID
 
-  Cuando hayan propagado (compruébalo con: dig +short api.$DOMINIO), ejecuta:
+  Cuando hayan propagado (compruébalo con: dig +short app.$DOMINIO), ejecuta:
 
     ./enlazar-dominios.sh
 

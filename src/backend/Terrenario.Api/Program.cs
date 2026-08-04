@@ -1,3 +1,4 @@
+using System.IO;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -193,6 +194,10 @@ builder.Services.AddScoped<ResolveReactivationHandler>();
 builder.Services.AddScoped<ReopenWorkspaceHandler>();
 // Baja de cuenta y politica de retencion (MVP-505): el derecho de supresion, que reutiliza la
 // guarda de no-orfandad de MVP-206 en vez de reimplementarla (RN-038, CA-4).
+// La CSP del cliente se lee una sola vez del fichero que emite su build (`csp.policy`), en vez de
+// reescribirla en C#: el backend no conoce el origen que el build inyecta en `connect-src`.
+builder.Services.AddSingleton(sp =>
+    SpaContentSecurityPolicy.FromWebRoot(sp.GetRequiredService<IWebHostEnvironment>()));
 builder.Services.AddSingleton<AccountRetentionPolicy>();
 builder.Services.AddScoped<CloseAccountHandler>();
 // MVP-504 (B-3): quien **ejecuta** RN-041. Hasta aqui el plazo estaba declarado en tres sitios y no
@@ -277,9 +282,48 @@ app.UseMiddleware<SecurityHeadersMiddleware>(); // Headers de seguridad HTTP (P-
 
 app.UseHttpsRedirection();
 app.UseCors("FrontendPolicy");
+
+// ── El cliente, servido por la propia API ─────────────────────────────────────
+//
+// Un solo origen, y no por comodidad: Azure Static Web Apps **no tiene región europea disponible**
+// para altas nuevas, y servir el cliente desde EE. UU. haría falsas dos frases de la Política de
+// Privacidad ya publicada. Sirviéndolo desde aquí, todo queda en Spain Central.
+//
+// De regalo desaparecen dos problemas: no hay CORS que configurar, y la cookie de refresco
+// `SameSite=Strict` deja de estar en riesgo, porque ya no hay nada cross-site.
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+// Las rutas del SPA (`/app/diario`, `/legal/privacidad`) no existen como fichero: solo viven en el
+// router del cliente. Sin esto, entrar directo o recargar da 404.
+//
+// `/api` se excluye a propósito: devolver `index.html` con un 200 ante un endpoint inexistente
+// convertiría un error de integración en una respuesta aparentemente válida, que es de las cosas más
+// caras de diagnosticar.
+app.MapFallback(async context =>
+{
+    if (context.Request.Path.StartsWithSegments("/api"))
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    var indice = Path.Combine(app.Environment.WebRootPath ?? string.Empty, "index.html");
+    if (!File.Exists(indice))
+    {
+        // API desplegada sin cliente: es un estado legítimo en desarrollo, y decirlo es mejor que
+        // servir un 404 sin explicación.
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    context.Response.ContentType = "text/html; charset=utf-8";
+    await context.Response.SendFileAsync(indice);
+});
 
 // ── Migraciones al arrancar ───────────────────────────────────────────────────
 //

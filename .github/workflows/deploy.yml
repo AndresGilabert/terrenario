@@ -6,8 +6,13 @@ name: Publicar
 # decisiones distintas, y separarlas permite promocionar hoy y publicar cuando se quiera, o volver a
 # publicar una versión ya promocionada sin tocar ramas.
 #
-# No repite los tests: el tag se pone sobre un commit de `main` que ya pasó el gate de `ci.yml`. Lo
-# que sí hace es **exigir que el gate esté en verde** para ese commit antes de publicar nada.
+# **Un solo despliegue**: la API sirve también el cliente. Azure Static Web Apps no tiene región
+# europea abierta a altas nuevas, y servir el cliente desde EE. UU. haría falsas dos frases de la
+# Política de Privacidad. Sirviéndolo desde la propia API, todo queda en Spain Central —y de paso
+# desaparecen el CORS y el riesgo de la cookie `SameSite=Strict`, porque ya no hay cross-site.
+#
+# No repite los tests: el tag se pone sobre un commit que ya pasó el gate de `ci.yml`. Lo que sí hace
+# es **exigir que ese gate esté en verde** antes de publicar nada.
 
 on:
   push:
@@ -50,42 +55,11 @@ jobs:
               throw new Error('Gate en rojo: ' + fallidos.map(c => c.name).join(', '));
             core.info('Gate en verde: ' + gate.map(c => c.name).join(', '));
 
-  backend:
-    name: Publicar API
+  publicar:
+    name: Publicar aplicación
     needs: comprobar-gate
     runs-on: ubuntu-latest
     environment: produccion
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
-
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "9.0.x"
-
-      - name: Publicar binarios
-        run: dotnet publish src/backend/Terrenario.Api/Terrenario.Api.csproj
-          --configuration Release --output ./publicacion
-
-      # Las migraciones las aplica la propia API al arrancar (`Database:MigrateOnStartup`), así que
-      # aquí no hay paso de base de datos. Si una migración falla, la aplicación no arranca y el
-      # despliegue se nota en el arranque, no en la primera consulta de un usuario.
-      - name: Desplegar en App Service
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: ./publicacion
-
-  frontend:
-    name: Publicar cliente
-    needs: comprobar-gate
-    runs-on: ubuntu-latest
-    environment: produccion
-    defaults:
-      run:
-        working-directory: src/frontend/terrenario-web
     steps:
       - uses: actions/checkout@v4
         with:
@@ -97,45 +71,86 @@ jobs:
           cache: npm
           cache-dependency-path: src/frontend/terrenario-web/package-lock.json
 
-      - run: npm ci
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Instalar dependencias del cliente
+        working-directory: src/frontend/terrenario-web
+        run: npm ci
 
       # Las `VITE_*` se incrustan al compilar: sin ellas el cliente llamaría a `localhost`. Son
       # variables y no secretos porque acaban en el bundle, que es público por definición.
-      - name: Compilar
+      #
+      # `VITE_API_BASE_URL` apunta al **mismo origen** que sirve el cliente. No es redundante: entra
+      # en `connect-src` de la CSP que genera el build, y esa política la sirve luego la API.
+      - name: Compilar el cliente
+        working-directory: src/frontend/terrenario-web
         run: npm run build
         env:
-          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_API_BASE_URL: ${{ vars.PUBLIC_WEB_URL }}
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
 
-      - name: Desplegar en Static Web Apps
-        uses: Azure/static-web-apps-deploy@v1
+      - name: Publicar binarios de la API
+        run: dotnet publish src/backend/Terrenario.Api/Terrenario.Api.csproj
+          --configuration Release --output ./publicacion
+
+      # El cliente compilado entra como contenido estático de la API. `csp.policy` viaja con él: es
+      # lo que permite servir la política del SPA como cabecera sin reescribirla en C#.
+      - name: Incrustar el cliente en la API
+        run: |
+          set -e
+          mkdir -p ./publicacion/wwwroot
+          cp -r src/frontend/terrenario-web/dist/. ./publicacion/wwwroot/
+          test -f ./publicacion/wwwroot/index.html
+          test -f ./publicacion/wwwroot/csp.policy
+          echo "Cliente incrustado."
+
+      # Las migraciones las aplica la propia API al arrancar (`Database:MigrateOnStartup`), así que
+      # aquí no hay paso de base de datos. Si una migración falla, la aplicación no arranca y el
+      # despliegue se nota en el arranque, no en la primera consulta de un usuario.
+      - name: Desplegar en App Service
+        uses: azure/webapps-deploy@v3
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
-          action: upload
-          app_location: src/frontend/terrenario-web/dist
-          skip_app_build: true
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./publicacion
 
   humo:
     name: Smoke de publicación
-    needs: [backend, frontend]
+    needs: publicar
     runs-on: ubuntu-latest
     environment: produccion
     steps:
       # Comprobación mínima de que lo publicado responde. No sustituye al smoke manual del gate,
       # pero convierte «el despliegue terminó» en «el despliegue sirve algo».
-      - name: La API responde y trae sus cabeceras de seguridad
+      - name: La API responde con sus cabeceras de seguridad
         run: |
           set -e
-          cabeceras=$(curl -sS -D - -o /dev/null --max-time 30 "${{ vars.VITE_API_BASE_URL }}/api/v1/diary")
+          cabeceras=$(curl -sS -D - -o /dev/null --max-time 60 "${{ vars.PUBLIC_WEB_URL }}/api/v1/diary")
           echo "$cabeceras" | head -1
           echo "$cabeceras" | grep -qi "x-content-type-options: nosniff"
           echo "$cabeceras" | grep -qi "x-frame-options: DENY"
           echo "$cabeceras" | grep -qi "strict-transport-security"
-          echo "Cabeceras de seguridad presentes."
+          echo "$cabeceras" | grep -qi "content-security-policy: default-src 'self'"
+          echo "Cabeceras de la API correctas."
 
-      - name: El cliente sirve el documento y la Política de Privacidad
+      - name: El cliente se sirve y resuelve las rutas del SPA
         run: |
           set -e
-          curl -sSf --max-time 30 "${{ vars.PUBLIC_WEB_URL }}" > /dev/null
-          curl -sSf --max-time 30 "${{ vars.PUBLIC_WEB_URL }}/legal/privacidad" | grep -q "Terrenario"
-          echo "Cliente publicado y rutas del SPA resueltas."
+          curl -sSf --max-time 60 "${{ vars.PUBLIC_WEB_URL }}" | grep -q "Terrenario"
+          # Ruta que solo existe en el router del cliente: comprueba el fallback (P-067 / SPA).
+          curl -sSf --max-time 60 "${{ vars.PUBLIC_WEB_URL }}/legal/privacidad" | grep -q "Terrenario"
+          # Y `frame-ancestors`, que el navegador ignora en un `meta`: si no viaja como cabecera, la
+          # política del SPA no se está sirviendo.
+          curl -sS -D - -o /dev/null --max-time 60 "${{ vars.PUBLIC_WEB_URL }}/legal/privacidad" \
+            | grep -qi "frame-ancestors 'none'"
+          echo "Cliente publicado, rutas del SPA resueltas y CSP servida como cabecera."
+
+      - name: Un endpoint inexistente de la API sigue devolviendo 404
+        run: |
+          set -e
+          codigo=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 60 \
+            "${{ vars.PUBLIC_WEB_URL }}/api/v1/no-existe")
+          test "$codigo" = "404" || { echo "Devolvió $codigo: el fallback del SPA está tapando la API"; exit 1; }
+          echo "La API no queda tapada por el fallback del cliente."

@@ -16,10 +16,10 @@ import tailwindcss from '@tailwindcss/vite'
  *
  * `connect-src` incluye el origen real de la API porque el front y el back no comparten origen.
  *
- * MVP-601 (`P-067`) — Además del `meta`, el plugin emite ahora `staticwebapp.config.json`, que hace
- * que Azure Static Web Apps sirva **la misma política como cabecera**. Importa por dos motivos: hay
- * directivas que el navegador **ignora en un `meta`** —`frame-ancestors` es una de ellas, y es la
- * que frena el clickjacking— y una cabecera se aplica antes de parsear el documento.
+ * `P-067` — Además del `meta`, el plugin emite la política en `csp.policy`, que la API lee para
+ * servirla como **cabecera**. Importa por dos motivos: hay directivas que el navegador **ignora en
+ * un `meta`** —`frame-ancestors` es una de ellas, y es la que frena el clickjacking— y una cabecera
+ * se aplica antes de parsear el documento.
  *
  * Los dos salen de la **misma cadena**, que es el punto: si se generaran por separado acabarían
  * divergiendo y nadie se enteraría hasta que fallara la que no se estaba mirando.
@@ -55,33 +55,12 @@ function contentSecurityPolicy(apiBaseUrl: string): Plugin {
     name: 'terrenario-csp',
     apply: 'build',
 
-    // Configuración de Azure Static Web Apps: la CSP como cabecera de verdad y el enrutado del SPA.
+    // La política, también como fichero, para que quien sirva el estático pueda emitirla como
+    // **cabecera**. La sirve la propia API (`SecurityHeadersMiddleware`), que la lee de aquí en vez
+    // de reescribirla en C#: duplicarla sería la divergencia silenciosa de siempre, y además el
+    // backend no conoce el origen que este build inyecta en `connect-src`.
     generateBundle() {
-      this.emitFile({
-        type: 'asset',
-        fileName: 'staticwebapp.config.json',
-        source: JSON.stringify(
-          {
-            // Sin esto, entrar directo a `/legal/privacidad` o recargar en `/app/diario` da 404:
-            // esas rutas solo existen en el router del cliente, no como ficheros.
-            navigationFallback: {
-              rewrite: '/index.html',
-              exclude: ['/assets/*', '*.{svg,png,ico,webmanifest}'],
-            },
-            globalHeaders: {
-              'Content-Security-Policy': policy,
-              'X-Content-Type-Options': 'nosniff',
-              'X-Frame-Options': 'DENY',
-              // La aplicación lleva identificadores en la ruta; no hay motivo para filtrarlos al
-              // salir hacia otro sitio.
-              'Referrer-Policy': 'strict-origin-when-cross-origin',
-              'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-            },
-          },
-          null,
-          2
-        ),
-      })
+      this.emitFile({ type: 'asset', fileName: 'csp.policy', source: policy })
     },
 
     transformIndexHtml: {

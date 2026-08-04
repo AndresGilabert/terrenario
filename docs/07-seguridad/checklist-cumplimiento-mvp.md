@@ -120,7 +120,7 @@ tratamiento a gran escala o cualquier categoría especial de datos.
 | Acceso | Contacto de privacidad (`hola@andresgilabert.dev`) | ⚠️ Procedimiento manual, pero con dirección real desde que `MVP-504` cerró `B-1` |
 | Rectificación | Los datos de la cuenta se resincronizan desde Google; el resto se edita en la aplicación | ⚠️ Sin edición de perfil propia (`P-032`) |
 | **Supresión** | **Desde la propia aplicación**: Ajustes → Eliminar mi cuenta | ✅ `MVP-505`, verificado de punta a punta |
-| Portabilidad | Contacto de privacidad | ❌ Sin exportación; fuera de alcance declarado de `MVP-505` (`R-04`) |
+| Portabilidad | Contacto de privacidad | ⚠️ **Procedimiento manual documentado** en [`privacidad-datos.md`](./privacidad-datos.md), con qué se entrega, en qué formato y con qué límites. Decidido en el gate (B-4) |
 | Oposición y limitación | Contacto de privacidad | ⚠️ Procedimiento manual |
 
 **Las personas sin cuenta** —cuadrilla, propietarios de terrenos cedidos— no pueden ejercer sus
@@ -177,7 +177,7 @@ cumplimiento imputable al desarrollo**, y lo único abierto es decidir cómo se 
 | `R-03` | **El inventario de tecnologías de `MVP-505` no coincidía con el código**: declaraba `terrenario:privacy_ack`, que no existe, y omitía cinco claves que sí (`pkce_code_verifier`, `oauth_state`, `terrenario_post_login_redirect`, `terrenario_login_flow`, `terrenario_login_started`). **Corregido en esta historia** | Cerrado aquí |
 | `R-04` | **`plots.owner_name` no estaba declarado como dato personal** ni en la clasificación de la KB ni en la Política de Privacidad, y está en uso. Es el nombre de un tercero que no tiene cuenta. **Corregido en esta historia**, junto con un bloque nuevo sobre datos de terceros | Cerrado aquí |
 | `R-05` | **«No hay analítica» era inexacto**: existe medición propia del embudo de login (RN-020). Se ha analizado y **no requiere consentimiento** —primera parte, sin PII, sin seguimiento entre sitios, vida de sesión— pero la afirmación absoluta no era defendible. **Corregido y motivado** | Cerrado aquí |
-| `R-06` | **Sin exportación de datos** (portabilidad, art. 20). Estaba en el fuera-de-alcance de `MVP-505`; se registra para que el gate decida si bloquea la salida | `MVP-999` |
+| `R-06` | **Sin exportación de datos** (portabilidad, art. 20). Estaba en el fuera-de-alcance de `MVP-505`; se registra para que el gate decida si bloquea la salida | ✅ **Decidido en `MVP-504`** (B-4): vía manual documentada durante la validación. La automatización queda como función de producto (`P-070`) |
 
 ---
 

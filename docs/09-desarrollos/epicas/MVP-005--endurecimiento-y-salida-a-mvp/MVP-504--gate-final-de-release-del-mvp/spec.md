@@ -90,7 +90,7 @@ Entregable: [`docs/08-procesos/gate-salida-mvp.md`](../../../../08-procesos/gate
 | Salida | Estado |
 |---|---|
 | **Despliegue a `staging`** | ✅ **AUTORIZADO** |
-| **Producción con usuarios reales** | ⚠️ **1 bloqueo abierto** (`B-4`), y es una decisión de negocio. `B-1`, `B-2` y `B-3` cerrados el 2026-08-04 |
+| **Producción con usuarios reales** | ✅ **AUTORIZADO con condiciones** — los cuatro bloqueos cerrados el 2026-08-04; quedan los criterios de promoción |
 
 Esa distinción es el resultado principal. **La construcción del MVP no tiene deuda que impida
 desplegarlo**; lo que impide exponerlo a personas reales son decisiones que no se resuelven
@@ -117,6 +117,7 @@ la política de Application Control de la máquina (`P-069`).
 | `B-1` | Datos del responsable del tratamiento | ✅ **Cerrado** (2026-08-04) |
 | `B-2` | Contratos de encargo (art. 28) | ✅ **Cerrado** (2026-08-04) |
 | `B-3` | Rutina de expurgo | ✅ **Cerrado** (2026-08-04) |
+| `B-4` | Portabilidad (art. 20) | ✅ **Cerrado** (2026-08-04) |
 | `B-2` | **Contratos de encargo** (art. 28) con Google, proveedor de correo y de alojamiento | Negocio e infraestructura |
 | `B-3` | La **rutina de expurgo no está programada**: `RN-041` promete 24 meses y hoy no se purga nada | Infraestructura |
 | `B-4` | Sin **exportación de datos** (portabilidad, art. 20): decidir si se acepta atenderlo manualmente durante la validación | Negocio |
@@ -221,3 +222,31 @@ perder algún día no tiene consecuencia.
 **Hallazgo derivado**: los *refresh tokens* revocados o caducados no tienen plazo y hoy se quedan
 indefinidamente. No se incluyó en la rutina a propósito —`RN-041` enumera cinco categorías y esta no
 es una— porque añadirla es una decisión de producto. Registrado como `P-071`.
+
+## Cierre de B-4 y estado final (2026-08-04)
+
+**Decisión**: la portabilidad se atiende **por vía manual** durante la validación. Con pocos usuarios
+y un plazo legal de un mes, consultar la base y entregar el resultado es conforme. Para que sea un
+procedimiento y no una promesa, queda escrito en `docs/07-seguridad/privacidad-datos.md`: qué se
+entrega, en qué formato y en qué plazo.
+
+**Lo que se aclaró al decidirlo** es lo que hacía que el bloqueo pareciera mayor de lo que era. El
+art. 20 es más estrecho que «exportar todo»: cubre lo que la persona aportó, **no lo derivado** —los
+agregados del dashboard quedan fuera— y **no puede perjudicar derechos de terceros**. En este
+producto eso choca con dos realidades: los nombres de la cuadrilla y de los propietarios de terrenos
+cedidos son de otras personas, y un Workspace compartido contiene lo que registraron otros.
+
+Así que automatizarlo **no es programar un botón**: exige decidir antes cuál es la unidad de
+exportación —la persona o la explotación— y qué se hace con las aportaciones de terceros. Esa
+decisión no la necesita el cumplimiento, la necesita el producto, y por eso `P-070` se replanteó como
+función de producto en vez de como deuda de cumplimiento.
+
+### Estado final del gate
+
+Los cuatro bloqueos cerrados. **Tres se cerraron sin tocar el producto** —eran decisiones de negocio,
+que es exactamente lo que este gate servía para separar— y solo `B-3` necesitaba código.
+
+`producción` queda **autorizada con condiciones**: sin bloqueos, pero con los criterios de promoción
+de §5 por cumplir (secretos, migraciones verificadas en staging, CSP como cabecera, HTTPS y smoke
+manual). Y con un riesgo declarado que conviene resolver antes de abrir a usuarios reales: **las
+páginas legales no las ha revisado una asesoría jurídica**.

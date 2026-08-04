@@ -141,6 +141,38 @@ Los datos publicados en las paginas legales viven en un solo sitio,
 de entorno `VITE_LEGAL_*`. Estan versionados a proposito: la LSSI obliga a publicarlos, asi que no
 hay nada que proteger, y un `.env` no llega al despliegue.
 
+### Atencion manual del acceso y la portabilidad (arts. 15 y 20)
+
+La **supresion** se ejerce desde la aplicacion (`MVP-505`). El **acceso** y la **portabilidad** se
+atienden a mano mientras el MVP este en validacion: con pocos usuarios y un plazo legal de un mes,
+consultar la base y entregar el resultado es conforme. Decision tomada en el gate de `MVP-504` (B-4).
+
+Que se entrega ante una solicitud, por orden de a quien pertenece el dato:
+
+| Bloque | Contenido | ¿Portabilidad (art. 20)? |
+|--------|-----------|--------------------------|
+| Cuenta | `display_name`, `email`, `google_sub`, fechas de alta y actualizacion | Si |
+| Participacion | Workspaces y rol, invitaciones enviadas y recibidas | Si |
+| Explotacion | Terrenos, temporadas, labores, cosechas, compras y consumos de los Workspaces **de su propiedad** | Los aporto, si; pero no son datos personales *sobre* la persona |
+| Agregados del dashboard | Costes, medias y totales calculados | **No**: son datos derivados |
+
+**Dos limites que hay que aplicar al preparar la respuesta**, no despues:
+
+1. **Datos de terceros.** `workers.name`, `plots.owner_name` y las menciones en texto libre de
+   `activities.description` son de otras personas. Se entregan porque el solicitante ya los conoce
+   —los introdujo el—, pero no son su derecho de portabilidad y conviene decirlo en la respuesta.
+2. **Workspaces compartidos.** Si el Workspace tiene mas miembros, el historico incluye lo que
+   registraron ellos. Se entrega solo lo de los Workspaces **de su propiedad**, y se advierte de que
+   el contenido puede tener aportaciones de terceros.
+
+**Formato**: el art. 20 exige estructurado y legible por maquina —JSON o CSV, no PDF—. El art. 15 no
+exige formato, asi que se puede responder con el mismo fichero.
+
+**Plazo**: un mes desde la solicitud, prorrogable dos mas si es compleja, avisando.
+
+La automatizacion de esto es una **funcion de producto**, mas amplia que la obligacion legal, y esta
+registrada aparte (`MVP-999`, `P-070`).
+
 ---
 
 ## Principios GDPR aplicados

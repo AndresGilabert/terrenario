@@ -21,12 +21,23 @@ hecha.
 | Salida | Estado |
 |---|---|
 | **Despliegue a `staging`** | ✅ **AUTORIZADO** |
-| **Despliegue a `producción` con usuarios reales** | ⚠️ **1 bloqueo abierto** — `B-4`, que es una **decisión**, no una tarea. `B-1`, `B-2` y `B-3` cerrados el 2026-08-04 |
+| **Despliegue a `producción` con usuarios reales** | ✅ **AUTORIZADO con condiciones** — sin bloqueos abiertos; queda cumplir los criterios de promoción de §5 |
 
-La distinción es el resultado principal de esta historia. **La construcción del MVP no tiene deuda
-que impida desplegarlo**: los gates de calidad, seguridad y cumplimiento imputables al desarrollo
-están cerrados y son verificables automáticamente. Lo que impide exponerlo a personas reales son
-decisiones de negocio e infraestructura que no se pueden resolver escribiendo código.
+**Los cuatro bloqueos que abrió este gate quedaron cerrados el 2026-08-04.** Este documento conserva
+cada uno con lo que costó cerrarlo, porque el rastro de por qué se decidió algo vale más que la marca
+de que se decidió.
+
+La distinción entre construcción y salida fue el resultado principal de la historia: **el MVP nunca
+tuvo deuda de construcción que impidiera desplegarlo**, y lo que lo retenía eran decisiones de negocio
+e infraestructura que no se resuelven escribiendo código. Tres de los cuatro bloqueos se cerraron sin
+tocar el producto; el cuarto, la rutina de expurgo, era el único que necesitaba código.
+
+**«Con condiciones» no es un matiz de cortesía**: §5 lista lo que hay que tener hecho antes de
+promocionar —secretos configurados, migraciones verificadas en staging, CSP como cabecera, HTTPS,
+smoke manual—. Nada de eso es un bloqueo del gate, pero desplegar sin ello sí sería un error.
+
+Queda además un riesgo declarado que conviene decidir antes de abrir a usuarios reales, no después:
+**las páginas legales no las ha revisado una asesoría jurídica** (§4).
 
 ---
 
@@ -58,9 +69,9 @@ lint limpios, **0 vulnerabilidades**.
 
 ---
 
-## 3. Bloqueos para salir a producción
+## 3. Bloqueos para salir a producción — todos cerrados
 
-De los cuatro que abrió este gate queda **uno**, y es una decisión de negocio.
+Se conservan con el detalle de cómo se cerró cada uno. Ninguno era de desarrollo salvo `B-3`.
 
 ### B-1 · Datos del responsable del tratamiento — ✅ **CERRADO** (2026-08-04)
 
@@ -151,16 +162,32 @@ consecuencia.
 **Lo que este expurgo no borra**: datos personales. Esos ya desaparecen en el acto al darse de baja
 (`MVP-505`). Esto es el principio de limitación del plazo de conservación, no el derecho de supresión.
 
-### B-4 · Sin exportación de datos (portabilidad, art. 20)
+### B-4 · Portabilidad (art. 20) — ✅ **CERRADO** (2026-08-04)
 
-**Qué falta**: el derecho de portabilidad solo se puede atender por vía manual, contra un correo de
-contacto que además es un marcador (B-1).
+**Decisión**: se acepta atenderla **por vía manual** mientras el MVP esté en validación. Con pocos
+usuarios y un plazo legal de un mes, consultar la base y entregar el resultado es conforme: no es un
+incumplimiento, es un procedimiento.
 
-**Decisión pendiente**: si se acepta atenderlo manualmente mientras el MVP está en validación —lo que
-es defendible con pocos usuarios y un plazo de un mes— o si se considera bloqueante. Registrado como
-`P-070`.
+Para que sea un procedimiento y no una promesa, queda escrito en
+[`../07-seguridad/privacidad-datos.md`](../07-seguridad/privacidad-datos.md): qué se entrega, en qué
+formato —JSON o CSV, que el art. 20 exige legible por máquina— y en qué plazo.
 
-**Quién lo cierra**: negocio.
+**Lo que se aclaró al decidirlo**, y es lo que hacía que el bloqueo pareciera más grande de lo que
+era: el art. 20 es **más estrecho** que «exportar todo». Cubre los datos personales que la persona
+aportó, no los **derivados** —los agregados del dashboard quedan fuera— y **no puede perjudicar
+derechos de terceros**. En este producto eso choca con dos realidades: los nombres de la cuadrilla y
+de los propietarios de terrenos cedidos son de otras personas, y un Workspace compartido contiene lo
+que registraron otros.
+
+Por eso automatizarlo **no es programar un botón**: exige decidir antes cuál es la unidad de
+exportación —la persona o la explotación— y qué se hace con los datos de terceros que van dentro. Esa
+decisión no la necesita el cumplimiento, la necesita el producto.
+
+`P-070` queda replanteado en consecuencia: la obligación legal se cubre a mano, y lo que sigue
+pendiente es la **función de producto** —«llévate los datos de tu explotación»—, más amplia y más
+valiosa que lo que exige la norma.
+
+**Quién lo cerró**: negocio.
 
 ---
 
@@ -180,7 +207,7 @@ Se listan para que la decisión de salir sea informada, no para frenarla.
 
 ## 5. Criterios de promoción a producción
 
-Cuando `B-4` esté resuelto:
+Sin bloqueos abiertos, queda:
 
 1. **Gate automático en verde** en `main`.
 2. **Migraciones aplicadas** y verificadas en staging.

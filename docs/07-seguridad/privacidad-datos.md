@@ -1,7 +1,7 @@
 ﻿---
 bloque: 07-seguridad
 documento: privacidad-datos
-actualizado_en: "2026-08-03"
+actualizado_en: "2026-08-04"
 ---
 
 # Privacidad de Datos y GDPR
@@ -104,11 +104,31 @@ tratamiento** (RGPD art. 28) y exige contrato de encargo (DPA) firmado antes de 
 
 | Proveedor | Datos tratados | Finalidad | Estado |
 |-----------|---------|---------|---------|
-| Google (OIDC) | `sub`, nombre, email | Autenticacion de acceso | Activo |
-| Proveedor de email (SMTP) | Email del destinatario, nombre de quien invita y del Workspace | Envio de invitaciones a Workspace | **Pendiente de contratar**: ver [ADR-0010](../02-arquitectura/decisiones/ADR-0010--envio-de-email-transaccional-por-smtp.md) |
+| Google (OIDC) | `sub`, nombre, email | Autenticacion de acceso | Activo. **Contrato de encargo por verificar** (`MVP-504`, B-2) |
+| Arsys | Email del destinatario, nombre de quien invita y del Workspace | Envio de invitaciones a Workspace | Proveedor decidido (`MVP-504`, B-1). **Sin contratar**: ver [ADR-0010](../02-arquitectura/decisiones/ADR-0010--envio-de-email-transaccional-por-smtp.md) |
+| Microsoft Azure | Todo lo almacenado | Alojamiento de la aplicacion y la base de datos | Proveedor decidido (`MVP-504`, B-1). **Sin contratar** (B-2) |
 
-Al contratar el proveedor de email hay que verificar ademas donde se alojan los datos y si implica
-transferencia internacional con garantias adecuadas.
+Decidir el proveedor **no cierra** la obligacion del art. 28: el contrato de encargo con cada uno de
+los tres sigue siendo el bloqueo `B-2` del gate de salida.
+
+### Transferencias internacionales
+
+| Via | Destino | Garantia |
+|-----|---------|----------|
+| Alojamiento (Azure) | Region **Espana** | Sin transferencia: los datos se almacenan en la UE |
+| Correo (Arsys) | Espana | Sin transferencia |
+| Inicio de sesion (Google) | EE. UU. | **Si hay transferencia**: clausulas contractuales tipo de la Comision Europea y decision de adecuacion del Marco de Privacidad de Datos UE-EE. UU. |
+
+La transferencia a Google es **inevitable mientras el acceso sea con Google** (`RN-036`): no hay
+alternativa que ofrecer a quien no la acepte, mas alla de no crear la cuenta. Queda declarada en la
+Politica de Privacidad en vez de omitirse.
+
+### Identidad del responsable
+
+Los datos publicados en las paginas legales viven en un solo sitio,
+`src/frontend/terrenario-web/src/config/legal-entity.ts`, y cada campo admite override por variable
+de entorno `VITE_LEGAL_*`. Estan versionados a proposito: la LSSI obliga a publicarlos, asi que no
+hay nada que proteger, y un `.env` no llega al despliegue.
 
 ---
 

@@ -90,7 +90,7 @@ Entregable: [`docs/08-procesos/gate-salida-mvp.md`](../../../../08-procesos/gate
 | Salida | Estado |
 |---|---|
 | **Despliegue a `staging`** | ✅ **AUTORIZADO** |
-| **Producción con usuarios reales** | ⛔ **BLOQUEADO** — 4 bloqueos, **ninguno de desarrollo** |
+| **Producción con usuarios reales** | ⛔ **BLOQUEADO** — 3 bloqueos, **ninguno de desarrollo** (`B-1` cerrado el 2026-08-04) |
 
 Esa distinción es el resultado principal. **La construcción del MVP no tiene deuda que impida
 desplegarlo**; lo que impide exponerlo a personas reales son decisiones que no se resuelven
@@ -110,11 +110,11 @@ en `react-router` no lo habría visto nadie hasta el gate final—.
 Corre en **Linux**, que es el entorno de referencia: la suite necesita Docker y en Windows depende de
 la política de Application Control de la máquina (`P-069`).
 
-### Los cuatro bloqueos, con dueño
+### Los bloqueos, con dueño
 
 | # | Bloqueo | Quién lo cierra |
 |---|---|---|
-| `B-1` | Los **datos del responsable del tratamiento son marcadores**: sin ellos las páginas legales no son publicables ni hay dirección donde ejercer derechos | Negocio |
+| `B-1` | Datos del responsable del tratamiento | ✅ **Cerrado** (2026-08-04) |
 | `B-2` | **Contratos de encargo** (art. 28) con Google, proveedor de correo y de alojamiento | Negocio e infraestructura |
 | `B-3` | La **rutina de expurgo no está programada**: `RN-041` promete 24 meses y hoy no se purga nada | Infraestructura |
 | `B-4` | Sin **exportación de datos** (portabilidad, art. 20): decidir si se acepta atenderlo manualmente durante la validación | Negocio |
@@ -132,3 +132,37 @@ la política de Application Control de la máquina (`P-069`).
 `P-064` (sin E2E de navegador), `P-069` (la suite exige Docker y política permisiva), `P-011`/`P-029`
 (avisos in-app sin refresco) y `P-032` (sin edición de perfil). Listados en el gate para que la
 decisión de salir sea informada.
+
+## Cierre de B-1 (2026-08-04)
+
+El negocio aportó los datos del responsable y se publican: **Andrés Gilabert Sánchez**,
+NIF 21.679.361-K, Dr. Fleming 39A, 03830 Muro de Alcoi (Alicante), `hola@andresgilabert.dev`,
+sin DPO designado, con **Arsys** para el correo y **Microsoft Azure** región **España** para el
+alojamiento. Las páginas legales ya no contienen ni un marcador.
+
+Tres decisiones se resolvieron al hacerlo, y ninguna era un simple relleno:
+
+- **DPO no designado.** No es obligatorio (art. 37 RGPD, art. 34 LOPDGDD): ninguno de los supuestos
+  aplica. «No designado» es una respuesta completa.
+- **Sin fuero impuesto.** Imponerlo a un consumidor sería cláusula abusiva (TRLGDCU art. 90.2), y los
+  usuarios serán mezcla de profesionales y particulares. Los Términos remiten a la legislación
+  española y a la competencia que determine la ley.
+- **Transferencias internacionales declaradas.** Alojamiento en España y correo español: sin
+  transferencia. La única salida del EEE es el inicio de sesión con Google, con cláusulas
+  contractuales tipo y decisión de adecuación UE–EE. UU. Es inevitable mientras el acceso sea con
+  Google (`RN-036`), así que se declara.
+
+### Cómo queda montado
+
+Los datos viven en `src/frontend/terrenario-web/src/config/legal-entity.ts` —un solo sitio, en vez de
+repetidos en dos páginas— con override por variable de entorno `VITE_LEGAL_*` para cambiarlos en un
+despliegue sin tocar código. Están **versionados** a propósito: la LSSI obliga a publicarlos, así que
+no hay nada que proteger, y `.env` no está en el repositorio, de modo que el build de CI publicaría
+las páginas vacías.
+
+El aviso de «documento pendiente» **dejó de estar escrito a mano** y sale del dato: desaparece solo
+al estar completo y reaparece si alguien añade un campo y lo deja vacío, en lugar de publicar un
+hueco en un documento con efectos jurídicos. Un test lo impide antes de llegar ahí.
+
+**Lo que B-1 no cierra**: la revisión del texto por asesoría jurídica. Estaba fuera del alcance
+declarado de `MVP-505` y pasa a §4 del gate como riesgo aceptado con decisión de negocio.

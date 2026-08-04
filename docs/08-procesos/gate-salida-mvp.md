@@ -1,7 +1,7 @@
 ---
 bloque: 08-procesos
 documento: gate-salida-mvp
-actualizado_en: "2026-08-03"
+actualizado_en: "2026-08-04"
 ---
 
 # Gate de salida del MVP (MVP-504)
@@ -21,7 +21,7 @@ hecha.
 | Salida | Estado |
 |---|---|
 | **Despliegue a `staging`** | ✅ **AUTORIZADO** |
-| **Despliegue a `producción` con usuarios reales** | ⛔ **BLOQUEADO** — 4 bloqueos abiertos, ninguno de desarrollo |
+| **Despliegue a `producción` con usuarios reales** | ⛔ **BLOQUEADO** — 3 bloqueos abiertos, ninguno de desarrollo (`B-1` cerrado el 2026-08-04) |
 
 La distinción es el resultado principal de esta historia. **La construcción del MVP no tiene deuda
 que impida desplegarlo**: los gates de calidad, seguridad y cumplimiento imputables al desarrollo
@@ -60,31 +60,64 @@ lint limpios, **0 vulnerabilidades**.
 
 ## 3. Bloqueos para salir a producción
 
-Ninguno es de desarrollo. Los cuatro necesitan una decisión o una acción externa.
+Ninguno es de desarrollo. Los que quedan abiertos necesitan una decisión o una acción externa.
 
-### B-1 · Los datos del responsable del tratamiento son marcadores
+### B-1 · Datos del responsable del tratamiento — ✅ **CERRADO** (2026-08-04)
 
-**Qué falta**: razón social, NIF, domicilio, correo de contacto de privacidad, si hay DPO designado,
-el fuero, si hay transferencias internacionales, y los nombres de los proveedores de correo y
-alojamiento.
+Aportados por el negocio y publicados. Las páginas legales ya no tienen ni un marcador.
 
-**Por qué bloquea**: sin ellos, la Política de Privacidad y los Términos **no son publicables** y no
-existe una dirección real donde ejercer derechos. Exponer el servicio así es un incumplimiento
-conocido, no un descuido.
+| Dato | Valor |
+|---|---|
+| Titular | Andrés Gilabert Sánchez |
+| NIF | 21.679.361-K |
+| Domicilio | Dr. Fleming, 39A, 03830 Muro de Alcoi (Alicante), España |
+| Contacto de privacidad | `hola@andresgilabert.dev` |
+| Delegado de Protección de Datos | No designado |
+| Proveedor de correo | Arsys |
+| Proveedor de alojamiento | Microsoft Azure, región **España** |
 
-**Quién lo cierra**: negocio. Las páginas ya existen y avisan de que están pendientes.
+**Tres decisiones que van con esto:**
+
+- **No se designa DPO.** No es obligatorio: el tratamiento no encaja en ninguno de los tres
+  supuestos del art. 37 ni en el listado sectorial del art. 34 LOPDGDD. «No designado» es una
+  respuesta completa, no un hueco.
+- **No se impone fuero.** A un consumidor no se le puede imponer —sería cláusula abusiva
+  (TRLGDCU art. 90.2)— y los usuarios serán mezcla de profesionales y particulares. Los Términos
+  dicen que se aplica la legislación española y que la competencia es la que determine la ley.
+- **Transferencias internacionales declaradas.** Alojamiento en la región de España y correo con
+  proveedor español: sin transferencia. La única salida del EEE es el inicio de sesión con Google,
+  amparada en cláusulas contractuales tipo y en la decisión de adecuación UE–EE. UU. Es inevitable
+  mientras el acceso sea con Google (`RN-036`), así que se declara en vez de omitirse.
+
+**Dónde vive**: `src/frontend/terrenario-web/src/config/legal-entity.ts`, con override por variable
+de entorno `VITE_LEGAL_*`. Versionado a propósito —la LSSI obliga a publicar estos datos, así que no
+hay nada que proteger, y un `.env` no llega al despliegue—. Si algún campo queda vacío, las páginas
+vuelven a mostrar el aviso de documento pendiente en lugar de publicar un hueco, y un test lo impide
+antes de llegar ahí.
+
+**Lo que no cierra**: la **revisión por asesoría legal** del texto. Estaba fuera del alcance
+declarado de `MVP-505` y sigue siendo una decisión de negocio; ver §4.
 
 ### B-2 · Contratos de encargo del tratamiento (RGPD art. 28)
 
 | Proveedor | Estado |
 |---|---|
 | Google (OIDC) | Verificar que las condiciones de tratamiento aplicables están aceptadas |
-| Proveedor de email | **Sin contratar** (ADR-0010) |
-| Proveedor de alojamiento | **Sin decidir** |
+| Arsys (correo) | **Sin contratar** (ADR-0010) |
+| Microsoft Azure (alojamiento) | **Sin contratar** |
 
 **Por qué bloquea**: tratar datos personales a través de un encargado sin contrato de encargo es un
-incumplimiento directo. Hay que verificar además dónde se alojan los datos y si hay transferencia
-internacional con garantías.
+incumplimiento directo. Que `B-1` haya decidido **quiénes** son los encargados no cierra el art. 28:
+falta el contrato con cada uno.
+
+Lo que sí queda resuelto por `B-1` es la otra mitad de este bloqueo tal y como estaba redactado:
+dónde se alojan los datos (región de España) y qué transferencia internacional existe (solo Google,
+con garantías declaradas).
+
+**Ojo con el orden**: la sección 4 de la Política de Privacidad afirma que cada proveedor tiene
+contrato de encargo. Publicar las páginas antes de firmarlos convertiría esa frase en una afirmación
+falsa dentro de un documento legal. **B-2 tiene que cerrarse antes de exponer el servicio**, no a la
+vez.
 
 **Quién lo cierra**: negocio e infraestructura.
 
@@ -125,12 +158,13 @@ Se listan para que la decisión de salir sea informada, no para frenarla.
 | `P-069` | La suite de backend exige Docker y una política de Application Control permisiva | El entorno de referencia es el CI sobre Linux, donde no aplica. En desarrollo local puede volver a bloquearse |
 | `P-011`, `P-029` | Avisos in-app que solo se refrescan al montar la sesión | No hay pérdida de dato: el correo sigue llegando |
 | `P-032` | Sin edición de perfil propia | La identidad la gobierna Google (RN-036) |
+| — | **Las páginas legales no las ha revisado una asesoría jurídica** | Fuera del alcance declarado de `MVP-505`. El contenido describe el sistema real y se ha contrastado contra él (`MVP-503`), pero eso es verificación técnica, no validación jurídica. Decisión de negocio: revisarlas antes de abrir el servicio o asumirlo durante la validación |
 
 ---
 
 ## 5. Criterios de promoción a producción
 
-Cuando B-1 a B-4 estén resueltos:
+Cuando `B-2` a `B-4` estén resueltos:
 
 1. **Gate automático en verde** en `main`.
 2. **Migraciones aplicadas** y verificadas en staging.

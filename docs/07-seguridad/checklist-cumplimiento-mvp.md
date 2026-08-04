@@ -1,7 +1,7 @@
 ---
 bloque: 07-seguridad
 documento: checklist-cumplimiento-mvp
-actualizado_en: "2026-08-03"
+actualizado_en: "2026-08-04"
 ---
 
 # Checklist de cumplimiento del MVP (MVP-503)
@@ -117,7 +117,7 @@ tratamiento a gran escala o cualquier categoría especial de datos.
 
 | Derecho | Cómo se ejerce | Estado |
 |---|---|---|
-| Acceso | Contacto de privacidad | ⚠️ Procedimiento manual; el correo de contacto es un marcador sin rellenar (`R-02`) |
+| Acceso | Contacto de privacidad (`hola@andresgilabert.dev`) | ⚠️ Procedimiento manual, pero con dirección real desde que `MVP-504` cerró `B-1` |
 | Rectificación | Los datos de la cuenta se resincronizan desde Google; el resto se edita en la aplicación | ⚠️ Sin edición de perfil propia (`P-032`) |
 | **Supresión** | **Desde la propia aplicación**: Ajustes → Eliminar mi cuenta | ✅ `MVP-505`, verificado de punta a punta |
 | Portabilidad | Contacto de privacidad | ❌ Sin exportación; fuera de alcance declarado de `MVP-505` (`R-04`) |
@@ -134,11 +134,16 @@ de privacidad. Queda dicho en la Política de Privacidad y en los Términos.
 | Proveedor | Datos | Contrato de encargo |
 |---|---|---|
 | Google (OIDC) | `sub`, nombre, correo | ⚠️ Por verificar en el gate |
-| Proveedor de email (SMTP) | Correo de la persona invitada | ❌ **Sin contratar** (ADR-0010) |
-| Proveedor de alojamiento | Todo lo almacenado | ❌ **Sin decidir** |
+| Arsys (correo) | Correo de la persona invitada | ❌ **Sin contratar** (ADR-0010) |
+| Microsoft Azure (alojamiento, región España) | Todo lo almacenado | ❌ **Sin contratar** |
 
-Los tres son **bloqueos de `MVP-504`**, no de esta historia: hasta que exista infraestructura no hay
-con quién firmar. Quedan registrados para que el gate no los pase por alto.
+Los proveedores quedaron **decididos** al cerrar `B-1` de `MVP-504`, pero decidirlos no cierra el
+art. 28: los tres contratos de encargo siguen pendientes y son el bloqueo `B-2` del gate.
+
+**Transferencias internacionales**: el alojamiento está en la región de España y el correo es de un
+proveedor español, así que la única salida del EEE es la del inicio de sesión con Google, amparada en
+cláusulas contractuales tipo y en la decisión de adecuación UE–EE. UU. Declarada en la Política de
+Privacidad.
 
 ---
 
@@ -148,7 +153,7 @@ con quién firmar. Quedan registrados para que el gate no los pase por alto.
 |---|---|
 | **CA-1** — Evidencia documental mínima RGPD/LOPDGDD | ✅ §1, §2 y §5, verificados contra el sistema |
 | **CA-2** — Consta si aplican LSSI/ePrivacy y EIPD | ✅ §3 (aplican, se cumplen sin banner) y §4 (no procede EIPD) |
-| **CA-3** — Sostiene la salida controlada | ⚠️ **Con condiciones**: la salida es sostenible una vez `MVP-504` cierre los bloqueos de §6 y `R-01`/`R-02` |
+| **CA-3** — Sostiene la salida controlada | ⚠️ **Con condiciones**: `R-02` ya está cerrado; la salida es sostenible una vez `MVP-504` cierre los contratos de §6 y `R-01` |
 
 **El MVP no es publicable a usuarios reales todavía**, y no por defectos de construcción: faltan
 decisiones de negocio e infraestructura. Lo que sí queda demostrado es que **el producto no tiene
@@ -161,7 +166,7 @@ deuda de cumplimiento imputable al desarrollo**.
 | # | Hallazgo | Destino |
 |---|---|---|
 | `R-01` | La **rutina de expurgo no está programada**. La política, el plazo y el cálculo existen (`RN-041`, `AccountRetentionPolicy`), pero nada los ejecuta: hoy nada se purga a los 24 meses | `MVP-504` |
-| `R-02` | Los **datos del responsable del tratamiento son marcadores**. Sin ellos, ni la política ni los términos son publicables, y no hay dirección real donde ejercer derechos | `MVP-504` |
+| `R-02` | Los **datos del responsable del tratamiento son marcadores**. Sin ellos, ni la política ni los términos son publicables, y no hay dirección real donde ejercer derechos | ✅ **Cerrado en `MVP-504`** (B-1) |
 | `R-03` | **El inventario de tecnologías de `MVP-505` no coincidía con el código**: declaraba `terrenario:privacy_ack`, que no existe, y omitía cinco claves que sí (`pkce_code_verifier`, `oauth_state`, `terrenario_post_login_redirect`, `terrenario_login_flow`, `terrenario_login_started`). **Corregido en esta historia** | Cerrado aquí |
 | `R-04` | **`plots.owner_name` no estaba declarado como dato personal** ni en la clasificación de la KB ni en la Política de Privacidad, y está en uso. Es el nombre de un tercero que no tiene cuenta. **Corregido en esta historia**, junto con un bloque nuevo sobre datos de terceros | Cerrado aquí |
 | `R-05` | **«No hay analítica» era inexacto**: existe medición propia del embudo de login (RN-020). Se ha analizado y **no requiere consentimiento** —primera parte, sin PII, sin seguimiento entre sitios, vida de sesión— pero la afirmación absoluta no era defendible. **Corregido y motivado** | Cerrado aquí |

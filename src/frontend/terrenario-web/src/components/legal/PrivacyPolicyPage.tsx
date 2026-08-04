@@ -1,5 +1,6 @@
 import React from 'react';
-import { LegalPage, Placeholder } from './LegalPage';
+import { LegalPage } from './LegalPage';
+import { legalEntity } from '../../config/legal-entity';
 
 /**
  * MVP-505 (HU-1, CA-1) — Política de Privacidad.
@@ -9,10 +10,10 @@ import { LegalPage, Placeholder } from './LegalPage';
  * `docs/07-seguridad/privacidad-datos.md`— y no una plantilla genérica: una política que describe un
  * producto distinto del real no cumple nada.
  *
- * Los datos del responsable van como marcadores: solo el negocio puede aportarlos (decisión del PO).
+ * MVP-504 (B-1) — Los datos del responsable ya no son marcadores: salen de `legal-entity`.
  */
 export const PrivacyPolicyPage: React.FC = () => (
-  <LegalPage title="Política de Privacidad" updatedAt="3 de agosto de 2026">
+  <LegalPage title="Política de Privacidad" updatedAt="4 de agosto de 2026">
     <p>
       Esta política explica qué datos personales trata Terrenario, con qué finalidad, durante cuánto
       tiempo y qué derechos tienes sobre ellos.
@@ -20,11 +21,19 @@ export const PrivacyPolicyPage: React.FC = () => (
 
     <h2>1. Responsable del tratamiento</h2>
     <ul>
-      <li>Titular: <Placeholder>RAZÓN SOCIAL</Placeholder></li>
-      <li>NIF/CIF: <Placeholder>NIF</Placeholder></li>
-      <li>Domicilio: <Placeholder>DOMICILIO SOCIAL</Placeholder></li>
-      <li>Contacto de privacidad: <Placeholder>EMAIL DE CONTACTO</Placeholder></li>
-      <li>Delegado de Protección de Datos: <Placeholder>DPO O «NO DESIGNADO»</Placeholder></li>
+      <li>Titular: {legalEntity.legalName}</li>
+      <li>NIF: {legalEntity.taxId}</li>
+      <li>Domicilio: {legalEntity.address}</li>
+      <li>
+        Contacto de privacidad:{' '}
+        <a
+          href={`mailto:${legalEntity.privacyEmail}`}
+          className="text-[#33450d] font-semibold hover:underline"
+        >
+          {legalEntity.privacyEmail}
+        </a>
+      </li>
+      <li>Delegado de Protección de Datos: {legalEntity.dpo}</li>
     </ul>
 
     <h2>2. Qué datos tratamos</h2>
@@ -120,12 +129,12 @@ export const PrivacyPolicyPage: React.FC = () => (
           <td>Autenticar tu acceso</td>
         </tr>
         <tr>
-          <td><Placeholder>PROVEEDOR DE CORREO</Placeholder></td>
+          <td>{legalEntity.emailProvider} (envío de correo)</td>
           <td>Dirección de la persona invitada y nombre de quien invita</td>
           <td>Enviar invitaciones a un Workspace</td>
         </tr>
         <tr>
-          <td><Placeholder>PROVEEDOR DE ALOJAMIENTO</Placeholder></td>
+          <td>{legalEntity.hostingProvider} (alojamiento)</td>
           <td>Todo lo almacenado</td>
           <td>Alojar la aplicación y la base de datos</td>
         </tr>
@@ -136,8 +145,20 @@ export const PrivacyPolicyPage: React.FC = () => (
       nombre de quien los creó. <strong>No vendemos ni cedemos datos a terceros</strong> para ninguna
       finalidad ajena al servicio.
     </p>
+    <h2>4 bis. Dónde se guardan tus datos y transferencias internacionales</h2>
     <p>
-      Transferencias internacionales: <Placeholder>INDICAR SI LAS HAY Y CON QUÉ GARANTÍAS</Placeholder>.
+      La aplicación y la base de datos están alojadas en {legalEntity.hostingProvider}, en su región
+      de <strong>{legalEntity.hostingRegion}</strong>: tus datos se almacenan{' '}
+      <strong>dentro de la Unión Europea</strong>. El correo de invitación se envía a través de{' '}
+      {legalEntity.emailProvider}, proveedor español.
+    </p>
+    <p>
+      La única transferencia fuera del Espacio Económico Europeo es la que provoca el{' '}
+      <strong>inicio de sesión con Google</strong>, porque es el único modo de acceder al servicio.
+      Se ampara en las cláusulas contractuales tipo aprobadas por la Comisión Europea y en la
+      decisión de adecuación del Marco de Privacidad de Datos UE–EE. UU., a la que Google está
+      adherido. Si no quieres que esa transferencia ocurra, la vía es no crear la cuenta: sin
+      identificarte no podemos prestarte el servicio.
     </p>
 
     <h2>5. Cuánto tiempo los conservamos</h2>
@@ -173,8 +194,13 @@ export const PrivacyPolicyPage: React.FC = () => (
     <h2>7. Tus derechos</h2>
     <p>
       Puedes ejercer los derechos de acceso, rectificación, supresión, oposición, limitación y
-      portabilidad escribiendo a <Placeholder>EMAIL DE CONTACTO</Placeholder>. Responderemos en el
-      plazo de un mes.
+      portabilidad escribiendo a{' '}
+      <a
+        href={`mailto:${legalEntity.privacyEmail}`}
+        className="text-[#33450d] font-semibold hover:underline"
+      >
+        {legalEntity.privacyEmail}
+      </a>. Responderemos en el plazo de un mes.
     </p>
     <p>
       El <strong>derecho de supresión lo puedes ejercer tú directamente</strong>, sin escribir a

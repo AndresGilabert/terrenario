@@ -77,7 +77,7 @@ Dejar verificada y documentada la evidencia mínima de cumplimiento necesaria pa
 |---|---|---|---|
 | AjustesView | RN-017 | cubierto | Panel de privacidad con el inventario y baja de cuenta (MVP-505), verificados |
 | Flujo autenticacion | docs/07-seguridad/privacidad-datos.md | cubierto | Registro de tratamientos T1-T8 con base jurídica, contrastado con el esquema real |
-| Páginas legales | docs/07-seguridad/checklist-cumplimiento-mvp.md | parcial | Existen y son alcanzables; **no publicables** hasta rellenar los marcadores (`R-02`) |
+| Páginas legales | docs/07-seguridad/checklist-cumplimiento-mvp.md | parcial | Existen y son alcanzables; **no publicables** hasta rellenar los marcadores (`R-02`). **Cerrado después en `MVP-504`** (B-1) |
 
 ## Notas y decisiones
 

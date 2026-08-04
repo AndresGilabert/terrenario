@@ -21,7 +21,7 @@ hecha.
 | Salida | Estado |
 |---|---|
 | **Despliegue a `staging`** | ✅ **AUTORIZADO** |
-| **Despliegue a `producción` con usuarios reales** | ⛔ **BLOQUEADO** — 3 bloqueos abiertos, ninguno de desarrollo (`B-1` cerrado el 2026-08-04) |
+| **Despliegue a `producción` con usuarios reales** | ⚠️ **1 bloqueo abierto** — `B-4`, que es una **decisión**, no una tarea. `B-1`, `B-2` y `B-3` cerrados el 2026-08-04 |
 
 La distinción es el resultado principal de esta historia. **La construcción del MVP no tiene deuda
 que impida desplegarlo**: los gates de calidad, seguridad y cumplimiento imputables al desarrollo
@@ -60,7 +60,7 @@ lint limpios, **0 vulnerabilidades**.
 
 ## 3. Bloqueos para salir a producción
 
-Ninguno es de desarrollo. Los que quedan abiertos necesitan una decisión o una acción externa.
+De los cuatro que abrió este gate queda **uno**, y es una decisión de negocio.
 
 ### B-1 · Datos del responsable del tratamiento — ✅ **CERRADO** (2026-08-04)
 
@@ -98,46 +98,58 @@ antes de llegar ahí.
 **Lo que no cierra**: la **revisión por asesoría legal** del texto. Estaba fuera del alcance
 declarado de `MVP-505` y sigue siendo una decisión de negocio; ver §4.
 
-### B-2 · Contratos de encargo del tratamiento (RGPD art. 28) — **reducido** (2026-08-04)
+### B-2 · Contratos de encargo del tratamiento (RGPD art. 28) — ✅ **CERRADO** (2026-08-04)
 
-La asesoría del negocio aportó el encuadre y cambia el tamaño del bloqueo.
+Se cerró en dos movimientos.
 
-**Google sale**: quien accede lo hace con **su** cuenta de Google, así que Google trata esos datos
-bajo su propia política y no por cuenta del proyecto. Es **responsable independiente**, no encargado,
-y no procede contrato del art. 28 con él. Lo que procede es informarlo, y ya se informa en la
+**Google salió del alcance.** Quien accede lo hace con **su** cuenta de Google, así que Google trata
+esos datos bajo su propia política y no por cuenta del proyecto: es **responsable independiente**, no
+encargado, y no procede contrato del art. 28 con él. Lo que procede es informarlo, y se informa en la
 Política de Privacidad. Esto corrige la clasificación de `MVP-503`, que lo listaba como encargado.
 
-| Proveedor | Estado |
-|---|---|
-| Microsoft Azure (alojamiento) | **Servicio sin contratar** |
-| Arsys (correo) | **Servicio sin contratar** (ADR-0010) |
+**Azure y Arsys están contratados y su anexo de tratamiento de datos está en vigor** (confirmado por
+el negocio). Con estos proveedores no hay contrato que negociar: el anexo va incorporado al contratar
+el servicio.
 
-**Qué queda, entonces**: con estos dos no hay contrato que negociar ni redactar —el anexo de
-tratamiento de datos va incorporado al contratar el servicio—. El bloqueo es **confirmar que está en
-vigor**, y eso solo puede hacerse al contratarlos, cuando exista infraestructura. Es el mismo momento
-que desbloquea `B-3`.
+| Encargado | Datos | Estado |
+|---|---|---|
+| Microsoft Azure (alojamiento, región España) | Todo lo almacenado | ✅ En vigor |
+| Arsys (correo) | Dirección de la persona invitada y nombre de quien invita | ✅ En vigor |
 
-**Por qué sigue bloqueando**: la Política de Privacidad declara que Azure y Arsys tratan datos como
-encargados. Mientras no estén contratados, esa declaración describe una intención, no un hecho.
+**Quién lo cerró**: negocio.
 
-**Ya no aplica** el aviso que este gate traía sobre el orden de publicación: la sección 4 de la
-política se reescribió y ya no afirma que cada proveedor tenga contrato firmado.
+### B-3 · Rutina de expurgo — ✅ **CERRADA** (2026-08-04)
 
-**Quién lo cierra**: negocio e infraestructura.
+Era el único bloqueo que necesitaba código, y el que peor pinta tenía: `RN-041` prometía 24 meses,
+`AccountRetentionPolicy` calculaba la fecha de purga y la baja de cuenta la devolvía al usuario…
+pero **no la ejecutaba nadie**. Una política declarada que no corre es peor que no tenerla, porque
+documenta un compromiso que se incumple desde el primer día.
 
-### B-3 · La rutina de expurgo no está programada
+**Qué se entrega**: `RetentionPurgeService` aplica las cinco categorías de `RN-041` —invitaciones
+terminales o caducadas, solicitudes de reactivación resueltas o caducadas, registros operativos
+eliminados lógicamente (RN-037), Workspaces dados de baja (RN-039) y cuentas anonimizadas—, y
+`RetentionPurgeWorker` la ejecuta a diario.
 
-**Qué hay**: `RN-041` fija 24 meses, `AccountRetentionPolicy` calcula la fecha de purga y la baja de
-cuenta la devuelve.
+**Dónde corre y por qué**: dentro de la propia API, como servicio en segundo plano. Las otras dos
+opciones —tarea programada del alojamiento o job de contenedor— exigían infraestructura que no
+existía cuando se escribió esto, y habrían dejado el expurgo esperando a que la hubiera. El precio es
+que solo corre con la aplicación viva; con un plazo de 24 meses, perder algún día no tiene
+consecuencia.
 
-**Qué falta**: que algo la ejecute. Hoy **nada se purga**.
+**Qué se cuidó**:
 
-**Por qué bloquea**: la política declarada y la realidad no coinciden, y el desfase crece con el
-tiempo. Con el MVP recién desplegado el primer vencimiento está a 24 meses, así que **no es urgente,
-pero sí es una promesa incumplida desde el día uno**.
+- **Orden de hijo a padre.** Las FK hacia `users` son `Restrict` a propósito, para que nada borre por
+  accidente el rastro de quién hizo qué. La cuenta va la última, y **puede quedarse** si todavía la
+  referencia algo vivo: se cuenta en el informe en vez de reventar la pasada. Que se quede no es una
+  fuga —la fila dejó de identificar a nadie en el momento de la baja—, es limpieza pendiente.
+- **Una sola transacción** con *advisory lock* de PostgreSQL: si la API escala, dos réplicas no
+  purgan a la vez. No espera, y al ser de ámbito de transacción se libera solo.
+- **Idempotente**, y probado como tal: corre a diario sin supervisión, así que la segunda pasada
+  tiene que ser inocua.
+- **Un fallo no tumba la aplicación**: se registra y se reintenta en la siguiente pasada.
 
-**Quién lo cierra**: infraestructura, decidiendo dónde se programa (tarea del alojamiento, job del
-contenedor o servicio en segundo plano de la propia API).
+**Lo que este expurgo no borra**: datos personales. Esos ya desaparecen en el acto al darse de baja
+(`MVP-505`). Esto es el principio de limitación del plazo de conservación, no el derecho de supresión.
 
 ### B-4 · Sin exportación de datos (portabilidad, art. 20)
 
@@ -168,7 +180,7 @@ Se listan para que la decisión de salir sea informada, no para frenarla.
 
 ## 5. Criterios de promoción a producción
 
-Cuando `B-2` a `B-4` estén resueltos:
+Cuando `B-4` esté resuelto:
 
 1. **Gate automático en verde** en `main`.
 2. **Migraciones aplicadas** y verificadas en staging.

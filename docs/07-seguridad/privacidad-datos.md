@@ -104,12 +104,11 @@ tratamiento** (RGPD art. 28) y exige contrato de encargo (DPA) firmado antes de 
 
 | Proveedor | Datos tratados | Finalidad | Estado |
 |-----------|---------|---------|---------|
-| Microsoft Azure | Todo lo almacenado | Alojamiento de la aplicacion y la base de datos | Proveedor decidido (`MVP-504`, B-1). **Servicio sin contratar** (B-2) |
-| Arsys | Email del destinatario, nombre de quien invita y del Workspace | Envio de invitaciones a Workspace | Proveedor decidido (`MVP-504`, B-1). **Servicio sin contratar**: ver [ADR-0010](../02-arquitectura/decisiones/ADR-0010--envio-de-email-transaccional-por-smtp.md) |
+| Microsoft Azure | Todo lo almacenado | Alojamiento de la aplicacion y la base de datos | ✅ Contratado, anexo de tratamiento de datos **en vigor** |
+| Arsys | Email del destinatario, nombre de quien invita y del Workspace | Envio de invitaciones a Workspace | ✅ Contratado, anexo **en vigor**: ver [ADR-0010](../02-arquitectura/decisiones/ADR-0010--envio-de-email-transaccional-por-smtp.md) |
 
 Con estos dos no hay contrato que negociar: el anexo de tratamiento de datos va **incorporado al
-contratar el servicio**. El bloqueo `B-2` del gate no es redactarlos, es confirmar que estan en vigor,
-y eso solo puede hacerse cuando exista la infraestructura.
+contratar el servicio**. Confirmado por el negocio el 2026-08-04, con lo que se cierra `B-2` del gate.
 
 ### Google no es encargado
 

@@ -493,7 +493,15 @@ Los **datos personales no esperan a ese plazo**: la baja de cuenta los borra o a
 sus Workspaces y en las invitaciones que la nombraban—. Lo que se conserva es la fila anonimizada, que
 ya no identifica a nadie.
 
-El plazo vive tambien en codigo, no solo en la documentacion, para que sea verificable.
+El plazo vive tambien en codigo, no solo en la documentacion, para que sea verificable
+(`AccountRetentionPolicy`), y desde `MVP-504` **hay una rutina que lo ejecuta**: una pasada diaria
+purga lo que cumplio los 24 meses (`RetentionPurgeService`). Antes el plazo estaba declarado y no lo
+aplicaba nadie, que es peor que no declararlo.
+
+Una **cuenta anonimizada puede sobrevivir al plazo** si todavia la referencia algo vivo: las FK hacia
+`users` son `Restrict` para no borrar por accidente el rastro de quien hizo que. No es una excepcion a
+la regla ni una fuga —la fila dejo de identificar a nadie en el momento de la baja—, es limpieza
+pendiente, y la rutina la cuenta en su informe.
 
 ### RN-042 — Ninguna tecnologia no esencial se activa sin consentimiento
 

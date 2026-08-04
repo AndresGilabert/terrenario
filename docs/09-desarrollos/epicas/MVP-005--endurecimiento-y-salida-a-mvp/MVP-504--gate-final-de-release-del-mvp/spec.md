@@ -90,7 +90,7 @@ Entregable: [`docs/08-procesos/gate-salida-mvp.md`](../../../../08-procesos/gate
 | Salida | Estado |
 |---|---|
 | **Despliegue a `staging`** | ✅ **AUTORIZADO** |
-| **Producción con usuarios reales** | ⛔ **BLOQUEADO** — 3 bloqueos, **ninguno de desarrollo** (`B-1` cerrado el 2026-08-04) |
+| **Producción con usuarios reales** | ⚠️ **1 bloqueo abierto** (`B-4`), y es una decisión de negocio. `B-1`, `B-2` y `B-3` cerrados el 2026-08-04 |
 
 Esa distinción es el resultado principal. **La construcción del MVP no tiene deuda que impida
 desplegarlo**; lo que impide exponerlo a personas reales son decisiones que no se resuelven
@@ -115,6 +115,8 @@ la política de Application Control de la máquina (`P-069`).
 | # | Bloqueo | Quién lo cierra |
 |---|---|---|
 | `B-1` | Datos del responsable del tratamiento | ✅ **Cerrado** (2026-08-04) |
+| `B-2` | Contratos de encargo (art. 28) | ✅ **Cerrado** (2026-08-04) |
+| `B-3` | Rutina de expurgo | ✅ **Cerrado** (2026-08-04) |
 | `B-2` | **Contratos de encargo** (art. 28) con Google, proveedor de correo y de alojamiento | Negocio e infraestructura |
 | `B-3` | La **rutina de expurgo no está programada**: `RN-041` promete 24 meses y hoy no se purga nada | Infraestructura |
 | `B-4` | Sin **exportación de datos** (portabilidad, art. 20): decidir si se acepta atenderlo manualmente durante la validación | Negocio |
@@ -166,3 +168,56 @@ hueco en un documento con efectos jurídicos. Un test lo impide antes de llegar 
 
 **Lo que B-1 no cierra**: la revisión del texto por asesoría jurídica. Estaba fuera del alcance
 declarado de `MVP-505` y pasa a §4 del gate como riesgo aceptado con decisión de negocio.
+
+## Cierre de B-2 y B-3 (2026-08-04)
+
+### B-2 — Encargados del tratamiento
+
+Se cerró en dos movimientos. **Google salió del alcance**: quien accede lo hace con *su* cuenta, así
+que Google trata esos datos bajo su propia política y no por cuenta del proyecto —es responsable
+independiente, no encargado— y no procede contrato del art. 28 con él. Esto corrige la clasificación
+de `MVP-503`. Y **Azure y Arsys están contratados con su anexo de tratamiento en vigor**, confirmado
+por el negocio; con estos proveedores el anexo va incorporado al contratar el servicio, no hay
+contrato que negociar.
+
+De paso desapareció una afirmación falsa: la sección 4 de la Política de Privacidad decía que cada
+proveedor tenía contrato firmado, cuando ninguno lo tenía. Ahora describe la relación sin afirmar el
+hecho.
+
+### B-3 — Rutina de expurgo
+
+El único bloqueo que necesitaba código, y el que peor pinta tenía: `RN-041` prometía 24 meses,
+`AccountRetentionPolicy` calculaba la fecha de purga y la baja de cuenta se la devolvía al usuario…
+pero **no la ejecutaba nadie**. Una política declarada que no corre es peor que no tenerla, porque
+documenta un compromiso que se incumple desde el primer día y el desfase crece solo.
+
+`RetentionPurgeService` aplica las cinco categorías de `RN-041` y `RetentionPurgeWorker` lo ejecuta a
+diario dentro de la propia API.
+
+**Por qué dentro de la API** y no como tarea del alojamiento o job de contenedor: esas dos opciones
+exigían infraestructura que no existía cuando se escribió esto, y habrían dejado el expurgo esperando
+a que la hubiera. El precio es que solo corre con la aplicación viva; con un plazo de 24 meses,
+perder algún día no tiene consecuencia.
+
+**Lo que costó pensar, y está probado contra PostgreSQL real:**
+
+- **Orden de hijo a padre.** Las FK hacia `users` son `Restrict` a propósito, para que nada borre por
+  accidente el rastro de quién hizo qué. La cuenta va la última y **puede quedarse**: hay un caso
+  real —un Workspace vivo cuyo `owner_id` sigue apuntando a la cuenta cerrada, porque la baja no
+  traspasa la propiedad— en el que la referencia sobrevive. Se cuenta en el informe en vez de
+  reventar la pasada. Que se quede no es una fuga: la fila dejó de identificar a nadie en el momento
+  de la baja.
+- **La cascada la hace el motor.** Purgar un Workspace se lleva su contenido entero sin que el
+  servicio lo borre explícitamente. Un test lo comprueba, y es de las cosas que solo se pueden
+  comprobar contra el motor real.
+- **Advisory lock de PostgreSQL** de ámbito de transacción, por si la API escala: dos réplicas no
+  purgan a la vez. No espera, y se libera solo. Probado con dos conexiones compitiendo.
+- **Idempotente**, y probado como tal: corre a diario sin supervisión.
+- **Un fallo no tumba la aplicación**: se registra y se reintenta en la siguiente pasada.
+
+**Lo que este expurgo no borra**: datos personales. Esos ya desaparecen en el acto al darse de baja
+(`MVP-505`). Esto es el principio de limitación del plazo de conservación, no el derecho de supresión.
+
+**Hallazgo derivado**: los *refresh tokens* revocados o caducados no tienen plazo y hoy se quedan
+indefinidamente. No se incluyó en la rutina a propósito —`RN-041` enumera cinco categorías y esta no
+es una— porque añadirla es una decisión de producto. Registrado como `P-071`.

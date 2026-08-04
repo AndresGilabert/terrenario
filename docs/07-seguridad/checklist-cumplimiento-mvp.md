@@ -55,7 +55,7 @@ libre) y los `*_user_id` de auditoría. Todas quedan cubiertas por T1–T8.
 | Limitación de la finalidad | ✅ | Los datos solo se usan para prestar el servicio; no hay cesión ni finalidad secundaria |
 | Minimización | ⚠️ | La cuenta recoge solo lo que da Google. **Pero** `plots.owner_name` y `activities.description` son texto libre donde el usuario puede introducir más de lo necesario: el producto no lo puede impedir, y la política se lo pide. Ver `R-03` |
 | Exactitud | ⚠️ | Los datos de la cuenta se resincronizan desde Google en cada login (RN-036). **No hay edición de perfil propia** (`P-032`, diferido) |
-| Limitación del plazo de conservación | ✅ | `RN-041` fija 24 meses para todo lo que se conserva por diseño. **La rutina de expurgo no está programada**: ver `R-01` |
+| Limitación del plazo de conservación | ✅ | `RN-041` fija 24 meses para todo lo que se conserva por diseño, y desde `MVP-504` **hay una rutina que lo ejecuta a diario** (`RetentionPurgeWorker`). `R-01` cerrado |
 | Integridad y confidencialidad | ✅ | Aislamiento por Workspace (RN-034, MVP-105), tokens solo como hash, cabeceras de seguridad, CSP en API y cliente (`MVP-502`) |
 | Responsabilidad proactiva | ✅ | Este documento, el inventario de tecnologías y las reglas RN-041/RN-042 |
 
@@ -133,8 +133,8 @@ de privacidad. Queda dicho en la Política de Privacidad y en los Términos.
 
 | Proveedor | Datos | Contrato de encargo |
 |---|---|---|
-| Microsoft Azure (alojamiento, región España) | Todo lo almacenado | ❌ **Servicio sin contratar** |
-| Arsys (correo) | Correo de la persona invitada | ❌ **Servicio sin contratar** (ADR-0010) |
+| Microsoft Azure (alojamiento, región España) | Todo lo almacenado | ✅ Contratado, anexo **en vigor** |
+| Arsys (correo) | Correo de la persona invitada | ✅ Contratado, anexo **en vigor** (ADR-0010) |
 
 **Google no figura aquí, y es una corrección**: quien entra lo hace con **su** cuenta de Google, así
 que Google trata esos datos bajo su propia política y no por cuenta del proyecto. Es **responsable
@@ -142,8 +142,9 @@ independiente**, no encargado del art. 28, y no procede contrato de encargo con 
 informarlo, y se informa. Encuadre aportado por la asesoría del negocio el 2026-08-04; corrige lo que
 esta misma revisión había clasificado mal.
 
-Con Azure y Arsys no hay contrato que redactar: el anexo de tratamiento de datos va incorporado al
-contratar el servicio. `B-2` es confirmar que está en vigor, y eso llega con la infraestructura.
+Con Azure y Arsys no hubo contrato que redactar: el anexo de tratamiento de datos va incorporado al
+contratar el servicio. El negocio confirmó el 2026-08-04 que ambos están contratados y en vigor, con
+lo que `B-2` del gate queda cerrado.
 
 **Transferencias internacionales**: el alojamiento está en la región de España y el correo es de un
 proveedor español, así que la única salida del EEE es la del inicio de sesión con Google, amparada en
@@ -158,11 +159,12 @@ Privacidad.
 |---|---|
 | **CA-1** — Evidencia documental mínima RGPD/LOPDGDD | ✅ §1, §2 y §5, verificados contra el sistema |
 | **CA-2** — Consta si aplican LSSI/ePrivacy y EIPD | ✅ §3 (aplican, se cumplen sin banner) y §4 (no procede EIPD) |
-| **CA-3** — Sostiene la salida controlada | ⚠️ **Con condiciones**: `R-02` ya está cerrado; la salida es sostenible una vez `MVP-504` cierre los contratos de §6 y `R-01` |
+| **CA-3** — Sostiene la salida controlada | ✅ `R-01` y `R-02` cerrados en `MVP-504`, y los encargados de §6 están en vigor. Queda `R-06` (portabilidad), que es una decisión de negocio, no un incumplimiento de construcción |
 
-**El MVP no es publicable a usuarios reales todavía**, y no por defectos de construcción: faltan
-decisiones de negocio e infraestructura. Lo que sí queda demostrado es que **el producto no tiene
-deuda de cumplimiento imputable al desarrollo**.
+**Actualización (2026-08-04)**: `MVP-504` cerró los tres bloqueos que quedaban de esta revisión
+—identidad del responsable, encargados y rutina de expurgo—. El producto **no tiene deuda de
+cumplimiento imputable al desarrollo**, y lo único abierto es decidir cómo se atiende la portabilidad
+(`R-06`).
 
 ---
 
@@ -170,7 +172,7 @@ deuda de cumplimiento imputable al desarrollo**.
 
 | # | Hallazgo | Destino |
 |---|---|---|
-| `R-01` | La **rutina de expurgo no está programada**. La política, el plazo y el cálculo existen (`RN-041`, `AccountRetentionPolicy`), pero nada los ejecuta: hoy nada se purga a los 24 meses | `MVP-504` |
+| `R-01` | La **rutina de expurgo no está programada**. La política, el plazo y el cálculo existen (`RN-041`, `AccountRetentionPolicy`), pero nada los ejecuta: hoy nada se purga a los 24 meses | ✅ **Cerrado en `MVP-504`** (B-3) |
 | `R-02` | Los **datos del responsable del tratamiento son marcadores**. Sin ellos, ni la política ni los términos son publicables, y no hay dirección real donde ejercer derechos | ✅ **Cerrado en `MVP-504`** (B-1) |
 | `R-03` | **El inventario de tecnologías de `MVP-505` no coincidía con el código**: declaraba `terrenario:privacy_ack`, que no existe, y omitía cinco claves que sí (`pkce_code_verifier`, `oauth_state`, `terrenario_post_login_redirect`, `terrenario_login_flow`, `terrenario_login_started`). **Corregido en esta historia** | Cerrado aquí |
 | `R-04` | **`plots.owner_name` no estaba declarado como dato personal** ni en la clasificación de la KB ni en la Política de Privacidad, y está en uso. Es el nombre de un tercero que no tiene cuenta. **Corregido en esta historia**, junto con un bloque nuevo sobre datos de terceros | Cerrado aquí |

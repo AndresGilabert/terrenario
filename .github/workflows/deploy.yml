@@ -1,0 +1,141 @@
+name: Publicar
+
+# Publicación a producción, disparada por un **tag de versión** (`proceso-release.md`).
+#
+# El tag es el disparador y no el merge a `main` a propósito: promocionar y publicar son dos
+# decisiones distintas, y separarlas permite promocionar hoy y publicar cuando se quiera, o volver a
+# publicar una versión ya promocionada sin tocar ramas.
+#
+# No repite los tests: el tag se pone sobre un commit de `main` que ya pasó el gate de `ci.yml`. Lo
+# que sí hace es **exigir que el gate esté en verde** para ese commit antes de publicar nada.
+
+on:
+  push:
+    tags: ["v*"]
+  # Permite reintentar una publicación fallida sin crear otro tag.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag a publicar (por ejemplo v0.5.0-hito-e)"
+        required: true
+
+concurrency:
+  group: deploy-produccion
+  cancel-in-progress: false
+
+jobs:
+  comprobar-gate:
+    name: Comprobar que el gate está en verde
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      # Publicar un commit cuyo CI falló sería saltarse el gate de MVP-504 por la puerta de atrás.
+      - name: Exigir CI en verde para este commit
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data } = await github.rest.checks.listForRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.sha,
+            });
+            const gate = data.check_runs.filter(c => /Backend|Frontend|Seguridad/.test(c.name));
+            if (gate.length === 0)
+              throw new Error('No hay ejecución de CI para este commit: no se puede publicar a ciegas.');
+            const fallidos = gate.filter(c => c.conclusion !== 'success');
+            if (fallidos.length > 0)
+              throw new Error('Gate en rojo: ' + fallidos.map(c => c.name).join(', '));
+            core.info('Gate en verde: ' + gate.map(c => c.name).join(', '));
+
+  backend:
+    name: Publicar API
+    needs: comprobar-gate
+    runs-on: ubuntu-latest
+    environment: produccion
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Publicar binarios
+        run: dotnet publish src/backend/Terrenario.Api/Terrenario.Api.csproj
+          --configuration Release --output ./publicacion
+
+      # Las migraciones las aplica la propia API al arrancar (`Database:MigrateOnStartup`), así que
+      # aquí no hay paso de base de datos. Si una migración falla, la aplicación no arranca y el
+      # despliegue se nota en el arranque, no en la primera consulta de un usuario.
+      - name: Desplegar en App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./publicacion
+
+  frontend:
+    name: Publicar cliente
+    needs: comprobar-gate
+    runs-on: ubuntu-latest
+    environment: produccion
+    defaults:
+      run:
+        working-directory: src/frontend/terrenario-web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: src/frontend/terrenario-web/package-lock.json
+
+      - run: npm ci
+
+      # Las `VITE_*` se incrustan al compilar: sin ellas el cliente llamaría a `localhost`. Son
+      # variables y no secretos porque acaban en el bundle, que es público por definición.
+      - name: Compilar
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+
+      - name: Desplegar en Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: upload
+          app_location: src/frontend/terrenario-web/dist
+          skip_app_build: true
+
+  humo:
+    name: Smoke de publicación
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    environment: produccion
+    steps:
+      # Comprobación mínima de que lo publicado responde. No sustituye al smoke manual del gate,
+      # pero convierte «el despliegue terminó» en «el despliegue sirve algo».
+      - name: La API responde y trae sus cabeceras de seguridad
+        run: |
+          set -e
+          cabeceras=$(curl -sS -D - -o /dev/null --max-time 30 "${{ vars.VITE_API_BASE_URL }}/api/v1/diary")
+          echo "$cabeceras" | head -1
+          echo "$cabeceras" | grep -qi "x-content-type-options: nosniff"
+          echo "$cabeceras" | grep -qi "x-frame-options: DENY"
+          echo "$cabeceras" | grep -qi "strict-transport-security"
+          echo "Cabeceras de seguridad presentes."
+
+      - name: El cliente sirve el documento y la Política de Privacidad
+        run: |
+          set -e
+          curl -sSf --max-time 30 "${{ vars.PUBLIC_WEB_URL }}" > /dev/null
+          curl -sSf --max-time 30 "${{ vars.PUBLIC_WEB_URL }}/legal/privacidad" | grep -q "Terrenario"
+          echo "Cliente publicado y rutas del SPA resueltas."

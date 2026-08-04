@@ -53,9 +53,11 @@ public sealed class TerrenarioApiFactory : WebApplicationFactory<Program>, IAsyn
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        // «Testing» y no «Development»: en Development el arranque vuelve a aplicar migraciones
-        // (`Program.cs`), que el arnés ya dejó aplicadas al crear la base.
         builder.UseEnvironment("Testing");
+
+        // El arnés ya aplica las migraciones al crear la base de cada clase, así que el arranque no
+        // tiene que volver a mirarlas: son idempotentes, pero es una ida y vuelta por clase de test.
+        builder.UseSetting("Database:MigrateOnStartup", "false");
 
         // `UseSetting` entra en la configuración del host, que es la que lee `Program.cs` al construir
         // la clave de validación del JWT antes de que exista el contenedor de servicios.

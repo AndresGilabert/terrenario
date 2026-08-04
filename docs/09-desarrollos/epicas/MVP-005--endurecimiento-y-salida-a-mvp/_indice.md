@@ -1,6 +1,6 @@
 ﻿# Índice — MVP-005--endurecimiento-y-salida-a-mvp: Endurecimiento y salida a MVP
 
-> **Progreso**: 6/7 completadas · **Hito**: Hito E — Salida controlada a MVP
+> **Progreso**: 7/7 completadas · **Hito**: Hito E — Salida controlada a MVP
 > _Generado automáticamente por `validar_kb.py`. No editar manualmente._
 
 | Historia | Título | Estado | Responsable | Prioridad |
@@ -11,4 +11,4 @@
 | [MVP-504](./MVP-504--gate-final-de-release-del-mvp/spec.md) | Gate final de release del MVP | ✔️ completado | @andres | critica |
 | [MVP-505](./MVP-505--cumplimiento-funcional-de-salida/spec.md) | Cumplimiento funcional de salida: páginas legales, consentimiento y baja de cuenta | ✔️ completado | @andres | alta |
 | [MVP-506](./MVP-506--navegacion-y-escala-del-diario/spec.md) | Navegación y escala del diario: paginación, búsqueda en servidor y filtro por responsable | ✔️ completado | @andres | alta |
-| [MVP-599](./MVP-599--revision-epica/spec.md) | Revision epica | 📝 borrador | @andres | alta |
+| [MVP-599](./MVP-599--revision-epica/spec.md) | Revision epica | ✔️ completado | @andres | alta |

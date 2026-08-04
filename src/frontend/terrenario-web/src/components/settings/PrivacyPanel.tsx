@@ -14,6 +14,12 @@ import { Link } from 'react-router';
  * Lo que la norma sí exige —y esto entrega— es **informar**. Si algún día entra una tecnología no
  * esencial, `RN-042` obliga a recabar consentimiento antes de activarla, y este panel es donde vivirá
  * esa decisión.
+ *
+ * MVP-599 (`R-02`/`R-03`) — El inventario estaba **incompleto y desfasado**. `MVP-503` corrigió el de
+ * la KB y `MVP-504` el de la Política de Privacidad, pero nadie tocó este, que es justo el que la
+ * Política llama «el inventario completo»: listaba cuatro de las siete tecnologías y mantenía la
+ * afirmación absoluta «no usamos analítica» que `MVP-503` ya había declarado inexacta. Ahora coincide
+ * con `docs/07-seguridad/privacidad-datos.md`.
  */
 const TECHNOLOGIES: { name: string; purpose: string; essential: boolean }[] = [
   {
@@ -27,8 +33,26 @@ const TECHNOLOGIES: { name: string; purpose: string; essential: boolean }[] = [
     essential: true,
   },
   {
+    name: 'Claves de seguridad del acceso (PKCE y anti-CSRF)',
+    purpose:
+      'Comprobar que quien vuelve de Google es quien inició el acceso. Se borran al terminar de entrar.',
+    essential: true,
+  },
+  {
+    name: 'Destino pendiente tras el acceso',
+    purpose: 'Llevarte a la página que pediste después de iniciar sesión, en vez de al inicio.',
+    essential: true,
+  },
+  {
     name: 'Avisos ya vistos',
     purpose: 'No repetirte el aviso de una invitación que ya has leído.',
+    essential: true,
+  },
+  {
+    name: 'Medición del acceso',
+    purpose:
+      'Saber si la pantalla de acceso funciona: si se vio, si se pulsó el botón y si se abandonó. ' +
+      'Es un identificador aleatorio no vinculado a ti, que desaparece al cerrar la pestaña.',
     essential: true,
   },
   {
@@ -52,9 +76,10 @@ export const PrivacyPanel: React.FC = () => (
         verified_user
       </span>
       <p className="text-xs text-[#33450d] leading-relaxed">
-        <strong>No usamos analítica, publicidad ni perfilado.</strong> Solo lo estrictamente necesario
-        para que la aplicación funcione, así que no hay nada que consentir ni que rechazar. Si eso
-        cambiara, te lo pediríamos antes de activarlo.
+        <strong>No hay analítica de terceros, publicidad ni perfilado.</strong> Solo lo estrictamente
+        necesario para que la aplicación funcione, más la medición del acceso que ves abajo, que es
+        propia y no te identifica. Nada de esto requiere tu consentimiento, así que no hay nada que
+        aceptar ni que rechazar. Si eso cambiara, te lo pediríamos antes de activarlo.
       </p>
     </div>
 

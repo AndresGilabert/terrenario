@@ -27,6 +27,15 @@ public static class JsonText
     {
         if (element.ValueKind == JsonValueKind.Null) return null;
 
+        // MVP-599 (`R-04`) — `GetString()` lanza `InvalidOperationException` por **dos** motivos, y la
+        // primera versión de esto los confundía: además del UTF-8 inválido, falla cuando el valor no
+        // es texto (`{"name": 12345}`). Ese caso respondía «el cuerpo debe estar codificado en UTF-8»,
+        // que es falso y manda a quien integra a revisar su codificación en vez de su tipo. El código
+        // de error era correcto; el mensaje mentía.
+        if (element.ValueKind != JsonValueKind.String)
+            throw new InvalidRequestBodyException(
+                $"El campo '{key}' debe ser un texto.");
+
         try
         {
             return element.GetString();

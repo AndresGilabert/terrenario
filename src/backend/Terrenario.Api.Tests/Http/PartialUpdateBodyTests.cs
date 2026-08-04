@@ -60,6 +60,23 @@ public sealed class PartialUpdateBodyTests
     }
 
     [Theory]
+    [InlineData("""{"name": 12345}""")]
+    [InlineData("""{"name": true}""")]
+    [InlineData("""{"name": ["La Hoya"]}""")]
+    [InlineData("""{"name": {"valor": "La Hoya"}}""")]
+    public void Deberia_DecirQueElCampoNoEsTexto_Cuando_LlegaOtroTipo(string json)
+    {
+        // MVP-599 (`R-04`): estos casos también hacen fallar a `GetString()`, y se respondían con el
+        // mensaje del UTF-8. El código era correcto pero el mensaje mandaba a revisar la codificación
+        // en vez del tipo, que es lo único que estaba mal.
+        var act = () => PartialUpdateBody.From(Parse(json)).ReadString("name");
+
+        act.Should().Throw<InvalidRequestBodyException>()
+            .WithMessage("*debe ser un texto*")
+            .And.Message.Should().NotContain("UTF-8");
+    }
+
+    [Theory]
     [InlineData("""{"tree_count": 250}""", true, 250)]
     [InlineData("""{"tree_count": null}""", true, null)]
     [InlineData("""{"tree_count": "muchos"}""", false, null)]

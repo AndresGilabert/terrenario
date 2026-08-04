@@ -106,15 +106,22 @@ else
     echo "O usa OMITIR_PG=1 para crear todo lo demás y dejar la base para después." >&2
     exit 1
   fi
-  # Sin `--database-name`: desde la CLI 2.89 ese parámetro **solo vale para clusters elásticos**
-  # («can only be used when --node-count is present») y hace fallar la creación entera. La base se
-  # crea aparte, justo debajo.
+  # Dos trampas de esta orden, ambas encontradas montándolo de verdad:
+  #
+  # 1. Sin `--database-name`: desde la CLI 2.89 ese parámetro **solo vale para clusters elásticos**
+  #    («can only be used when --node-count is present») y hace fallar la creación entera. La base
+  #    se crea aparte, justo debajo.
+  # 2. `--public-access 0.0.0.0` y **no `None`**. Pese a lo que sugiere la ayuda, `None` deja el
+  #    servidor con `publicNetworkAccess: Disabled`, y entonces ni el App Service puede conectarse
+  #    ni se pueden crear reglas de cortafuegos: fallan con «not supported for a server without
+  #    public access enabled». `0.0.0.0` es la forma que tiene Azure de decir «solo servicios de
+  #    Azure», y de paso crea la regla.
   "$AZ" postgres flexible-server create \
     --resource-group "$GRUPO" --name "$PG" --location "$REGION" \
     --admin-user "$PG_USUARIO" --admin-password "$PG_PASSWORD" \
     --sku-name "$SKU_PG" --tier Burstable \
     --storage-size 32 --version 16 \
-    --public-access None \
+    --public-access 0.0.0.0 \
     --yes -o none
   ok "$PG creado"
 fi
@@ -124,11 +131,11 @@ fi
 if [ -n "${PG_PENDIENTE:-}" ]; then
   avis "Base de datos pendiente: se crea junto con el servidor"
 elif existe postgres flexible-server db show \
-     --resource-group "$GRUPO" --server-name "$PG" --database-name "$PG_BD"; then
+     --resource-group "$GRUPO" --server-name "$PG" --name "$PG_BD"; then
   ok "Base $PG_BD ya existe"
 else
   "$AZ" postgres flexible-server db create \
-    --resource-group "$GRUPO" --server-name "$PG" --database-name "$PG_BD" -o none
+    --resource-group "$GRUPO" --server-name "$PG" --name "$PG_BD" -o none
   ok "Base $PG_BD creada"
 fi
 
@@ -137,11 +144,11 @@ fi
 if [ -n "${PG_PENDIENTE:-}" ]; then
   avis "Regla de acceso pendiente: se crea al ejecutar el script con la base ya existente"
 elif existe postgres flexible-server firewall-rule show \
-     --resource-group "$GRUPO" --name "$PG" --rule-name PermitirServiciosAzure; then
+     --resource-group "$GRUPO" --server-name "$PG" --name PermitirServiciosAzure; then
   ok "Acceso desde servicios de Azure ya permitido"
 else
   "$AZ" postgres flexible-server firewall-rule create \
-    --resource-group "$GRUPO" --name "$PG" --rule-name PermitirServiciosAzure \
+    --resource-group "$GRUPO" --server-name "$PG" --name PermitirServiciosAzure \
     --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0 -o none
   ok "Acceso desde servicios de Azure permitido"
 fi

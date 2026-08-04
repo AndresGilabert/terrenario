@@ -104,12 +104,22 @@ tratamiento** (RGPD art. 28) y exige contrato de encargo (DPA) firmado antes de 
 
 | Proveedor | Datos tratados | Finalidad | Estado |
 |-----------|---------|---------|---------|
-| Google (OIDC) | `sub`, nombre, email | Autenticacion de acceso | Activo. **Contrato de encargo por verificar** (`MVP-504`, B-2) |
-| Arsys | Email del destinatario, nombre de quien invita y del Workspace | Envio de invitaciones a Workspace | Proveedor decidido (`MVP-504`, B-1). **Sin contratar**: ver [ADR-0010](../02-arquitectura/decisiones/ADR-0010--envio-de-email-transaccional-por-smtp.md) |
-| Microsoft Azure | Todo lo almacenado | Alojamiento de la aplicacion y la base de datos | Proveedor decidido (`MVP-504`, B-1). **Sin contratar** (B-2) |
+| Microsoft Azure | Todo lo almacenado | Alojamiento de la aplicacion y la base de datos | Proveedor decidido (`MVP-504`, B-1). **Servicio sin contratar** (B-2) |
+| Arsys | Email del destinatario, nombre de quien invita y del Workspace | Envio de invitaciones a Workspace | Proveedor decidido (`MVP-504`, B-1). **Servicio sin contratar**: ver [ADR-0010](../02-arquitectura/decisiones/ADR-0010--envio-de-email-transaccional-por-smtp.md) |
 
-Decidir el proveedor **no cierra** la obligacion del art. 28: el contrato de encargo con cada uno de
-los tres sigue siendo el bloqueo `B-2` del gate de salida.
+Con estos dos no hay contrato que negociar: el anexo de tratamiento de datos va **incorporado al
+contratar el servicio**. El bloqueo `B-2` del gate no es redactarlos, es confirmar que estan en vigor,
+y eso solo puede hacerse cuando exista la infraestructura.
+
+### Google no es encargado
+
+Cuando una persona entra con **su** cuenta de Google, Google trata esos datos bajo su propia politica
+y no por cuenta del proyecto: actua como **responsable independiente**, no como encargado del art. 28.
+Por eso no procede contrato de encargo con Google, y por eso sale de la tabla anterior. Lo que si
+procede es informarlo, y se informa en la Politica de Privacidad.
+
+Este encuadre lo aporto la asesoria del negocio (2026-08-04) y corrige la clasificacion anterior de
+`MVP-503`, que lo listaba como encargado.
 
 ### Transferencias internacionales
 
@@ -117,7 +127,9 @@ los tres sigue siendo el bloqueo `B-2` del gate de salida.
 |-----|---------|----------|
 | Alojamiento (Azure) | Region **Espana** | Sin transferencia: los datos se almacenan en la UE |
 | Correo (Arsys) | Espana | Sin transferencia |
-| Inicio de sesion (Google) | EE. UU. | **Si hay transferencia**: clausulas contractuales tipo de la Comision Europea y decision de adecuacion del Marco de Privacidad de Datos UE-EE. UU. |
+| Inicio de sesion (Google) | EE. UU. | Comunicacion a un **responsable independiente**, regida por sus condiciones y por sus garantias: clausulas contractuales tipo de la Comision Europea y decision de adecuacion del Marco de Privacidad de Datos UE-EE. UU. |
+
+**Ningun encargado trata datos fuera de la UE.**
 
 La transferencia a Google es **inevitable mientras el acceso sea con Google** (`RN-036`): no hay
 alternativa que ofrecer a quien no la acepte, mas alla de no crear la cuenta. Queda declarada en la

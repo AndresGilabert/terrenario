@@ -115,8 +115,9 @@ export const PrivacyPolicyPage: React.FC = () => (
 
     <h2>4. Quién más puede acceder a tus datos</h2>
     <p>
-      Solo los proveedores estrictamente necesarios para prestar el servicio, cada uno con contrato
-      de encargo del tratamiento:
+      Tus datos podrán ser tratados por proveedores tecnológicos que actúan como{' '}
+      <strong>encargados del tratamiento</strong>: los tratan por nuestra cuenta y siguiendo nuestras
+      instrucciones, solo para prestarte el servicio.
     </p>
     <table>
       <thead>
@@ -124,22 +125,23 @@ export const PrivacyPolicyPage: React.FC = () => (
       </thead>
       <tbody>
         <tr>
-          <td>Google (inicio de sesión)</td>
-          <td>Identificador de cuenta, nombre y correo</td>
-          <td>Autenticar tu acceso</td>
-        </tr>
-        <tr>
-          <td>{legalEntity.emailProvider} (envío de correo)</td>
-          <td>Dirección de la persona invitada y nombre de quien invita</td>
-          <td>Enviar invitaciones a un Workspace</td>
-        </tr>
-        <tr>
           <td>{legalEntity.hostingProvider} (alojamiento)</td>
           <td>Todo lo almacenado</td>
           <td>Alojar la aplicación y la base de datos</td>
         </tr>
+        <tr>
+          <td>{legalEntity.emailProvider} (correo electrónico)</td>
+          <td>Dirección de la persona invitada y nombre de quien invita</td>
+          <td>Enviar invitaciones a un Workspace</td>
+        </tr>
       </tbody>
     </table>
+    <p>
+      <strong>Google es distinto</strong>: puedes autenticarte mediante Google, que actúa como{' '}
+      <strong>responsable independiente</strong> conforme a sus propias condiciones. Cuando inicias
+      sesión, Google trata tus datos bajo su propia política de privacidad y no por cuenta nuestra;
+      nosotros solo recibimos de él tu identificador de cuenta, tu nombre y tu correo.
+    </p>
     <p>
       Las personas con las que compartes un Workspace ven los registros de esa explotación y el
       nombre de quien los creó. <strong>No vendemos ni cedemos datos a terceros</strong> para ninguna
@@ -153,11 +155,14 @@ export const PrivacyPolicyPage: React.FC = () => (
       {legalEntity.emailProvider}, proveedor español.
     </p>
     <p>
-      La única transferencia fuera del Espacio Económico Europeo es la que provoca el{' '}
-      <strong>inicio de sesión con Google</strong>, porque es el único modo de acceder al servicio.
-      Se ampara en las cláusulas contractuales tipo aprobadas por la Comisión Europea y en la
-      decisión de adecuación del Marco de Privacidad de Datos UE–EE. UU., a la que Google está
-      adherido. Si no quieres que esa transferencia ocurra, la vía es no crear la cuenta: sin
+      Así que <strong>ninguno de nuestros encargados trata tus datos fuera de la Unión Europea</strong>.
+    </p>
+    <p>
+      Lo que sí sale del Espacio Económico Europeo es el <strong>inicio de sesión con Google</strong>,
+      que es el único modo de acceder al servicio. Como Google actúa ahí por su cuenta y no por la
+      nuestra, esa comunicación se rige por sus propias condiciones y por las garantías que él aplica
+      —cláusulas contractuales tipo de la Comisión Europea y decisión de adecuación del Marco de
+      Privacidad de Datos UE–EE. UU.—. Si no quieres que ocurra, la vía es no crear la cuenta: sin
       identificarte no podemos prestarte el servicio.
     </p>
 

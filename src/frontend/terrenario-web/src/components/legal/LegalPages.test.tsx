@@ -28,15 +28,25 @@ describe('páginas legales', () => {
     expect(contactos[0]).toHaveAttribute('href', `mailto:${legalEntity.privacyEmail}`);
   });
 
-  it('la Política de Privacidad declara los encargados y la transferencia a Google', () => {
+  it('la Política de Privacidad declara los encargados y dónde se alojan los datos', () => {
     renderPage(<PrivacyPolicyPage />);
 
     // Aparecen en la tabla de encargados y de nuevo al explicar dónde se alojan los datos.
     expect(screen.getAllByText(/Arsys/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Microsoft Azure/).length).toBeGreaterThan(0);
-    // Decir dónde se alojan los datos es lo que sostiene que no hay transferencia por el hosting.
+    // Decir dónde se alojan los datos es lo que sostiene que ningún encargado sale de la UE.
     expect(screen.getByText(/dentro de la Unión Europea/)).toBeInTheDocument();
-    // Y la que sí existe hay que declararla con su garantía, no omitirla.
+  });
+
+  it('encuadra a Google como responsable independiente, no como encargado', () => {
+    renderPage(<PrivacyPolicyPage />);
+
+    // Cuando alguien entra con **su** cuenta de Google, Google trata esos datos bajo su propia
+    // política y no por cuenta nuestra: no es un encargado del art. 28. Confundirlo obligaría a un
+    // contrato de encargo que no procede, y describiría mal la relación real.
+    expect(screen.getByText(/responsable independiente/)).toBeInTheDocument();
+    expect(screen.getByText(/no por cuenta nuestra/)).toBeInTheDocument();
+    // La salida del EEE se declara igualmente, con la garantía que la ampara.
     expect(screen.getByText(/cláusulas contractuales tipo/)).toBeInTheDocument();
   });
 

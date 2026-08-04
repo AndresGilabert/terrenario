@@ -98,26 +98,30 @@ antes de llegar ahí.
 **Lo que no cierra**: la **revisión por asesoría legal** del texto. Estaba fuera del alcance
 declarado de `MVP-505` y sigue siendo una decisión de negocio; ver §4.
 
-### B-2 · Contratos de encargo del tratamiento (RGPD art. 28)
+### B-2 · Contratos de encargo del tratamiento (RGPD art. 28) — **reducido** (2026-08-04)
+
+La asesoría del negocio aportó el encuadre y cambia el tamaño del bloqueo.
+
+**Google sale**: quien accede lo hace con **su** cuenta de Google, así que Google trata esos datos
+bajo su propia política y no por cuenta del proyecto. Es **responsable independiente**, no encargado,
+y no procede contrato del art. 28 con él. Lo que procede es informarlo, y ya se informa en la
+Política de Privacidad. Esto corrige la clasificación de `MVP-503`, que lo listaba como encargado.
 
 | Proveedor | Estado |
 |---|---|
-| Google (OIDC) | Verificar que las condiciones de tratamiento aplicables están aceptadas |
-| Arsys (correo) | **Sin contratar** (ADR-0010) |
-| Microsoft Azure (alojamiento) | **Sin contratar** |
+| Microsoft Azure (alojamiento) | **Servicio sin contratar** |
+| Arsys (correo) | **Servicio sin contratar** (ADR-0010) |
 
-**Por qué bloquea**: tratar datos personales a través de un encargado sin contrato de encargo es un
-incumplimiento directo. Que `B-1` haya decidido **quiénes** son los encargados no cierra el art. 28:
-falta el contrato con cada uno.
+**Qué queda, entonces**: con estos dos no hay contrato que negociar ni redactar —el anexo de
+tratamiento de datos va incorporado al contratar el servicio—. El bloqueo es **confirmar que está en
+vigor**, y eso solo puede hacerse al contratarlos, cuando exista infraestructura. Es el mismo momento
+que desbloquea `B-3`.
 
-Lo que sí queda resuelto por `B-1` es la otra mitad de este bloqueo tal y como estaba redactado:
-dónde se alojan los datos (región de España) y qué transferencia internacional existe (solo Google,
-con garantías declaradas).
+**Por qué sigue bloqueando**: la Política de Privacidad declara que Azure y Arsys tratan datos como
+encargados. Mientras no estén contratados, esa declaración describe una intención, no un hecho.
 
-**Ojo con el orden**: la sección 4 de la Política de Privacidad afirma que cada proveedor tiene
-contrato de encargo. Publicar las páginas antes de firmarlos convertiría esa frase en una afirmación
-falsa dentro de un documento legal. **B-2 tiene que cerrarse antes de exponer el servicio**, no a la
-vez.
+**Ya no aplica** el aviso que este gate traía sobre el orden de publicación: la sección 4 de la
+política se reescribió y ya no afirma que cada proveedor tenga contrato firmado.
 
 **Quién lo cierra**: negocio e infraestructura.
 

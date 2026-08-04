@@ -133,12 +133,17 @@ de privacidad. Queda dicho en la Política de Privacidad y en los Términos.
 
 | Proveedor | Datos | Contrato de encargo |
 |---|---|---|
-| Google (OIDC) | `sub`, nombre, correo | ⚠️ Por verificar en el gate |
-| Arsys (correo) | Correo de la persona invitada | ❌ **Sin contratar** (ADR-0010) |
-| Microsoft Azure (alojamiento, región España) | Todo lo almacenado | ❌ **Sin contratar** |
+| Microsoft Azure (alojamiento, región España) | Todo lo almacenado | ❌ **Servicio sin contratar** |
+| Arsys (correo) | Correo de la persona invitada | ❌ **Servicio sin contratar** (ADR-0010) |
 
-Los proveedores quedaron **decididos** al cerrar `B-1` de `MVP-504`, pero decidirlos no cierra el
-art. 28: los tres contratos de encargo siguen pendientes y son el bloqueo `B-2` del gate.
+**Google no figura aquí, y es una corrección**: quien entra lo hace con **su** cuenta de Google, así
+que Google trata esos datos bajo su propia política y no por cuenta del proyecto. Es **responsable
+independiente**, no encargado del art. 28, y no procede contrato de encargo con él. Lo que procede es
+informarlo, y se informa. Encuadre aportado por la asesoría del negocio el 2026-08-04; corrige lo que
+esta misma revisión había clasificado mal.
+
+Con Azure y Arsys no hay contrato que redactar: el anexo de tratamiento de datos va incorporado al
+contratar el servicio. `B-2` es confirmar que está en vigor, y eso llega con la infraestructura.
 
 **Transferencias internacionales**: el alojamiento está en la región de España y el correo es de un
 proveedor español, así que la única salida del EEE es la del inicio de sesión con Google, amparada en

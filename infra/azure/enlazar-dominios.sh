@@ -42,18 +42,53 @@ fi
 
 # El certificado gestionado es gratuito y se renueva solo. Sin él el enlace existe pero sirve por
 # HTTP, y sobre HTTP la cookie de refresco no puede ser `Secure`: la sesión no funcionaría.
-if "$AZ" webapp config ssl list --resource-group "$GRUPO" \
-     --query "[?subjectName=='app.$DOMINIO']" -o tsv | grep -q .; then
-  ok "Certificado ya emitido"
-else
+#
+# Se hace en tres tiempos —pedir, esperar, enlazar— porque `ssl create` **devuelve antes de que el
+# certificado exista**: la huella sale vacía y el enlace falla con «Certificate for thumbprint ''
+# not found», dejando el dominio enlazado pero sirviendo el comodín de Azure. Es un fallo que se ve
+# tarde y mal, porque la página responde.
+#
+# La existencia se consulta sobre el **recurso**: `webapp config ssl list` devolvió una lista vacía
+# con el certificado ya creado, así que no sirve para decidir.
+huella_actual() {
+  "$AZ" resource show --resource-group "$GRUPO" \
+    --resource-type Microsoft.Web/certificates --name "app.$DOMINIO" \
+    --query "properties.thumbprint" -o tsv 2>/dev/null
+}
+
+HUELLA=$(huella_actual || true)
+
+if [ -z "$HUELLA" ]; then
   paso "Emitiendo certificado gestionado (tarda un par de minutos)"
-  HUELLA=$("$AZ" webapp config ssl create \
-    --resource-group "$GRUPO" --name "$API" --hostname "app.$DOMINIO" \
-    --query thumbprint -o tsv)
+  # Puede escupir un error de deserialización de la propia CLI y aun así crear el certificado.
+  "$AZ" webapp config ssl create \
+    --resource-group "$GRUPO" --name "$API" --hostname "app.$DOMINIO" -o none 2>/dev/null || true
+
+  for intento in $(seq 1 15); do
+    HUELLA=$(huella_actual || true)
+    [ -n "$HUELLA" ] && break
+    printf "  esperando al certificado (%d/15)\r" "$intento"
+    sleep 20
+  done
+  echo
+fi
+
+if [ -z "$HUELLA" ]; then
+  echo "El certificado no llegó a emitirse. Reintenta el script dentro de unos minutos." >&2
+  exit 1
+fi
+ok "Certificado disponible ($HUELLA)"
+
+ESTADO=$("$AZ" webapp config hostname list --resource-group "$GRUPO" --webapp-name "$API" \
+  --query "[?name=='app.$DOMINIO'].sslState | [0]" -o tsv)
+
+if [ "$ESTADO" = "SniEnabled" ]; then
+  ok "Certificado ya enlazado"
+else
   "$AZ" webapp config ssl bind \
     --resource-group "$GRUPO" --name "$API" \
     --certificate-thumbprint "$HUELLA" --ssl-type SNI -o none
-  ok "Certificado emitido y enlazado"
+  ok "Certificado enlazado (SNI)"
 fi
 
 paso "Dominios listos"

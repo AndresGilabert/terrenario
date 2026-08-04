@@ -89,15 +89,30 @@ else
     echo "O usa OMITIR_PG=1 para crear todo lo demás y dejar la base para después." >&2
     exit 1
   fi
+  # Sin `--database-name`: desde la CLI 2.89 ese parámetro **solo vale para clusters elásticos**
+  # («can only be used when --node-count is present») y hace fallar la creación entera. La base se
+  # crea aparte, justo debajo.
   "$AZ" postgres flexible-server create \
     --resource-group "$GRUPO" --name "$PG" --location "$REGION" \
     --admin-user "$PG_USUARIO" --admin-password "$PG_PASSWORD" \
     --sku-name "$SKU_PG" --tier Burstable \
     --storage-size 32 --version 16 \
-    --database-name "$PG_BD" \
     --public-access None \
     --yes -o none
-  ok "$PG creado con la base $PG_BD"
+  ok "$PG creado"
+fi
+
+# Comprobación propia, no dentro del bloque anterior: el servidor puede existir de una pasada previa
+# y la base no, que es justo lo que pasa cuando la creación se queda a medias.
+if [ -n "${PG_PENDIENTE:-}" ]; then
+  avis "Base de datos pendiente: se crea junto con el servidor"
+elif existe postgres flexible-server db show \
+     --resource-group "$GRUPO" --server-name "$PG" --database-name "$PG_BD"; then
+  ok "Base $PG_BD ya existe"
+else
+  "$AZ" postgres flexible-server db create \
+    --resource-group "$GRUPO" --server-name "$PG" --database-name "$PG_BD" -o none
+  ok "Base $PG_BD creada"
 fi
 
 # Deja entrar al App Service sin abrir el servidor a Internet: la regla 0.0.0.0 es la forma que tiene

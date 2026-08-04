@@ -36,6 +36,26 @@ flowchart LR
 
 ---
 
+## Estado real del pipeline (MVP-504)
+
+Hasta `MVP-504` el repositorio solo tenía un workflow que validaba la **KB**: no compilaba el código
+ni ejecutaba un solo test. El resto de este documento describe el pipeline **objetivo**; lo que hay
+implementado hoy es:
+
+| Workflow | Qué hace | Bloquea el PR |
+|---|---|---|
+| `.github/workflows/ci.yml` | Backend (build + toda la suite, con PostgreSQL vía Testcontainers), cliente (lint, build con comprobación de tipos, tests) y `npm audit` a partir de severidad alta | Sí |
+| `.github/workflows/validar-kb.yml` | Estructura, frontmatter, índices y markdownlint | Sí |
+
+Se ejecutan en `push` y `pull_request` sobre `main` y `develop`. El backend corre en **Linux**, que es
+el entorno de referencia: la suite necesita Docker y en Windows depende de la política de Application
+Control de la máquina (`MVP-999`, `P-069`).
+
+Lo que **no** está implementado del pipeline objetivo: build de imágenes, despliegue automático y
+rollback. Se abordan cuando exista infraestructura.
+
+---
+
 ## Stages del pipeline
 
 ### CI (Pull Request)

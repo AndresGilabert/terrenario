@@ -1,7 +1,7 @@
 ---
 bloque: 07-seguridad
 documento: checklist-cumplimiento-mvp
-actualizado_en: "2026-08-03"
+actualizado_en: "2026-08-04"
 ---
 
 # Checklist de cumplimiento del MVP (MVP-503)
@@ -55,7 +55,7 @@ libre) y los `*_user_id` de auditoría. Todas quedan cubiertas por T1–T8.
 | Limitación de la finalidad | ✅ | Los datos solo se usan para prestar el servicio; no hay cesión ni finalidad secundaria |
 | Minimización | ⚠️ | La cuenta recoge solo lo que da Google. **Pero** `plots.owner_name` y `activities.description` son texto libre donde el usuario puede introducir más de lo necesario: el producto no lo puede impedir, y la política se lo pide. Ver `R-03` |
 | Exactitud | ⚠️ | Los datos de la cuenta se resincronizan desde Google en cada login (RN-036). **No hay edición de perfil propia** (`P-032`, diferido) |
-| Limitación del plazo de conservación | ✅ | `RN-041` fija 24 meses para todo lo que se conserva por diseño. **La rutina de expurgo no está programada**: ver `R-01` |
+| Limitación del plazo de conservación | ✅ | `RN-041` fija 24 meses para todo lo que se conserva por diseño, y desde `MVP-504` **hay una rutina que lo ejecuta a diario** (`RetentionPurgeWorker`). `R-01` cerrado |
 | Integridad y confidencialidad | ✅ | Aislamiento por Workspace (RN-034, MVP-105), tokens solo como hash, cabeceras de seguridad, CSP en API y cliente (`MVP-502`) |
 | Responsabilidad proactiva | ✅ | Este documento, el inventario de tecnologías y las reglas RN-041/RN-042 |
 
@@ -117,10 +117,10 @@ tratamiento a gran escala o cualquier categoría especial de datos.
 
 | Derecho | Cómo se ejerce | Estado |
 |---|---|---|
-| Acceso | Contacto de privacidad | ⚠️ Procedimiento manual; el correo de contacto es un marcador sin rellenar (`R-02`) |
+| Acceso | Contacto de privacidad (`hola@andresgilabert.dev`) | ⚠️ Procedimiento manual, pero con dirección real desde que `MVP-504` cerró `B-1` |
 | Rectificación | Los datos de la cuenta se resincronizan desde Google; el resto se edita en la aplicación | ⚠️ Sin edición de perfil propia (`P-032`) |
 | **Supresión** | **Desde la propia aplicación**: Ajustes → Eliminar mi cuenta | ✅ `MVP-505`, verificado de punta a punta |
-| Portabilidad | Contacto de privacidad | ❌ Sin exportación; fuera de alcance declarado de `MVP-505` (`R-04`) |
+| Portabilidad | Contacto de privacidad | ⚠️ **Procedimiento manual documentado** en [`privacidad-datos.md`](./privacidad-datos.md), con qué se entrega, en qué formato y con qué límites. Decidido en el gate (B-4) |
 | Oposición y limitación | Contacto de privacidad | ⚠️ Procedimiento manual |
 
 **Las personas sin cuenta** —cuadrilla, propietarios de terrenos cedidos— no pueden ejercer sus
@@ -133,12 +133,23 @@ de privacidad. Queda dicho en la Política de Privacidad y en los Términos.
 
 | Proveedor | Datos | Contrato de encargo |
 |---|---|---|
-| Google (OIDC) | `sub`, nombre, correo | ⚠️ Por verificar en el gate |
-| Proveedor de email (SMTP) | Correo de la persona invitada | ❌ **Sin contratar** (ADR-0010) |
-| Proveedor de alojamiento | Todo lo almacenado | ❌ **Sin decidir** |
+| Microsoft Azure (alojamiento, región España) | Todo lo almacenado | ✅ Contratado, anexo **en vigor** |
+| Arsys (correo) | Correo de la persona invitada | ✅ Contratado, anexo **en vigor** (ADR-0010) |
 
-Los tres son **bloqueos de `MVP-504`**, no de esta historia: hasta que exista infraestructura no hay
-con quién firmar. Quedan registrados para que el gate no los pase por alto.
+**Google no figura aquí, y es una corrección**: quien entra lo hace con **su** cuenta de Google, así
+que Google trata esos datos bajo su propia política y no por cuenta del proyecto. Es **responsable
+independiente**, no encargado del art. 28, y no procede contrato de encargo con él. Lo que procede es
+informarlo, y se informa. Encuadre aportado por la asesoría del negocio el 2026-08-04; corrige lo que
+esta misma revisión había clasificado mal.
+
+Con Azure y Arsys no hubo contrato que redactar: el anexo de tratamiento de datos va incorporado al
+contratar el servicio. El negocio confirmó el 2026-08-04 que ambos están contratados y en vigor, con
+lo que `B-2` del gate queda cerrado.
+
+**Transferencias internacionales**: el alojamiento está en la región de España y el correo es de un
+proveedor español, así que la única salida del EEE es la del inicio de sesión con Google, amparada en
+cláusulas contractuales tipo y en la decisión de adecuación UE–EE. UU. Declarada en la Política de
+Privacidad.
 
 ---
 
@@ -148,11 +159,12 @@ con quién firmar. Quedan registrados para que el gate no los pase por alto.
 |---|---|
 | **CA-1** — Evidencia documental mínima RGPD/LOPDGDD | ✅ §1, §2 y §5, verificados contra el sistema |
 | **CA-2** — Consta si aplican LSSI/ePrivacy y EIPD | ✅ §3 (aplican, se cumplen sin banner) y §4 (no procede EIPD) |
-| **CA-3** — Sostiene la salida controlada | ⚠️ **Con condiciones**: la salida es sostenible una vez `MVP-504` cierre los bloqueos de §6 y `R-01`/`R-02` |
+| **CA-3** — Sostiene la salida controlada | ✅ `R-01` y `R-02` cerrados en `MVP-504`, y los encargados de §6 están en vigor. Queda `R-06` (portabilidad), que es una decisión de negocio, no un incumplimiento de construcción |
 
-**El MVP no es publicable a usuarios reales todavía**, y no por defectos de construcción: faltan
-decisiones de negocio e infraestructura. Lo que sí queda demostrado es que **el producto no tiene
-deuda de cumplimiento imputable al desarrollo**.
+**Actualización (2026-08-04)**: `MVP-504` cerró los tres bloqueos que quedaban de esta revisión
+—identidad del responsable, encargados y rutina de expurgo—. El producto **no tiene deuda de
+cumplimiento imputable al desarrollo**, y lo único abierto es decidir cómo se atiende la portabilidad
+(`R-06`).
 
 ---
 
@@ -160,12 +172,12 @@ deuda de cumplimiento imputable al desarrollo**.
 
 | # | Hallazgo | Destino |
 |---|---|---|
-| `R-01` | La **rutina de expurgo no está programada**. La política, el plazo y el cálculo existen (`RN-041`, `AccountRetentionPolicy`), pero nada los ejecuta: hoy nada se purga a los 24 meses | `MVP-504` |
-| `R-02` | Los **datos del responsable del tratamiento son marcadores**. Sin ellos, ni la política ni los términos son publicables, y no hay dirección real donde ejercer derechos | `MVP-504` |
+| `R-01` | La **rutina de expurgo no está programada**. La política, el plazo y el cálculo existen (`RN-041`, `AccountRetentionPolicy`), pero nada los ejecuta: hoy nada se purga a los 24 meses | ✅ **Cerrado en `MVP-504`** (B-3) |
+| `R-02` | Los **datos del responsable del tratamiento son marcadores**. Sin ellos, ni la política ni los términos son publicables, y no hay dirección real donde ejercer derechos | ✅ **Cerrado en `MVP-504`** (B-1) |
 | `R-03` | **El inventario de tecnologías de `MVP-505` no coincidía con el código**: declaraba `terrenario:privacy_ack`, que no existe, y omitía cinco claves que sí (`pkce_code_verifier`, `oauth_state`, `terrenario_post_login_redirect`, `terrenario_login_flow`, `terrenario_login_started`). **Corregido en esta historia** | Cerrado aquí |
 | `R-04` | **`plots.owner_name` no estaba declarado como dato personal** ni en la clasificación de la KB ni en la Política de Privacidad, y está en uso. Es el nombre de un tercero que no tiene cuenta. **Corregido en esta historia**, junto con un bloque nuevo sobre datos de terceros | Cerrado aquí |
 | `R-05` | **«No hay analítica» era inexacto**: existe medición propia del embudo de login (RN-020). Se ha analizado y **no requiere consentimiento** —primera parte, sin PII, sin seguimiento entre sitios, vida de sesión— pero la afirmación absoluta no era defendible. **Corregido y motivado** | Cerrado aquí |
-| `R-06` | **Sin exportación de datos** (portabilidad, art. 20). Estaba en el fuera-de-alcance de `MVP-505`; se registra para que el gate decida si bloquea la salida | `MVP-999` |
+| `R-06` | **Sin exportación de datos** (portabilidad, art. 20). Estaba en el fuera-de-alcance de `MVP-505`; se registra para que el gate decida si bloquea la salida | ✅ **Decidido en `MVP-504`** (B-4): vía manual documentada durante la validación. La automatización queda como función de producto (`P-070`) |
 
 ---
 

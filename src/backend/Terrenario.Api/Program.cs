@@ -37,6 +37,8 @@ using Terrenario.Api.Infrastructure.Data.Repositories;
 using Terrenario.Api.Infrastructure.Email;
 using Terrenario.Api.Infrastructure.Invitations;
 using Terrenario.Api.Infrastructure.Telemetry;
+using Terrenario.Api.Application.Retention;
+using Terrenario.Api.Infrastructure.Retention;
 using Terrenario.Api.Infrastructure.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -54,6 +56,8 @@ builder.Services.Configure<EmailOptions>(
     builder.Configuration.GetSection(EmailOptions.SectionName));
 builder.Services.Configure<WorkspaceLifecycleOptions>(
     builder.Configuration.GetSection(WorkspaceLifecycleOptions.SectionName));
+builder.Services.Configure<RetentionOptions>(
+    builder.Configuration.GetSection(RetentionOptions.SectionName));
 
 // ── Database ─────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<TerrenarioDbContext>(options =>
@@ -191,6 +195,10 @@ builder.Services.AddScoped<ReopenWorkspaceHandler>();
 // guarda de no-orfandad de MVP-206 en vez de reimplementarla (RN-038, CA-4).
 builder.Services.AddSingleton<AccountRetentionPolicy>();
 builder.Services.AddScoped<CloseAccountHandler>();
+// MVP-504 (B-3): quien **ejecuta** RN-041. Hasta aqui el plazo estaba declarado en tres sitios y no
+// lo aplicaba nadie, asi que la fecha de purga que devuelve la baja de cuenta no llegaba nunca.
+builder.Services.AddScoped<RetentionPurgeService>();
+builder.Services.AddHostedService<RetentionPurgeWorker>();
 builder.Services.AddScoped<IWorkspaceInvitationRepository, WorkspaceInvitationRepository>();
 builder.Services.AddScoped<InvitationTokenService>();
 builder.Services.AddScoped<IInvitationTokenService>(sp => sp.GetRequiredService<InvitationTokenService>());

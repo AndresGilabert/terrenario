@@ -67,6 +67,12 @@ public sealed class TerrenarioApiFactory : WebApplicationFactory<Program>, IAsyn
         builder.UseSetting("Invitations:BaseUrl", "https://terrenario.test");
         builder.UseSetting("Workspaces:BaseUrl", "https://terrenario.test");
 
+        // MVP-504 (B-3) — La rutina de expurgo se apaga en el arnés: un proceso que borra filas por
+        // su cuenta mientras se ejercitan otros casos convierte cualquier fallo en irreproducible.
+        // Sus propios tests la invocan directamente, que además es la única forma de controlar el
+        // instante y no tener que esperar 24 meses.
+        builder.UseSetting("Retention:Enabled", "false");
+
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<IGoogleOidcService>();

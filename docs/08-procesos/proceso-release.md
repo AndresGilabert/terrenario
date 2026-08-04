@@ -1,7 +1,7 @@
 ﻿---
 bloque: 08-procesos
 documento: proceso-release
-actualizado_en: "2026-07-18"
+actualizado_en: "2026-08-03"
 ---
 
 # Proceso de Release
@@ -41,8 +41,15 @@ flowchart LR
 
 ## Checklist pre-release
 
+> **Salida del MVP a producción**: además de este checklist hay que superar el
+> [gate de salida del MVP](./gate-salida-mvp.md) (`MVP-504`), que es el punto de decisión único y
+> distingue lo que cierra el desarrollo de lo que solo puede cerrar el negocio.
+
 - [ ] Todos los tickets del hito están en estado `completado`
-- [ ] Tests de dev pasando (incluyendo smoke E2E)
+- [ ] **CI en verde** (`.github/workflows/ci.yml`): backend, cliente y auditoría de dependencias.
+      Desde `MVP-504` esto se comprueba solo, en cada PR
+- [ ] Tests de dev pasando. **Ojo con el alcance**: el smoke E2E es **de servidor**, no de navegador
+      (`MVP-999`, `P-064`)
 - [ ] `docs/10-releases/v{version}.md` creado con el changelog
 - [ ] `docs/00-meta/changelog.md` actualizado si hay cambios estructurales en la KB
 - [ ] Módulos afectados tienen documentación actualizada en `docs/03-modulos/`

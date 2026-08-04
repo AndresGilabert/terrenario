@@ -1,7 +1,7 @@
 ﻿---
 bloque: 07-seguridad
 documento: privacidad-datos
-actualizado_en: "2026-08-03"
+actualizado_en: "2026-08-04"
 ---
 
 # Privacidad de Datos y GDPR
@@ -104,11 +104,74 @@ tratamiento** (RGPD art. 28) y exige contrato de encargo (DPA) firmado antes de 
 
 | Proveedor | Datos tratados | Finalidad | Estado |
 |-----------|---------|---------|---------|
-| Google (OIDC) | `sub`, nombre, email | Autenticacion de acceso | Activo |
-| Proveedor de email (SMTP) | Email del destinatario, nombre de quien invita y del Workspace | Envio de invitaciones a Workspace | **Pendiente de contratar**: ver [ADR-0010](../02-arquitectura/decisiones/ADR-0010--envio-de-email-transaccional-por-smtp.md) |
+| Microsoft Azure | Todo lo almacenado | Alojamiento de la aplicacion y la base de datos | ✅ Contratado, anexo de tratamiento de datos **en vigor** |
+| Arsys | Email del destinatario, nombre de quien invita y del Workspace | Envio de invitaciones a Workspace | ✅ Contratado, anexo **en vigor**: ver [ADR-0010](../02-arquitectura/decisiones/ADR-0010--envio-de-email-transaccional-por-smtp.md) |
 
-Al contratar el proveedor de email hay que verificar ademas donde se alojan los datos y si implica
-transferencia internacional con garantias adecuadas.
+Con estos dos no hay contrato que negociar: el anexo de tratamiento de datos va **incorporado al
+contratar el servicio**. Confirmado por el negocio el 2026-08-04, con lo que se cierra `B-2` del gate.
+
+### Google no es encargado
+
+Cuando una persona entra con **su** cuenta de Google, Google trata esos datos bajo su propia politica
+y no por cuenta del proyecto: actua como **responsable independiente**, no como encargado del art. 28.
+Por eso no procede contrato de encargo con Google, y por eso sale de la tabla anterior. Lo que si
+procede es informarlo, y se informa en la Politica de Privacidad.
+
+Este encuadre lo aporto la asesoria del negocio (2026-08-04) y corrige la clasificacion anterior de
+`MVP-503`, que lo listaba como encargado.
+
+### Transferencias internacionales
+
+| Via | Destino | Garantia |
+|-----|---------|----------|
+| Alojamiento (Azure) | Region **Espana** | Sin transferencia: los datos se almacenan en la UE |
+| Correo (Arsys) | Espana | Sin transferencia |
+| Inicio de sesion (Google) | EE. UU. | Comunicacion a un **responsable independiente**, regida por sus condiciones y por sus garantias: clausulas contractuales tipo de la Comision Europea y decision de adecuacion del Marco de Privacidad de Datos UE-EE. UU. |
+
+**Ningun encargado trata datos fuera de la UE.**
+
+La transferencia a Google es **inevitable mientras el acceso sea con Google** (`RN-036`): no hay
+alternativa que ofrecer a quien no la acepte, mas alla de no crear la cuenta. Queda declarada en la
+Politica de Privacidad en vez de omitirse.
+
+### Identidad del responsable
+
+Los datos publicados en las paginas legales viven en un solo sitio,
+`src/frontend/terrenario-web/src/config/legal-entity.ts`, y cada campo admite override por variable
+de entorno `VITE_LEGAL_*`. Estan versionados a proposito: la LSSI obliga a publicarlos, asi que no
+hay nada que proteger, y un `.env` no llega al despliegue.
+
+### Atencion manual del acceso y la portabilidad (arts. 15 y 20)
+
+La **supresion** se ejerce desde la aplicacion (`MVP-505`). El **acceso** y la **portabilidad** se
+atienden a mano mientras el MVP este en validacion: con pocos usuarios y un plazo legal de un mes,
+consultar la base y entregar el resultado es conforme. Decision tomada en el gate de `MVP-504` (B-4).
+
+Que se entrega ante una solicitud, por orden de a quien pertenece el dato:
+
+| Bloque | Contenido | ¿Portabilidad (art. 20)? |
+|--------|-----------|--------------------------|
+| Cuenta | `display_name`, `email`, `google_sub`, fechas de alta y actualizacion | Si |
+| Participacion | Workspaces y rol, invitaciones enviadas y recibidas | Si |
+| Explotacion | Terrenos, temporadas, labores, cosechas, compras y consumos de los Workspaces **de su propiedad** | Los aporto, si; pero no son datos personales *sobre* la persona |
+| Agregados del dashboard | Costes, medias y totales calculados | **No**: son datos derivados |
+
+**Dos limites que hay que aplicar al preparar la respuesta**, no despues:
+
+1. **Datos de terceros.** `workers.name`, `plots.owner_name` y las menciones en texto libre de
+   `activities.description` son de otras personas. Se entregan porque el solicitante ya los conoce
+   —los introdujo el—, pero no son su derecho de portabilidad y conviene decirlo en la respuesta.
+2. **Workspaces compartidos.** Si el Workspace tiene mas miembros, el historico incluye lo que
+   registraron ellos. Se entrega solo lo de los Workspaces **de su propiedad**, y se advierte de que
+   el contenido puede tener aportaciones de terceros.
+
+**Formato**: el art. 20 exige estructurado y legible por maquina —JSON o CSV, no PDF—. El art. 15 no
+exige formato, asi que se puede responder con el mismo fichero.
+
+**Plazo**: un mes desde la solicitud, prorrogable dos mas si es compleja, avisando.
+
+La automatizacion de esto es una **funcion de producto**, mas amplia que la obligacion legal, y esta
+registrada aparte (`MVP-999`, `P-070`).
 
 ---
 

@@ -118,6 +118,10 @@ verifique contra el sistema en vez de leerlo.
 
 ### Contenido legal con marcadores
 
+> **Superado en `MVP-504` (2026-08-04)**: el negocio aportó los datos, los marcadores desaparecieron
+> y la identidad legal pasó a `src/config/legal-entity.ts`. El aviso de documento pendiente sigue
+> existiendo, pero ahora es condicional al dato en vez de fijo.
+
 Decisión del PO: el contenido se redacta completo y correcto, describiendo **lo que el sistema hace
 de verdad** —los tratamientos, bases jurídicas, encargados y plazos salen de `privacidad-datos.md`—,
 con marcadores visibles para los datos que solo puede aportar el negocio. Una plantilla genérica que

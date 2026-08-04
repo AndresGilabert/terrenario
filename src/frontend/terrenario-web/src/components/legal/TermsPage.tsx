@@ -1,24 +1,35 @@
 import React from 'react';
-import { LegalPage, Placeholder } from './LegalPage';
+import { LegalPage } from './LegalPage';
+import { legalEntity } from '../../config/legal-entity';
 
 /**
  * MVP-505 (HU-1, CA-1) — Términos del Servicio. El otro enlace roto del login (`P-008`).
  *
  * Describe el MVP tal y como es, incluidos sus límites: sin ellos, los términos prometerían un
  * producto que no existe.
+ *
+ * MVP-504 (B-1) — Identidad del prestador desde `legal-entity`, la misma fuente que la política.
  */
 export const TermsPage: React.FC = () => (
-  <LegalPage title="Términos del Servicio" updatedAt="31 de julio de 2026">
+  <LegalPage title="Términos del Servicio" updatedAt="4 de agosto de 2026">
     <p>
       Estos términos regulan el uso de Terrenario. Al acceder al servicio aceptas lo que sigue.
     </p>
 
     <h2>1. Quién presta el servicio</h2>
     <ul>
-      <li>Titular: <Placeholder>RAZÓN SOCIAL</Placeholder></li>
-      <li>NIF/CIF: <Placeholder>NIF</Placeholder></li>
-      <li>Domicilio: <Placeholder>DOMICILIO SOCIAL</Placeholder></li>
-      <li>Contacto: <Placeholder>EMAIL DE CONTACTO</Placeholder></li>
+      <li>Titular: {legalEntity.legalName}</li>
+      <li>NIF: {legalEntity.taxId}</li>
+      <li>Domicilio: {legalEntity.address}</li>
+      <li>
+        Contacto:{' '}
+        <a
+          href={`mailto:${legalEntity.privacyEmail}`}
+          className="text-[#33450d] font-semibold hover:underline"
+        >
+          {legalEntity.privacyEmail}
+        </a>
+      </li>
     </ul>
 
     <h2>2. Qué es Terrenario</h2>
@@ -95,9 +106,10 @@ export const TermsPage: React.FC = () => (
 
     <h2>9. Ley aplicable</h2>
     <p>
-      Se aplica la legislación española. Para cualquier controversia, los tribunales competentes serán{' '}
-      <Placeholder>FUERO</Placeholder>, sin perjuicio del fuero que corresponda si actúas como
-      consumidor.
+      Se aplica la <strong>legislación española</strong>. Para cualquier controversia serán
+      competentes los juzgados y tribunales que determine la normativa aplicable; si actúas como
+      consumidor, los de tu domicilio. No te imponemos ningún fuero distinto del que la ley te
+      reconoce.
     </p>
 
     <h2>10. Cambios en estos términos</h2>

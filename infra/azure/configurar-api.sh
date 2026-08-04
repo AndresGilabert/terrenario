@@ -11,11 +11,15 @@
 
 set -euo pipefail
 
+# En Windows el instalador no siempre deja `az` en el PATH de la sesion en curso. Permite
+# apuntarlo sin editar el script: AZ="/c/Program Files/.../az.cmd" ./script.sh
+AZ="${AZ:-az}"
+
 DOMINIO="${DOMINIO:-terrenario.com}"
 GRUPO="${GRUPO:-rg-terrenario-prod}"
 API="${API:-app-terrenario-api}"
 PG="${PG:-psql-terrenario-prod}"
-PG_USUARIO="${PG_USUARIO:-terrenario_admin}"
+PG_USUARIO="${PG_USUARIO:-terrenario}"
 PG_BD="${PG_BD:-terrenario}"
 
 paso() { printf "\n\033[1;36m▸ %s\033[0m\n" "$*"; }
@@ -51,7 +55,7 @@ ok "Todas presentes"
 CADENA="Host=$PG.postgres.database.azure.com;Database=$PG_BD;Username=$PG_USUARIO;Password=$PG_PASSWORD;SSL Mode=Require;Trust Server Certificate=true"
 
 paso "Aplicando configuración a $API"
-az webapp config appsettings set --resource-group "$GRUPO" --name "$API" -o none --settings \
+"$AZ" webapp config appsettings set --resource-group "$GRUPO" --name "$API" -o none --settings \
   "ASPNETCORE_ENVIRONMENT=Production" \
   "ConnectionStrings__DefaultConnection=$CADENA" \
   "Auth__Google__ClientId=$GOOGLE_CLIENT_ID" \
@@ -72,7 +76,7 @@ az webapp config appsettings set --resource-group "$GRUPO" --name "$API" -o none
 ok "Configuración aplicada"
 
 paso "Comprobando lo que suele fallar"
-az webapp config appsettings list --resource-group "$GRUPO" --name "$API" \
+"$AZ" webapp config appsettings list --resource-group "$GRUPO" --name "$API" \
   --query "[?name=='Cors__AllowedOrigins__0'].value" -o tsv | sed 's/^/  CORS: /'
 
 echo

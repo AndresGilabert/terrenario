@@ -41,3 +41,9 @@ dist-ssr/
 # el historial de git no olvida. Generalas fuera del repositorio; esto es por si acaso.
 *.pem
 *.key
+
+### Claude Code
+# Los permisos aprobados son de cada maquina y de cada persona: versionarlos obligaria a resolver
+# conflictos en un fichero que no describe el proyecto. La configuracion compartida (launch.json) si
+# se versiona, para que el arranque del servidor de desarrollo sea reproducible.
+.claude/settings.local.json

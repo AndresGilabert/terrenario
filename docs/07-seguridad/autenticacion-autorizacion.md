@@ -109,6 +109,37 @@ X-Frame-Options: DENY
 Content-Security-Policy: default-src 'self'
 ```
 
+Implementado en `SecurityHeadersMiddleware` (MVP-105, `P-005`).
+
+### La CSP de la API no basta: hace falta la del cliente (MVP-502)
+
+Las respuestas de la API son **JSON**, que no es un contexto de ejecución de scripts: una CSP ahí
+apenas protege de nada. Donde la CSP mitiga XSS de verdad es en el **documento HTML de la
+aplicación**, y hasta `MVP-502` no había ninguna. Importa especialmente en este producto porque el
+token de acceso vive en `sessionStorage`: un script inyectado podría leerlo.
+
+La política del SPA se inyecta en el `index.html` durante el **build de producción** (plugin
+`terrenario-csp` en `vite.config.ts`) y declara exactamente lo que la aplicación usa:
+
+```http
+default-src 'self'; script-src 'self';
+style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+font-src 'self' https://fonts.gstatic.com;
+img-src 'self' data:; connect-src 'self' {VITE_API_BASE_URL};
+frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
+```
+
+Notas de por qué es así:
+
+- **Solo en producción.** En desarrollo, Vite necesita scripts en línea (preámbulo de React Refresh)
+  y un WebSocket para el HMR; una política estricta rompería el arranque sin proteger nada, porque el
+  servidor de desarrollo no se expone.
+- **`connect-src` incluye el origen de la API** porque front y back no comparten origen.
+- **`style-src` admite `'unsafe-inline'`** por el enlace de Google Fonts y por los estilos calculados
+  de las barras del dashboard. Es la única concesión de la política.
+- **Destino final**: lo correcto es que la emita como cabecera quien sirva el estático. Mientras esa
+  capa no exista, el `meta` deja la política aplicada y versionada con el código, no pendiente.
+
 ---
 
 ## Sesiones y cookies

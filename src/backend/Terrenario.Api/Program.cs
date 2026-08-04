@@ -1,8 +1,10 @@
+using System.IO;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Mvc;
+using Terrenario.Api.Application.Account;
 using Terrenario.Api.Application.Activities;
 using Terrenario.Api.Application.Auth;
 using Terrenario.Api.Application.Consumptions;
@@ -21,6 +23,7 @@ using Terrenario.Api.Common.Http;
 using Terrenario.Api.Common.Workspaces;
 using Terrenario.Api.Domain.Activities;
 using Terrenario.Api.Domain.Consumptions;
+using Terrenario.Api.Domain.Diary;
 using Terrenario.Api.Domain.Harvests;
 using Terrenario.Api.Domain.Plots;
 using Terrenario.Api.Domain.Purchases;
@@ -35,6 +38,8 @@ using Terrenario.Api.Infrastructure.Data.Repositories;
 using Terrenario.Api.Infrastructure.Email;
 using Terrenario.Api.Infrastructure.Invitations;
 using Terrenario.Api.Infrastructure.Telemetry;
+using Terrenario.Api.Application.Retention;
+using Terrenario.Api.Infrastructure.Retention;
 using Terrenario.Api.Infrastructure.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -52,6 +57,8 @@ builder.Services.Configure<EmailOptions>(
     builder.Configuration.GetSection(EmailOptions.SectionName));
 builder.Services.Configure<WorkspaceLifecycleOptions>(
     builder.Configuration.GetSection(WorkspaceLifecycleOptions.SectionName));
+builder.Services.Configure<RetentionOptions>(
+    builder.Configuration.GetSection(RetentionOptions.SectionName));
 
 // ── Database ─────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<TerrenarioDbContext>(options =>
@@ -167,6 +174,9 @@ builder.Services.AddScoped<DashboardScopeResolver>();
 builder.Services.AddScoped<DashboardQueryService>();
 // Diario cronológico unificado (MVP-305): agrega las cuatro entidades operativas, de solo lectura.
 // MVP-401 enciende la cosecha, que es lo que completa RN-033 (hallazgo `G-4`).
+// MVP-506 mueve la mezcla a SQL con su propio repositorio: paginar sobre cuatro listas ya
+// materializadas no es paginar (`P-051`).
+builder.Services.AddScoped<IDiaryRepository, DiaryRepository>();
 builder.Services.AddScoped<DiaryQueryService>();
 builder.Services.AddScoped<ListWorkspacePeopleHandler>();
 builder.Services.AddScoped<RevokeMemberHandler>();
@@ -182,6 +192,18 @@ builder.Services.AddScoped<RequestReactivationHandler>();
 builder.Services.AddScoped<ListReactivationRequestsHandler>();
 builder.Services.AddScoped<ResolveReactivationHandler>();
 builder.Services.AddScoped<ReopenWorkspaceHandler>();
+// Baja de cuenta y politica de retencion (MVP-505): el derecho de supresion, que reutiliza la
+// guarda de no-orfandad de MVP-206 en vez de reimplementarla (RN-038, CA-4).
+// La CSP del cliente se lee una sola vez del fichero que emite su build (`csp.policy`), en vez de
+// reescribirla en C#: el backend no conoce el origen que el build inyecta en `connect-src`.
+builder.Services.AddSingleton(sp =>
+    SpaContentSecurityPolicy.FromWebRoot(sp.GetRequiredService<IWebHostEnvironment>()));
+builder.Services.AddSingleton<AccountRetentionPolicy>();
+builder.Services.AddScoped<CloseAccountHandler>();
+// MVP-504 (B-3): quien **ejecuta** RN-041. Hasta aqui el plazo estaba declarado en tres sitios y no
+// lo aplicaba nadie, asi que la fecha de purga que devuelve la baja de cuenta no llegaba nunca.
+builder.Services.AddScoped<RetentionPurgeService>();
+builder.Services.AddHostedService<RetentionPurgeWorker>();
 builder.Services.AddScoped<IWorkspaceInvitationRepository, WorkspaceInvitationRepository>();
 builder.Services.AddScoped<InvitationTokenService>();
 builder.Services.AddScoped<IInvitationTokenService>(sp => sp.GetRequiredService<InvitationTokenService>());
@@ -225,23 +247,20 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers(options =>
 {
     options.Filters.Add<WorkspaceAccessExceptionFilter>();
+    // Un cuerpo que el cliente envió mal codificado es un 400, no un 500 (MVP-502, P-027).
+    options.Filters.Add<InvalidRequestBodyFilter>();
 });
 builder.Services.AddOpenApi();
 
 // Los errores de validación de modelo deben respetar el contrato { error: { code, message } }
 // definido en docs/02-arquitectura/contratos-api.md, en lugar del ProblemDetails por defecto.
+// La traducción vive en ModelStateErrorTranslator (MVP-502, P-043): emite el código de dominio que
+// declara cada anotación y no deja salir a la UI los mensajes en inglés del binder.
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
-    {
-        var firstError = context.ModelState
-            .SelectMany(entry => entry.Value?.Errors ?? [])
-            .Select(error => error.ErrorMessage)
-            .FirstOrDefault(message => !string.IsNullOrWhiteSpace(message));
-
-        return new BadRequestObjectResult(new ApiErrorResponse(
-            ApiError.Validation(ErrorCodes.ValidationRequired, firstError ?? "Datos de entrada no válidos.")));
-    };
+        new BadRequestObjectResult(new ApiErrorResponse(
+            ModelStateErrorTranslator.Translate(context.ModelState)));
 });
 
 var app = builder.Build();
@@ -263,16 +282,73 @@ app.UseMiddleware<SecurityHeadersMiddleware>(); // Headers de seguridad HTTP (P-
 
 app.UseHttpsRedirection();
 app.UseCors("FrontendPolicy");
+
+// ── El cliente, servido por la propia API ─────────────────────────────────────
+//
+// Un solo origen, y no por comodidad: Azure Static Web Apps **no tiene región europea disponible**
+// para altas nuevas, y servir el cliente desde EE. UU. haría falsas dos frases de la Política de
+// Privacidad ya publicada. Sirviéndolo desde aquí, todo queda en Spain Central.
+//
+// De regalo desaparecen dos problemas: no hay CORS que configurar, y la cookie de refresco
+// `SameSite=Strict` deja de estar en riesgo, porque ya no hay nada cross-site.
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// ── Auto-migrate on startup in development ────────────────────────────────────
-if (app.Environment.IsDevelopment())
+// Las rutas del SPA (`/app/diario`, `/legal/privacidad`) no existen como fichero: solo viven en el
+// router del cliente. Sin esto, entrar directo o recargar da 404.
+//
+// `/api` se excluye a propósito: devolver `index.html` con un 200 ante un endpoint inexistente
+// convertiría un error de integración en una respuesta aparentemente válida, que es de las cosas más
+// caras de diagnosticar.
+app.MapFallback(async context =>
+{
+    if (context.Request.Path.StartsWithSegments("/api"))
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    var indice = Path.Combine(app.Environment.WebRootPath ?? string.Empty, "index.html");
+    if (!File.Exists(indice))
+    {
+        // API desplegada sin cliente: es un estado legítimo en desarrollo, y decirlo es mejor que
+        // servir un 404 sin explicación.
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    context.Response.ContentType = "text/html; charset=utf-8";
+    await context.Response.SendFileAsync(indice);
+});
+
+// ── Migraciones al arrancar ───────────────────────────────────────────────────
+//
+// Hasta la primera publicación esto solo corría en Development, así que un despliegue real habría
+// arrancado contra una base **vacía**: la aplicación levantaba y fallaba en la primera consulta.
+//
+// Se activa en todos los entornos, con interruptor para poder apagarlo. Es la opción simple y en
+// este producto es segura porque la API corre en **una sola instancia**; si algún día escala, dos
+// réplicas migrando a la vez es un problema real y habrá que mover esto al pipeline.
+//
+// Que una migración fallida impida arrancar es **deliberado**: es preferible a servir peticiones
+// contra un esquema que no es el que el código espera.
+if (builder.Configuration.GetValue("Database:MigrateOnStartup", true))
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<TerrenarioDbContext>();
-    await db.Database.MigrateAsync();
+    var pending = (await db.Database.GetPendingMigrationsAsync()).ToArray();
+
+    if (pending.Length > 0)
+    {
+        app.Logger.LogInformation(
+            "Aplicando {Count} migraciones pendientes: {Migrations}", pending.Length, string.Join(", ", pending));
+        await db.Database.MigrateAsync();
+        app.Logger.LogInformation("Migraciones aplicadas.");
+    }
 }
 
 app.Run();

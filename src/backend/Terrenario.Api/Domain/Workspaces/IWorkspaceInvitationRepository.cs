@@ -30,5 +30,12 @@ public interface IWorkspaceInvitationRepository
         string canonicalEmail,
         CancellationToken ct = default);
 
+    /// <summary>
+    /// MVP-505 (CA-3) — Anula las invitaciones pendientes dirigidas a un correo. Lo usa la baja de
+    /// cuenta: una invitacion pendiente lleva el email escrito, asi que sin esto el dato personal
+    /// sobreviviria a la supresion. Devuelve cuantas se anularon.
+    /// </summary>
+    Task<int> CancelPendingForEmailAsync(string email, Guid cancelledByUserId, DateTimeOffset now, CancellationToken ct = default);
+
     Task SaveChangesAsync(CancellationToken ct = default);
 }

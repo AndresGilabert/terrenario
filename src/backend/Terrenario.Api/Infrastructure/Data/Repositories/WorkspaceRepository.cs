@@ -28,17 +28,16 @@ public sealed class WorkspaceRepository(TerrenarioDbContext db) : IWorkspaceRepo
                 && m.Status == WorkspaceMemberStatuses.Active))
             .FirstOrDefaultAsync(ct);
 
-    // El orden por joined_at se resuelve en memoria (un usuario tiene pocas membresías): EF+SQLite
-    // no traduce ORDER BY sobre DateTimeOffset y dejaba sin cobertura de SQL real la caída al
-    // Workspace por defecto, que es justo lo que sostiene CA-8 cuando el activo se da de baja.
-    public async Task<Workspace?> FindDefaultForUserAsync(Guid userId, CancellationToken ct = default)
-        => (await db.WorkspaceMembers
+    // Workspace por defecto al perder el activo (CA-8): la membresía más reciente. Orden y `LIMIT 1`
+    // en base de datos; hasta MVP-501 se traía la lista entera para quedarse con una fila, porque
+    // EF+SQLite no traducía ORDER BY sobre DateTimeOffset y el arnés corría sobre SQLite (P-031).
+    public Task<Workspace?> FindDefaultForUserAsync(Guid userId, CancellationToken ct = default)
+        => db.WorkspaceMembers
             .Where(m => m.UserId == userId && m.Status == WorkspaceMemberStatuses.Active)
             .Join(LiveWorkspaces, m => m.WorkspaceId, w => w.Id, (m, w) => new { Member = m, Workspace = w })
-            .ToListAsync(ct))
             .OrderByDescending(x => x.Member.JoinedAt)
             .Select(x => x.Workspace)
-            .FirstOrDefault();
+            .FirstOrDefaultAsync(ct);
 
     public Task<Workspace?> FindByIdAsync(Guid workspaceId, CancellationToken ct = default)
         => LiveWorkspaces.FirstOrDefaultAsync(w => w.Id == workspaceId, ct);
@@ -118,21 +117,25 @@ public sealed class WorkspaceRepository(TerrenarioDbContext db) : IWorkspaceRepo
                 && m.Role == WorkspaceRoles.Owner,
             ct);
 
-    // Sucesor determinista del traspaso automático (CA-5): el copropietario activo más antiguo. El
-    // orden se hace en memoria (son unos pocos) porque EF+SQLite no traduce comparaciones sobre
-    // DateTimeOffset y rompería los tests de repositorio, aunque PostgreSQL sí las soporte.
-    public async Task<WorkspaceMember?> FindOtherActiveOwnerAsync(
+    // Sucesor del traspaso automático (RN-038, CA-5): el copropietario activo más antiguo. Orden y
+    // `LIMIT 1` en base de datos desde MVP-501 (P-031).
+    //
+    // El desempate por `UserId` no es decorativo: dos personas pueden tener **el mismo** `joined_at`
+    // —la resolución del reloj es de milisegundos y una alta en lote entra a la vez—, y sin él quien
+    // hereda el Workspace lo decide el orden físico de las filas. CA-5 exige que sea determinista,
+    // así que la regla se cierra aquí en vez de depender de la suerte (MVP-502).
+    public Task<WorkspaceMember?> FindOtherActiveOwnerAsync(
         Guid workspaceId,
         Guid excludingUserId,
         CancellationToken ct = default)
-        => (await db.WorkspaceMembers
+        => db.WorkspaceMembers
             .Where(m => m.WorkspaceId == workspaceId
                 && m.UserId != excludingUserId
                 && m.Status == WorkspaceMemberStatuses.Active
                 && m.Role == WorkspaceRoles.Owner)
-            .ToListAsync(ct))
             .OrderBy(m => m.JoinedAt)
-            .FirstOrDefault();
+            .ThenBy(m => m.UserId)
+            .FirstOrDefaultAsync(ct);
 
     public async Task<IReadOnlyList<SoleOwnedWorkspace>> ListSoleOwnedAsync(
         Guid userId,

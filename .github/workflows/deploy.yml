@@ -1,0 +1,182 @@
+name: Publicar
+
+# Publicación a producción, disparada por un **tag de versión** (`proceso-release.md`).
+#
+# El tag es el disparador y no el merge a `main` a propósito: promocionar y publicar son dos
+# decisiones distintas, y separarlas permite promocionar hoy y publicar cuando se quiera, o volver a
+# publicar una versión ya promocionada sin tocar ramas.
+#
+# **Un solo despliegue**: la API sirve también el cliente. Azure Static Web Apps no tiene región
+# europea abierta a altas nuevas, y servir el cliente desde EE. UU. haría falsas dos frases de la
+# Política de Privacidad. Sirviéndolo desde la propia API, todo queda en Spain Central —y de paso
+# desaparecen el CORS y el riesgo de la cookie `SameSite=Strict`, porque ya no hay cross-site.
+#
+# No repite los tests: el tag se pone sobre un commit que ya pasó el gate de `ci.yml`. Lo que sí hace
+# es **exigir que ese gate esté en verde** antes de publicar nada.
+
+on:
+  push:
+    tags: ["v*"]
+  # Permite reintentar una publicación fallida sin crear otro tag.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag a publicar (por ejemplo v0.5.0-hito-e)"
+        required: true
+
+concurrency:
+  group: deploy-produccion
+  cancel-in-progress: false
+
+jobs:
+  comprobar-gate:
+    name: Comprobar que el gate está en verde
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      # Publicar un commit cuyo CI falló sería saltarse el gate de MVP-504 por la puerta de atrás.
+      #
+      # **Espera** en vez de fallar cuando el gate está a medias: lo normal es promocionar y poner el
+      # tag seguido, así que el CI de `main` suele estar todavía corriendo. Sin esta espera, la
+      # publicación se caería con «gate en rojo» cuando en realidad no había terminado —el peor tipo
+      # de error, porque el diagnóstico correcto es «vuelve a intentarlo».
+      - name: Exigir CI en verde para este commit
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const ESPERA_MS = 20000;
+            const INTENTOS = 45; // 15 minutos: el CI completo tarda unos 2
+
+            for (let intento = 1; intento <= INTENTOS; intento++) {
+              const { data } = await github.rest.checks.listForRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: context.sha,
+              });
+
+              // El propio job de publicación aparece en la lista: filtrarlo, o se esperaría a sí mismo.
+              const gate = data.check_runs.filter(c => /^(Backend|Frontend|Seguridad)/.test(c.name));
+              const pendientes = gate.filter(c => c.status !== 'completed');
+              const fallidos = gate.filter(c => c.status === 'completed' && c.conclusion !== 'success');
+
+              if (fallidos.length > 0)
+                throw new Error('Gate en rojo: ' + fallidos.map(c => `${c.name} (${c.conclusion})`).join(', '));
+
+              if (gate.length > 0 && pendientes.length === 0) {
+                core.info('Gate en verde: ' + gate.map(c => c.name).join(', '));
+                return;
+              }
+
+              const motivo = gate.length === 0
+                ? 'todavía no hay ejecución de CI para este commit'
+                : `faltan por terminar: ${pendientes.map(c => c.name).join(', ')}`;
+              core.info(`Intento ${intento}/${INTENTOS} — ${motivo}`);
+              await new Promise(r => setTimeout(r, ESPERA_MS));
+            }
+
+            // Que no aparezca ninguna ejecución tras 15 minutos no es «tarda»: es que ese commit no
+            // pasó por el CI. Publicar a ciegas es justo lo que este paso existe para impedir.
+            throw new Error('El gate no llegó a estar en verde. Comprueba que el CI se ejecutó sobre este commit.');
+
+  publicar:
+    name: Publicar aplicación
+    needs: comprobar-gate
+    runs-on: ubuntu-latest
+    environment: produccion
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: src/frontend/terrenario-web/package-lock.json
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Instalar dependencias del cliente
+        working-directory: src/frontend/terrenario-web
+        run: npm ci
+
+      # Las `VITE_*` se incrustan al compilar: sin ellas el cliente llamaría a `localhost`. Son
+      # variables y no secretos porque acaban en el bundle, que es público por definición.
+      #
+      # `VITE_API_BASE_URL` apunta al **mismo origen** que sirve el cliente. No es redundante: entra
+      # en `connect-src` de la CSP que genera el build, y esa política la sirve luego la API.
+      - name: Compilar el cliente
+        working-directory: src/frontend/terrenario-web
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: ${{ vars.PUBLIC_WEB_URL }}
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+
+      - name: Publicar binarios de la API
+        run: dotnet publish src/backend/Terrenario.Api/Terrenario.Api.csproj
+          --configuration Release --output ./publicacion
+
+      # El cliente compilado entra como contenido estático de la API. `csp.policy` viaja con él: es
+      # lo que permite servir la política del SPA como cabecera sin reescribirla en C#.
+      - name: Incrustar el cliente en la API
+        run: |
+          set -e
+          mkdir -p ./publicacion/wwwroot
+          cp -r src/frontend/terrenario-web/dist/. ./publicacion/wwwroot/
+          test -f ./publicacion/wwwroot/index.html
+          test -f ./publicacion/wwwroot/csp.policy
+          echo "Cliente incrustado."
+
+      # Las migraciones las aplica la propia API al arrancar (`Database:MigrateOnStartup`), así que
+      # aquí no hay paso de base de datos. Si una migración falla, la aplicación no arranca y el
+      # despliegue se nota en el arranque, no en la primera consulta de un usuario.
+      - name: Desplegar en App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./publicacion
+
+  humo:
+    name: Smoke de publicación
+    needs: publicar
+    runs-on: ubuntu-latest
+    environment: produccion
+    steps:
+      # Comprobación mínima de que lo publicado responde. No sustituye al smoke manual del gate,
+      # pero convierte «el despliegue terminó» en «el despliegue sirve algo».
+      - name: La API responde con sus cabeceras de seguridad
+        run: |
+          set -e
+          cabeceras=$(curl -sS -D - -o /dev/null --max-time 60 "${{ vars.PUBLIC_WEB_URL }}/api/v1/diary")
+          echo "$cabeceras" | head -1
+          echo "$cabeceras" | grep -qi "x-content-type-options: nosniff"
+          echo "$cabeceras" | grep -qi "x-frame-options: DENY"
+          echo "$cabeceras" | grep -qi "strict-transport-security"
+          echo "$cabeceras" | grep -qi "content-security-policy: default-src 'self'"
+          echo "Cabeceras de la API correctas."
+
+      - name: El cliente se sirve y resuelve las rutas del SPA
+        run: |
+          set -e
+          curl -sSf --max-time 60 "${{ vars.PUBLIC_WEB_URL }}" | grep -q "Terrenario"
+          # Ruta que solo existe en el router del cliente: comprueba el fallback (P-067 / SPA).
+          curl -sSf --max-time 60 "${{ vars.PUBLIC_WEB_URL }}/legal/privacidad" | grep -q "Terrenario"
+          # Y `frame-ancestors`, que el navegador ignora en un `meta`: si no viaja como cabecera, la
+          # política del SPA no se está sirviendo.
+          curl -sS -D - -o /dev/null --max-time 60 "${{ vars.PUBLIC_WEB_URL }}/legal/privacidad" \
+            | grep -qi "frame-ancestors 'none'"
+          echo "Cliente publicado, rutas del SPA resueltas y CSP servida como cabecera."
+
+      - name: Un endpoint inexistente de la API sigue devolviendo 404
+        run: |
+          set -e
+          codigo=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 60 \
+            "${{ vars.PUBLIC_WEB_URL }}/api/v1/no-existe")
+          test "$codigo" = "404" || { echo "Devolvió $codigo: el fallback del SPA está tapando la API"; exit 1; }
+          echo "La API no queda tapada por el fallback del cliente."

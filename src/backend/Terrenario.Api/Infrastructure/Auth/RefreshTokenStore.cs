@@ -54,6 +54,18 @@ public sealed class RefreshTokenStore : IRefreshTokenStore
         return entity.UserId;
     }
 
+    public async Task<int> RevokeAllForUserAsync(Guid userId, CancellationToken ct = default)
+    {
+        // Una sola sentencia: no hace falta traerse los tokens para marcarlos, y así la revocación es
+        // atómica aunque haya sesiones abriéndose a la vez.
+        return await _db.RefreshTokens
+            .Where(rt => rt.UserId == userId && rt.RevokedAt == null)
+            .ExecuteUpdateAsync(set => set.SetProperty(rt => rt.RevokedAt, DateTimeOffset.UtcNow), ct);
+    }
+
+    public Task<int> CountActiveForUserAsync(Guid userId, CancellationToken ct = default)
+        => _db.RefreshTokens.CountAsync(rt => rt.UserId == userId && rt.RevokedAt == null, ct);
+
     public async Task RevokeAsync(string token, CancellationToken ct = default)
     {
         var tokenHash = HashToken(token);

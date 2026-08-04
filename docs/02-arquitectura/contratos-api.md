@@ -44,6 +44,10 @@ actualizado_en: "2026-07-29"
 - Todas las respuestas incluyen `X-Request-Id` para trazabilidad.
 - Concurrencia de escritura: `If-Match` obligatorio en `PATCH`/`DELETE` de entidades críticas.
 - El servidor devuelve `409 CONFLICT_VERSION_MISMATCH` cuando la versión enviada no coincide.
+- **El cuerpo debe ir codificado en UTF-8.** Un cuerpo con bytes que no lo son responde `400`
+  `VALIDATION_FORMAT_INVALID`, no `500`: es un error de quien llama (MVP-502, `P-027`).
+- **Los mensajes de error van siempre en español.** Ningún texto por defecto del framework llega al
+  cliente (MVP-502, `P-043`).
 
 ### Eventos (mensajería asíncrona)
 
@@ -120,6 +124,41 @@ Reglas de contexto:
 | `outcome` de la baja (MVP-206) | `transferred` (el Workspace sigue vivo con otra persona propietaria) o `deleted` (baja lógica con aviso al resto de miembros) |
 | `transferred` revoca a quien lo pidió (MVP-299, `R-25`) | Su membresía pasa a `revocado` **y su fila de `workers` se inactiva**, igual que al retirarle el acceso a mano: deja de ser responsable seleccionable sin invalidar lo que ya la referencie (MVP-208, CA-4). La baja `deleted` no revoca a nadie, así que no toca el maestro |
 | `is_clear: false` en obligaciones de propiedad (MVP-206) | La baja de cuenta no puede completarse: hay Workspaces de propiedad única sin resolver (RN-038, CA-9). El flujo completo de baja de cuenta es alcance posterior (`MVP-999`, P-024) |
+
+### 0.a bis) Account (baja de cuenta, MVP-505)
+
+| Operación | Método y ruta | Request | Respuesta 2xx |
+|---|---|---|---|
+| Qué bloquea la baja y qué alcance tendrá | `GET /api/v1/account/closure` | — | `200 { is_clear, obligations[], active_memberships, active_sessions, confirmation_phrase, retention_months }` |
+| Eliminar la cuenta | `POST /api/v1/account/closure` | `confirmation*` | `200 { revoked_sessions, revoked_memberships, cancelled_invitations, purge_after }` |
+
+Es el **derecho de supresión** (RGPD art. 17) ejercido por la propia persona, sin escribir a nadie.
+
+**No exige ámbito de Workspace**, a diferencia del resto de recursos: la baja es de la *cuenta*, y
+quien no tenga ningún Workspace —o lo haya perdido— también tiene derecho a ejercerla.
+
+| Regla | Comportamiento |
+|---|---|
+| Confirmación explícita (CA-3) | `confirmation` debe ser exactamente la frase que devuelve el `GET` (`ELIMINAR MI CUENTA`), sensible a mayúsculas. Se comprueba **en servidor**: una operación irreversible no puede depender de que el cliente se porte bien. Si no coincide, `400` |
+| No-orfandad (CA-4, RN-038) | Si la cuenta es propietaria única de algún Workspace, `422 BUSINESS_RULE_WORKSPACE_OWNERSHIP_UNRESOLVED` y `obligations` los lista. **Reutiliza la guarda de MVP-206**, no la reimplementa |
+| Qué desaparece | Nombre, correo e identificador del proveedor de identidad, en la cuenta, en los maestros de responsables de sus Workspaces (RN-036) y en las invitaciones pendientes dirigidas a su correo |
+| Qué se conserva | La **fila anonimizada**, porque cada actividad, cosecha y compra guarda quién la registró: borrarla dejaría el histórico operativo de terceros sin autoría. Ya no identifica a nadie |
+| Sesiones | Todas las vivas se revocan y la cookie de refresco se borra: sin eso, un token emitido antes seguiría sirviendo |
+| Volver a entrar | El `google_sub` deja de coincidir con el de Google, así que entrar con la misma cuenta crea una **cuenta nueva y vacía**. Es lo que hace que la supresión sea de verdad y no una desactivación |
+| Retención (CA-5, RN-041) | `purge_after` dice cuándo se purgará físicamente la fila anonimizada: **24 meses**. Se devuelve para que la persona sepa qué queda y hasta cuándo, no solo que «se ha borrado» |
+| Irreversible | No hay periodo de gracia ni papelera |
+
+### 0.a ter) Páginas legales (MVP-505)
+
+No son API: son rutas públicas del cliente, listadas aquí porque forman parte del contrato de salida.
+
+| Ruta | Contenido | Enlazada desde |
+|---|---|---|
+| `/legal/privacidad` | Política de Privacidad | Login, landing y Ajustes |
+| `/legal/terminos` | Términos del Servicio | Login, landing y Ajustes |
+
+Sustituyen a los enlaces rotos del login (`P-008`). Son **públicas** a propósito: se leen antes de
+entrar, que es cuando hacen falta.
 
 ### 0.b bis) Reactivación de un Workspace dado de baja (MVP-206)
 
@@ -250,11 +289,11 @@ esta sección):
 
 | Regla | Alta (`POST`) | Edición (`PATCH`) |
 |---|---|---|
-| `name` ausente o nulo | `VALIDATION_REQUIRED` (400) | — (omitirlo mantiene el valor) |
-| `name` en blanco | `VALIDATION_REQUIRED` (400) | `VALIDATION_REQUIRED_NAME` (400) |
-| `name` demasiado largo (> 150) | `VALIDATION_REQUIRED` (400) | `VALIDATION_PLOT_NAME_LENGTH` (400) |
-| `ownership_type` ausente o nulo (RN-028) | `VALIDATION_REQUIRED` (400) | — (omitirlo mantiene el valor) |
-| `ownership_type` en blanco | `VALIDATION_REQUIRED` (400) | `VALIDATION_REQUIRED_PLOT_OWNERSHIP_TYPE` (400) |
+| `name` ausente o nulo | `VALIDATION_REQUIRED_NAME` (400) | — (omitirlo mantiene el valor) |
+| `name` en blanco | `VALIDATION_REQUIRED_NAME` (400) | `VALIDATION_REQUIRED_NAME` (400) |
+| `name` demasiado largo (> 150) | `VALIDATION_PLOT_NAME_LENGTH` (400) | `VALIDATION_PLOT_NAME_LENGTH` (400) |
+| `ownership_type` ausente o nulo (RN-028) | `VALIDATION_REQUIRED_PLOT_OWNERSHIP_TYPE` (400) | — (omitirlo mantiene el valor) |
+| `ownership_type` en blanco | `VALIDATION_REQUIRED_PLOT_OWNERSHIP_TYPE` (400) | `VALIDATION_REQUIRED_PLOT_OWNERSHIP_TYPE` (400) |
 | `ownership_type` fuera de `plot_ownership_type` | `VALIDATION_PLOT_OWNERSHIP_TYPE_INVALID` (400) | `VALIDATION_PLOT_OWNERSHIP_TYPE_INVALID` (400) |
 | `tree_count >= 0` (entero) | `VALIDATION_RANGE_TREE_COUNT` (400) | `VALIDATION_RANGE_TREE_COUNT` (400) |
 | Alias, propietario, referencia catastral o ubicación demasiado largos | `VALIDATION_PLOT_*_LENGTH` (400) | `VALIDATION_PLOT_*_LENGTH` (400) |
@@ -273,15 +312,21 @@ Reglas de contexto (MVP-202):
 | `PATCH` de campos parciales | Un campo ausente mantiene su valor; presente (incluido vacío) lo asigna/limpia |
 | `location` | Texto libre. Coordenadas/mapas y `soil_metadata` quedan fuera de alcance del MVP |
 
-> **Códigos del alta frente a los de la edición** (MVP-208, CA-9; corregido en la 3ª pasada de
-> `MVP-299`, hallazgo `R-24`; aplica igual a terrenos, temporadas, tareas y trabajadores). En el
-> `POST`, todo lo que rechaza el enlace de modelo se colapsa hoy en `VALIDATION_REQUIRED`, con el
-> motivo concreto en `message`: campos obligatorios **ausentes**, **en blanco** —`[Required]` no
-> admite cadenas vacías, así que el valor no llega al dominio— y longitudes máximas anotadas. Solo lo
-> que llega al dominio emite su código propio. En el `PATCH` no hay anotaciones, así que valida
-> siempre el dominio y el código es específico. Un cliente no puede, por tanto, distinguir «falta» de
-> «en blanco» ni de «demasiado largo» en el alta. Unificarlo es transversal a toda la API y está en
-> `MVP-999` (`P-043`, con `P-027`); este contrato describe lo que la API hace hoy.
+> **Los códigos del alta y los de la edición coinciden** desde `MVP-502` (`P-043`, resuelto junto a
+> `P-027`; aplica igual a terrenos, temporadas, tareas y trabajadores). Hasta entonces el `POST`
+> colapsaba **todo** lo que rechazaba el enlace de modelo en `VALIDATION_REQUIRED` —ausente, en
+> blanco y demasiado largo daban lo mismo— mientras el `PATCH` sí emitía el código de dominio, así
+> que un cliente no podía saber qué arreglar. Ahora cada anotación declara su propio código y la
+> respuesta es la misma por las dos vías.
+>
+> Dos consecuencias del cambio, que conviene tener presentes al leer las tablas:
+>
+> - **`VALIDATION_FORMAT_INVALID`** es nuevo y significa «el valor llegó, pero no se puede
+>   interpretar»: una fecha que no lo es, un número donde se esperaba un entero, o un cuerpo cuyos
+>   bytes no son UTF-8 válido. Se distingue de `VALIDATION_REQUIRED` («falta») a propósito.
+> - **Ningún mensaje sale ya en inglés.** Antes, cuando el fallo lo generaba el enlace de modelo, la
+>   respuesta arrastraba el texto por defecto de ASP.NET («The request field is required.») y la UI
+>   lo mostraba tal cual.
 
 ### 2) Seasons (temporadas)
 
@@ -307,10 +352,11 @@ sección de terrenos):
 
 | Regla | Alta (`POST`) | Edición (`PATCH`) |
 |---|---|---|
-| `name` ausente o nulo | `VALIDATION_REQUIRED` (400) | — (omitirlo mantiene el valor) |
-| `name` en blanco | `VALIDATION_REQUIRED` (400) | `VALIDATION_REQUIRED_SEASON_NAME` (400) |
-| `name` demasiado largo (> 120) | `VALIDATION_REQUIRED` (400) | `VALIDATION_SEASON_NAME_LENGTH` (400) |
-| `start_date` ausente o con formato no válido (`YYYY-MM-DD`) | `VALIDATION_REQUIRED` (400) | `VALIDATION_SEASON_DATE_RANGE` (400) |
+| `name` ausente o nulo | `VALIDATION_REQUIRED_SEASON_NAME` (400) | — (omitirlo mantiene el valor) |
+| `name` en blanco | `VALIDATION_REQUIRED_SEASON_NAME` (400) | `VALIDATION_REQUIRED_SEASON_NAME` (400) |
+| `name` demasiado largo (> 120) | `VALIDATION_SEASON_NAME_LENGTH` (400) | `VALIDATION_SEASON_NAME_LENGTH` (400) |
+| `start_date` ausente | `VALIDATION_REQUIRED` (400) | — (omitirlo mantiene el valor) |
+| `start_date` con formato no válido (`YYYY-MM-DD`) | `VALIDATION_FORMAT_INVALID` (400) | `VALIDATION_SEASON_DATE_RANGE` (400) |
 | `start_date <= end_date` | `VALIDATION_SEASON_DATE_RANGE` (400) | `VALIDATION_SEASON_DATE_RANGE` (400) |
 | Nombre ya usado en el Workspace, ignorando mayúsculas (MVP-207) | `CONFLICT_SEASON_NAME_DUPLICATE` (409) | `CONFLICT_SEASON_NAME_DUPLICATE` (409) |
 | Temporada inexistente o de otro Workspace | — | `SEASON_NOT_FOUND` (404) |
@@ -346,9 +392,9 @@ sección de terrenos):
 
 | Regla | Alta (`POST`) | Edición (`PATCH`) |
 |---|---|---|
-| `name` ausente o nulo | `VALIDATION_REQUIRED` (400) | — (omitirlo mantiene el valor) |
-| `name` en blanco | `VALIDATION_REQUIRED` (400) | `VALIDATION_REQUIRED_TASK_NAME` (400) |
-| `name` demasiado largo (> 120) | `VALIDATION_REQUIRED` (400) | `VALIDATION_TASK_NAME_LENGTH` (400) |
+| `name` ausente o nulo | `VALIDATION_REQUIRED_TASK_NAME` (400) | — (omitirlo mantiene el valor) |
+| `name` en blanco | `VALIDATION_REQUIRED_TASK_NAME` (400) | `VALIDATION_REQUIRED_TASK_NAME` (400) |
+| `name` demasiado largo (> 120) | `VALIDATION_TASK_NAME_LENGTH` (400) | `VALIDATION_TASK_NAME_LENGTH` (400) |
 | Nombre ya usado en el Workspace, ignorando mayúsculas | `CONFLICT_TASK_NAME_DUPLICATE` (409) | `CONFLICT_TASK_NAME_DUPLICATE` (409) |
 | Tarea inexistente o de otro Workspace | — | `RESOURCE_NOT_FOUND` (404) |
 | `workspace_id` implícito desde token | `AUTH_WORKSPACE_SCOPE_REQUIRED` (403) | `AUTH_WORKSPACE_SCOPE_REQUIRED` (403) |
@@ -391,9 +437,9 @@ sección de terrenos):
 
 | Regla | Alta (`POST`) | Edición (`PATCH`) |
 |---|---|---|
-| `name` ausente o nulo | `VALIDATION_REQUIRED` (400) | — (omitirlo mantiene el valor) |
-| `name` en blanco | `VALIDATION_REQUIRED` (400) | `VALIDATION_REQUIRED_NAME` (400) |
-| `name` demasiado largo (> 150) | `VALIDATION_REQUIRED` (400) | `VALIDATION_WORKER_NAME_LENGTH` (400) |
+| `name` ausente o nulo | `VALIDATION_REQUIRED_NAME` (400) | — (omitirlo mantiene el valor) |
+| `name` en blanco | `VALIDATION_REQUIRED_NAME` (400) | `VALIDATION_REQUIRED_NAME` (400) |
+| `name` demasiado largo (> 150) | `VALIDATION_WORKER_NAME_LENGTH` (400) | `VALIDATION_WORKER_NAME_LENGTH` (400) |
 | `hourly_rate >= 0` y numérico (opcional, de referencia) | `VALIDATION_RANGE_HOURLY_RATE` (400) | `VALIDATION_RANGE_HOURLY_RATE` (400) |
 | Nombre ya usado en el Workspace, ignorando mayúsculas (MVP-207) | `CONFLICT_WORKER_NAME_DUPLICATE` (409) | `CONFLICT_WORKER_NAME_DUPLICATE` (409) |
 | Renombrar a un responsable con cuenta (RN-036) | — | `BUSINESS_RULE_WORKER_IDENTITY_MANAGED` (422) |
@@ -517,11 +563,11 @@ Reglas de contexto (MVP-301):
 > Alcance de implementación: `MVP-301`/`MVP-303`/`MVP-304` para actividades, compras e imputaciones, y
 > `MVP-401` para cosechas —**las cuatro implementadas**—.
 
-### 5.b) Diary (diario cronológico unificado, MVP-305)
+### 5.b) Diary (diario cronológico unificado, MVP-305 · MVP-506)
 
 | Operación | Método y ruta | Request (query) | Respuesta 2xx |
 |---|---|---|---|
-| Diario del Workspace | `GET /api/v1/diary` | `from?`, `to?`, `plot_id?`, `season_id?`, `type?` (repetible) | `200 { data, meta }` |
+| Diario del Workspace | `GET /api/v1/diary` | `from?`, `to?`, `plot_id?`, `season_id?`, `type?` (repetible), `worker_id?`, `search?`, `page?`, `limit?` | `200 { data, meta }` |
 
 Es **la vista principal del MVP** (RN-033) y es de **solo lectura**: cada registro se crea, corrige y
 elimina por el recurso al que pertenece (`/activities`, `/purchases`, `/consumptions`), que es donde
@@ -541,10 +587,11 @@ destination, yield }`. Los campos específicos de un tipo llegan a `null` en los
 | `yield` | Solo en cosechas (MVP-402): el rendimiento **efectivo** en L/100kg, declarado o derivado de los litros (RN-013/RN-014) |
 
 `meta` es
-`{ total, total_cost, imputed_cost, activities, purchases, consumptions, consumptions_without_purchase, harvests, total_kg }`:
+`{ total, page, limit, total_cost, imputed_cost, activities, purchases, consumptions, consumptions_without_purchase, harvests, total_kg }`:
 
 | Campo de `meta` | Qué mide |
 |---|---|
+| `total` · `page` · `limit` | MVP-506 — posición dentro del conjunto. **`total` es el del diario filtrado completo, no el de la página**: es lo que permite saber cuántas páginas hay. El resto de contadores e importes también son del conjunto, porque son la cabecera del muro y cambiarían en cada avance si contaran solo lo visible |
 | `total_cost` | **Gasto real** de lo que se está viendo: labores + compras + consumos **sin compra**. **No** incluye las imputaciones: reparten dinero que la compra ya aportó, así que sumarlas contaría el mismo gasto dos veces (`MVP-399`, hallazgo `R-01`). Es el criterio que debe heredar el dashboard de `MVP-004` |
 | `imputed_cost` | Lo repartido por terrenos: **desglose** de `total_cost`, no gasto añadido |
 | `consumptions_without_purchase` | Consumos sin compra previa. Su coste consta como `0` porque se desconoce (RN-032), así que el gasto real fue algo mayor; la UI lo advierte (CA-3 de `MVP-003`) |
@@ -561,9 +608,13 @@ Reglas de contexto:
 | Orden | Fecha de **negocio** descendente (RN-033) y, a igualdad, fecha de captura descendente |
 | Filtro `type` | Ahorra trabajo, no solo oculta: los tipos no pedidos ni se consultan |
 | Filtro `plot_id` | Deja fuera las **compras** por definición: una compra es del Workspace y solo se reparte por terrenos al imputarla (MVP-304). El cliente lo explica para que no parezca un fallo. Las **cosechas sí se conservan**: una cosecha es de un terreno (RN-001) |
+| Filtro `worker_id` (MVP-506) | Deja fuera **cosechas, compras y consumos**, por el mismo motivo que `plot_id` deja fuera las compras: no tienen responsable. El cliente lo explica. Combinarlo con `type` de un tipo sin responsable devuelve vacío, que es la respuesta honesta |
+| `search` (MVP-506) | Texto libre, sin distinguir mayúsculas, sobre titular, terreno, responsable y descripción —cada tipo busca en los campos que tiene—. Se resuelve **en servidor**: sobre una vista paginada, buscar solo en lo visible daría un resultado falso |
 | `type=cosecha` | Vivo desde `MVP-401`, que es quien crea `HARVEST` (hallazgo `G-4`). Con los cuatro tipos, `RN-033` queda cumplida entera |
 | `cost` de una cosecha | Siempre `0`: la cosecha **no tiene coste** (RN-029, que deja fuera precio, molturación y balance). No es «gratis» ni «desconocido»: la magnitud no aplica, y por eso la tarjeta muestra kilos donde las demás muestran dinero |
-| Sin paginación | Igual que el resto de listados del MVP (`MVP-999`, `P-051`) |
+| Paginación (MVP-506) | `page` (def. `1`) y `limit` (def. `20`, **acotado a `100`**). Pedir más del máximo no es un error del cliente, pero servirlo sí sería un problema del servidor: se acota en silencio y `meta.limit` dice lo que se aplicó. `page` o `limit` no positivos responden `400 VALIDATION_FORMAT_INVALID` |
+| Mezcla en SQL (MVP-506) | Los cuatro tipos se unen con `UNION ALL` y la base de datos resuelve orden, página y totales. Antes se mezclaban **en memoria** sobre los cuatro listados: equivalente mientras no había paginación, pero paginar sobre cuatro listas ya materializadas no es paginar (`P-051`) |
+| Estabilidad de la paginación | El orden desempata por `id` tras fecha de negocio y fecha de captura: sin ese tercer criterio, dos entradas del mismo instante pueden repetirse o perderse entre páginas |
 
 ### 6) Harvests (cosechas)
 

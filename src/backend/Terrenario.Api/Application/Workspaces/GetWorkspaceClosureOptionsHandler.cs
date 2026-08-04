@@ -35,14 +35,18 @@ public sealed class GetWorkspaceClosureOptionsHandler(IWorkspaceRepository works
 
         var isOwner = actingMember?.Role == WorkspaceRoles.Owner;
 
-        // Mismo criterio que el traspaso automático del repositorio (copropietario activo más
-        // antiguo): así el nombre que anuncia la confirmación es el del sucesor real (CA-5).
-        var successor = members
-            .Where(m => m.Status == WorkspaceMemberStatuses.Active
-                && m.UserId != actingUserId
-                && m.Role == WorkspaceRoles.Owner)
-            .OrderBy(m => m.JoinedAt)
-            .FirstOrDefault();
+        // El sucesor lo decide **el mismo sitio** que lo aplica: se pregunta al repositorio en vez de
+        // repetir aquí el criterio (CA-5). No es solo evitar duplicación —replicar la regla ya hizo
+        // que divergiera en MVP-502— sino que reproducirla en memoria es directamente **incorrecto**:
+        // el desempate va por identificador, y `Guid.CompareTo` de .NET no ordena igual que el tipo
+        // `uuid` de PostgreSQL. La pantalla anunciaba a una persona y el traspaso acababa en otra
+        // justo en el caso que el desempate venía a arreglar (MVP-506).
+        var successorMember = await workspaceRepository.FindOtherActiveOwnerAsync(
+            workspaceId, actingUserId, ct);
+
+        var successor = successorMember is null
+            ? null
+            : members.FirstOrDefault(m => m.UserId == successorMember.UserId);
 
         var mode = (isOwner, successor) switch
         {

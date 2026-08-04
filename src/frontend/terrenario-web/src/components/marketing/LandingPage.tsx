@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
 
 /**
  * Landing pública. Recupera el lenguaje visual del prototipo (marca `eco`, tipografía display y
@@ -160,6 +160,10 @@ export const LandingPage: React.FC = () => {
             <span>© 2026. Todos los derechos reservados.</span>
           </div>
           <div className="flex items-center gap-6">
+            {/* MVP-505 (CA-1) — Las páginas legales tienen que alcanzarse también desde la landing:
+                es la primera pantalla y la única que ve quien todavía no ha entrado. */}
+            <Link to="/legal/privacidad" className="hover:underline">Privacidad</Link>
+            <Link to="/legal/terminos" className="hover:underline">Términos</Link>
             <button onClick={() => navigate('/login')} className="hover:underline">Acceder</button>
           </div>
         </div>

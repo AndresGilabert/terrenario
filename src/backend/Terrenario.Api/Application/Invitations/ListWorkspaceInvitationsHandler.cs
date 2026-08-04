@@ -13,12 +13,12 @@ public sealed class ListWorkspaceInvitationsHandler(IWorkspaceInvitationReposito
         Guid workspaceId,
         CancellationToken ct = default)
     {
+        // El orden lo trae ya el repositorio (las más recientes primero). Hasta MVP-501 se reordenaba
+        // aquí, solo porque el arnés de tests corría sobre SQLite y no traducía el `ORDER BY` sobre
+        // `DateTimeOffset` (P-031).
         var invitations = await invitationRepository.ListPendingAsync(workspaceId, ct);
 
-        // El orden va en memoria: son unas pocas y evita ordenar por DateTimeOffset en SQL, que
-        // EF+SQLite no traduce (aunque PostgreSQL sí).
         return invitations
-            .OrderByDescending(invitation => invitation.CreatedAt)
             .Select(invitation => new InvitationSummary(
                 invitation.Id,
                 invitation.Channel,

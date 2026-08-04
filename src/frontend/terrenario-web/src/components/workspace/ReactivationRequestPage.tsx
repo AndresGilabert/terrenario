@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 import { useApiClient } from '../../contexts/ApiContext';
 import { createReactivationService } from '../../services/workspace-lifecycle.service';
 import { HttpError } from '../../services/http-client';

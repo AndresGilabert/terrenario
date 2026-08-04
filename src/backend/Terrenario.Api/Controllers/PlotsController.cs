@@ -7,6 +7,7 @@ using Terrenario.Api.Application.Plots;
 using Terrenario.Api.Application.Plots.Commands;
 using Terrenario.Api.Common;
 using Terrenario.Api.Common.Errors;
+using Terrenario.Api.Common.Http;
 using Terrenario.Api.Common.Workspaces;
 using Terrenario.Api.Domain.Plots;
 
@@ -88,19 +89,17 @@ public sealed class PlotsController(
         [FromBody] Dictionary<string, JsonElement>? body,
         CancellationToken ct)
     {
-        body ??= new Dictionary<string, JsonElement>();
+        // Lector común del borde de transporte (MVP-502, P-027): un cuerpo con bytes que no son
+        // UTF-8 válido acaba en 400, no en 500.
+        var fields = PartialUpdateBody.From(body);
 
-        FieldUpdate<int?> treeCount;
-        FieldUpdate<bool> isActive;
-        try
-        {
-            treeCount = ReadTreeCount(body);
-            isActive = ReadBool(body, "is_active");
-        }
-        catch (PlotValidationException ex)
-        {
-            return BadRequest(new ApiErrorResponse(ApiError.Validation(ex.ErrorCode, ex.Message)));
-        }
+        if (!fields.TryReadInt("tree_count", out var treeCount))
+            return BadRequest(new ApiErrorResponse(ApiError.Validation(
+                ErrorCodes.ValidationRangeTreeCount, "El número de árboles debe ser un entero válido.")));
+
+        if (!fields.TryReadBool("is_active", out var isActive))
+            return BadRequest(new ApiErrorResponse(ApiError.Validation(
+                ErrorCodes.ValidationRequired, "El campo 'is_active' debe ser booleano.")));
 
         try
         {
@@ -108,12 +107,12 @@ public sealed class PlotsController(
                 new UpdatePlotCommand(
                     workspaceContext.WorkspaceId,
                     plotId,
-                    ReadString(body, "name"),
-                    ReadString(body, "ownership_type"),
-                    ReadNullableString(body, "alias"),
-                    ReadNullableString(body, "owner_name"),
-                    ReadNullableString(body, "cadastral_reference"),
-                    ReadNullableString(body, "location"),
+                    fields.ReadString("name"),
+                    fields.ReadString("ownership_type"),
+                    fields.ReadNullableString("alias"),
+                    fields.ReadNullableString("owner_name"),
+                    fields.ReadNullableString("cadastral_reference"),
+                    fields.ReadNullableString("location"),
                     treeCount,
                     isActive),
                 ct);
@@ -131,37 +130,6 @@ public sealed class PlotsController(
         {
             return Conflict(new ApiErrorResponse(ApiError.Validation(ex.ErrorCode, ex.Message)));
         }
-    }
-
-    private static FieldUpdate<string> ReadString(Dictionary<string, JsonElement> body, string key)
-        => body.TryGetValue(key, out var el)
-            ? FieldUpdate<string>.Set(el.ValueKind == JsonValueKind.Null ? null : el.GetString())
-            : FieldUpdate<string>.Absent;
-
-    private static FieldUpdate<string?> ReadNullableString(Dictionary<string, JsonElement> body, string key)
-        => body.TryGetValue(key, out var el)
-            ? FieldUpdate<string?>.Set(el.ValueKind == JsonValueKind.Null ? null : el.GetString())
-            : FieldUpdate<string?>.Absent;
-
-    private static FieldUpdate<int?> ReadTreeCount(Dictionary<string, JsonElement> body)
-    {
-        if (!body.TryGetValue("tree_count", out var el)) return FieldUpdate<int?>.Absent;
-        if (el.ValueKind == JsonValueKind.Null) return FieldUpdate<int?>.Set(null);
-        if (el.ValueKind == JsonValueKind.Number && el.TryGetInt32(out var value))
-            return FieldUpdate<int?>.Set(value);
-
-        throw new PlotValidationException(
-            ErrorCodes.ValidationRangeTreeCount, "El número de árboles debe ser un entero válido.");
-    }
-
-    private static FieldUpdate<bool> ReadBool(Dictionary<string, JsonElement> body, string key)
-    {
-        if (!body.TryGetValue(key, out var el)) return FieldUpdate<bool>.Absent;
-        if (el.ValueKind is JsonValueKind.True or JsonValueKind.False)
-            return FieldUpdate<bool>.Set(el.GetBoolean());
-
-        throw new PlotValidationException(
-            ErrorCodes.ValidationRequired, $"El campo '{key}' debe ser booleano.");
     }
 
     private static object ToResponse(PlotSummary plot) => new
@@ -183,11 +151,11 @@ public sealed class PlotsController(
 
 /// <summary>Alta de terreno. Solo <c>name</c> y <c>ownership_type</c> son obligatorios (RN-028).</summary>
 public sealed record CreatePlotRequest(
-    [Required(ErrorMessage = "El nombre del terreno es obligatorio.")]
-    [StringLength(Plot.NameMaxLength, ErrorMessage = "El nombre del terreno es demasiado largo.")]
+    [RequiredField(ErrorCodes.ValidationRequiredName, "El nombre del terreno es obligatorio.")]
+    [MaxTextLength(Plot.NameMaxLength, ErrorCodes.ValidationPlotNameLength, "El nombre del terreno es demasiado largo.")]
     string Name,
     [property: JsonPropertyName("ownership_type")]
-    [Required(ErrorMessage = "El tipo de propiedad del terreno es obligatorio.")]
+    [RequiredField(ErrorCodes.ValidationRequiredPlotOwnershipType, "El tipo de propiedad del terreno es obligatorio.")]
     string OwnershipType,
     string? Alias,
     [property: JsonPropertyName("owner_name")] string? OwnerName,

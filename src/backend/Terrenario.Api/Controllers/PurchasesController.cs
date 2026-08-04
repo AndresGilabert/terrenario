@@ -275,7 +275,7 @@ public sealed class PurchasesController(
 
     private static FieldUpdate<string> ReadString(Dictionary<string, JsonElement> body, string key)
         => body.TryGetValue(key, out var el)
-            ? FieldUpdate<string>.Set(el.ValueKind == JsonValueKind.Null ? null : el.GetString())
+            ? FieldUpdate<string>.Set(JsonText.Read(el, key))
             : FieldUpdate<string>.Absent;
 
     private static FieldUpdate<DateOnly> ReadDate(Dictionary<string, JsonElement> body, string key)
@@ -283,7 +283,7 @@ public sealed class PurchasesController(
         if (!body.TryGetValue(key, out var el)) return FieldUpdate<DateOnly>.Absent;
 
         if (el.ValueKind == JsonValueKind.String
-            && DateOnly.TryParseExact(el.GetString(), "yyyy-MM-dd", CultureInfo.InvariantCulture,
+            && DateOnly.TryParseExact(JsonText.Read(el, key), "yyyy-MM-dd", CultureInfo.InvariantCulture,
                 DateTimeStyles.None, out var parsed))
             return FieldUpdate<DateOnly>.Set(parsed);
 
@@ -294,7 +294,7 @@ public sealed class PurchasesController(
     private static FieldUpdate<Guid> ReadGuid(Dictionary<string, JsonElement> body, string key)
     {
         if (!body.TryGetValue(key, out var el)) return FieldUpdate<Guid>.Absent;
-        if (el.ValueKind == JsonValueKind.String && Guid.TryParse(el.GetString(), out var parsed))
+        if (el.ValueKind == JsonValueKind.String && Guid.TryParse(JsonText.Read(el, key), out var parsed))
             return FieldUpdate<Guid>.Set(parsed);
 
         throw new PurchaseValidationException(
@@ -338,7 +338,7 @@ public sealed class PurchasesController(
 /// temporada y el precio unitario los pone la compra.
 /// </summary>
 public sealed record ImputePurchaseRequest(
-    [Required(ErrorMessage = "La fecha de la imputación es obligatoria.")]
+    [RequiredField(ErrorCodes.ValidationConsumptionRequiredFields, "La fecha de la imputación es obligatoria.")]
     string Date,
     [property: JsonPropertyName("plot_id")] Guid PlotId,
     decimal Quantity);
@@ -348,11 +348,11 @@ public sealed record ImputePurchaseRequest(
 /// obligatoria (RN-021). El precio unitario no se envía: lo deriva el servidor.
 /// </summary>
 public sealed record CreatePurchaseRequest(
-    [Required(ErrorMessage = "La fecha de compra es obligatoria.")]
+    [RequiredField(ErrorCodes.ValidationPurchaseRequiredFields, "La fecha de compra es obligatoria.")]
     [property: JsonPropertyName("purchase_date")]
     string PurchaseDate,
-    [Required(ErrorMessage = "El producto o material es obligatorio.")]
-    [StringLength(Purchase.ProductMaxLength, ErrorMessage = "El producto es demasiado largo.")]
+    [RequiredField(ErrorCodes.ValidationPurchaseRequiredProduct, "El producto o material es obligatorio.")]
+    [MaxTextLength(Purchase.ProductMaxLength, ErrorCodes.ValidationPurchaseProductLength, "El producto es demasiado largo.")]
     string Product,
     [property: JsonPropertyName("season_id")] Guid SeasonId,
     [property: JsonPropertyName("total_quantity")] decimal TotalQuantity,

@@ -2,7 +2,7 @@
 id: "MVP-502"
 tipo: feature
 titulo: "Hardening de seguridad y validación de PII"
-estado: borrador
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito E — Salida controlada a MVP"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "security", "privacy"]
   nivel_riesgo: alto
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-07-31"
 ---
 
 # MVP-502 — Hardening de seguridad y validación de PII
@@ -63,9 +63,9 @@ Reducir el riesgo operativo del MVP reforzando controles de autenticación, auto
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Las operaciones críticas del MVP aplican controles de autorización y validación coherentes con la KB.
-- [ ] **CA-2**: Logs, errores y trazas del MVP evitan exposición de PII sensible en claro.
-- [ ] **CA-3**: El manejo de autenticación social y contexto de Workspace queda revisado antes de release.
+- [x] **CA-1**: Las operaciones críticas del MVP aplican controles de autorización y validación coherentes con la KB.
+- [x] **CA-2**: Logs, errores y trazas del MVP evitan exposición de PII sensible en claro.
+- [x] **CA-3**: El manejo de autenticación social y contexto de Workspace queda revisado antes de release.
 
 ## Maquetas y referencias visuales
 
@@ -80,8 +80,9 @@ Reducir el riesgo operativo del MVP reforzando controles de autenticación, auto
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| LoginPage | RN-017, RN-018, RN-036 | parcial | UX de acceso definida; sin hardening real |
-| Ajustes/App | docs/07-seguridad/modelo-seguridad.md | falta | No se implementan controles de seguridad avanzados |
+| LoginPage | RN-017, RN-018, RN-036 | cubierto | Intercambio con Google sin volcar la respuesta ajena a logs; `id_token` nunca en traza |
+| Ajustes/App | docs/07-seguridad/modelo-seguridad.md | cubierto | CSP en el documento del SPA, verificada sobre el build de producción |
+| Bordes de la API | docs/02-arquitectura/contratos-api.md | cubierto | 14 tests de integración del borde de transporte (`P-027`, `P-043`) |
 
 ## Notas y decisiones
 
@@ -103,3 +104,62 @@ Reducir el riesgo operativo del MVP reforzando controles de autenticación, auto
   - Estaban registrados con destino «`MVP-999` o `MVP-501`». Se asignan aquí porque «revisión de
     validación de entrada en bordes API» es literalmente el alcance de esta historia; `MVP-501` aporta
     los tests que lo verifican, no el arreglo.
+
+## Resultado de la entrega (2026-07-31)
+
+Diseño técnico completo en [tech-design.md](./tech-design.md).
+
+Historia de endurecimiento: **no añade capacidades de producto**. Cierra los dos puntos asignados y
+ejecuta la auditoría que piden los tres CA, corrigiendo lo que encuentra.
+
+### `P-027` — Un cuerpo mal codificado ya no es un `500`
+
+Un `PATCH` con bytes que no son UTF-8 válido respondía **500**: `JsonElement.GetString()` lanza
+después del binding y nadie la capturaba. Ahora es **400**, con un lector común
+(`PartialUpdateBody` + la primitiva `JsonText`) y un filtro que traduce en un único sitio.
+
+**Se corrigen los ocho controladores, no los tres que el punto nombraba.** `P-027` citaba `Plots`,
+`Workers` y `Tasks`, pero el mismo patrón estaba también en `Seasons`, `Activities`, `Harvests`,
+`Purchases` y `Consumptions`, que llegaron después de registrarse. Cerrarlo solo en tres habría sido
+cerrarlo de nombre.
+
+### `P-043` — El alta y la edición responden lo mismo
+
+`VALIDATION_REQUIRED` lo absorbía todo en el `POST`, así que un cliente no podía distinguir «falta»
+de «demasiado largo» —el `PATCH` sí devolvía el código de dominio—. Y los fallos del enlace de modelo
+salían con el texto por defecto de ASP.NET **en inglés**, que la UI mostraba tal cual.
+
+Ahora cada anotación declara su código y las dos vías responden igual. Se añade
+`VALIDATION_FORMAT_INVALID` para «el valor llegó, pero no se puede interpretar», que es un arreglo
+distinto de «falta». El contrato (`contratos-api.md`) ya describe el comportamiento nuevo.
+
+### Hallazgos de la auditoría
+
+La mayor parte de los controles ya estaban puestos en épicas anteriores —emails enmascarados, tokens
+solo como hash, sin PII en query params ni en consola del cliente, `X-Request-Id` acotado, cookie de
+refresco bien configurada—. Lo que **sí** hubo que corregir:
+
+- **`H-1` (CA-2) — El intercambio con Google volcaba a log la respuesta ajena entera.** Es una carga
+  de un tercero que acompaña a una petición con el `code` y el `client_secret`, y
+  `privacidad-datos.md` prohíbe expresamente registrar credenciales del proveedor. Ahora se conserva
+  solo el campo `error` de OAuth 2.0, que es vocabulario cerrado. Lo mismo con `ex.Message` de
+  `InvalidJwtException`, que puede arrastrar fragmentos del `id_token`: se registra solo el tipo.
+- **`H-2` (CA-1) — La CSP estaba donde no protege.** Existía en las respuestas de la API, que son
+  JSON y no ejecutan scripts; **el documento del SPA no tenía ninguna**, que es donde mitiga XSS y
+  donde importa, porque el token de acceso vive en `sessionStorage`. Se inyecta en el build de
+  producción y se ha verificado sobre el build servido de verdad: fuentes e iconos cargados, todas
+  las llamadas en `200`, cero violaciones.
+- **`H-3` (CA-1) — El sucesor del traspaso de Workspace no era determinista.** RN-038/CA-5 lo
+  promete, pero dos copropietarios pueden compartir `joined_at` —la resolución del reloj es de
+  milisegundos— y entonces quien heredaba lo decidía el orden físico de las filas. El orden en
+  memoria lo aparentaba estable; al pasar a SQL en `MVP-501` quedó a la vista. Se cierra con un
+  desempate por identificador **en los dos sitios**: el repositorio que traspasa y el handler que
+  anuncia al sucesor. Sin el segundo, la pantalla podía nombrar a una persona y el traspaso acabar en
+  otra.
+
+### Verificación
+
+- Backend: **631 tests** en verde (610 antes), con 14 de integración nuevos sobre el borde de
+  transporte y una regresión de determinismo.
+- Frontend: 72 en verde, `npm run build` y `npm run lint` sin errores nuevos.
+- CSP verificada manualmente sobre el build de producción con la API y PostgreSQL levantados.

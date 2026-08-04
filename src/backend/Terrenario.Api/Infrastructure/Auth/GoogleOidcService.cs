@@ -47,7 +47,11 @@ public sealed class GoogleOidcService : IGoogleOidcService
         }
         catch (InvalidJwtException ex)
         {
-            _logger.LogWarning("Google id_token validation failed: {Reason}", ex.Message);
+            // MVP-502 (CA-2) — solo el **tipo** del fallo, nunca el mensaje. La excepción de la
+            // librería de Google puede arrastrar fragmentos del propio `id_token` en su texto, y un
+            // token de identidad es una credencial: no puede acabar en un log
+            // (`docs/07-seguridad/privacidad-datos.md`).
+            _logger.LogWarning("Validación del id_token de Google fallida ({Reason}).", ex.GetType().Name);
             throw new GoogleOidcException("Token de Google no válido.", ErrorCodes.AuthGoogleTokenInvalid);
         }
     }
@@ -74,8 +78,16 @@ public sealed class GoogleOidcService : IGoogleOidcService
 
         if (!response.IsSuccessStatusCode)
         {
-            var body = await response.Content.ReadAsStringAsync(ct);
-            _logger.LogWarning("Google token exchange failed: {StatusCode} {Body}", response.StatusCode, body);
+            // MVP-502 (CA-2) — antes se registraba el cuerpo **entero** de la respuesta de Google.
+            // Es una carga de un tercero sobre la que no tenemos control y que acompaña a una
+            // petición que lleva el `code` y el `client_secret`: registrarla en claro contradice
+            // «los tokens y credenciales del proveedor no se almacenarán en claro en logs»
+            // (`privacidad-datos.md`). Se conserva solo el código de error de OAuth, que es lo único
+            // que sirve para diagnosticar y es un valor de vocabulario cerrado.
+            _logger.LogWarning(
+                "Intercambio de código con Google fallido ({StatusCode}, {OAuthError}).",
+                (int)response.StatusCode,
+                await ReadOAuthErrorAsync(response, ct));
             throw new GoogleOidcException("Intercambio de código con Google fallido.", ErrorCodes.AuthGoogleExchangeFailed);
         }
 
@@ -84,6 +96,27 @@ public sealed class GoogleOidcService : IGoogleOidcService
 
         return tokenResponse;
     }
+
+    /// <summary>
+    /// MVP-502 (CA-2) — Extrae <b>solo</b> el campo <c>error</c> del cuerpo de error de OAuth 2.0
+    /// (RFC 6749 §5.2), que es un vocabulario cerrado (<c>invalid_grant</c>, <c>invalid_client</c>…)
+    /// y por tanto seguro de registrar. Si el cuerpo no tiene esa forma no se registra nada de él:
+    /// una carga ajena que no reconocemos no puede acabar en un log.
+    /// </summary>
+    private static async Task<string> ReadOAuthErrorAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        try
+        {
+            var error = await response.Content.ReadFromJsonAsync<GoogleOAuthError>(ct);
+            return string.IsNullOrWhiteSpace(error?.Error) ? "sin_detalle" : error.Error;
+        }
+        catch
+        {
+            return "sin_detalle";
+        }
+    }
+
+    private sealed record GoogleOAuthError([property: JsonPropertyName("error")] string? Error);
 
     private sealed record GoogleTokenResponse(
         [property: JsonPropertyName("id_token")] string IdToken,

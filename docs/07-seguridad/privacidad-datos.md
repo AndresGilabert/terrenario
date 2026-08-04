@@ -1,7 +1,7 @@
 ﻿---
 bloque: 07-seguridad
 documento: privacidad-datos
-actualizado_en: "2026-07-24"
+actualizado_en: "2026-08-04"
 ---
 
 # Privacidad de Datos y GDPR
@@ -54,9 +54,36 @@ actualizado_en: "2026-07-24"
 | Categoría | Ejemplos | Tratamiento |
 |-----------|---------|-------------|
 | **PII básico** | Nombre, email, teléfono | Cifrado en reposo, acceso restringido |
+| **PII de terceros introducida por el usuario** | Nombre de una persona de la cuadrilla (`workers.name`), nombre del propietario de un terreno cedido (`plots.owner_name`), texto libre de una labor (`activities.description`) | El usuario del Workspace es quien la introduce y **responde de tener base legítima**; el producto la trata por su cuenta (encargo). Ver más abajo |
 | **PII sensible** | Datos bancarios, documentos de identidad | Cifrado en reposo + en tránsito, acceso muy restringido |
 | **Datos de comportamiento** | Logs de uso, historial | Minimizacion, pseudonimizacion y/o anonimizacion segun finalidad |
 | **Datos públicos** | IDs, referencias | Sin restricciones especiales |
+
+## Datos personales de terceros introducidos por el usuario (MVP-503)
+
+Verificado sobre el esquema real: además de los datos de la cuenta, el producto almacena datos
+personales que **el usuario introduce sobre otras personas**, y que esas personas no han facilitado
+ni pueden gestionar por sí mismas.
+
+| Dato | Dónde | Quién es esa persona |
+|---|---|---|
+| Nombre de la cuadrilla | `workers.name` | Alguien que trabaja en la explotación y puede no tener cuenta |
+| Nombre del propietario del terreno | `plots.owner_name` | El arrendador de un terreno cedido (RN-028) |
+| Texto libre de una labor | `activities.description` | Puede mencionar a cualquiera |
+
+Consecuencias, y por qué importan:
+
+1. **El titular del Workspace es responsable del tratamiento** de esos datos; el producto actúa como
+   encargado. Los Términos del Servicio lo dicen expresamente: quien registra a su cuadrilla debe
+   informarles y tener base legítima.
+2. **Esas personas no pueden ejercer sus derechos desde el producto**, porque no tienen cuenta. Su vía
+   es el titular del Workspace, o el contacto de privacidad.
+3. **La baja de cuenta no los borra**, y es correcto: pertenecen al Workspace, no a la cuenta de quien
+   se va. Se van con el Workspace cuando este se da de baja (RN-039 + RN-041).
+4. **Minimización**: `owner_name` y `description` son opcionales y de texto libre. La política pide no
+   introducir más datos de terceros de los necesarios; el producto no lo puede impedir.
+
+---
 
 ## Reglas especificas para autenticacion social
 
@@ -77,11 +104,74 @@ tratamiento** (RGPD art. 28) y exige contrato de encargo (DPA) firmado antes de 
 
 | Proveedor | Datos tratados | Finalidad | Estado |
 |-----------|---------|---------|---------|
-| Google (OIDC) | `sub`, nombre, email | Autenticacion de acceso | Activo |
-| Proveedor de email (SMTP) | Email del destinatario, nombre de quien invita y del Workspace | Envio de invitaciones a Workspace | **Pendiente de contratar**: ver [ADR-0010](../02-arquitectura/decisiones/ADR-0010--envio-de-email-transaccional-por-smtp.md) |
+| Microsoft Azure | Todo lo almacenado | Alojamiento de la aplicacion y la base de datos | ✅ Contratado, anexo de tratamiento de datos **en vigor** |
+| Arsys | Email del destinatario, nombre de quien invita y del Workspace | Envio de invitaciones a Workspace | ✅ Contratado, anexo **en vigor**: ver [ADR-0010](../02-arquitectura/decisiones/ADR-0010--envio-de-email-transaccional-por-smtp.md) |
 
-Al contratar el proveedor de email hay que verificar ademas donde se alojan los datos y si implica
-transferencia internacional con garantias adecuadas.
+Con estos dos no hay contrato que negociar: el anexo de tratamiento de datos va **incorporado al
+contratar el servicio**. Confirmado por el negocio el 2026-08-04, con lo que se cierra `B-2` del gate.
+
+### Google no es encargado
+
+Cuando una persona entra con **su** cuenta de Google, Google trata esos datos bajo su propia politica
+y no por cuenta del proyecto: actua como **responsable independiente**, no como encargado del art. 28.
+Por eso no procede contrato de encargo con Google, y por eso sale de la tabla anterior. Lo que si
+procede es informarlo, y se informa en la Politica de Privacidad.
+
+Este encuadre lo aporto la asesoria del negocio (2026-08-04) y corrige la clasificacion anterior de
+`MVP-503`, que lo listaba como encargado.
+
+### Transferencias internacionales
+
+| Via | Destino | Garantia |
+|-----|---------|----------|
+| Alojamiento (Azure) | Region **Espana** | Sin transferencia: los datos se almacenan en la UE |
+| Correo (Arsys) | Espana | Sin transferencia |
+| Inicio de sesion (Google) | EE. UU. | Comunicacion a un **responsable independiente**, regida por sus condiciones y por sus garantias: clausulas contractuales tipo de la Comision Europea y decision de adecuacion del Marco de Privacidad de Datos UE-EE. UU. |
+
+**Ningun encargado trata datos fuera de la UE.**
+
+La transferencia a Google es **inevitable mientras el acceso sea con Google** (`RN-036`): no hay
+alternativa que ofrecer a quien no la acepte, mas alla de no crear la cuenta. Queda declarada en la
+Politica de Privacidad en vez de omitirse.
+
+### Identidad del responsable
+
+Los datos publicados en las paginas legales viven en un solo sitio,
+`src/frontend/terrenario-web/src/config/legal-entity.ts`, y cada campo admite override por variable
+de entorno `VITE_LEGAL_*`. Estan versionados a proposito: la LSSI obliga a publicarlos, asi que no
+hay nada que proteger, y un `.env` no llega al despliegue.
+
+### Atencion manual del acceso y la portabilidad (arts. 15 y 20)
+
+La **supresion** se ejerce desde la aplicacion (`MVP-505`). El **acceso** y la **portabilidad** se
+atienden a mano mientras el MVP este en validacion: con pocos usuarios y un plazo legal de un mes,
+consultar la base y entregar el resultado es conforme. Decision tomada en el gate de `MVP-504` (B-4).
+
+Que se entrega ante una solicitud, por orden de a quien pertenece el dato:
+
+| Bloque | Contenido | ¿Portabilidad (art. 20)? |
+|--------|-----------|--------------------------|
+| Cuenta | `display_name`, `email`, `google_sub`, fechas de alta y actualizacion | Si |
+| Participacion | Workspaces y rol, invitaciones enviadas y recibidas | Si |
+| Explotacion | Terrenos, temporadas, labores, cosechas, compras y consumos de los Workspaces **de su propiedad** | Los aporto, si; pero no son datos personales *sobre* la persona |
+| Agregados del dashboard | Costes, medias y totales calculados | **No**: son datos derivados |
+
+**Dos limites que hay que aplicar al preparar la respuesta**, no despues:
+
+1. **Datos de terceros.** `workers.name`, `plots.owner_name` y las menciones en texto libre de
+   `activities.description` son de otras personas. Se entregan porque el solicitante ya los conoce
+   —los introdujo el—, pero no son su derecho de portabilidad y conviene decirlo en la respuesta.
+2. **Workspaces compartidos.** Si el Workspace tiene mas miembros, el historico incluye lo que
+   registraron ellos. Se entrega solo lo de los Workspaces **de su propiedad**, y se advierte de que
+   el contenido puede tener aportaciones de terceros.
+
+**Formato**: el art. 20 exige estructurado y legible por maquina —JSON o CSV, no PDF—. El art. 15 no
+exige formato, asi que se puede responder con el mismo fichero.
+
+**Plazo**: un mes desde la solicitud, prorrogable dos mas si es compleja, avisando.
+
+La automatizacion de esto es una **funcion de producto**, mas amplia que la obligacion legal, y esta
+registrada aparte (`MVP-999`, `P-070`).
 
 ---
 
@@ -119,6 +209,98 @@ Si no existe base juridica valida, el tratamiento queda prohibido.
 | Logs de transacciones de pago | 5 años (si existe obligacion legal aplicable al caso) | Archivado seguro |
 | Logs de acceso / auditoría | 12 meses | Borrado |
 | Datos de comportamiento | 6 meses | Anonimización |
+
+### Lo que el producto conserva por diseño (MVP-505, RN-041)
+
+El MVP toma varias decisiones de **no borrar**: la baja de un Workspace es lógica (RN-039), la
+eliminación de un registro operativo también (RN-037), y una cuenta dada de baja conserva su fila
+anonimizada porque cada actividad, cosecha y compra guarda quién la registró.
+
+Todas son decisiones legítimas —borrar en cascada destruiría el histórico operativo de terceros— pero
+«no se borra nada» **necesitaba un plazo**: sin él es «se guarda para siempre sin criterio», que es lo
+que el principio de limitación del almacenamiento prohíbe. `RN-041` lo fija extendiendo el mismo
+criterio de 24 meses que ya regía para la cuenta cancelada:
+
+| Qué se conserva | Desde cuándo cuenta | Retención | Acción al expirar |
+|---|---|---|---|
+| Cuenta dada de baja (fila anonimizada) | `users.deleted_at` | 24 meses | Borrado físico de la fila |
+| Workspace dado de baja y todo su contenido (RN-039) | `workspaces.deleted_at` | 24 meses | Borrado físico |
+| Registro operativo eliminado lógicamente (RN-037) | `deleted_at` del registro | 24 meses | Borrado físico |
+| Solicitud de reactivación cerrada o caducada (RN-040) | Cierre o caducidad | 24 meses | Borrado físico |
+| Invitación en estado terminal (aceptada, rechazada, anulada o caducada) | Última transición | 24 meses | Borrado físico |
+
+**Los datos personales no esperan a ese plazo.** La baja de cuenta los borra o anonimiza en el acto
+—nombre, correo e identificador del proveedor de identidad, tanto en la cuenta como en los maestros de
+sus Workspaces y en las invitaciones que la nombraban—. Lo que se conserva 24 meses es la **fila
+anonimizada**, que ya no identifica a nadie y solo sostiene la autoría del histórico operativo.
+
+El plazo vive también en código (`AccountRetentionPolicy`) para que sea verificable y no solo
+declarado: la respuesta de la baja devuelve la fecha de purga concreta.
+
+> **Pendiente de despliegue**: la rutina que ejecuta el expurgo al vencer el plazo necesita una
+> programación periódica, que es una decisión de infraestructura. Queda anotado en el gate de
+> `MVP-504`. La política, el plazo y el cálculo de la fecha de purga sí están.
+
+---
+
+## Inventario de tecnologías de almacenamiento y terceros (MVP-505, RN-042)
+
+Evidencia para la revisión de LSSI-CE / ePrivacy. Se mantiene actualizado: **toda tecnología nueva
+entra en esta tabla antes de activarse**.
+
+> **Verificado contra el código en `MVP-503`** (2026-08-03). La primera versión de esta tabla, escrita
+> en `MVP-505`, declaraba una clave que no existía y omitía cinco que sí. Un inventario de
+> cumplimiento que no coincide con el sistema no sirve de evidencia: esta tabla se contrasta con
+> `grep` sobre el cliente, no de memoria.
+
+| Tecnología | Dónde | Para qué | Clasificación |
+|---|---|---|---|
+| Cookie `refresh_token` | Navegador (`HttpOnly`, `SameSite=Strict`, `Path=/api/v1/auth`) | Mantener la sesión que la persona ha pedido al entrar | **Estrictamente necesaria** |
+| `sessionStorage` `terrenario_at` | Navegador | Token de acceso de la sesión en curso; muere al cerrar la pestaña | **Estrictamente necesaria** |
+| `sessionStorage` `pkce_code_verifier` | Navegador | Verificador PKCE del intercambio OAuth. Sin él el acceso no es seguro | **Estrictamente necesaria** (seguridad) |
+| `sessionStorage` `oauth_state` | Navegador | Parámetro `state` anti-CSRF del retorno de Google | **Estrictamente necesaria** (seguridad) |
+| `sessionStorage` `terrenario_post_login_redirect` | Navegador | Recordar a dónde iba quien abrió un enlace de invitación sin sesión | **Estrictamente necesaria** (funcional) |
+| `localStorage` `terrenario:seen_invitations` | Navegador | No repetir el aviso de una invitación ya vista | **Estrictamente necesaria** (funcional) |
+| `sessionStorage` `terrenario_login_flow` y `terrenario_login_started` | Navegador | Correlacionar el embudo de login (RN-020) | **Medición propia** — ver más abajo |
+| Google Identity (OIDC) | Servidor | Autenticación de acceso (RN-036) | **Estrictamente necesaria**: es el método de acceso que la persona elige |
+| Tipografías e iconos | **Autoalojados** | Sistema de diseño | Sin transferencia a terceros |
+
+### El matiz de la telemetría del embudo de login (RN-020)
+
+`MVP-505` afirmó que «no hay analítica». **Es más exacto decir que no hay analítica de terceros ni
+perfilado**: sí existe una medición propia del embudo de login (`MVP-105`, RN-020), que guarda un
+identificador de flujo aleatorio en `sessionStorage` y emite tres eventos —pantalla vista, clic en
+Google y abandono— para saber dónde se cae el acceso.
+
+Por qué se concluye que **no requiere consentimiento**:
+
+- Es **de primera parte**: no interviene ningún tercero y el dato no sale del sistema.
+- **No contiene PII**: solo el nombre del evento y un identificador aleatorio, no vinculado a la
+  cuenta (la traza de éxito y error se emite en servidor, no desde el cliente).
+- **No hay seguimiento entre sitios ni perfilado**, ni se conserva más allá de la sesión: el
+  identificador vive en `sessionStorage` y muere al cerrar la pestaña.
+- Es **medición de audiencia estrictamente propia y agregada** de un único flujo, que es el supuesto
+  que las autoridades europeas tratan como exento o de riesgo mínimo.
+
+Queda registrado como decisión motivada, no como omisión. Si la medición creciera —más eventos, más
+retención, o cualquier herramienta de terceros— dejaría de encajar en este supuesto y `RN-042`
+obligaría a recabar consentimiento previo.
+
+**No hay publicidad, perfilado ni tecnologías de terceros.** Por eso el producto **no muestra banner
+de cookies**: la guía de la AEPD es explícita en que el banner es para las tecnologías **no exentas**,
+y mostrarlo cuando solo se usan las técnicas es una mala práctica que además normaliza el clic
+automático.
+
+Lo que sí hay es un **aviso de privacidad accesible** desde la aplicación y un panel donde la persona
+puede consultar este inventario en cualquier momento. Si en el futuro se incorpora cualquier
+tecnología no esencial, `RN-042` exige recabar consentimiento **antes** de activarla, con la opción
+más protectora por defecto y revocable.
+
+> **Decisión de diseño (MVP-505)**: las tipografías Inter, Plus Jakarta Sans y Material Symbols se
+> **autoalojan** en vez de cargarse desde el CDN de Google. Servirlas desde un tercero transfiere la
+> dirección IP de cada visitante a ese tercero sin base jurídica clara, que es justo el supuesto que
+> obligaría a pedir consentimiento. Autoalojarlas **elimina el problema** en vez de gestionarlo, y de
+> paso permite cerrar la CSP a `'self'`.
 
 ---
 

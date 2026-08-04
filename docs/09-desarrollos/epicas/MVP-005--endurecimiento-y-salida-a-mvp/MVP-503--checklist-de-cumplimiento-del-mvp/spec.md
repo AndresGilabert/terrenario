@@ -2,7 +2,7 @@
 id: "MVP-503"
 tipo: feature
 titulo: "Checklist de cumplimiento del MVP"
-estado: borrador
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito E — Salida controlada a MVP"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "compliance", "release"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-08-03"
 ---
 
 # MVP-503 — Checklist de cumplimiento del MVP
@@ -57,9 +57,11 @@ Dejar verificada y documentada la evidencia mínima de cumplimiento necesaria pa
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Existe evidencia documental mínima de cumplimiento RGPD/LOPDGDD para los flujos del MVP.
-- [ ] **CA-2**: Queda documentado si LSSI/ePrivacy y EIPD aplican o no al alcance MVP.
-- [ ] **CA-3**: La documentación resultante permite sostener la salida controlada definida en la épica.
+- [x] **CA-1**: Existe evidencia documental mínima de cumplimiento RGPD/LOPDGDD para los flujos del MVP.
+- [x] **CA-2**: Queda documentado si LSSI/ePrivacy y EIPD aplican o no al alcance MVP.
+- [x] **CA-3**: La documentación resultante permite sostener la salida controlada definida en la épica,
+  **con las condiciones que se listan**: la salida es sostenible una vez `MVP-504` cierre los contratos
+  de encargo y los dos bloqueos de negocio. Ver Resultado.
 
 ## Maquetas y referencias visuales
 
@@ -73,8 +75,9 @@ Dejar verificada y documentada la evidencia mínima de cumplimiento necesaria pa
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| AjustesView | RN-017 | parcial | Campos PII visibles para inventario de cumplimiento |
-| Flujo autenticacion | docs/07-seguridad/privacidad-datos.md | falta | Pendiente checklist legal y evidencia RGPD |
+| AjustesView | RN-017 | cubierto | Panel de privacidad con el inventario y baja de cuenta (MVP-505), verificados |
+| Flujo autenticacion | docs/07-seguridad/privacidad-datos.md | cubierto | Registro de tratamientos T1-T8 con base jurídica, contrastado con el esquema real |
+| Páginas legales | docs/07-seguridad/checklist-cumplimiento-mvp.md | parcial | Existen y son alcanzables; **no publicables** hasta rellenar los marcadores (`R-02`). **Cerrado después en `MVP-504`** (B-1) |
 
 ## Notas y decisiones
 
@@ -84,3 +87,51 @@ Dejar verificada y documentada la evidencia mínima de cumplimiento necesaria pa
   necesita verificar (páginas legales y consentimiento, baja de cuenta y política de retención) no
   existían en ninguna historia del roadmap: se crean en `MVP-505`, que debe entregarse antes. Sin ese
   orden, el checklist saldría en rojo sin nadie a quien devolvérselo.
+
+## Resultado de la entrega (2026-08-03)
+
+Entregable: [`docs/07-seguridad/checklist-cumplimiento-mvp.md`](../../../../07-seguridad/checklist-cumplimiento-mvp.md).
+
+**Esta revisión no ha sido una relectura de la KB.** Cada afirmación se contrastó contra el sistema
+real —esquema de base de datos, código del cliente y comportamiento de la API— y eso destapó **tres
+discrepancias entre lo documentado y lo que el sistema hace**, todas corregidas aquí. Una revisión que
+solo hubiera confirmado lo ya escrito no habría servido de nada.
+
+### Lo que se entrega
+
+- **Registro de actividades de tratamiento** (art. 30) con ocho tratamientos, su base jurídica y su
+  plazo, obtenido del esquema real y no de la documentación.
+- **Revisión de los siete principios** del art. 5, con el estado de cada uno.
+- **LSSI/ePrivacy: aplican**, y se cumplen **sin banner**, con la exención justificada tecnología por
+  tecnología.
+- **EIPD: no procede**, evaluada contra los nueve criterios del EDPB (cumple uno; se exige a partir de dos).
+- **Derechos**: la supresión se ejerce desde la aplicación; el resto es procedimiento manual.
+- **Veredicto por CA** y los bloqueos que hereda `MVP-504`.
+
+### Discrepancias encontradas y corregidas
+
+- **`R-03`** — El **inventario de tecnologías de `MVP-505` no coincidía con el código**: declaraba una
+  clave que no existe (`terrenario:privacy_ack`) y omitía **cinco** que sí (`pkce_code_verifier`,
+  `oauth_state`, `terrenario_post_login_redirect`, `terrenario_login_flow`,
+  `terrenario_login_started`). Un inventario que no coincide con el sistema no sirve de evidencia.
+- **`R-04`** — **`plots.owner_name` no estaba declarado como dato personal**, ni en la clasificación de
+  la KB ni en la Política de Privacidad, y está en uso. Es el nombre del propietario de un terreno
+  cedido: **un tercero sin cuenta**. Se añade, junto con un bloque nuevo sobre los datos de terceros
+  que introduce el usuario —quién responde de ellos, por qué esas personas no pueden ejercer sus
+  derechos desde el producto y por qué la baja de cuenta no los borra—.
+- **`R-05`** — **«No hay analítica» era inexacto**: existe medición propia del embudo de login (RN-020,
+  `MVP-105`). Analizada, **no requiere consentimiento** —primera parte, sin PII, sin seguimiento entre
+  sitios, vida de sesión—, pero la afirmación absoluta no era defendible ante una inspección. Ahora
+  está declarada y motivada.
+
+### Veredicto
+
+**El MVP no tiene deuda de cumplimiento imputable al desarrollo.** Lo que falta para publicar son
+**decisiones de negocio e infraestructura**, que hereda `MVP-504`:
+
+1. `R-01` — La **rutina de expurgo no está programada**: hoy nada se purga a los 24 meses.
+2. `R-02` — Los **datos del responsable del tratamiento son marcadores**: sin ellos no hay documento
+   publicable ni dirección donde ejercer derechos.
+3. Los **contratos de encargo** con Google, el proveedor de email y el de alojamiento.
+4. `R-06` — Sin **exportación de datos** (portabilidad, art. 20), que estaba fuera de alcance de
+   `MVP-505`. Derivado a `MVP-999` para que el gate decida si bloquea.

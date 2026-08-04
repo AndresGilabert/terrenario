@@ -288,23 +288,23 @@ public sealed class WorkspacesController(
 }
 
 public sealed record CreateWorkspaceRequest(
-    [Required(ErrorMessage = "El nombre del Workspace es obligatorio.")]
-    [StringLength(Workspace.NameMaxLength, ErrorMessage = "El nombre del Workspace es demasiado largo.")]
+    [RequiredField(ErrorCodes.ValidationRequiredWorkspaceName, "El nombre del Workspace es obligatorio.")]
+    [MaxTextLength(Workspace.NameMaxLength, ErrorCodes.ValidationWorkspaceNameLength, "El nombre del Workspace es demasiado largo.")]
     string Name);
 
 public sealed record SetActiveWorkspaceRequest(
-    [Required(ErrorMessage = "Indica el Workspace que quieres activar.")]
+    [RequiredField(ErrorCodes.ValidationRequired, "Indica el Workspace que quieres activar.")]
     [property: JsonPropertyName("workspace_id")]
     Guid? WorkspaceId);
 
 /// <summary>MVP-206 (HU-1) — Nuevo nombre del Workspace activo.</summary>
 public sealed record RenameWorkspaceRequest(
-    [Required(ErrorMessage = "El nombre del Workspace es obligatorio.")]
-    [StringLength(Workspace.NameMaxLength, ErrorMessage = "El nombre del Workspace es demasiado largo.")]
+    [RequiredField(ErrorCodes.ValidationRequiredWorkspaceName, "El nombre del Workspace es obligatorio.")]
+    [MaxTextLength(Workspace.NameMaxLength, ErrorCodes.ValidationWorkspaceNameLength, "El nombre del Workspace es demasiado largo.")]
     string Name);
 
 /// <summary>MVP-206 (HU-3/CA-4) — Persona que recibe la propiedad del Workspace.</summary>
 public sealed record TransferOwnershipRequest(
-    [Required(ErrorMessage = "Indica a qué persona traspasas la propiedad.")]
+    [RequiredField(ErrorCodes.ValidationRequiredNewOwner, "Indica a qué persona traspasas la propiedad.")]
     [property: JsonPropertyName("new_owner_user_id")]
     Guid? NewOwnerUserId);

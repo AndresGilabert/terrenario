@@ -25,8 +25,8 @@ public sealed class ListWorkspacePeopleHandler(
         var invitations = await invitationRepository.ListPendingAsync(workspaceId, ct);
 
         var now = DateTimeOffset.UtcNow;
+        // El orden lo trae ya el repositorio (P-031, resuelto en MVP-501).
         var invited = invitations
-            .OrderByDescending(i => i.CreatedAt)
             .Select(i => new WorkspaceInvitedDetail(
                 i.Id,
                 i.Channel,

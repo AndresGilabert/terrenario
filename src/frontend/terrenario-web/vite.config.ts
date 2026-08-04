@@ -15,8 +15,14 @@ import tailwindcss from '@tailwindcss/vite'
  * el arranque sin proteger nada (el servidor de desarrollo no se expone).
  *
  * `connect-src` incluye el origen real de la API porque el front y el back no comparten origen.
- * El ideal es que la CSP la emita como **cabecera** quien sirva el estático; mientras no exista esa
- * capa, el `meta` deja la política aplicada y versionada con el código en vez de pendiente.
+ *
+ * MVP-601 (`P-067`) — Además del `meta`, el plugin emite ahora `staticwebapp.config.json`, que hace
+ * que Azure Static Web Apps sirva **la misma política como cabecera**. Importa por dos motivos: hay
+ * directivas que el navegador **ignora en un `meta`** —`frame-ancestors` es una de ellas, y es la
+ * que frena el clickjacking— y una cabecera se aplica antes de parsear el documento.
+ *
+ * Los dos salen de la **misma cadena**, que es el punto: si se generaran por separado acabarían
+ * divergiendo y nadie se enteraría hasta que fallara la que no se estaba mirando.
  */
 function contentSecurityPolicy(apiBaseUrl: string): Plugin {
   const apiOrigin = (() => {
@@ -48,6 +54,36 @@ function contentSecurityPolicy(apiBaseUrl: string): Plugin {
   return {
     name: 'terrenario-csp',
     apply: 'build',
+
+    // Configuración de Azure Static Web Apps: la CSP como cabecera de verdad y el enrutado del SPA.
+    generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        fileName: 'staticwebapp.config.json',
+        source: JSON.stringify(
+          {
+            // Sin esto, entrar directo a `/legal/privacidad` o recargar en `/app/diario` da 404:
+            // esas rutas solo existen en el router del cliente, no como ficheros.
+            navigationFallback: {
+              rewrite: '/index.html',
+              exclude: ['/assets/*', '*.{svg,png,ico,webmanifest}'],
+            },
+            globalHeaders: {
+              'Content-Security-Policy': policy,
+              'X-Content-Type-Options': 'nosniff',
+              'X-Frame-Options': 'DENY',
+              // La aplicación lleva identificadores en la ruta; no hay motivo para filtrarlos al
+              // salir hacia otro sitio.
+              'Referrer-Policy': 'strict-origin-when-cross-origin',
+              'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+            },
+          },
+          null,
+          2
+        ),
+      })
+    },
+
     transformIndexHtml: {
       order: 'post',
       handler: (html) =>

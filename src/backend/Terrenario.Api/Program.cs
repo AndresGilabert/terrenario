@@ -281,12 +281,30 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// ── Auto-migrate on startup in development ────────────────────────────────────
-if (app.Environment.IsDevelopment())
+// ── Migraciones al arrancar ───────────────────────────────────────────────────
+//
+// Hasta la primera publicación esto solo corría en Development, así que un despliegue real habría
+// arrancado contra una base **vacía**: la aplicación levantaba y fallaba en la primera consulta.
+//
+// Se activa en todos los entornos, con interruptor para poder apagarlo. Es la opción simple y en
+// este producto es segura porque la API corre en **una sola instancia**; si algún día escala, dos
+// réplicas migrando a la vez es un problema real y habrá que mover esto al pipeline.
+//
+// Que una migración fallida impida arrancar es **deliberado**: es preferible a servir peticiones
+// contra un esquema que no es el que el código espera.
+if (builder.Configuration.GetValue("Database:MigrateOnStartup", true))
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<TerrenarioDbContext>();
-    await db.Database.MigrateAsync();
+    var pending = (await db.Database.GetPendingMigrationsAsync()).ToArray();
+
+    if (pending.Length > 0)
+    {
+        app.Logger.LogInformation(
+            "Aplicando {Count} migraciones pendientes: {Migrations}", pending.Length, string.Join(", ", pending));
+        await db.Database.MigrateAsync();
+        app.Logger.LogInformation("Migraciones aplicadas.");
+    }
 }
 
 app.Run();

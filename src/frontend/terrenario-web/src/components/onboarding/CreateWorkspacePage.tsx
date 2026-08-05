@@ -125,8 +125,10 @@ export const CreateWorkspacePage: React.FC<CreateWorkspacePageProps> = ({ mode =
           )}
 
           <div className="bg-[#f0ede8] rounded-xl p-4 border border-[#e5e2dd] flex items-center gap-4">
+            {/* MVP-599 — Autoalojada, misma razón que en la landing: una carga externa aquí
+                comunicaría la IP de la persona a un tercero. */}
             <img
-              src="https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=300&auto=format&fit=crop&q=80"
+              src="/campo.jpg"
               alt=""
               aria-hidden="true"
               className="w-20 h-20 rounded-lg object-cover shadow-xs shrink-0"

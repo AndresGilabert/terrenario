@@ -1,7 +1,7 @@
 ---
 bloque: 07-seguridad
 documento: checklist-cumplimiento-mvp
-actualizado_en: "2026-08-04"
+actualizado_en: "2026-08-05"
 ---
 
 # Checklist de cumplimiento del MVP (MVP-503)
@@ -77,9 +77,22 @@ equipo del usuario, así que el art. 22.2 LSSI está en juego.
 | `terrenario:seen_invitations` | Funcional: no repetir un aviso ya visto |
 | `terrenario_login_flow`, `terrenario_login_started` | Medición **propia y agregada** de un único flujo, sin PII ni seguimiento entre sitios |
 
-**Sin transferencias a terceros desde el navegador.** `MVP-505` autoalojó las tipografías, que era la
-única carga externa; verificado en navegador: **cero peticiones a dominios de Google** al cargar la
-aplicación.
+**Sin transferencias a terceros desde el navegador.** `MVP-505` autoalojó las tipografías y
+`MVP-599` la fotografía de la landing; verificado en navegador y, desde entonces, **por un test que
+recorre el código fuente** (`sin-recursos-externos.test.ts`).
+
+> **Corrección (2026-08-05).** Esta afirmación era **incorrecta** tal y como se verificó la primera
+> vez. La comprobación buscaba «cero peticiones a **dominios de Google**» y se hizo sobre la
+> aplicación autenticada, así que no vio una fotografía servida desde `images.unsplash.com` en la
+> **landing** y en el alta de Workspace. Comunicaba la IP de cada visitante a un tercero.
+>
+> Salió al publicar, y lo delató la CSP: `img-src 'self' data:` bloqueaba la imagen, así que el
+> síntoma visible fue «no se ven las imágenes». **Relajar la CSP habría sido el arreglo equivocado**;
+> lo correcto era autoalojar el recurso, que es lo que se hizo.
+>
+> La lección está convertida en test: verificar «no hay peticiones a X» es más débil que verificar
+> «no hay peticiones a nadie», y hacerlo a mano depende de qué pantalla se le ocurra visitar a quien
+> revisa.
 
 Que no haya banner es **la conducta correcta**, no una omisión: la guía de la AEPD reserva el banner
 para las tecnologías no exentas, y mostrarlo cuando solo se usan las técnicas normaliza el clic

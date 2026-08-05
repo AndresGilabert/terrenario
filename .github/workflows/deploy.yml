@@ -86,6 +86,11 @@ jobs:
     needs: comprobar-gate
     runs-on: ubuntu-latest
     environment: produccion
+    permissions:
+      # Necesario para que GitHub emita el token OIDC con el que Azure nos reconoce. `contents: read`
+      # hay que declararlo explícitamente: en cuanto se declara un permiso, el resto pasa a `none`.
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -132,6 +137,24 @@ jobs:
           test -f ./publicacion/wwwroot/csp.policy
           echo "Cliente incrustado."
 
+      # Identidad federada en vez de perfil de publicación. No es preferencia: Azure trae desactivada
+      # la autenticación básica de publicación —`scm` y `ftp` en `false`— desde hace años, así que el
+      # perfil llega **sin credenciales** y el despliegue falla con «Publish profile is invalid».
+      #
+      # La alternativa era reactivar esa autenticación básica, y habría sido el único punto del
+      # montaje donde se elige la opción menos segura: un endpoint con usuario y contraseña, más un
+      # secreto de larga vida en GitHub que sirve para desplegar hasta que alguien lo rote.
+      #
+      # Aquí **no hay ningún secreto almacenado**: GitHub emite un token de un solo uso por ejecución
+      # y Azure solo lo acepta si viene de este repositorio y del entorno `produccion`. La identidad
+      # tiene el rol *Website Contributor* acotado a **esta aplicación web**, no al grupo de recursos.
+      - name: Identificarse en Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
       # Las migraciones las aplica la propia API al arrancar (`Database:MigrateOnStartup`), así que
       # aquí no hay paso de base de datos. Si una migración falla, la aplicación no arranca y el
       # despliegue se nota en el arranque, no en la primera consulta de un usuario.
@@ -139,7 +162,6 @@ jobs:
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ vars.AZURE_WEBAPP_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: ./publicacion
 
   humo:

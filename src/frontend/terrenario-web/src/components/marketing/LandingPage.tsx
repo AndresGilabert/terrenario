@@ -89,8 +89,11 @@ export const LandingPage: React.FC = () => {
         {/* Hero image (decorativa; sin métricas inventadas, coherente con MVP-106) */}
         <div className="lg:col-span-5">
           <div className="relative rounded-2xl overflow-hidden shadow-2xl border-4 border-white bg-[#f0ede8]">
+            {/* MVP-599 — Autoalojada. Venía de `images.unsplash.com`, y eso comunicaba la IP de cada
+                visitante a un tercero: contradice lo que declara la Política de Privacidad y lo que
+                afirma la checklist de cumplimiento. La CSP la bloqueaba, que era la señal correcta. */}
             <img
-              src="https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1000&auto=format&fit=crop&q=80"
+              src="/campo.jpg"
               alt=""
               aria-hidden="true"
               className="w-full h-[300px] sm:h-[420px] object-cover"

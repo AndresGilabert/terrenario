@@ -170,6 +170,27 @@ jobs:
     runs-on: ubuntu-latest
     environment: produccion
     steps:
+      # Tras desplegar, el App Service reinicia y la primera petición llega mientras el contenedor
+      # arranca **y aplica migraciones**. En la primera publicación el smoke pidió a las 00:09:57.37
+      # y la aplicación quedó lista a las 00:09:58.48: falló por un segundo, con todo correcto.
+      #
+      # Esperar no afloja la comprobación —el gate ya pasó y los asertos siguen igual de estrictos—:
+      # solo deja de confundir «todavía no ha arrancado» con «está roto».
+      - name: Esperar a que la aplicación esté en pie
+        run: |
+          set -e
+          for intento in $(seq 1 30); do
+            codigo=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 "${{ vars.PUBLIC_WEB_URL }}/" || echo 000)
+            if [ "$codigo" = "200" ]; then
+              echo "Responde 200 tras $intento intento(s)."
+              exit 0
+            fi
+            echo "Intento $intento/30 — devolvió $codigo"
+            sleep 10
+          done
+          echo "La aplicación no llegó a responder 200 en 5 minutos." >&2
+          exit 1
+
       # Comprobación mínima de que lo publicado responde. No sustituye al smoke manual del gate,
       # pero convierte «el despliegue terminó» en «el despliegue sirve algo».
       - name: La API responde con sus cabeceras de seguridad

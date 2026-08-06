@@ -76,4 +76,50 @@ public sealed class HealthAndOpsTests : IAsyncLifetime
         body.TryGetProperty("business_7d", out _).Should().BeTrue();
         body.GetProperty("alerts").GetArrayLength().Should().Be(0, "la vigilancia está apagada en el arnés");
     }
+
+    /// <summary>
+    /// MVP-699 (`R-01`) — La serie diaria, que es lo que permite comparar una semana con la anterior y
+    /// fijar el baseline que pide <c>kpis.md</c>.
+    /// </summary>
+    [Fact]
+    public async Task OpsSignals_Deberia_DevolverLaSerieDiariaConElRangoPedido()
+    {
+        await using var factory = new TerrenarioApiFactory();
+        await factory.InitializeAsync();
+        var client = factory.WithOpsKey("llave").CreateClient();
+
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/ops/signals?days=10");
+        request.Headers.Add(OpsController.ApiKeyHeader, "llave");
+
+        var body = await (await client.SendAsync(request)).Content.ReadFromJsonAsync<JsonElement>();
+
+        body.GetProperty("daily_days").GetInt32().Should().Be(10);
+        var dias = body.GetProperty("daily");
+        dias.GetArrayLength().Should().Be(10);
+
+        // Las fechas llegan ordenadas y sin huecos: una serie con dias omitidos no se puede leer como
+        // tendencia, que es justo para lo que existe.
+        var fechas = dias.EnumerateArray()
+            .Select(d => DateOnly.Parse(d.GetProperty("date").GetString()!))
+            .ToArray();
+
+        fechas.Should().BeInAscendingOrder();
+        fechas[^1].Should().Be(DateOnly.FromDateTime(DateTime.UtcNow));
+        fechas.Zip(fechas.Skip(1)).Should().OnlyContain(par => par.Second == par.First.AddDays(1));
+    }
+
+    [Fact]
+    public async Task OpsSignals_Deberia_UsarElRangoPorDefecto_Cuando_NoSePide()
+    {
+        await using var factory = new TerrenarioApiFactory();
+        await factory.InitializeAsync();
+        var client = factory.WithOpsKey("llave").CreateClient();
+
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/ops/signals");
+        request.Headers.Add(OpsController.ApiKeyHeader, "llave");
+
+        var body = await (await client.SendAsync(request)).Content.ReadFromJsonAsync<JsonElement>();
+
+        body.GetProperty("daily_days").GetInt32().Should().Be(28);
+    }
 }

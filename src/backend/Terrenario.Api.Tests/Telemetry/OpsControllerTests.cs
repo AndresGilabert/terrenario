@@ -48,7 +48,7 @@ public class OpsControllerTests
     {
         // 404 y no 401: si alguna vez se despliega sin configurarlo, el fallo debe ser que no se puede
         // consultar, no que lo pueda consultar cualquiera.
-        var result = await CreateSut(apiKey: null, providedKey: Key).Signals(CancellationToken.None);
+        var result = await CreateSut(apiKey: null, providedKey: Key).Signals(null, CancellationToken.None);
 
         result.Should().BeOfType<NotFoundResult>();
     }
@@ -60,7 +60,7 @@ public class OpsControllerTests
     [InlineData("llave-de-operacion-mas-larga")]
     public async Task Deberia_RechazarSinLaLlaveCorrecta(string? provided)
     {
-        var result = await CreateSut(Key, provided).Signals(CancellationToken.None);
+        var result = await CreateSut(Key, provided).Signals(null, CancellationToken.None);
 
         result.Should().BeOfType<UnauthorizedResult>();
     }
@@ -68,7 +68,7 @@ public class OpsControllerTests
     [Fact]
     public async Task Deberia_DevolverLasSenales_ConLaLlaveCorrecta()
     {
-        var result = await CreateSut(Key, Key).Signals(CancellationToken.None);
+        var result = await CreateSut(Key, Key).Signals(null, CancellationToken.None);
 
         result.Should().BeOfType<OkObjectResult>();
     }

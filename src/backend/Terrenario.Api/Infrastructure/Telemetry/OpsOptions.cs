@@ -30,7 +30,12 @@ public sealed class OpsOptions
     /// </summary>
     public string AlertEmail { get; set; } = string.Empty;
 
-    /// <summary>Permite apagar la vigilancia. Se desactiva en los tests de API.</summary>
+    /// <summary>
+    /// Permite apagar la vigilancia. Se desactiva en los tests de API y, desde <c>MVP-699</c> (`R-05`),
+    /// también en <b>desarrollo</b>: una máquina de trabajo con cuenta de envío y destinatario
+    /// configurados mandaba correos de alerta reales por cualquier error transitorio mientras se
+    /// programa. Las alertas se prueban con sus tests, no dejándolas sueltas en local.
+    /// </summary>
     public bool AlertsEnabled { get; set; } = true;
 
     public bool IsSignalsEndpointEnabled => !string.IsNullOrWhiteSpace(ApiKey);

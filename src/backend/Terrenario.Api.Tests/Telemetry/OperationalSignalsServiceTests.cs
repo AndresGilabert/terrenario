@@ -187,6 +187,21 @@ public class OperationalSignalsServiceTests
     }
 
     [Fact]
+    public async Task Deberia_PublicarLoExcluidoDelSlo_ParaQueElRecorteSeVea()
+    {
+        // Excluir tráfico del divisor sin decirlo sería recortarlo a escondidas, y la revisión leería
+        // «no hubo ese tráfico» donde en realidad hubo y no se contó.
+        var report = await CreateSut(new Dictionary<string, long>
+        {
+            [TelemetryMetrics.ApiInternalRequests] = 1440,
+            [TelemetryMetrics.ApiInternalRequests5xx] = 3,
+        }).BuildAsync(null, CancellationToken.None);
+
+        report.Slo.InternalRequests7d.Should().Be(1440);
+        report.Slo.InternalErrors7d.Should().Be(3);
+    }
+
+    [Fact]
     public async Task Deberia_IncluirElEstadoDeLasAlertas()
     {
         _alerts.Apply(new AlertVerdict(AlertNames.ServiceDown, AlertSeverity.Critical, true, "caída"), Ahora);

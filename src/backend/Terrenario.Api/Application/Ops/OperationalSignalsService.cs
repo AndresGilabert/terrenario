@@ -52,7 +52,9 @@ public sealed class OperationalSignalsService(
                 LatencyP95Ms7d: AlertEvaluator.LatencyP95Ms(last7),
                 LatencyP95ObjectiveMs: 300,
                 HealthyMinutes30d: last30.GetValueOrDefault(TelemetryMetrics.HealthProbeOk),
-                DegradedMinutes30d: last30.GetValueOrDefault(TelemetryMetrics.HealthProbeFailed)),
+                DegradedMinutes30d: last30.GetValueOrDefault(TelemetryMetrics.HealthProbeFailed),
+                InternalRequests7d: last7.GetValueOrDefault(TelemetryMetrics.ApiInternalRequests),
+                InternalErrors7d: last7.GetValueOrDefault(TelemetryMetrics.ApiInternalRequests5xx)),
             LoginFunnel7d: new LoginFunnelSignals(
                 ScreenViewed: last7.GetValueOrDefault(TelemetryMetrics.LoginScreenViewed),
                 GoogleClicked: last7.GetValueOrDefault(TelemetryMetrics.LoginGoogleClicked),
@@ -171,13 +173,20 @@ public sealed record OperationalSignals(
 /// Minutos observados sanos. <b>No es uptime</b>: los minutos en los que el proceso estuvo caído no se
 /// observan, así que esto mide degradación, no caída. La disponibilidad real la mide la sonda externa.
 /// </param>
+/// <param name="InternalRequests7d">
+/// MVP-699 (`R-03`) — Peticiones **excluidas** del SLO por no ser tráfico de nadie (sonda de salud,
+/// consulta de señales, ingesta de telemetría). Se publican para que la exclusión sea visible: un
+/// recorte que no se ve se acaba leyendo como si nunca hubiera existido ese tráfico.
+/// </param>
 public sealed record SloSignals(
     double? ErrorRate7d,
     double ErrorRateObjective,
     int? LatencyP95Ms7d,
     int LatencyP95ObjectiveMs,
     long HealthyMinutes30d,
-    long DegradedMinutes30d);
+    long DegradedMinutes30d,
+    long InternalRequests7d,
+    long InternalErrors7d);
 
 public sealed record LoginFunnelSignals(
     long ScreenViewed,

@@ -2,7 +2,7 @@
 id: "MVP-006"
 tipo: epica
 titulo: "Observabilidad inicial"
-estado: borrador
+estado: completado
 prioridad: media
 hito: "Hito F — Operación medible"
 tickets: []
@@ -19,7 +19,7 @@ ai_context:
   etiquetas: ["mvp", "observability", "telemetry"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-24"
+actualizado_en: "2026-08-06"
 ---
 
 # EPICA MVP-006 — Observabilidad inicial
@@ -54,9 +54,13 @@ Disponer de la telemetría mínima necesaria para detectar abandono en login, us
 
 ## Criterios de aceptación de la épica
 
-- [ ] **CA-1**: Todas las historias de la épica están en estado `completado`.
-- [ ] **CA-2**: El equipo puede medir de forma trazable el embudo de login y el uso del dashboard sin exponer PII sensible en claro.
-- [ ] **CA-3**: Existen alertas básicas o señales equivalentes para detectar degradaciones iniciales del MVP en operación.
+- [x] **CA-1**: Todas las historias de la épica están en estado `completado`.
+- [x] **CA-2**: El equipo puede medir de forma trazable el embudo de login y el uso del dashboard sin exponer PII sensible en claro.
+- [x] **CA-3**: Existen alertas básicas o señales equivalentes para detectar degradaciones iniciales del MVP en operación.
+
+> Veredicto sustentado en la pasada de verificación de `MVP-699`. **CA-3 se dio por cumplido solo tras
+> corregir `R-03`**: las cinco alertas existían y disparaban, pero la sonda de salud ocupaba el 87 % del
+> divisor del SLO y `HighErrorRate` no podía saltar con tráfico realista.
 
 ## Historias de esta épica
 
@@ -93,3 +97,16 @@ Matriz historia -> utilidad del prototipo:
 
 - Esta épica no antecede al núcleo MVP; lo acompaña cuando ya existe algo estable que medir.
 - Debe mantenerse deliberadamente pequeña para no competir con la entrega funcional principal.
+
+### Decisiones de cierre
+
+- **Qué se conserva**: contadores diarios agregados, no una traza de eventos. Los KPI de la KB salen
+  igual y no se persiste ningún identificador, así que la medición no añade categoría de dato a
+  `RN-041` ni saca a la medición del supuesto de exención de `RN-042`. La evaluación se rehízo —no se
+  dio por hecha— al ampliar la medición más allá del acceso, y se actualizó lo publicado.
+- **Sin interfaz, a propósito**: las señales se consultan por HTTP con llave de servicio. Es coherente
+  con el «N/A en fase C» de la tabla de dashboards; una pantalla queda diferida (`P-074`) y abriría
+  antes la pregunta de quién puede verla, que hoy no tiene respuesta porque no hay roles.
+- **Punto ciego declarado**: un proceso muerto no se vigila a sí mismo. La caída total depende de una
+  sonda externa que reinicia pero no avisa (`P-077`).
+- La épica deja siete puntos derivados en `MVP-999` (`P-073` a `P-079`).

@@ -77,7 +77,12 @@ public sealed class OpsController(
                 // Deliberadamente no se llama `uptime`: mide minutos **observados**, y un proceso caído
                 // no se observa a sí mismo (ver `observabilidad.md`).
                 healthy_minutes_30d = report.Slo.HealthyMinutes30d,
-                degraded_minutes_30d = report.Slo.DegradedMinutes30d
+                degraded_minutes_30d = report.Slo.DegradedMinutes30d,
+                // MVP-699 (`R-03`) — Lo que queda fuera del SLO, a la vista: sonda de salud, esta misma
+                // consulta e ingesta de telemetría. Excluirlo sin decirlo sería recortar el divisor a
+                // escondidas.
+                internal_requests_7d = report.Slo.InternalRequests7d,
+                internal_errors_7d = report.Slo.InternalErrors7d
             },
             login_funnel_7d = new
             {

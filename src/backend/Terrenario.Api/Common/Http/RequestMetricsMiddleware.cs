@@ -19,6 +19,27 @@ namespace Terrenario.Api.Common.Http;
 /// </summary>
 public sealed class RequestMetricsMiddleware(RequestDelegate next)
 {
+    /// <summary>
+    /// MVP-699 (`R-03`) — Rutas que el servidor sirve pero que **no son tráfico de nadie**: la sonda de
+    /// salud del alojamiento, la consulta de señales del propio equipo y la ingesta de telemetría.
+    ///
+    /// Quedan fuera del SLO porque lo hundían. Medido en la revisión: una hora de sonda más ocho
+    /// peticiones de negocio dejaba la sonda en el **87 % del divisor**. Con tráfico realista —1440
+    /// sondas al día frente a 200 peticiones reales— un 5 % de fallo real se lee como 0,61 % y
+    /// <c>HighErrorRate</c> **no salta**. La latencia sufría lo mismo: la sonda es trivial y arrastraba
+    /// el P95 hacia abajo.
+    ///
+    /// No se descartan: se cuentan en <c>api.internal.*</c>, para que dejar de servirlas siga siendo
+    /// visible.
+    /// </summary>
+    private static readonly string[] NonUserFacingPaths =
+    [
+        "/api/v1/health",
+        "/api/v1/ops",
+        "/api/v1/telemetry",
+        "/api/v1/auth/telemetry",
+    ];
+
     public async Task InvokeAsync(HttpContext context, ITelemetryCounters counters)
     {
         // Los ficheros del cliente no son la API: contarlos hundiría la latencia media y metería en el
@@ -50,6 +71,13 @@ public sealed class RequestMetricsMiddleware(RequestDelegate next)
     private static void Record(
         ITelemetryCounters counters, HttpContext context, int statusCode, TimeSpan elapsed)
     {
+        if (IsNonUserFacing(context.Request.Path))
+        {
+            counters.Add(TelemetryMetrics.ApiInternalRequests);
+            if (statusCode >= 500) counters.Add(TelemetryMetrics.ApiInternalRequests5xx);
+            return;
+        }
+
         counters.Add(TelemetryMetrics.ApiRequests);
 
         if (statusCode >= 500) counters.Add(TelemetryMetrics.ApiRequests5xx);
@@ -71,6 +99,9 @@ public sealed class RequestMetricsMiddleware(RequestDelegate next)
             if (ResourceOf(context) is { } resource) counters.Add(TelemetryMetrics.CreatedFor(resource));
         }
     }
+
+    private static bool IsNonUserFacing(PathString path)
+        => NonUserFacingPaths.Any(prefix => path.StartsWithSegments(prefix));
 
     /// <summary>
     /// Primer segmento tras <c>/api/v1/</c>, saneado. Sale de la ruta y no de un valor de la petición,

@@ -2,7 +2,7 @@
 id: "MVP-699"
 tipo: feature
 titulo: "Revision epica"
-estado: en-progreso
+estado: completado
 prioridad: media
 sprint: ""
 hito: "Hito F — Operación medible"
@@ -78,12 +78,25 @@ Ejecutar una revision final de la epica para validar el funcionamiento global, c
 
 ---
 
-## Resultado de la revisión (en curso, 2026-08-06)
+## Resultado de la revisión (2026-08-06)
 
-### Cómo se hace
+### Cómo se hizo
 
-Verificación sobre el sistema en marcha, no releyendo la KB: API real, base de datos real y consulta
-de los endpoints publicados. Cada hallazgo se numera `R-xx` y dice si se corrige aquí o se deriva.
+Verificación sobre el sistema en marcha, no releyendo la KB: API real, base de datos real, consulta de
+los endpoints publicados y rastreo de la traza generada por una sesión autenticada. Cada hallazgo se
+numera `R-xx` y dice si se corrigió aquí o se derivó.
+
+### Qué se verificó, y con qué evidencia
+
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Estado de las historias | Frontmatter de los tres `spec.md` | `MVP-601`, `MVP-602` y `MVP-603` en `completado` |
+| Visibilidad de las señales | Contraste de las métricas almacenadas contra la respuesta de `/ops/signals` | No están solo en base de datos, pero faltaba la serie temporal (`R-01`) |
+| Interfaz | `grep` sobre el cliente | **Ninguna pantalla** consume las señales; derivado (`P-074`) |
+| Rama de error del embudo | `POST /auth/google/callback` con código inválido contra la API real | `login_google_error` emitido con las seis dimensiones y su `error_code` |
+| Ausencia de PII | Rastreo de nombre, correo, JWT, `Bearer` e identificadores sobre la traza de una sesión autenticada | **Cero coincidencias** en líneas de telemetría; la única dirección del log va enmascarada (`a***@gmail.com`) |
+| Dilución del SLO | Una hora de sonda (60) más 8 peticiones de negocio, contando el divisor real | La sonda era el **87 %** del divisor (`R-03`) |
+| Alertas de extremo a extremo | Parada del contenedor de PostgreSQL en `MVP-603`, y un 500 real en esta pasada | `ServiceDown` y `HighErrorRate` disparadas y resueltas, con correo enviado |
 
 ### Hallazgos
 
@@ -123,7 +136,80 @@ El resto del desglose que sigue siendo solo-SQL (qué widget falla, qué código
 recurso se crea, historial de alertas, visitas frente a sesiones, histograma de latencia) se deriva a
 `MVP-999` (`P-073`), y la pantalla de operación a `P-074`, por decisión del PO.
 
-### Hallazgos pendientes de la pasada de verificación
+#### `R-02` · La señal de «sesión activa» nunca se emite en onboarding — **derivado**
 
-> La revisión sigue en curso: quedan por ejercitar el flujo integrado completo y el resto de
-> criterios de la épica.
+`TelemetryController` documenta que no exige Workspace activo *«a propósito: una sesión en onboarding
+también es una sesión activa, y dejarla fuera del divisor subiría el KPI»*. Pero `app_session_started`
+se emite desde `AppLayout`, que está anidado dentro de `RequireWorkspace`, y esa guarda redirige a
+`/onboarding` cuando no hay Workspace.
+
+El endpoint lo permite y el cliente no lo manda nunca: **el divisor sigue excluyendo justo lo que se
+dijo que incluía**. El KPI mide «de las sesiones que llegaron al área operativa, cuántas abrieron el
+panel», que es una pregunta más estrecha y más favorable que la que declara la KB.
+
+No se corrige aquí porque la salida correcta depende de qué se decida que es una «sesión activa», y eso
+es producto, no implementación. Derivado a `MVP-999` (`P-078`).
+
+#### `R-03` · La sonda de salud diluía el SLO hasta desactivar la alerta — **corregido aquí**
+
+`RequestMetricsMiddleware` contaba **toda** petición a `/api`, incluida la sonda de salud del
+alojamiento y la ingesta de telemetría. Medido en esta pasada: una hora de sonda más ocho peticiones de
+negocio dejaba la sonda en el **87 % del divisor**.
+
+La consecuencia es aritmética y grave. Con tráfico realista —1440 sondas al día frente a 200
+peticiones reales—:
+
+```text
+5 % de fallo real  ->  10 errores / 1640 peticiones = 0,61 %
+umbral de HighErrorRate: 1 %  ->  NO SALTA
+```
+
+Un producto fallando una de cada veinte veces no habría disparado la alerta crítica. La latencia sufría
+lo mismo: 67 de 69 muestras caían en el cubo de 50 ms porque la sonda es trivial, así que el P95
+publicado era el de la sonda, no el del producto.
+
+**Corrección**: la sonda de salud, la consulta de señales y la ingesta de telemetría salen del SLO. No
+se descartan —se cuentan en `api.internal.*` y se publican en el informe—, porque un recorte del
+divisor que no se ve se acaba leyendo como si ese tráfico nunca hubiera existido.
+
+**Evidencia tras la corrección**: el mismo experimento deja `api.requests = 8` (el tráfico real) y
+`api.internal.requests = 66`. Con 200 peticiones y un 5 % de fallo, la alerta ahora sí salta.
+
+#### `R-04` · Un código de Google caducado devuelve 500 y dispara una alerta crítica — **derivado**
+
+Cualquier respuesta no exitosa del endpoint de token de Google se mapea a
+`AUTH_GOOGLE_EXCHANGE_FAILED` → **HTTP 500**, incluido `invalid_grant`, que es lo que Google devuelve
+ante un código ya usado o expirado. Recargar la pantalla de callback basta para provocarlo.
+
+Verificado: un solo 500 de este tipo sobre 70 peticiones dio 1,43 % y disparó `HighErrorRate`
+—**crítica**— con envío de correo real.
+
+Es comportamiento anterior a esta épica, pero **solo tiene consecuencia desde `MVP-603`**: antes no lo
+miraba nadie. Se deriva porque la corrección está en autenticación, fuera del alcance de una épica de
+observabilidad. `MVP-999` (`P-079`).
+
+#### `R-05` · Desarrollar en local enviaba correos de alerta reales — **corregido aquí**
+
+`Ops:AlertsEnabled` venía a `true` también en desarrollo. Con cuenta de envío y destinatario
+configurados en la máquina de trabajo, cualquier error transitorio mientras se programa acababa en un
+correo de alerta. Pasó durante esta misma revisión.
+
+**Corrección**: `appsettings.Development.json` apaga la vigilancia. Las alertas se prueban con sus
+tests, no dejándolas sueltas en local.
+
+### Veredicto por criterio de la épica
+
+| Criterio | Veredicto | Sustento |
+|---|---|---|
+| **CA-1** — Todas las historias en `completado` | ✅ | `MVP-601`, `MVP-602` y `MVP-603` verificados en frontmatter |
+| **CA-2** — Medir embudo y uso de forma trazable, sin PII en claro | ✅ | Las cinco etapas del embudo y las cuatro señales de uso se emiten y se agregan; rastreo de PII sobre la traza real sin ninguna coincidencia. Con la salvedad de `R-02`, que estrecha el divisor de un KPI sin invalidar la trazabilidad |
+| **CA-3** — Alertas o señales equivalentes para detectar degradaciones | ✅ **tras corregir `R-03`** | Antes de la corrección el criterio estaba cumplido en la forma —las cinco alertas existen y disparan— pero la principal no podía saltar con tráfico realista. Con el divisor arreglado, sí |
+
+### Lo que esta revisión deja dicho para la siguiente
+
+- La observabilidad **no tiene interfaz**, y es una decisión consciente alineada con el «N/A en fase C»
+  de la KB, no un olvido (`P-074`).
+- **Un proceso muerto no se vigila a sí mismo**: la caída total depende de una sonda externa que hoy
+  reinicia pero no avisa (`P-077`).
+- Las dos primeras semanas de datos reales servirán para saber si los volúmenes mínimos de alerta (20
+  peticiones, 10 pantallas) son los adecuados para el tráfico que tenga el producto.

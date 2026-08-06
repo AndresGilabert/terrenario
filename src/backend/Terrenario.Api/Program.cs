@@ -38,6 +38,8 @@ using Terrenario.Api.Infrastructure.Data.Repositories;
 using Terrenario.Api.Infrastructure.Email;
 using Terrenario.Api.Infrastructure.Invitations;
 using Terrenario.Api.Infrastructure.Telemetry;
+using Terrenario.Api.Infrastructure.Telemetry.Alerts;
+using Terrenario.Api.Application.Ops;
 using Terrenario.Api.Application.Retention;
 using Terrenario.Api.Infrastructure.Retention;
 using Terrenario.Api.Infrastructure.Tokens;
@@ -80,6 +82,8 @@ builder.Services.Configure<RetentionOptions>(
     builder.Configuration.GetSection(RetentionOptions.SectionName));
 builder.Services.Configure<TelemetryOptions>(
     builder.Configuration.GetSection(TelemetryOptions.SectionName));
+builder.Services.Configure<OpsOptions>(
+    builder.Configuration.GetSection(OpsOptions.SectionName));
 
 // ── Database ─────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<TerrenarioDbContext>(options =>
@@ -127,10 +131,20 @@ builder.Services.AddScoped<IRefreshTokenStore, RefreshTokenStore>();
 // scoped porque su logger lo es.
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<TelemetryCounterAccumulator>();
-builder.Services.AddSingleton<ITelemetryCounters>(sp => sp.GetRequiredService<TelemetryCounterAccumulator>());
+// MVP-603 — Cada medida va a dos sitios: la serie diaria que se conserva y la ventana corta sobre la
+// que deciden las alertas. Quien mide sigue llamando a `ITelemetryCounters` sin saberlo.
+builder.Services.AddSingleton<RollingWindowMetrics>();
+builder.Services.AddSingleton<ITelemetryCounters, CompositeTelemetryCounters>();
 builder.Services.AddSingleton<LoginFlowTimings>();
 builder.Services.AddScoped<ITelemetryCounterStore, TelemetryCounterStore>();
 builder.Services.AddHostedService<TelemetryFlushWorker>();
+// Salud y vigilancia (MVP-603). El estado de las alertas es singleton: la vigilancia lo escribe y la
+// revisión operativa lo lee.
+builder.Services.AddScoped<HealthProbe>();
+builder.Services.AddScoped<IAlertNotifier, AlertNotifier>();
+builder.Services.AddSingleton<AlertStateStore>();
+builder.Services.AddHostedService<AlertMonitor>();
+builder.Services.AddScoped<OperationalSignalsService>();
 builder.Services.AddScoped<ILoginTelemetry, LoginTelemetryService>();
 // MVP-602 — Señales de uso del producto: comparten acumulador y almacén con el embudo de login.
 builder.Services.AddScoped<IUsageTelemetry, UsageTelemetryService>();
@@ -312,6 +326,7 @@ if (app.Environment.IsDevelopment())
 
 // Transversales primero, para que cubran también respuestas de error y redirecciones (MVP-105).
 app.UseMiddleware<RequestIdMiddleware>();       // X-Request-Id + scope de logging (P-006)
+app.UseMiddleware<RequestMetricsMiddleware>();  // Peticiones, 5xx y latencia P95 (MVP-603)
 app.UseMiddleware<SecurityHeadersMiddleware>(); // Headers de seguridad HTTP (P-005)
 
 app.UseHttpsRedirection();

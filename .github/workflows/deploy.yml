@@ -179,8 +179,12 @@ jobs:
       - name: Esperar a que la aplicación esté en pie
         run: |
           set -e
+          # MVP-603 — Se espera a `/api/v1/health` y no a `/`: la raíz devuelve 200 en cuanto el
+          # proceso sirve ficheros estáticos, aunque la base de datos no esté. La sonda de salud
+          # comprueba lo que hace falta para prestar servicio, que es lo que se quiere confirmar
+          # antes de dar por buena una publicación.
           for intento in $(seq 1 30); do
-            codigo=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 "${{ vars.PUBLIC_WEB_URL }}/" || echo 000)
+            codigo=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 "${{ vars.PUBLIC_WEB_URL }}/api/v1/health" || echo 000)
             if [ "$codigo" = "200" ]; then
               echo "Responde 200 tras $intento intento(s)."
               exit 0
@@ -188,8 +192,17 @@ jobs:
             echo "Intento $intento/30 — devolvió $codigo"
             sleep 10
           done
-          echo "La aplicación no llegó a responder 200 en 5 minutos." >&2
+          echo "La sonda de salud no llegó a responder 200 en 5 minutos." >&2
           exit 1
+
+      - name: La sonda de salud confirma que se alcanza la base de datos
+        run: |
+          set -e
+          cuerpo=$(curl -sSf --max-time 30 "${{ vars.PUBLIC_WEB_URL }}/api/v1/health")
+          echo "$cuerpo"
+          echo "$cuerpo" | grep -q '"status":"healthy"'
+          echo "$cuerpo" | grep -q '"database":"healthy"'
+          echo "Salud correcta."
 
       # Comprobación mínima de que lo publicado responde. No sustituye al smoke manual del gate,
       # pero convierte «el despliegue terminó» en «el despliegue sirve algo».

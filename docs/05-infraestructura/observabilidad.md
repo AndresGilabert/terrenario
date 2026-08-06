@@ -45,16 +45,62 @@ Escalado a stack completo: al entrar en fase B o antes si hay 2 meses seguidos c
 
 | Alerta | Condición | Severidad | Canal | Runbook |
 |--------|-----------|-----------|-------|---------|
-| `HighErrorRate` | Tasa 5xx fuera de umbral operativo | critica | canal de incidentes | `runbooks/` |
-| `HighLatency` | P95 fuera de umbral operativo | warning | canal de incidentes | `runbooks/` |
-| `ServiceDown` | Health check falla > 1min | critica | canal de incidentes | `runbooks/` |
+| `HighErrorRate` | Tasa 5xx > 1 % durante 30 min | critica | canal de incidentes | `runbooks/revision-operativa.md` |
+| `HighLatency` | P95 > 500 ms durante 30 min | warning | canal de incidentes | `runbooks/revision-operativa.md` |
+| `ServiceDown` | Health check falla > 1min | critica | canal de incidentes | `runbooks/revision-operativa.md` |
 | `LoginAbandonmentSpike` | Abandono login > 25% durante 30min | 🟠 alta | canal privado interno de incidentes | `../08-procesos/gestion-incidentes.md` |
 | `LoginSuccessDrop` | Conversion login < 70% durante 30min | 🟠 alta | canal privado interno de incidentes | `../08-procesos/gestion-incidentes.md` |
+
+### Como estan implementadas (MVP-603)
+
+Una **vigilancia dentro de la propia aplicacion**, cada minuto, sobre la ventana de 30 minutos que
+piden las condiciones de arriba. Mismo patron que el expurgo de `RN-041` y el volcado de telemetria:
+viaja con la aplicacion y no anade infraestructura que hoy no existe. Con el tamano de equipo actual,
+una plataforma de alertado seria desproporcionada.
+
+Cuando una alerta **cambia de estado** se emite `alert.fired` (o `alert.resolved`) como traza
+estructurada y, si hay destinatario configurado (`Ops__AlertEmail`), tambien un correo por el
+transporte SMTP que ya existe. Se avisa **solo en la transicion**: una degradacion de dos horas
+mandaria ciento veinte avisos identicos y el canal dejaria de leerse justo cuando hace falta.
+
+**Volumen minimo antes de juzgar**: 20 peticiones para la tasa de error y la latencia, 10 pantallas de
+acceso para el embudo. Sin esto, una madrugada con tres peticiones y un 500 daria un 33 % de error, y
+una alerta que salta sin motivo se acaba ignorando tambien cuando el motivo es real.
+
+**Punto ciego, declarado**: un proceso muerto no se vigila a si mismo. Dentro de la aplicacion,
+`ServiceDown` cubre la degradacion observable —la base de datos inalcanzable, que deja el producto
+inservible aunque el proceso viva—. La **caida total** la detecta la sonda externa de la plataforma
+contra `GET /api/v1/health`, configurada en `infra/azure/configurar-api.sh`. Por eso
+`healthy_minutes_30d` se llama asi y no `uptime`: cuenta minutos **observados**, y los minutos en los
+que no habia nadie observando no aparecen.
+
+## Comprobacion de salud
+
+`GET /api/v1/health` (anonima) responde `200` con `{"status":"healthy"}` o **`503`** con
+`{"status":"degraded"}` cuando no alcanza la base de datos. Es `503` y no `200` con un cuerpo que diga
+que va mal porque las sondas miran el codigo de estado.
+
+La usan tres cosas: la sonda del alojamiento, el smoke de publicacion (`deploy.yml`) y la propia
+vigilancia interna.
+
+## Senales operativas
+
+`GET /api/v1/ops/signals` devuelve en una sola respuesta los tres SLO, el embudo de login, el uso del
+producto, el monitoreo de negocio minimo y el estado de las cinco alertas. Se autentica con **llave de
+servicio** (`X-Ops-Key`, autenticacion M2M de `../07-seguridad/autenticacion-autorizacion.md`), no con
+sesion de usuario: quien consulta esto es el equipo. **Sin llave configurada el endpoint no existe**
+(404): desplegar sin configurarlo debe impedir consultarlo, no abrirlo.
+
+Ver `runbooks/revision-operativa.md` para la revision semanal.
 
 ## Regla de umbrales
 
 1. Baseline inicial de 4 semanas.
 2. Revisión mensual de umbrales.
+
+Los umbrales **no son configurables por despliegue**: viven en el codigo con su origen en esta tabla y
+en `../01-producto/kpis.md`. Poder bajarlos desde un ajuste convertiria un SLO acordado en una
+preferencia.
 
 ---
 

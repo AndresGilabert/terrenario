@@ -47,6 +47,13 @@ if [ ${#FALTAN[@]} -gt 0 ]; then
 
   Guarda la privada donde guardes las contraseñas y BÓRRALA del disco: quien la tenga puede
   emitir tokens válidos para cualquier cuenta.
+
+  OPS_API_KEY es la llave con la que se consultan las señales operativas (MVP-603). Genera una
+  aleatoria y guárdala con el resto de secretos:
+    export OPS_API_KEY="$(openssl rand -base64 32)"
+
+  OPS_ALERT_EMAIL es la dirección que recibe los avisos de alerta. Sin ella las alertas solo
+  quedan en la traza, que es tanto como no tenerlas.
 FIN
   exit 1
 fi

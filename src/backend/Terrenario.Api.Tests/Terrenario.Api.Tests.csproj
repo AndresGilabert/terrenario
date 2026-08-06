@@ -37,4 +37,12 @@
     <ProjectReference Include="..\Terrenario.Api\Terrenario.Api.csproj" />
   </ItemGroup>
 
+  <!-- MVP-603 — El `appsettings.json` que se publica entra en la salida del test para poder afirmar
+       sobre los valores **que viajan al despliegue**, no sobre los que tiene la clase en memoria. Lo
+       estrena la guarda de `Ops:ApiKey`: el defecto estaba en el fichero, no en el código. -->
+  <ItemGroup>
+    <Content Include="..\Terrenario.Api\appsettings.json" Link="appsettings.json"
+             CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

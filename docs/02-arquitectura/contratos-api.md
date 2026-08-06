@@ -296,6 +296,26 @@ Validaciones y reglas:
 | Ningún widget reconocible en `dashboard_widgets` | `VALIDATION_REQUIRED` (400) |
 | La señal no contiene PII | Solo `event`, `timestamp`, `session_id`, `channel` y `device_type`. **No lleva usuario ni Workspace**, aunque el endpoint sea autenticado y el servidor los conozca (RN-042) |
 
+### 0.e) Salud y señales operativas (MVP-603)
+
+| Operación | Método y ruta | Autenticación | Respuesta |
+|---|---|---|---|
+| Comprobación de salud | `GET /api/v1/health` | Anónima | `200` `{ status, database }` · **`503`** si no alcanza la base de datos |
+| Señales operativas | `GET /api/v1/ops/signals` | Llave de servicio `X-Ops-Key` | `200` con el informe · `401` sin llave válida · **`404`** si no hay llave configurada |
+
+`/api/v1/health` es la superficie que sondea la plataforma de alojamiento y la que hace comprobable la
+alerta `ServiceDown`. Devuelve **`503`** y no `200` con un cuerpo que diga que va mal: las sondas miran
+el código de estado. No expone versión, ni cadena de conexión, ni el motivo del fallo —es una
+superficie anónima expuesta a Internet—.
+
+`/api/v1/ops/signals` responde `404` cuando `Ops:ApiKey` no está configurada. Es deliberado: si alguna
+vez se despliega sin configurarlo, el fallo debe ser que no se puede consultar, no que lo pueda
+consultar cualquiera. La comparación de la llave es en tiempo constante.
+
+El informe agrupa `slo`, `login_funnel_7d`, `product_usage_7d`, `business_7d`, `live` (ventana de 30
+min) y `alerts`. Los cocientes son `null` —no `0`— cuando el divisor es cero: «ninguna sesión abrió el
+panel» y «no hubo sesiones» no son lo mismo.
+
 ### Ámbito de Workspace en operaciones protegidas (MVP-105)
 
 Toda operación de negocio Workspace-first se marca con `[RequireWorkspaceScope]`: el Workspace activo

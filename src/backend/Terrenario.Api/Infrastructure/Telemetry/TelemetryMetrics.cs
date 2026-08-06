@@ -63,6 +63,44 @@ public static class TelemetryMetrics
     public static string DashboardWidgetFor(string widget, string status)
         => $"dashboard.widget.{widget}.{status}";
 
+    // ── Salud operativa (MVP-603) ────────────────────────────────────────────────
+
+    /// <summary>Peticiones servidas. Divisor de la tasa de error y de la latencia.</summary>
+    public const string ApiRequests = "api.requests";
+
+    /// <summary>Respuestas 4xx: error **visible para quien usa**, no fallo del servidor.</summary>
+    public const string ApiRequests4xx = "api.requests.4xx";
+
+    /// <summary>Respuestas 5xx: el SLO de tasa de error de la KB.</summary>
+    public const string ApiRequests5xx = "api.requests.5xx";
+
+    /// <summary>Altas (POST con 201) en total y por recurso: el `registros_creados_semana` de la KB.</summary>
+    public const string ApiCreated = "api.created";
+
+    /// <summary>
+    /// Minutos en los que la aplicación se observó a sí misma sana / degradada. Mide **degradación**,
+    /// no caída: un proceso muerto no se observa (ver <c>observabilidad.md</c>).
+    /// </summary>
+    public const string HealthProbeOk = "health.probe.ok";
+
+    public const string HealthProbeFailed = "health.probe.failed";
+
+    /// <summary>Veces que una alerta ha pasado a estado «disparada».</summary>
+    public static string AlertFiredFor(string alertName) => $"alert.fired.{alertName.ToLowerInvariant()}";
+
+    /// <summary>
+    /// Cortes del histograma de latencia, en milisegundos. Se guarda un histograma y no la media
+    /// porque el SLO habla de **P95**, y un percentil no se puede reconstruir a partir de una media.
+    /// Los cortes rodean los dos umbrales que importan: 300 ms (objetivo) y 500 ms (alerta).
+    /// </summary>
+    public static readonly int[] LatencyBucketsMs = [50, 100, 200, 300, 500, 1000, 2000, int.MaxValue];
+
+    public static string LatencyBucket(int upperBoundMs) =>
+        upperBoundMs == int.MaxValue ? "api.latency_ms.bucket.inf" : $"api.latency_ms.bucket.{upperBoundMs}";
+
+    /// <summary>Contador de altas por recurso (<c>api.created.harvests</c>).</summary>
+    public static string CreatedFor(string resource) => $"{ApiCreated}.{resource}";
+
     private const int ErrorCodeMaxLength = 48;
 
     /// <summary>

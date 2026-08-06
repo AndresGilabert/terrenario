@@ -51,6 +51,12 @@ actualizado_en: "2026-06-30"
 | Historico de rendimiento | Serie temporal por temporada | Evolucion de rendimiento |
 | Conversion login | Eventos de embudo de autenticacion | Dashboard de autenticacion |
 | Abandono login | Eventos de embudo de autenticacion | Dashboard de autenticacion |
+| Uso del dashboard en sesiones activas | `dashboard.session_with_view` / `app.session_started` (MVP-602) | Revision semanal de KPIs |
+| Uso de recarga manual | `dashboard.manual_refresh` / `dashboard.session_with_view` (MVP-602) | Revision semanal de KPIs |
+| Cobertura de widgets MVP | `dashboard.widget.rendered` / (`rendered` + `blocked`) (MVP-602) | Revision semanal de KPIs |
+
+> Las formulas y los matices de cada contador (sesiones frente a visitas, vacio frente a error) estan
+> en `../05-infraestructura/observabilidad.md`.
 
 ## Alertas activas
 

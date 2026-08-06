@@ -32,6 +32,37 @@ public static class TelemetryMetrics
     /// </summary>
     public const string LoginSuccessTimedCount = "login.success.timed";
 
+    // ── Uso del producto (MVP-602) ───────────────────────────────────────────────
+
+    /// <summary>Sesiones que han entrado al área autenticada: el divisor del uso del dashboard.</summary>
+    public const string AppSessionStarted = "app.session_started";
+
+    /// <summary>Entradas al dashboard, todas.</summary>
+    public const string DashboardViewed = "dashboard.viewed";
+
+    /// <summary>
+    /// Sesiones que han visto el dashboard <b>al menos una vez</b>. No es lo mismo que
+    /// <see cref="DashboardViewed"/>: el KPI de la KB pregunta por sesiones, no por visitas, y quien
+    /// entra ocho veces en una sesión sigue siendo una sesión.
+    /// </summary>
+    public const string DashboardSessionWithView = "dashboard.session_with_view";
+
+    /// <summary>Pulsaciones de «Actualizar» (CA-2).</summary>
+    public const string DashboardManualRefresh = "dashboard.manual_refresh";
+
+    /// <summary>Widgets que se pudieron mostrar (con datos o en estado vacío legítimo).</summary>
+    public const string DashboardWidgetRendered = "dashboard.widget.rendered";
+
+    /// <summary>Widgets que no se pudieron mostrar. Es lo que resta cobertura.</summary>
+    public const string DashboardWidgetBlocked = "dashboard.widget.blocked";
+
+    /// <summary>
+    /// Desglose por widget y estado (<c>dashboard.widget.summary.error</c>). Sin él, la cobertura diría
+    /// que algo falla pero no qué, que es justo lo que hace falta para arreglarlo.
+    /// </summary>
+    public static string DashboardWidgetFor(string widget, string status)
+        => $"dashboard.widget.{widget}.{status}";
+
     private const int ErrorCodeMaxLength = 48;
 
     /// <summary>

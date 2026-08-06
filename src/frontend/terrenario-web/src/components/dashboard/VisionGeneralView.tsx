@@ -14,6 +14,14 @@ import type {
 } from '../../types/dashboard.types';
 import type { Plot } from '../../types/plot.types';
 import { harvestDestinationLabel } from '../../types/harvest.types';
+import { useUsageTelemetry } from '../../lib/use-usage-telemetry';
+import {
+  DashboardWidget,
+  UsageEvent,
+  UsageMark,
+  markOnceInSession,
+  type DashboardWidgetOutcome,
+} from '../../lib/usage-telemetry';
 
 const number = (value: number, decimals = 0) =>
   value.toLocaleString('es-ES', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
@@ -26,6 +34,40 @@ function periodLabel(period: string): string {
   if (!month) return period;
   const date = new Date(Number(month[1]), Number(month[2]) - 1, 1);
   return date.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' });
+}
+
+/**
+ * MVP-602 — Cobertura de widgets MVP: «% de widgets con datos mostrables **sin error bloqueante**».
+ *
+ * `empty` no resta: el propio KPI de la KB admite los estados vacío/incompleto. Un Workspace que
+ * todavía no ha cosechado no tiene el dashboard roto, tiene el dashboard vacío, y confundir las dos
+ * cosas haría que la cobertura bajase con cada Workspace nuevo.
+ *
+ * La evolución cuenta como `ok` también cuando solo trae histórico: es el caso que MVP-404 resolvió
+ * expresamente para que la pantalla no se quedase en blanco antes de la primera cosecha.
+ */
+function widgetOutcomes(data: {
+  summary: DashboardSummary;
+  destinations: DashboardKgByDestination;
+  plots: DashboardKgByPlot;
+  evolution: DashboardYieldEvolution;
+} | null): DashboardWidgetOutcome[] {
+  if (data === null) {
+    // La carga es una sola petición conjunta: si falla, no se pudo mostrar ninguno de los cuatro.
+    return Object.values(DashboardWidget).map((widget) => ({ widget, status: 'error' as const }));
+  }
+
+  const state = (hasData: boolean) => (hasData ? ('ok' as const) : ('empty' as const));
+
+  return [
+    { widget: DashboardWidget.Summary, status: state(data.summary.harvests > 0) },
+    { widget: DashboardWidget.KgByDestination, status: state(data.destinations.data.length > 0) },
+    { widget: DashboardWidget.KgByPlot, status: state(data.plots.data.length > 0) },
+    {
+      widget: DashboardWidget.YieldEvolution,
+      status: state(data.evolution.data.length > 0 || data.evolution.history.average !== null),
+    },
+  ];
 }
 
 /** Etiqueta legible de un extremo de la ventana estacional (`MM-DD`) → «13 dic». */
@@ -67,6 +109,7 @@ const colorFor = (destination: string) => DESTINATION_COLORS[destination] ?? 'bg
 export const VisionGeneralView: React.FC = () => {
   const http = useApiClient();
   const navigate = useNavigate();
+  const logUsage = useUsageTelemetry();
   const dashboardService = useMemo(() => createDashboardService(http), [http]);
   const plotService = useMemo(() => createPlotService(http), [http]);
   const { seasons, activeSeason } = useSeason();
@@ -111,18 +154,42 @@ export const VisionGeneralView: React.FC = () => {
       setDestinations(destinationData);
       setPlots(plotData);
       setEvolution(evolutionData);
+
+      // MVP-602 — Cobertura de widgets: se emite tras cada carga, con y sin datos.
+      logUsage(UsageEvent.DashboardWidgets, {
+        widgets: widgetOutcomes({
+          summary: summaryData,
+          destinations: destinationData,
+          plots: plotData,
+          evolution: evolutionData,
+        }),
+      });
     } catch (error) {
       setLoadError(
         error instanceof HttpError ? error.message : 'No se pudo cargar la visión general.'
       );
+      logUsage(UsageEvent.DashboardWidgets, { widgets: widgetOutcomes(null) });
     } finally {
       setIsLoading(false);
     }
-  }, [dashboardService, filters]);
+  }, [dashboardService, filters, logUsage]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  // MVP-602 (CA-1) — Entrada al dashboard. `first_in_session` es lo que permite calcular el KPI «% de
+  // sesiones que usan el panel»: sin él solo se sabría cuántas visitas hubo, y quien entra ocho veces
+  // en una sesión pesaría como ocho sesiones.
+  //
+  // Va en su propio efecto sin dependencias, no dentro de `reload`: cambiar un filtro relanza la carga
+  // pero no es entrar otra vez a la pantalla.
+  useEffect(() => {
+    logUsage(UsageEvent.DashboardViewed, {
+      firstInSession: markOnceInSession(UsageMark.DashboardView),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Opciones del filtro de terrenos: los **activos** del Workspace (el defecto de RN-008). Un id
   // inactivo puesto a mano en la URL lo sigue honrando el servidor, aunque no aparezca como opción.
@@ -262,10 +329,15 @@ export const VisionGeneralView: React.FC = () => {
             </details>
           )}
 
-          {/* RN-006 — no hay actualización en segundo plano: el refresco es un acto explícito */}
+          {/* RN-006 — no hay actualización en segundo plano: el refresco es un acto explícito.
+              MVP-602 (CA-2) — Y por ser explícito se mide **aquí y solo aquí**: cambiar un filtro
+              también relanza la carga, pero es otra pregunta («qué quiero ver»), no «dame lo último». */}
           <button
             type="button"
-            onClick={() => void reload()}
+            onClick={() => {
+              logUsage(UsageEvent.DashboardManualRefresh);
+              void reload();
+            }}
             className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-white border border-[#c6c8b8] hover:bg-[#f0ede8] text-[#33450d] text-xs font-semibold transition-colors shrink-0"
           >
             <span className="material-symbols-outlined text-lg" aria-hidden="true">refresh</span>

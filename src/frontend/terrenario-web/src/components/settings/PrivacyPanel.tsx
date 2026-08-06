@@ -56,6 +56,13 @@ const TECHNOLOGIES: { name: string; purpose: string; essential: boolean }[] = [
     essential: true,
   },
   {
+    name: 'Medición del uso de la aplicación',
+    purpose:
+      'Saber si el panel se consulta y si sus gráficos se pueden mostrar. Solo guardamos recuentos ' +
+      'por día, nunca quién hizo qué, y no se mide lo que registras en tu explotación.',
+    essential: true,
+  },
+  {
     name: 'Inicio de sesión con Google',
     purpose: 'Es el método con el que accedes: sin él no hay servicio.',
     essential: true,
@@ -77,9 +84,10 @@ export const PrivacyPanel: React.FC = () => (
       </span>
       <p className="text-xs text-[#33450d] leading-relaxed">
         <strong>No hay analítica de terceros, publicidad ni perfilado.</strong> Solo lo estrictamente
-        necesario para que la aplicación funcione, más la medición del acceso que ves abajo, que es
-        propia y no te identifica. Nada de esto requiere tu consentimiento, así que no hay nada que
-        aceptar ni que rechazar. Si eso cambiara, te lo pediríamos antes de activarlo.
+        necesario para que la aplicación funcione, más la medición propia que ves abajo, que no te
+        identifica: guardamos recuentos por día, no quién hizo qué. Nada de esto requiere tu
+        consentimiento, así que no hay nada que aceptar ni que rechazar. Si eso cambiara, te lo
+        pediríamos antes de activarlo.
       </p>
     </div>
 

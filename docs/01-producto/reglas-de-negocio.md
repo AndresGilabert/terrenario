@@ -514,11 +514,19 @@ activarse (ver `docs/07-seguridad/privacidad-datos.md`). Las **estrictamente nec
 sostienen el servicio que la persona ha pedido— no requieren consentimiento. Cualquier otra exige
 consentimiento **previo**, con la opcion mas protectora por defecto y revocable en cualquier momento.
 
-El MVP no usa ninguna tecnologia no esencial: no hay analitica, publicidad ni perfilado, y las
-tipografias se autoalojan para no transferir la IP de cada visitante a un tercero. Por eso **no se
-muestra banner de cookies**: la guia de la AEPD reserva el banner para las tecnologias no exentas, y
-mostrarlo cuando solo se usan las tecnicas normaliza el clic automatico sin proteger nada. Lo que si
-hay es un panel donde consultar el inventario.
+El MVP no usa ninguna tecnologia no esencial: no hay **analitica de terceros**, publicidad ni
+perfilado, y las tipografias se autoalojan para no transferir la IP de cada visitante a un tercero.
+Por eso **no se muestra banner de cookies**: la guia de la AEPD reserva el banner para las tecnologias
+no exentas, y mostrarlo cuando solo se usan las tecnicas normaliza el clic automatico sin proteger
+nada. Lo que si hay es un panel donde consultar el inventario.
+
+Si existe **medicion propia**: el embudo de acceso (`MVP-105`/`MVP-601`) y el uso del producto
+(`MVP-602`). Encaja en el supuesto de medicion de audiencia exenta y esa evaluacion se rehace —no se
+da por hecha— cada vez que la medicion crece, con el detalle en
+`docs/07-seguridad/privacidad-datos.md`. Las condiciones que la sostienen son cuatro y ninguna es
+opcional: primera parte, identificadores aleatorios que mueren con la pestaña, **solo recuentos
+agregados conservados** y ausencia de perfilado. Cualquier medida que se salga de ahi exige
+consentimiento previo.
 
 ## Reglas obsoletas
 

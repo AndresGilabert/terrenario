@@ -86,10 +86,20 @@ vigilancia interna.
 ## Senales operativas
 
 `GET /api/v1/ops/signals` devuelve en una sola respuesta los tres SLO, el embudo de login, el uso del
-producto, el monitoreo de negocio minimo y el estado de las cinco alertas. Se autentica con **llave de
-servicio** (`X-Ops-Key`, autenticacion M2M de `../07-seguridad/autenticacion-autorizacion.md`), no con
-sesion de usuario: quien consulta esto es el equipo. **Sin llave configurada el endpoint no existe**
-(404): desplegar sin configurarlo debe impedir consultarlo, no abrirlo.
+producto, el monitoreo de negocio minimo, una **serie por dia** y el estado de las cinco alertas. Se
+autentica con **llave de servicio** (`X-Ops-Key`, autenticacion M2M de
+`../07-seguridad/autenticacion-autorizacion.md`), no con sesion de usuario: quien consulta esto es el
+equipo. **Sin llave configurada el endpoint no existe** (404): desplegar sin configurarlo debe impedir
+consultarlo, no abrirlo.
+
+La serie diaria (`daily`, `?days=N`, 28 por defecto) se anade en `MVP-699` (`R-01`): las ventanas fijas
+contestan «como va la semana» pero no «va mejor o peor que la anterior», ni «que dia se torcio», y sin
+eso no se puede fijar el baseline que `../01-producto/kpis.md` encarga a las primeras cuatro semanas.
+El parametro **no mueve las ventanas de los SLO**: esas las define la KB y son parte del objetivo.
+
+**No hay interfaz**: estas senales no se ven en ninguna pantalla del producto, se consultan por HTTP.
+Es coherente con el «N/A en fase C» de la tabla de dashboards, y esta anotado como pendiente en
+`MVP-999` por si el volumen de uso lo justifica mas adelante.
 
 Ver `runbooks/revision-operativa.md` para la revision semanal.
 

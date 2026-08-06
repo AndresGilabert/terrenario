@@ -27,9 +27,14 @@ public sealed class OpsController(
 {
     public const string ApiKeyHeader = "X-Ops-Key";
 
+    /// <param name="days">
+    /// Días de la <b>serie diaria</b> (MVP-699, `R-01`). No mueve las ventanas de los SLO: esas las fija
+    /// la KB y son parte de su definición. Se acota en silencio al rango admitido y el valor aplicado
+    /// viaja en la respuesta, para que quien pregunte sepa qué le han contestado.
+    /// </param>
     [HttpGet("signals")]
     [AllowAnonymous]
-    public async Task<IActionResult> Signals(CancellationToken ct)
+    public async Task<IActionResult> Signals([FromQuery] int? days, CancellationToken ct)
     {
         var configured = options.Value;
 
@@ -38,11 +43,31 @@ public sealed class OpsController(
         if (!IsAuthorized(Request.Headers[ApiKeyHeader].ToString(), configured.ApiKey))
             return Unauthorized();
 
-        var report = await signals.BuildAsync(ct);
+        var report = await signals.BuildAsync(days, ct);
 
         return Ok(new
         {
             generated_at = report.GeneratedAt,
+            daily_days = report.Daily.Count,
+            daily = report.Daily.Select(day => new
+            {
+                date = day.Date.ToString("yyyy-MM-dd"),
+                login_screen_viewed = day.LoginScreenViewed,
+                login_success = day.LoginSuccess,
+                login_abandonment = day.LoginAbandonment,
+                login_conversion = day.LoginConversion,
+                sessions = day.Sessions,
+                sessions_with_dashboard = day.SessionsWithDashboard,
+                dashboard_usage = day.DashboardUsage,
+                manual_refresh = day.ManualRefresh,
+                widget_coverage = day.WidgetCoverage,
+                requests = day.Requests,
+                error_rate = day.ErrorRate,
+                latency_p95_ms = day.LatencyP95Ms,
+                records_created = day.RecordsCreated,
+                healthy_minutes = day.HealthyMinutes,
+                degraded_minutes = day.DegradedMinutes
+            }),
             slo = new
             {
                 error_rate_7d = report.Slo.ErrorRate7d,
@@ -52,7 +77,12 @@ public sealed class OpsController(
                 // Deliberadamente no se llama `uptime`: mide minutos **observados**, y un proceso caído
                 // no se observa a sí mismo (ver `observabilidad.md`).
                 healthy_minutes_30d = report.Slo.HealthyMinutes30d,
-                degraded_minutes_30d = report.Slo.DegradedMinutes30d
+                degraded_minutes_30d = report.Slo.DegradedMinutes30d,
+                // MVP-699 (`R-03`) — Lo que queda fuera del SLO, a la vista: sonda de salud, esta misma
+                // consulta e ingesta de telemetría. Excluirlo sin decirlo sería recortar el divisor a
+                // escondidas.
+                internal_requests_7d = report.Slo.InternalRequests7d,
+                internal_errors_7d = report.Slo.InternalErrors7d
             },
             login_funnel_7d = new
             {

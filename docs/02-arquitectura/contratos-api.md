@@ -301,7 +301,7 @@ Validaciones y reglas:
 | Operación | Método y ruta | Autenticación | Respuesta |
 |---|---|---|---|
 | Comprobación de salud | `GET /api/v1/health` | Anónima | `200` `{ status, database }` · **`503`** si no alcanza la base de datos |
-| Señales operativas | `GET /api/v1/ops/signals` | Llave de servicio `X-Ops-Key` | `200` con el informe · `401` sin llave válida · **`404`** si no hay llave configurada |
+| Señales operativas | `GET /api/v1/ops/signals?days=N` | Llave de servicio `X-Ops-Key` | `200` con el informe · `401` sin llave válida · **`404`** si no hay llave configurada |
 
 `/api/v1/health` es la superficie que sondea la plataforma de alojamiento y la que hace comprobable la
 alerta `ServiceDown`. Devuelve **`503`** y no `200` con un cuerpo que diga que va mal: las sondas miran
@@ -312,9 +312,20 @@ superficie anónima expuesta a Internet—.
 vez se despliega sin configurarlo, el fallo debe ser que no se puede consultar, no que lo pueda
 consultar cualquiera. La comparación de la llave es en tiempo constante.
 
-El informe agrupa `slo`, `login_funnel_7d`, `product_usage_7d`, `business_7d`, `live` (ventana de 30
-min) y `alerts`. Los cocientes son `null` —no `0`— cuando el divisor es cero: «ninguna sesión abrió el
-panel» y «no hubo sesiones» no son lo mismo.
+El informe agrupa `daily`, `slo`, `login_funnel_7d`, `product_usage_7d`, `business_7d`, `live` (ventana
+de 30 min) y `alerts`. Los cocientes son `null` —no `0`— cuando el divisor es cero: «ninguna sesión
+abrió el panel» y «no hubo sesiones» no son lo mismo.
+
+`daily` (MVP-699) es la **serie por día**, en orden ascendente y sin huecos: los días sin datos vienen
+con recuentos a `0` y cocientes a `null`, porque omitirlos escondería que ese día no se observó nada.
+
+| Parámetro | Efecto |
+|---|---|
+| `days` | Días de la serie diaria. Por defecto `28`; se acota en silencio a `1..400` y el valor aplicado viaja en `daily_days` |
+
+`days` **no mueve las ventanas de los SLO**: `error_rate_7d` y compañía son de 7 y 30 días porque así
+las define la KB, y son parte del objetivo, no una preferencia de consulta. Lo que el parámetro
+gobierna es otra pregunta —«¿mejora o empeora?»—, que es la que las ventanas fijas no pueden contestar.
 
 ### Ámbito de Workspace en operaciones protegidas (MVP-105)
 

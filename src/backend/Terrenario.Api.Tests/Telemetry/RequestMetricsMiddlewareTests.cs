@@ -91,6 +91,46 @@ public class RequestMetricsMiddlewareTests
         => (await InvokeAsync("/api/v1/harvests", status, method))
             .Should().NotContainKey(TelemetryMetrics.ApiCreated);
 
+    // ── MVP-699 (`R-03`) — Lo que no es tráfico de nadie ─────────────────────────
+
+    [Theory]
+    [InlineData("/api/v1/health")]
+    [InlineData("/api/v1/ops/signals")]
+    [InlineData("/api/v1/telemetry/usage")]
+    [InlineData("/api/v1/auth/telemetry/login")]
+    public async Task Deberia_DejarFueraDelSlo_LoQueNadieEspera(string path)
+    {
+        // Medido en la revisión: la sonda de salud era el 87 % del divisor, y con tráfico realista un
+        // 5 % de fallo real se leía como 0,61 % — por debajo del umbral, así que la alerta no saltaba.
+        var contadores = await InvokeAsync(path);
+
+        contadores.Should().NotContainKey(TelemetryMetrics.ApiRequests);
+        contadores.Keys.Should().NotContain(k => k.StartsWith("api.latency_ms.bucket."));
+        contadores[TelemetryMetrics.ApiInternalRequests].Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Deberia_ContarLoExcluido_EnLugarDeDescartarlo()
+    {
+        // Si dejara de servirse, hay que poder verlo: un contador que desaparece en silencio es peor
+        // que uno que estorba.
+        var contadores = await InvokeAsync("/api/v1/health", 503);
+
+        contadores[TelemetryMetrics.ApiInternalRequests].Should().Be(1);
+        contadores[TelemetryMetrics.ApiInternalRequests5xx].Should().Be(1);
+        contadores.Should().NotContainKey(TelemetryMetrics.ApiRequests5xx);
+    }
+
+    [Fact]
+    public async Task Deberia_SeguirMidiendo_LasRutasDeNegocioParecidas()
+    {
+        // `/api/v1/harvests` no puede quedarse fuera por empezar por `/api/v1/h` como `health`.
+        var contadores = await InvokeAsync("/api/v1/harvests");
+
+        contadores[TelemetryMetrics.ApiRequests].Should().Be(1);
+        contadores.Should().NotContainKey(TelemetryMetrics.ApiInternalRequests);
+    }
+
     [Fact]
     public async Task Deberia_ContarComo5xx_LaExcepcionSinCapturar()
     {

@@ -71,6 +71,25 @@ apuntarlo como caida.
 Los objetivos siguen pendientes de baseline (`../../01-producto/kpis.md`): las primeras cuatro semanas
 sirven para fijarlo, no para comparar.
 
+### Comparar con la semana anterior
+
+Las cifras de arriba son de los ultimos 7 dias. Para saber si eso **mejora o empeora**, y que dia se
+torcio, esta la serie diaria:
+
+```bash
+curl -s -H "X-Ops-Key: $OPS_API_KEY" \
+  "https://app.terrenario.com/api/v1/ops/signals?days=14" \
+  | python -m json.tool
+```
+
+Cada entrada de `daily` trae conversion, uso del dashboard, cobertura de widgets, tasa de error y P95
+de ese dia. Los dias sin datos aparecen con recuentos a `0` y cocientes a `null`: no son dias malos,
+son dias sin observar —y `healthy_minutes` a `0` en un dia con trafico esperado es senal de que la
+aplicacion no estuvo en pie—.
+
+Es tambien la vista con la que se fija el baseline de las primeras cuatro semanas (`?days=28`, que es
+el valor por defecto).
+
 ---
 
 ## Pasos de resolución por alerta

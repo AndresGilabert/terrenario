@@ -71,6 +71,15 @@ public static class TelemetryMetrics
     /// <summary>Respuestas 4xx: error **visible para quien usa**, no fallo del servidor.</summary>
     public const string ApiRequests4xx = "api.requests.4xx";
 
+    /// <summary>
+    /// MVP-699 (`R-03`) — Tráfico que el servidor sirve pero por el que **no espera nadie**: la sonda de
+    /// salud y la ingesta de telemetría. Se cuenta aparte, no se descarta: si dejara de existir habría
+    /// que poder verlo, y un contador que desaparece en silencio es peor que uno que estorba.
+    /// </summary>
+    public const string ApiInternalRequests = "api.internal.requests";
+
+    public const string ApiInternalRequests5xx = "api.internal.requests.5xx";
+
     /// <summary>Respuestas 5xx: el SLO de tasa de error de la KB.</summary>
     public const string ApiRequests5xx = "api.requests.5xx";
 

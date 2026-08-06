@@ -149,6 +149,40 @@ curl -s -H "X-Ops-Key: $OPS_API_KEY" https://app.terrenario.com/api/v1/ops/signa
 
 ---
 
+## Configurar quien recibe los avisos
+
+Ni el destinatario ni la llave se versionan: el repositorio es publico y quedarian en el historial de
+forma permanente (mismo criterio que la cuenta de envio, ver `../entornos.md`).
+
+En **produccion**, sin reejecutar el script completo de configuracion:
+
+```bash
+az webapp config appsettings set \
+  --resource-group rg-terrenario-prod --name app-terrenario-api -o none \
+  --settings "Ops__AlertEmail=DIRECCION" "Ops__ApiKey=$(openssl rand -base64 32)"
+```
+
+En **local**, con User Secrets:
+
+```bash
+dotnet user-secrets set "Ops:AlertEmail" "DIRECCION" \
+  --project src/backend/Terrenario.Api
+```
+
+El App Service se reinicia solo al cambiar la configuracion. Para comprobar que ha quedado bien, basta
+con leer el arranque: si falta el destinatario o la llave, la aplicacion lo **avisa al arrancar** en
+vez de descubrirse el dia del incidente.
+
+```bash
+az webapp log tail --resource-group rg-terrenario-prod --name app-terrenario-api \
+  | grep -i "vigilancia\|llave de operacion"
+```
+
+**Resultado esperado**: ningun aviso. Si aparece «Vigilancia de alertas activa sin destinatario», las
+alertas no llegan a nadie.
+
+---
+
 ## Escalación
 
 1. Escala a: @andres (responsable tecnico y de producto).

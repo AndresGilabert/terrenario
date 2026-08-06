@@ -14,9 +14,14 @@ public sealed class OpsOptions
     /// contempla <c>docs/07-seguridad/autenticacion-autorizacion.md</c>, no una sesión de usuario: quien
     /// consulta esto es el equipo, no una persona con cuenta.
     ///
-    /// <b>Secreto: nunca en `appsettings`.</b> Sin valor, el endpoint no existe (404) en lugar de quedar
-    /// abierto: si alguna vez se despliega sin configurarlo, el fallo es que no se puede consultar, no
-    /// que lo pueda consultar cualquiera.
+    /// <b>Secreto: nunca en `appsettings`, y tampoco como marcador.</b> Sin valor, el endpoint no existe
+    /// (404) en lugar de quedar abierto: si alguna vez se despliega sin configurarlo, el fallo es que no
+    /// se puede consultar, no que lo pueda consultar cualquiera.
+    ///
+    /// El resto de secretos del producto sí llevan un marcador <c>REPLACE_IN_SECRETS</c> en
+    /// <c>appsettings.json</c>, y aquí <b>no puede llevarlo</b>: los demás rompen ruidosamente si nadie
+    /// los sustituye —la base de datos no conecta, el login falla—, mientras que un marcador aquí
+    /// **abriría** el endpoint con una llave que está publicada en un repositorio público.
     /// </summary>
     public string ApiKey { get; set; } = string.Empty;
 

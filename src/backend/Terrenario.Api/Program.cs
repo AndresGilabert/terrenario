@@ -320,6 +320,21 @@ if (!(builder.Configuration.GetSection(EmailOptions.SectionName).Get<EmailOption
         "Sin cuenta de envío de email configurada ('Email:Host' y 'Email:FromAddress'). "
         + "Las invitaciones se emiten pero deben compartirse por enlace.");
 
+// MVP-603 — Una vigilancia encendida sin destinatario es el peor estado posible: parece que hay
+// alertas, y lo que hay es una anotación en un log que nadie lee. Igual que el aviso de arriba, se
+// dice al arrancar en lugar de descubrirse el día del incidente.
+var opsConfigurados = builder.Configuration.GetSection(OpsOptions.SectionName).Get<OpsOptions>() ?? new();
+
+if (opsConfigurados.AlertsEnabled && string.IsNullOrWhiteSpace(opsConfigurados.AlertEmail))
+    app.Logger.LogWarning(
+        "Vigilancia de alertas activa sin destinatario ('Ops:AlertEmail'). "
+        + "Las alertas solo quedarán en la traza: nadie recibirá aviso.");
+
+if (!opsConfigurados.IsSignalsEndpointEnabled)
+    app.Logger.LogWarning(
+        "Sin llave de operación ('Ops:ApiKey'): 'GET /api/v1/ops/signals' responderá 404 "
+        + "y la revisión operativa no se podrá consultar.");
+
 // ── Middleware pipeline ───────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();

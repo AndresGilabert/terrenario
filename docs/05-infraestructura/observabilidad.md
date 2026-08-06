@@ -99,6 +99,48 @@ Reglas de calidad de telemetria:
 2. El evento `login_abandonment` se emite por timeout de inactividad o cierre/salida sin exito.
 3. Ningun evento puede incluir PII en claro.
 
+### Como se explota (MVP-601)
+
+Cada evento sale por **dos caminos** y ninguno sustituye al otro:
+
+1. **Log estructurado** (`auth.funnel`), con las seis dimensiones. Sirve para mirar un caso concreto
+   mientras el log siga a mano. Fuera de desarrollo el log se emite en **JSON con `timestamp`**: con el
+   formateador de texto, las dimensiones salen interpoladas dentro de una frase y reconstruir el embudo
+   pasaria por analizar prosa.
+2. **Contadores diarios agregados**, en la tabla `telemetry_daily_counters` de la propia base de datos.
+   Es lo que hace calculables las ventanas de 7 y 30 dias que piden los SLO: los logs de App Service no
+   se retienen de forma fiable, asi que sobre ellos esas ventanas no existen.
+
+Por que **contadores** y no una traza de eventos persistida: un contador responde a todos los KPI de la
+KB y **no conserva ningun identificador**, asi que no anade una categoria de dato personal a `RN-041`
+ni al inventario de `RN-042`. La traza individual habria permitido analisis no previstos, que es
+justamente lo que la KB deja fuera de alcance en esta epica.
+
+Contadores del embudo:
+
+| Contador | Que cuenta |
+|---|---|
+| `login.screen_viewed` | Entradas a la pantalla de login |
+| `login.google_clicked` | Clics en «Continuar con Google» |
+| `login.success` | Accesos completados |
+| `login.error` y `login.error.{codigo}` | Fallos del intercambio, en total y por codigo |
+| `login.abandonment` | Abandonos (por inactividad o por salida sin exito) |
+| `login.success.duration_ms.sum` · `login.success.timed` | Suma de duraciones y su divisor, para el «tiempo medio de login exitoso» |
+
+Se guarda **suma y divisor**, no la media: las medias no se agregan entre dias, asi que la de la semana
+no es la media de las medias diarias. El divisor es `login.success.timed` y no `login.success` porque un
+reinicio deja exitos cuyo instante de inicio se desconoce; contarlos con duracion cero rebajaria la
+media y haria creer que el acceso es mas rapido de lo que es.
+
+Con esto, los KPI de `../01-producto/kpis.md` salen de una consulta:
+
+- Conversion de login = `login.success` / `login.screen_viewed`
+- Tasa de abandono = `login.abandonment` / `login.screen_viewed`
+- Tiempo medio de login exitoso = `login.success.duration_ms.sum` / `login.success.timed`
+
+Retencion: los contadores se conservan 400 dias (`Telemetry:RetentionDays`) y se podan a diario. No es
+un plazo de `RN-041` —no hay datos personales que expurgar—, sino higiene de tabla.
+
 ---
 
 ## Estructura de logs

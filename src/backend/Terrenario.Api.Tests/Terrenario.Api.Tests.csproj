@@ -12,6 +12,8 @@
     <PackageReference Include="FluentAssertions" Version="6.12.*" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.*" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.*" />
+    <!-- Reloj controlable (MVP-601): medir duraciones de login y cadencias de volcado sin esperarlas. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.*" />
     <!-- PostgreSQL real en contenedor (MVP-501): los tests de repositorio y el arnés de API
          ejercitan el MISMO motor que producción. Antes se usaba SQLite, y eso obligaba a degradar
          consultas de producción para que el arnés pudiera ejecutarlas (P-031). Requiere Docker. -->

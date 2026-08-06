@@ -75,6 +75,11 @@ public sealed class TerrenarioApiFactory : WebApplicationFactory<Program>, IAsyn
         // instante y no tener que esperar 24 meses.
         builder.UseSetting("Retention:Enabled", "false");
 
+        // MVP-601 — Mismo motivo para el volcado de telemetría: un servicio de fondo escribiendo por su
+        // cuenta durante los tests de API añade ruido y carreras que no prueban nada. El volcado tiene
+        // sus propios tests, que lo invocan directamente.
+        builder.UseSetting("Telemetry:Enabled", "false");
+
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<IGoogleOidcService>();

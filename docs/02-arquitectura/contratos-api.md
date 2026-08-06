@@ -273,6 +273,29 @@ cliente decidir qué se cuenta con solo mandar un valor inválido.
 > `../07-seguridad/autenticacion-autorizacion.md`; cómo se explotan (contadores agregados y ventanas
 > de los SLO) en `../05-infraestructura/observabilidad.md`.
 
+### 0.d) Señales de uso del producto (MVP-602)
+
+| Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
+|---|---|---|---|
+| Ingesta de señal de uso | `POST /api/v1/telemetry/usage` | `event*`, `session_id`, `device_type`, `first_in_session`, `widgets` | `202` (sin cuerpo) |
+
+**Autenticada, sin ámbito de Workspace.** Exigir sesión evita que se inflen los contadores desde
+fuera; no exigir Workspace activo es deliberado: una sesión en onboarding también es una sesión
+activa, y dejarla fuera del divisor subiría el KPI de uso del dashboard justo con los casos en los que
+el producto todavía no sirve de nada.
+
+Validaciones y reglas:
+
+| Regla | Código error / comportamiento |
+|---|---|
+| `event` dentro de `{ app_session_started, dashboard_viewed, dashboard_manual_refresh, dashboard_widgets }` | `VALIDATION_REQUIRED` (400) si no |
+| `session_id` / `device_type` | Se degradan a `unknown`; **no** rechazan la señal |
+| `first_in_session` (solo en `dashboard_viewed`) | Ausente equivale a `false`: ante la duda no se infla el numerador del KPI |
+| `widgets[].widget` ∈ `{ summary, kg_by_destination, kg_by_plot, yield_evolution }` y `status` ∈ `{ ok, empty, error }` | Los no reconocidos **se descartan uno a uno**, no el lote: un cliente más nuevo debe seguir aportando lo que el servidor sí conoce |
+| `widgets` repetidos | Solo cuenta el primero de cada widget, para que no se pueda inflar la cobertura repitiendo |
+| Ningún widget reconocible en `dashboard_widgets` | `VALIDATION_REQUIRED` (400) |
+| La señal no contiene PII | Solo `event`, `timestamp`, `session_id`, `channel` y `device_type`. **No lleva usuario ni Workspace**, aunque el endpoint sea autenticado y el servidor los conozca (RN-042) |
+
 ### Ámbito de Workspace en operaciones protegidas (MVP-105)
 
 Toda operación de negocio Workspace-first se marca con `[RequireWorkspaceScope]`: el Workspace activo

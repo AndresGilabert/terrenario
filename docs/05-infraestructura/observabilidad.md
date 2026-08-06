@@ -141,6 +141,39 @@ Con esto, los KPI de `../01-producto/kpis.md` salen de una consulta:
 Retencion: los contadores se conservan 400 dias (`Telemetry:RetentionDays`) y se podan a diario. No es
 un plazo de `RN-041` —no hay datos personales que expurgar—, sino higiene de tabla.
 
+### Uso del producto (MVP-602)
+
+Mismo mecanismo —log estructurado (`product.usage`) mas contador diario— para las senales de uso.
+
+| Contador | Que cuenta |
+|---|---|
+| `app.session_started` | Sesiones que llegan al area autenticada. **Es el divisor** del uso del dashboard |
+| `dashboard.viewed` | Entradas al dashboard, todas |
+| `dashboard.session_with_view` | Sesiones que abren el dashboard **al menos una vez** |
+| `dashboard.manual_refresh` | Pulsaciones de «Actualizar» (RN-006) |
+| `dashboard.widget.rendered` · `dashboard.widget.blocked` | Widgets que se pudieron mostrar y los que no |
+| `dashboard.widget.{widget}.{ok\|empty\|error}` | Desglose, para saber **cual** falla y no solo que algo falla |
+
+KPI de producto de `../01-producto/kpis.md`:
+
+- Uso del dashboard en sesiones activas = `dashboard.session_with_view` / `app.session_started`
+- Recargas manuales por sesion = `dashboard.manual_refresh` / `dashboard.session_with_view`
+- Cobertura de widgets MVP = `dashboard.widget.rendered` / (`rendered` + `blocked`)
+
+Tres matices que cambian lo que significan estas cifras:
+
+1. **Sesiones, no visitas.** `dashboard.session_with_view` existe porque el KPI pregunta por sesiones:
+   quien entra ocho veces en una sesion sigue siendo una sesion, y contar visitas daria porcentajes por
+   encima del 100 %.
+2. **La sesion activa se cuenta al entrar a la aplicacion**, no al abrir el dashboard. Contarla en el
+   propio dashboard haria que el porcentaje fuese siempre 100 %.
+3. **`empty` no es `error`.** El KPI admite expresamente los estados vacio/incompleto: un Workspace que
+   aun no ha cosechado no tiene el dashboard roto. Solo `error` resta cobertura.
+
+Limite conocido: la senal de widget bloqueado viaja **por la propia API**, asi que cubre el fallo de un
+widget concreto, no una caida total del servicio —en ese caso tampoco llegaria la senal—. La
+disponibilidad se mide aparte (`MVP-603`).
+
 ---
 
 ## Estructura de logs

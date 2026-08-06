@@ -43,6 +43,7 @@ describe('PrivacyPanel', () => {
 
     // RN-042: mientras todo esté exento, informar es lo correcto y el banner sería peor cumplimiento.
     expect(screen.getByText(/no hay nada que aceptar ni que rechazar/)).toBeInTheDocument();
-    expect(screen.getAllByText(/NECESARIA/).length).toBe(7);
+    // Ocho desde MVP-602, que añade la medición del uso de la aplicación al inventario.
+    expect(screen.getAllByText(/NECESARIA/).length).toBe(8);
   });
 });

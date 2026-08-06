@@ -132,6 +132,8 @@ builder.Services.AddSingleton<LoginFlowTimings>();
 builder.Services.AddScoped<ITelemetryCounterStore, TelemetryCounterStore>();
 builder.Services.AddHostedService<TelemetryFlushWorker>();
 builder.Services.AddScoped<ILoginTelemetry, LoginTelemetryService>();
+// MVP-602 — Señales de uso del producto: comparten acumulador y almacén con el embudo de login.
+builder.Services.AddScoped<IUsageTelemetry, UsageTelemetryService>();
 builder.Services.AddScoped<ExchangeGoogleCodeHandler>();
 builder.Services.AddScoped<RefreshTokenHandler>();
 builder.Services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();

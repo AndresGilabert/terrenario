@@ -244,14 +244,15 @@ Reglas de contexto:
 | Bandeja de recibidas (MVP-107) | Solo canal `email` dirigido a la cuenta, pendiente y no caducada; se autoriza por titularidad del email, no por token. No exige Workspace activo |
 | Rechazar (MVP-107) | Transita a `rechazada` sin crear membresía; no cierra sesión. Idempotente ante doble rechazo del destinatario |
 
-### 0.c) Telemetría del embudo de login (MVP-105)
+### 0.c) Telemetría del embudo de login (MVP-105 · MVP-601)
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
-| Ingesta de evento de embudo | `POST /api/v1/auth/telemetry/login` | `event*`, `flow_id*` | `202` (sin cuerpo) |
+| Ingesta de evento de embudo | `POST /api/v1/auth/telemetry/login` | `event*`, `flow_id*`, `session_id`, `device_type` | `202` (sin cuerpo) |
 
-`POST /api/v1/auth/google/callback` acepta además un `flow_id` **opcional** para correlacionar el
-éxito/error del intercambio con los eventos de cliente. Si no llega, el servidor genera uno.
+`POST /api/v1/auth/google/callback` acepta además `flow_id`, `session_id` y `device_type`
+**opcionales** para correlacionar el éxito/error del intercambio con los eventos de cliente. Si el
+`flow_id` no llega, el servidor genera uno.
 
 Validaciones y reglas:
 
@@ -259,12 +260,18 @@ Validaciones y reglas:
 |---|---|
 | `event` dentro de `{ login_screen_viewed, login_google_clicked, login_abandonment }` | `VALIDATION_REQUIRED` (400) si no |
 | `flow_id` alfanumérico y de longitud válida (≤ 64) | `VALIDATION_REQUIRED` (400) si no |
+| `session_id` alfanumérico y de longitud válida (≤ 64) | Se degrada a `unknown` si no; **no** rechaza el evento |
+| `device_type` dentro de `{ desktop, mobile, tablet }` | Se degrada a `unknown` si no; **no** rechaza el evento |
 | `login_google_success` / `login_google_error` no se aceptan del cliente | Son autoritativos del servidor (se emiten en el callback) |
-| La traza no contiene PII | Solo `event`, `flow_id` y `channel`; nunca email ni token (RN-020, RN-017) |
+| La traza no contiene PII | Solo `event`, `timestamp`, `session_id`, `flow_id`, `channel`, `device_type` y `error_code`; nunca email ni token (RN-020, RN-017) |
+
+Por qué las dimensiones secundarias degradan en vez de rechazar: descartar el evento entero por un
+`device_type` mal formado perdería la conversión, que es lo que se quiere medir, y además dejaría al
+cliente decidir qué se cuenta con solo mandar un valor inválido.
 
 > El detalle de eventos y campos mínimos del embudo vive en
-> `../07-seguridad/autenticacion-autorizacion.md`. La explotación completa (dimensiones, persistencia
-> y alertado) es alcance de `MVP-601`.
+> `../07-seguridad/autenticacion-autorizacion.md`; cómo se explotan (contadores agregados y ventanas
+> de los SLO) en `../05-infraestructura/observabilidad.md`.
 
 ### Ámbito de Workspace en operaciones protegidas (MVP-105)
 

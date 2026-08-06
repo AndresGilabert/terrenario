@@ -22,6 +22,10 @@ public class ExchangeGoogleCodeHandlerTests
     private readonly IRefreshTokenStore _refreshTokenStore = Substitute.For<IRefreshTokenStore>();
     private readonly IActiveWorkspaceResolver _activeWorkspaceResolver = Substitute.For<IActiveWorkspaceResolver>();
     private readonly ILoginTelemetry _telemetry = Substitute.For<ILoginTelemetry>();
+
+    // MVP-601 — Las dimensiones del embudo viajan juntas en un contexto, no solo el flow_id.
+    private static readonly LoginEventContext TelemetryContext =
+        LoginEventContext.Create("flowid", "sessionid", "desktop");
     // MVP-208: el login resincroniza el nombre del responsable si Google devuelve otro (RN-036).
     private readonly IWorkerRepository _workerRepository = Substitute.For<IWorkerRepository>();
 
@@ -54,7 +58,7 @@ public class ExchangeGoogleCodeHandlerTests
         var sut = CreateSut();
 
         // Act
-        var result = await sut.HandleAsync(ValidCommand, "flow-id");
+        var result = await sut.HandleAsync(ValidCommand, TelemetryContext);
 
         // Assert
         result.AccessToken.Should().Be("access-token");
@@ -82,7 +86,7 @@ public class ExchangeGoogleCodeHandlerTests
         var sut = CreateSut();
 
         // Act
-        await sut.HandleAsync(ValidCommand, "flow-id");
+        await sut.HandleAsync(ValidCommand, TelemetryContext);
 
         // Assert
         existingUser.DisplayName.Should().Be("New Name");
@@ -100,12 +104,12 @@ public class ExchangeGoogleCodeHandlerTests
         var sut = CreateSut();
 
         // Act
-        var act = async () => await sut.HandleAsync(ValidCommand, "flow-id");
+        var act = async () => await sut.HandleAsync(ValidCommand, TelemetryContext);
 
         // Assert
         await act.Should().ThrowAsync<GoogleOidcException>()
             .Where(ex => ex.ErrorCode == ErrorCodes.AuthGoogleTokenInvalid);
-        _telemetry.Received(1).LoginError("flow-id", ErrorCodes.AuthGoogleTokenInvalid);
+        _telemetry.Received(1).LoginError(TelemetryContext, ErrorCodes.AuthGoogleTokenInvalid);
     }
 
     [Fact]
@@ -123,10 +127,10 @@ public class ExchangeGoogleCodeHandlerTests
         var sut = CreateSut();
 
         // Act
-        await sut.HandleAsync(ValidCommand, "flow-id");
+        await sut.HandleAsync(ValidCommand, TelemetryContext);
 
         // Assert
-        _telemetry.Received(1).LoginSuccess("flow-id");
+        _telemetry.Received(1).LoginSuccess(TelemetryContext);
     }
 
     [Fact]
@@ -146,7 +150,7 @@ public class ExchangeGoogleCodeHandlerTests
         var sut = CreateSut();
 
         // Act
-        var result = await sut.HandleAsync(ValidCommand, "flow-id");
+        var result = await sut.HandleAsync(ValidCommand, TelemetryContext);
 
         // Assert — el cliente usa la ausencia de Workspace para entrar al onboarding de MVP-102
         result.Workspace.Should().BeNull();
@@ -172,7 +176,7 @@ public class ExchangeGoogleCodeHandlerTests
         var sut = CreateSut();
 
         // Act
-        var result = await sut.HandleAsync(ValidCommand, "flow-id");
+        var result = await sut.HandleAsync(ValidCommand, TelemetryContext);
 
         // Assert
         result.Workspace.Should().Be(workspace);

@@ -262,6 +262,7 @@ entra en esta tabla antes de activarse**.
 | `sessionStorage` `terrenario_post_login_redirect` | Navegador | Recordar a dónde iba quien abrió un enlace de invitación sin sesión | **Estrictamente necesaria** (funcional) |
 | `localStorage` `terrenario:seen_invitations` | Navegador | No repetir el aviso de una invitación ya vista | **Estrictamente necesaria** (funcional) |
 | `sessionStorage` `terrenario_login_flow` y `terrenario_login_started` | Navegador | Correlacionar el embudo de login (RN-020) | **Medición propia** — ver más abajo |
+| `sessionStorage` `terrenario_session` (MVP-601) | Navegador | Identificador aleatorio de la sesión de navegador, dimensión mínima del embudo (RN-020) | **Medición propia** — ver más abajo |
 | Google Identity (OIDC) | Servidor | Autenticación de acceso (RN-036) | **Estrictamente necesaria**: es el método de acceso que la persona elige |
 | Tipografías e iconos | **Autoalojados** | Sistema de diseño | Sin transferencia a terceros |
 
@@ -285,6 +286,28 @@ Por qué se concluye que **no requiere consentimiento**:
 Queda registrado como decisión motivada, no como omisión. Si la medición creciera —más eventos, más
 retención, o cualquier herramienta de terceros— dejaría de encajar en este supuesto y `RN-042`
 obligaría a recabar consentimiento previo.
+
+#### Qué cambia con `MVP-601` y por qué sigue encajando
+
+`MVP-601` completa las dimensiones del embudo (`session_id`, `device_type`) y **conserva el resultado
+en servidor** como contadores diarios (`telemetry_daily_counters`). Esto es exactamente el «más
+eventos, más retención» que el párrafo anterior señalaba como límite, así que la evaluación se rehace
+en vez de darse por hecha:
+
+- Lo que se conserva son **cifras, no filas de evento**: un contador por día y por métrica
+  («120 pantallas vistas el 6 de agosto»). **Ningún identificador se persiste**, ni el de sesión ni el
+  de flujo, así que no hay nada que reidentificar, nada que exportar por portabilidad y nada que
+  expurgar por supresión. Se descartó a propósito la alternativa de una tabla con una fila por evento,
+  que sí habría sido un dato conservado.
+- El `session_id` es **de sesión de navegador**: aleatorio, no derivado de la cuenta, en
+  `sessionStorage`, y muere al cerrar la pestaña igual que el de flujo.
+- El `device_type` se deriva de dos señales genéricas —puntero grueso y ancho de ventana—, no de la
+  cadena de agente de usuario: agrupa, no distingue. No es huella de dispositivo.
+- Sigue siendo **de primera parte, agregada y sin perfilado**, que es el supuesto de exención.
+
+El límite se mantiene donde estaba: cualquier herramienta de terceros, cualquier identificador que
+sobreviva a la sesión o cualquier medida a nivel de persona dejaría de encajar y `RN-042` exigiría
+consentimiento previo.
 
 **No hay publicidad, perfilado ni tecnologías de terceros.** Por eso el producto **no muestra banner
 de cookies**: la guía de la AEPD es explícita en que el banner es para las tecnologías **no exentas**,

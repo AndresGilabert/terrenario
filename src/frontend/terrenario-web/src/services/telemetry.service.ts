@@ -1,22 +1,32 @@
 import { API_BASE } from './api.config';
+import { getDeviceType, getSessionId } from '../lib/login-telemetry';
 import type { LoginFunnelEventName } from '../lib/login-telemetry';
 
 const LOGIN_TELEMETRY_URL = `${API_BASE}/api/v1/auth/telemetry/login`;
 
 /**
- * MVP-105 — Emite un evento del embudo de login originado en el cliente (pantalla vista, clic en
- * Google, abandono). Es fire-and-forget: la telemetría nunca debe frenar ni romper el login.
+ * MVP-105 · MVP-601 — Emite un evento del embudo de login originado en el cliente (pantalla vista,
+ * clic en Google, abandono). Es fire-and-forget: la telemetría nunca debe frenar ni romper el login.
  *
  * `beacon` usa `navigator.sendBeacon` para los eventos emitidos al abandonar la página (pagehide),
  * donde una petición normal no llegaría a completarse. El resto usa `fetch` con `keepalive` para
  * sobrevivir a la redirección a Google.
+ *
+ * Las dimensiones `session_id` y `device_type` se resuelven aquí y no las pasa quien llama: son las
+ * mismas para todos los eventos, y dejarlas en un solo sitio es lo que impide que un evento salga con
+ * ellas y otro sin ellas.
  */
 export function logLoginEvent(
   event: LoginFunnelEventName,
   flowId: string,
   options: { beacon?: boolean } = {}
 ): void {
-  const payload = JSON.stringify({ event, flow_id: flowId });
+  const payload = JSON.stringify({
+    event,
+    flow_id: flowId,
+    session_id: getSessionId(),
+    device_type: getDeviceType(),
+  });
 
   if (options.beacon && typeof navigator.sendBeacon === 'function') {
     navigator.sendBeacon(

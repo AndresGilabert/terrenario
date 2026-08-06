@@ -44,6 +44,25 @@ using Terrenario.Api.Infrastructure.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ── Logs ─────────────────────────────────────────────────────────────────────
+//
+// MVP-601 — Fuera de desarrollo, los logs salen en JSON con `timestamp` y con los scopes incluidos.
+// `docs/05-infraestructura/observabilidad.md` exige una estructura de log con marca de tiempo y
+// contexto; con el formateador de texto por defecto, las dimensiones del embudo salen interpoladas
+// dentro de una frase y reconstruir el embudo pasa por analizar prosa.
+//
+// En desarrollo se conserva el formato legible: allí los logs se leen con los ojos.
+if (!builder.Environment.IsDevelopment())
+{
+    builder.Logging.ClearProviders();
+    builder.Logging.AddJsonConsole(options =>
+    {
+        options.IncludeScopes = true;   // arrastra el `RequestId` de `RequestIdMiddleware` (P-006)
+        options.UseUtcTimestamp = true;
+        options.TimestampFormat = "yyyy-MM-dd'T'HH:mm:ss.fff'Z'";
+    });
+}
+
 // ── Options ─────────────────────────────────────────────────────────────────
 builder.Services.Configure<GoogleOidcOptions>(
     builder.Configuration.GetSection(GoogleOidcOptions.SectionName));
@@ -59,6 +78,8 @@ builder.Services.Configure<WorkspaceLifecycleOptions>(
     builder.Configuration.GetSection(WorkspaceLifecycleOptions.SectionName));
 builder.Services.Configure<RetentionOptions>(
     builder.Configuration.GetSection(RetentionOptions.SectionName));
+builder.Services.Configure<TelemetryOptions>(
+    builder.Configuration.GetSection(TelemetryOptions.SectionName));
 
 // ── Database ─────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<TerrenarioDbContext>(options =>
@@ -99,6 +120,17 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IGoogleOidcService, GoogleOidcService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IRefreshTokenStore, RefreshTokenStore>();
+// ── Observabilidad (MVP-601) ─────────────────────────────────────────────────
+//
+// El acumulador y el registro de tiempos son **singleton**: los eventos llegan desde peticiones
+// distintas y un intento de login empieza en una petición y termina en otra. El emisor sigue siendo
+// scoped porque su logger lo es.
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<TelemetryCounterAccumulator>();
+builder.Services.AddSingleton<ITelemetryCounters>(sp => sp.GetRequiredService<TelemetryCounterAccumulator>());
+builder.Services.AddSingleton<LoginFlowTimings>();
+builder.Services.AddScoped<ITelemetryCounterStore, TelemetryCounterStore>();
+builder.Services.AddHostedService<TelemetryFlushWorker>();
 builder.Services.AddScoped<ILoginTelemetry, LoginTelemetryService>();
 builder.Services.AddScoped<ExchangeGoogleCodeHandler>();
 builder.Services.AddScoped<RefreshTokenHandler>();

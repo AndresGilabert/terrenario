@@ -10,6 +10,7 @@ using Terrenario.Api.Domain.Users;
 using Terrenario.Api.Domain.Workers;
 using Terrenario.Api.Domain.Workspaces;
 using Terrenario.Api.Infrastructure.Auth;
+using Terrenario.Api.Infrastructure.Telemetry;
 
 namespace Terrenario.Api.Infrastructure.Data;
 
@@ -29,6 +30,9 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
     public DbSet<Purchase> Purchases => Set<Purchase>();
     public DbSet<PurchaseConsumption> PurchaseConsumptions => Set<PurchaseConsumption>();
     public DbSet<Harvest> Harvests => Set<Harvest>();
+    // MVP-601 — Contadores agregados de observabilidad. No cuelgan de ningún Workspace ni de ninguna
+    // persona a propósito: son cifras del sistema, no datos de nadie.
+    public DbSet<TelemetryDailyCounter> TelemetryDailyCounters => Set<TelemetryDailyCounter>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -604,6 +608,20 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
                 .WithMany()
                 .HasForeignKey(h => h.SeasonId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // MVP-601 — Contadores diarios de observabilidad (RN-020). La clave es (día, métrica): es lo
+        // que permite que el volcado sea un `ON CONFLICT DO UPDATE` sumando, y no un léelo-y-escríbelo
+        // que dos instancias pisarían.
+        modelBuilder.Entity<TelemetryDailyCounter>(entity =>
+        {
+            entity.ToTable("telemetry_daily_counters");
+            entity.HasKey(c => new { c.Date, c.Metric });
+            entity.Property(c => c.Date).HasColumnName("date");
+            entity.Property(c => c.Metric).HasColumnName("metric")
+                .HasMaxLength(TelemetryDimensions.MetricMaxLength).IsRequired();
+            entity.Property(c => c.Value).HasColumnName("value");
+            entity.Property(c => c.UpdatedAt).HasColumnName("updated_at");
         });
     }
 }

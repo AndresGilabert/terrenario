@@ -3,7 +3,12 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { authService, AuthServiceError } from '../../services/auth.service';
 import { useAuth } from '../../contexts/AuthContext';
 import { consumePostLoginRedirect } from '../../lib/post-login-redirect';
-import { clearLoginFlow, getLoginFlowId } from '../../lib/login-telemetry';
+import {
+  clearLoginFlow,
+  getDeviceType,
+  getLoginFlowId,
+  getSessionId,
+} from '../../lib/login-telemetry';
 
 const REDIRECT_URI = `${window.location.origin}/auth/callback`;
 
@@ -70,6 +75,10 @@ export const OAuthCallback: React.FC = () => {
         codeVerifier,
         // El servidor emite login_google_success con este mismo flow_id: cierra el embudo (MVP-105).
         flowId: getLoginFlowId(),
+        // …y con estas dos dimensiones, para que el evento de salida se pueda cruzar con los de
+        // entrada por sesión y por dispositivo (MVP-601).
+        sessionId: getSessionId(),
+        deviceType: getDeviceType(),
       })
       .then((tokenResponse) => {
         // Los artefactos PKCE solo se descartan tras confirmar el resultado (MVP-106, CA-1): así

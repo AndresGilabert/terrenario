@@ -37,7 +37,7 @@ public sealed class ExchangeGoogleCodeHandler
 
     public async Task<ExchangeGoogleCodeResult> HandleAsync(
         ExchangeGoogleCodeCommand command,
-        string flowId,
+        LoginEventContext telemetryContext,
         CancellationToken ct = default)
     {
         GoogleIdentity identity;
@@ -51,7 +51,7 @@ public sealed class ExchangeGoogleCodeHandler
         }
         catch (GoogleOidcException ex)
         {
-            _telemetry.LoginError(flowId, ex.ErrorCode);
+            _telemetry.LoginError(telemetryContext, ex.ErrorCode);
             throw;
         }
 
@@ -82,7 +82,7 @@ public sealed class ExchangeGoogleCodeHandler
         var accessToken = _jwtService.IssueAccessToken(user.Id, user.DisplayName, activeWorkspace?.Id);
         var refreshToken = await _refreshTokenStore.CreateAsync(user.Id, ct);
 
-        _telemetry.LoginSuccess(flowId);
+        _telemetry.LoginSuccess(telemetryContext);
 
         return new ExchangeGoogleCodeResult(
             accessToken.Token,

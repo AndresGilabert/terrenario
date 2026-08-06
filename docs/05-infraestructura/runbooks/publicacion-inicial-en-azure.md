@@ -1,7 +1,7 @@
 ---
 bloque: 05-infraestructura
 documento: publicacion-inicial-en-azure
-actualizado_en: "2026-08-04"
+actualizado_en: "2026-08-05"
 ---
 
 # Runbook — Publicación inicial en Azure
@@ -10,6 +10,10 @@ Todo lo que hay que crear y configurar **una sola vez** para que un tag `v*` pub
 A partir de ahí publicar es poner un tag, y este documento solo se vuelve a abrir si algo cambia.
 
 Dominio: **`terrenario.com`** → **`app.terrenario.com`**, un solo origen que sirve cliente y API.
+
+> **Ejecutado el 2026-08-05.** La infraestructura existe y `v0.5.0-hito-e` está publicado. Este
+> documento queda como referencia de cómo se montó y para reproducirlo en otro entorno; los avisos en
+> bloque de cita son los tropiezos reales del primer montaje, no advertencias teóricas.
 
 ---
 
@@ -183,9 +187,24 @@ El montaje de la identidad, una sola vez:
 az ad app create --display-name "terrenario-deploy"
 ```
 
-Después: crear el *service principal*, añadir una credencial federada con sujeto
-`repo:AndresGilabert/terrenario:environment:produccion`, y asignarle el rol **Website Contributor**
-acotado a **la aplicación web**, no al grupo de recursos.
+Después: crear el *service principal*, añadir la credencial federada y asignarle el rol
+**Website Contributor** acotado a **la aplicación web**, no al grupo de recursos.
+
+> **El sujeto no es el que documenta Microsoft.** GitHub presenta el formato de **identificadores
+> inmutables**, con los IDs numéricos de la cuenta y del repositorio:
+>
+> ```text
+> repo:PROPIETARIO@23640134/REPOSITORIO@1303065434:environment:produccion
+> ```
+>
+> Con el formato legible (`repo:PROPIETARIO/REPOSITORIO:environment:produccion`) el login falla con
+> `AADSTS700213: No matching federated identity record found`. **El sujeto exacto aparece en el log
+> del propio fallo**, en la línea `subject claim`, así que la vía rápida es ejecutar una vez, leerlo
+> y crear la credencial con ese valor. Aquí están registradas las dos, por si GitHub cambia de
+> criterio.
+
+Los proveedores de recursos hay que registrarlos antes: una suscripción nueva no los trae, y
+`Microsoft.Authorization` falla con `MissingSubscription` al asignar el rol.
 
 Variables del entorno (ninguna es secreta):
 

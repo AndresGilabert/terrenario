@@ -1,7 +1,7 @@
 ---
 bloque: 08-procesos
 documento: gate-salida-mvp
-actualizado_en: "2026-08-04"
+actualizado_en: "2026-08-05"
 ---
 
 # Gate de salida del MVP (MVP-504)
@@ -21,7 +21,7 @@ hecha.
 | Salida | Estado |
 |---|---|
 | **Despliegue a `staging`** | ✅ **AUTORIZADO** |
-| **Despliegue a `producción` con usuarios reales** | ✅ **AUTORIZADO con condiciones** — sin bloqueos abiertos; queda cumplir los criterios de promoción de §5 |
+| **Despliegue a `producción` con usuarios reales** | ✅ **PUBLICADO** el 2026-08-05 en `https://app.terrenario.com` (`v0.5.0-hito-e`) |
 
 **Los cuatro bloqueos que abrió este gate quedaron cerrados el 2026-08-04.** Este documento conserva
 cada uno con lo que costó cerrarlo, porque el rastro de por qué se decidió algo vale más que la marca

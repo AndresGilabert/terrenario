@@ -38,11 +38,32 @@ using Terrenario.Api.Infrastructure.Data.Repositories;
 using Terrenario.Api.Infrastructure.Email;
 using Terrenario.Api.Infrastructure.Invitations;
 using Terrenario.Api.Infrastructure.Telemetry;
+using Terrenario.Api.Infrastructure.Telemetry.Alerts;
+using Terrenario.Api.Application.Ops;
 using Terrenario.Api.Application.Retention;
 using Terrenario.Api.Infrastructure.Retention;
 using Terrenario.Api.Infrastructure.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ── Logs ─────────────────────────────────────────────────────────────────────
+//
+// MVP-601 — Fuera de desarrollo, los logs salen en JSON con `timestamp` y con los scopes incluidos.
+// `docs/05-infraestructura/observabilidad.md` exige una estructura de log con marca de tiempo y
+// contexto; con el formateador de texto por defecto, las dimensiones del embudo salen interpoladas
+// dentro de una frase y reconstruir el embudo pasa por analizar prosa.
+//
+// En desarrollo se conserva el formato legible: allí los logs se leen con los ojos.
+if (!builder.Environment.IsDevelopment())
+{
+    builder.Logging.ClearProviders();
+    builder.Logging.AddJsonConsole(options =>
+    {
+        options.IncludeScopes = true;   // arrastra el `RequestId` de `RequestIdMiddleware` (P-006)
+        options.UseUtcTimestamp = true;
+        options.TimestampFormat = "yyyy-MM-dd'T'HH:mm:ss.fff'Z'";
+    });
+}
 
 // ── Options ─────────────────────────────────────────────────────────────────
 builder.Services.Configure<GoogleOidcOptions>(
@@ -59,6 +80,10 @@ builder.Services.Configure<WorkspaceLifecycleOptions>(
     builder.Configuration.GetSection(WorkspaceLifecycleOptions.SectionName));
 builder.Services.Configure<RetentionOptions>(
     builder.Configuration.GetSection(RetentionOptions.SectionName));
+builder.Services.Configure<TelemetryOptions>(
+    builder.Configuration.GetSection(TelemetryOptions.SectionName));
+builder.Services.Configure<OpsOptions>(
+    builder.Configuration.GetSection(OpsOptions.SectionName));
 
 // ── Database ─────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<TerrenarioDbContext>(options =>
@@ -99,7 +124,30 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IGoogleOidcService, GoogleOidcService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IRefreshTokenStore, RefreshTokenStore>();
+// ── Observabilidad (MVP-601) ─────────────────────────────────────────────────
+//
+// El acumulador y el registro de tiempos son **singleton**: los eventos llegan desde peticiones
+// distintas y un intento de login empieza en una petición y termina en otra. El emisor sigue siendo
+// scoped porque su logger lo es.
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<TelemetryCounterAccumulator>();
+// MVP-603 — Cada medida va a dos sitios: la serie diaria que se conserva y la ventana corta sobre la
+// que deciden las alertas. Quien mide sigue llamando a `ITelemetryCounters` sin saberlo.
+builder.Services.AddSingleton<RollingWindowMetrics>();
+builder.Services.AddSingleton<ITelemetryCounters, CompositeTelemetryCounters>();
+builder.Services.AddSingleton<LoginFlowTimings>();
+builder.Services.AddScoped<ITelemetryCounterStore, TelemetryCounterStore>();
+builder.Services.AddHostedService<TelemetryFlushWorker>();
+// Salud y vigilancia (MVP-603). El estado de las alertas es singleton: la vigilancia lo escribe y la
+// revisión operativa lo lee.
+builder.Services.AddScoped<HealthProbe>();
+builder.Services.AddScoped<IAlertNotifier, AlertNotifier>();
+builder.Services.AddSingleton<AlertStateStore>();
+builder.Services.AddHostedService<AlertMonitor>();
+builder.Services.AddScoped<OperationalSignalsService>();
 builder.Services.AddScoped<ILoginTelemetry, LoginTelemetryService>();
+// MVP-602 — Señales de uso del producto: comparten acumulador y almacén con el embudo de login.
+builder.Services.AddScoped<IUsageTelemetry, UsageTelemetryService>();
 builder.Services.AddScoped<ExchangeGoogleCodeHandler>();
 builder.Services.AddScoped<RefreshTokenHandler>();
 builder.Services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
@@ -272,12 +320,28 @@ if (!(builder.Configuration.GetSection(EmailOptions.SectionName).Get<EmailOption
         "Sin cuenta de envío de email configurada ('Email:Host' y 'Email:FromAddress'). "
         + "Las invitaciones se emiten pero deben compartirse por enlace.");
 
+// MVP-603 — Una vigilancia encendida sin destinatario es el peor estado posible: parece que hay
+// alertas, y lo que hay es una anotación en un log que nadie lee. Igual que el aviso de arriba, se
+// dice al arrancar en lugar de descubrirse el día del incidente.
+var opsConfigurados = builder.Configuration.GetSection(OpsOptions.SectionName).Get<OpsOptions>() ?? new();
+
+if (opsConfigurados.AlertsEnabled && string.IsNullOrWhiteSpace(opsConfigurados.AlertEmail))
+    app.Logger.LogWarning(
+        "Vigilancia de alertas activa sin destinatario ('Ops:AlertEmail'). "
+        + "Las alertas solo quedarán en la traza: nadie recibirá aviso.");
+
+if (!opsConfigurados.IsSignalsEndpointEnabled)
+    app.Logger.LogWarning(
+        "Sin llave de operación ('Ops:ApiKey'): 'GET /api/v1/ops/signals' responderá 404 "
+        + "y la revisión operativa no se podrá consultar.");
+
 // ── Middleware pipeline ───────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 
 // Transversales primero, para que cubran también respuestas de error y redirecciones (MVP-105).
 app.UseMiddleware<RequestIdMiddleware>();       // X-Request-Id + scope de logging (P-006)
+app.UseMiddleware<RequestMetricsMiddleware>();  // Peticiones, 5xx y latencia P95 (MVP-603)
 app.UseMiddleware<SecurityHeadersMiddleware>(); // Headers de seguridad HTTP (P-005)
 
 app.UseHttpsRedirection();

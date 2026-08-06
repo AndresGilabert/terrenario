@@ -4,10 +4,12 @@ import { authService } from '../../services/auth.service';
 import { generateCodeVerifier, generateCodeChallenge, generateState } from '../../lib/pkce';
 import { logLoginEvent } from '../../services/telemetry.service';
 import {
+  LOGIN_INACTIVITY_TIMEOUT_MS,
   LoginFunnelEvent,
   beginLoginScreen,
   isLoginStarted,
   markLoginStarted,
+  restartLoginFlow,
 } from '../../lib/login-telemetry';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
@@ -17,22 +19,63 @@ export const LoginPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const flowIdRef = useRef<string>('');
+  const abandonedRef = useRef(false);
 
-  // MVP-105 — Traza del embudo de login (RN-020): "pantalla vista" al entrar y "abandono" al salir
-  // sin haber pulsado Google. El éxito y el error los emite el servidor durante el intercambio.
+  // MVP-105 · MVP-601 — Traza del embudo de login (RN-020): "pantalla vista" al entrar y "abandono"
+  // al salir sin haber pulsado Google **o tras quedarse quieto** en la pantalla. El éxito y el error
+  // los emite el servidor durante el intercambio.
+  //
+  // Hasta MVP-601 el abandono solo se emitía al salir de la página, y `observabilidad.md` pide las dos
+  // vías. La que faltaba es justo la que cuenta el caso más silencioso: la pestaña que se queda
+  // abierta en el login y a la que nadie vuelve, que nunca dispara `pagehide`.
   useEffect(() => {
     const flowId = beginLoginScreen();
     flowIdRef.current = flowId;
     logLoginEvent(LoginFunnelEvent.ScreenViewed, flowId);
 
-    const handlePageHide = () => {
-      if (!isLoginStarted()) {
-        logLoginEvent(LoginFunnelEvent.Abandonment, flowId, { beacon: true });
-      }
+    let inactivityTimer: number | undefined;
+
+    const reportAbandonment = (beacon: boolean) => {
+      // Quien ya pulsó Google no ha abandonado: está en Google. Y un intento no se abandona dos veces.
+      if (isLoginStarted() || abandonedRef.current) return;
+      abandonedRef.current = true;
+      logLoginEvent(LoginFunnelEvent.Abandonment, flowIdRef.current, { beacon });
     };
 
+    const armInactivityTimer = () => {
+      window.clearTimeout(inactivityTimer);
+      inactivityTimer = window.setTimeout(
+        () => reportAbandonment(false),
+        LOGIN_INACTIVITY_TIMEOUT_MS
+      );
+    };
+
+    // Volver a interactuar tras un abandono ya emitido abre un intento **nuevo**: si se reutilizara el
+    // mismo flow_id, ese intento sumaría abandono y éxito a la vez y la conversión del embudo dejaría
+    // de cuadrar.
+    const handleActivity = () => {
+      if (abandonedRef.current) {
+        const renewedFlowId = restartLoginFlow();
+        flowIdRef.current = renewedFlowId;
+        abandonedRef.current = false;
+        logLoginEvent(LoginFunnelEvent.ScreenViewed, renewedFlowId);
+      }
+      armInactivityTimer();
+    };
+
+    const handlePageHide = () => reportAbandonment(true);
+
+    armInactivityTimer();
+    window.addEventListener('pointerdown', handleActivity);
+    window.addEventListener('keydown', handleActivity);
     window.addEventListener('pagehide', handlePageHide);
-    return () => window.removeEventListener('pagehide', handlePageHide);
+
+    return () => {
+      window.clearTimeout(inactivityTimer);
+      window.removeEventListener('pointerdown', handleActivity);
+      window.removeEventListener('keydown', handleActivity);
+      window.removeEventListener('pagehide', handlePageHide);
+    };
   }, []);
 
   const handleGoogleLogin = async () => {

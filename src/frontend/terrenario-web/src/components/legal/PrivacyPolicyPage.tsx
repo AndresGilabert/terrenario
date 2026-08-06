@@ -81,7 +81,16 @@ export const PrivacyPolicyPage: React.FC = () => (
       Medimos el <strong>embudo de acceso</strong> (si se vio la pantalla de login, si se pulsó el
       botón y si se abandonó) con un identificador aleatorio que no está vinculado a ti y que
       desaparece al cerrar la pestaña. Es medición propia y agregada: no hay analítica de terceros ni
-      seguimiento entre sitios.
+      seguimiento entre sitios. De esa medición <strong>solo conservamos recuentos diarios</strong>{' '}
+      («cuántas pantallas de acceso, cuántos accesos completados»): no guardamos ningún identificador,
+      así que esas cifras no se pueden relacionar contigo.
+    </p>
+    <p>
+      Con el mismo criterio medimos el <strong>uso de la aplicación</strong>: si se consulta el panel,
+      si se pulsa «Actualizar» y si sus gráficos se pueden mostrar. También aquí solo conservamos
+      recuentos por día, sin identificador y sin asociarlos a tu cuenta ni a tu explotación.{' '}
+      <strong>No medimos lo que registras</strong>: nos dice cuánto se usa la herramienta, no qué hay
+      dentro de ella.
     </p>
 
     <h2>2 bis. Datos de otras personas que introduces tú</h2>
@@ -185,8 +194,8 @@ export const PrivacyPolicyPage: React.FC = () => (
     <h2>6. Cookies y almacenamiento en tu navegador</h2>
     <p>
       Terrenario usa <strong>solo</strong> tecnologías exentas de consentimiento: las estrictamente
-      necesarias para mantener tu sesión y que la aplicación funcione, más la medición del embudo de
-      acceso descrita arriba, que es propia, agregada y sin datos que te identifiquen. No hay
+      necesarias para mantener tu sesión y que la aplicación funcione, más la medición del acceso y del
+      uso descrita arriba, que es propia, agregada y sin datos que te identifiquen. No hay
       analítica de terceros, publicidad ni perfilado, y las tipografías se sirven desde nuestro propio
       servidor para no comunicar tu dirección IP a nadie. Por eso no verás un banner de cookies: no
       hay nada que consentir.

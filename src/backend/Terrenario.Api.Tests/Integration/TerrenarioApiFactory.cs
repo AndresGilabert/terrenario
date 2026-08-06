@@ -29,9 +29,21 @@ namespace Terrenario.Api.Tests.Integration;
 public sealed class TerrenarioApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private string _connectionString = string.Empty;
+    private string _opsApiKey = string.Empty;
 
     /// <summary>Identidad que devolverá el doble de Google en el siguiente intercambio de código.</summary>
     public FakeGoogleOidcService Google { get; } = new();
+
+    /// <summary>
+    /// MVP-603 — Configura la llave de operación. Por defecto el arnés **no** la configura, para que el
+    /// caso probado por omisión sea el de un despliegue sin llave: endpoint inexistente, no abierto.
+    /// Debe llamarse antes de crear el primer cliente.
+    /// </summary>
+    public TerrenarioApiFactory WithOpsKey(string apiKey)
+    {
+        _opsApiKey = apiKey;
+        return this;
+    }
 
     private static readonly Lazy<(string Private, string Public)> KeyPair = new(() =>
     {
@@ -74,6 +86,17 @@ public sealed class TerrenarioApiFactory : WebApplicationFactory<Program>, IAsyn
         // Sus propios tests la invocan directamente, que además es la única forma de controlar el
         // instante y no tener que esperar 24 meses.
         builder.UseSetting("Retention:Enabled", "false");
+
+        // MVP-601 — Mismo motivo para el volcado de telemetría: un servicio de fondo escribiendo por su
+        // cuenta durante los tests de API añade ruido y carreras que no prueban nada. El volcado tiene
+        // sus propios tests, que lo invocan directamente.
+        builder.UseSetting("Telemetry:Enabled", "false");
+
+        // MVP-603 — Y la vigilancia de alertas: sondea la base de datos cada minuto y enviaría avisos
+        // por su cuenta. Sus reglas se prueban directamente, que además es la unica forma de controlar
+        // la ventana sin esperar treinta minutos.
+        builder.UseSetting("Ops:AlertsEnabled", "false");
+        builder.UseSetting("Ops:ApiKey", _opsApiKey);
 
         builder.ConfigureServices(services =>
         {

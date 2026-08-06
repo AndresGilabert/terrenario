@@ -7,6 +7,13 @@ export interface AuthCallbackParams {
   codeVerifier: string;
   /** Correlador del embudo de login (MVP-105); se envía para unir la traza cliente con éxito/error. */
   flowId?: string | null;
+  /**
+   * Dimensiones del embudo que solo conoce el cliente (MVP-601). Viajan en el intercambio porque el
+   * éxito y el error los emite el servidor: sin ellas, la mitad de salida del embudo quedaría sin
+   * sesión ni dispositivo y no se podría cruzar con la de entrada.
+   */
+  sessionId?: string | null;
+  deviceType?: string | null;
 }
 
 export const authService = {
@@ -20,6 +27,8 @@ export const authService = {
         redirect_uri: params.redirectUri,
         code_verifier: params.codeVerifier,
         flow_id: params.flowId ?? undefined,
+        session_id: params.sessionId ?? undefined,
+        device_type: params.deviceType ?? undefined,
       }),
     });
 

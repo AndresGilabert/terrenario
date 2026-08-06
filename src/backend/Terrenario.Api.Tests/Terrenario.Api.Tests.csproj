@@ -12,6 +12,8 @@
     <PackageReference Include="FluentAssertions" Version="6.12.*" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.*" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.*" />
+    <!-- Reloj controlable (MVP-601): medir duraciones de login y cadencias de volcado sin esperarlas. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.*" />
     <!-- PostgreSQL real en contenedor (MVP-501): los tests de repositorio y el arnés de API
          ejercitan el MISMO motor que producción. Antes se usaba SQLite, y eso obligaba a degradar
          consultas de producción para que el arnés pudiera ejecutarlas (P-031). Requiere Docker. -->
@@ -33,6 +35,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Terrenario.Api\Terrenario.Api.csproj" />
+  </ItemGroup>
+
+  <!-- MVP-603 — El `appsettings.json` que se publica entra en la salida del test para poder afirmar
+       sobre los valores **que viajan al despliegue**, no sobre los que tiene la clase en memoria. Lo
+       estrena la guarda de `Ops:ApiKey`: el defecto estaba en el fichero, no en el código. -->
+  <ItemGroup>
+    <Content Include="..\Terrenario.Api\appsettings.json" Link="appsettings.json"
+             CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

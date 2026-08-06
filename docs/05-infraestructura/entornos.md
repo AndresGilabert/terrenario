@@ -86,6 +86,11 @@ docker compose up --build
 | `Email__Password` | secreto | secreto | secreto | Contraseña o contraseña de aplicación |
 | `Email__FromAddress` | secreto | secreto | secreto | Remitente. Vacío = no se envían invitaciones |
 | `Email__FromName` | `Terrenario` | `Terrenario` | `Terrenario` | Nombre visible del remitente |
+| `Ops__ApiKey` | secreto | secreto | secreto | Llave de servicio para `GET /api/v1/ops/signals` (MVP-603). **Vacía = el endpoint no existe (404)** |
+| `Ops__AlertEmail` | secreto | secreto | secreto | Destinatario de los avisos de alerta. Vacío = las alertas solo quedan en la traza |
+| `Ops__AlertsEnabled` | `true` | `true` | `true` | Apaga la vigilancia. Se pone a `false` en el arnés de tests |
+| `Telemetry__FlushIntervalSeconds` | `60` | `60` | `60` | Cadencia del volcado de contadores (MVP-601) |
+| `Telemetry__RetentionDays` | `400` | `400` | `400` | Histórico de contadores agregados. No es un plazo de `RN-041`: no hay datos personales |
 
 > **Por qué toda la cuenta de envío va como secreto**: el repositorio es público. `Host`, `Username`
 > y `FromAddress` no son credenciales por sí solos, pero identifican una cuenta concreta de un

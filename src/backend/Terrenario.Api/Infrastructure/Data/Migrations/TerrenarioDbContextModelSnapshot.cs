@@ -917,6 +917,30 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
                     b.ToTable("refresh_tokens", (string)null);
                 });
 
+            modelBuilder.Entity("Terrenario.Api.Infrastructure.Telemetry.TelemetryDailyCounter", b =>
+                {
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date")
+                        .HasColumnName("date");
+
+                    b.Property<string>("Metric")
+                        .HasMaxLength(96)
+                        .HasColumnType("character varying(96)")
+                        .HasColumnName("metric");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<long>("Value")
+                        .HasColumnType("bigint")
+                        .HasColumnName("value");
+
+                    b.HasKey("Date", "Metric");
+
+                    b.ToTable("telemetry_daily_counters", (string)null);
+                });
+
             modelBuilder.Entity("Terrenario.Api.Domain.Activities.Activity", b =>
                 {
                     b.HasOne("Terrenario.Api.Domain.Plots.Plot", null)

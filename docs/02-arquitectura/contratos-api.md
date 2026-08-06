@@ -244,14 +244,15 @@ Reglas de contexto:
 | Bandeja de recibidas (MVP-107) | Solo canal `email` dirigido a la cuenta, pendiente y no caducada; se autoriza por titularidad del email, no por token. No exige Workspace activo |
 | Rechazar (MVP-107) | Transita a `rechazada` sin crear membresía; no cierra sesión. Idempotente ante doble rechazo del destinatario |
 
-### 0.c) Telemetría del embudo de login (MVP-105)
+### 0.c) Telemetría del embudo de login (MVP-105 · MVP-601)
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
-| Ingesta de evento de embudo | `POST /api/v1/auth/telemetry/login` | `event*`, `flow_id*` | `202` (sin cuerpo) |
+| Ingesta de evento de embudo | `POST /api/v1/auth/telemetry/login` | `event*`, `flow_id*`, `session_id`, `device_type` | `202` (sin cuerpo) |
 
-`POST /api/v1/auth/google/callback` acepta además un `flow_id` **opcional** para correlacionar el
-éxito/error del intercambio con los eventos de cliente. Si no llega, el servidor genera uno.
+`POST /api/v1/auth/google/callback` acepta además `flow_id`, `session_id` y `device_type`
+**opcionales** para correlacionar el éxito/error del intercambio con los eventos de cliente. Si el
+`flow_id` no llega, el servidor genera uno.
 
 Validaciones y reglas:
 
@@ -259,12 +260,72 @@ Validaciones y reglas:
 |---|---|
 | `event` dentro de `{ login_screen_viewed, login_google_clicked, login_abandonment }` | `VALIDATION_REQUIRED` (400) si no |
 | `flow_id` alfanumérico y de longitud válida (≤ 64) | `VALIDATION_REQUIRED` (400) si no |
+| `session_id` alfanumérico y de longitud válida (≤ 64) | Se degrada a `unknown` si no; **no** rechaza el evento |
+| `device_type` dentro de `{ desktop, mobile, tablet }` | Se degrada a `unknown` si no; **no** rechaza el evento |
 | `login_google_success` / `login_google_error` no se aceptan del cliente | Son autoritativos del servidor (se emiten en el callback) |
-| La traza no contiene PII | Solo `event`, `flow_id` y `channel`; nunca email ni token (RN-020, RN-017) |
+| La traza no contiene PII | Solo `event`, `timestamp`, `session_id`, `flow_id`, `channel`, `device_type` y `error_code`; nunca email ni token (RN-020, RN-017) |
+
+Por qué las dimensiones secundarias degradan en vez de rechazar: descartar el evento entero por un
+`device_type` mal formado perdería la conversión, que es lo que se quiere medir, y además dejaría al
+cliente decidir qué se cuenta con solo mandar un valor inválido.
 
 > El detalle de eventos y campos mínimos del embudo vive en
-> `../07-seguridad/autenticacion-autorizacion.md`. La explotación completa (dimensiones, persistencia
-> y alertado) es alcance de `MVP-601`.
+> `../07-seguridad/autenticacion-autorizacion.md`; cómo se explotan (contadores agregados y ventanas
+> de los SLO) en `../05-infraestructura/observabilidad.md`.
+
+### 0.d) Señales de uso del producto (MVP-602)
+
+| Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
+|---|---|---|---|
+| Ingesta de señal de uso | `POST /api/v1/telemetry/usage` | `event*`, `session_id`, `device_type`, `first_in_session`, `widgets` | `202` (sin cuerpo) |
+
+**Autenticada, sin ámbito de Workspace.** Exigir sesión evita que se inflen los contadores desde
+fuera; no exigir Workspace activo es deliberado: una sesión en onboarding también es una sesión
+activa, y dejarla fuera del divisor subiría el KPI de uso del dashboard justo con los casos en los que
+el producto todavía no sirve de nada.
+
+Validaciones y reglas:
+
+| Regla | Código error / comportamiento |
+|---|---|
+| `event` dentro de `{ app_session_started, dashboard_viewed, dashboard_manual_refresh, dashboard_widgets }` | `VALIDATION_REQUIRED` (400) si no |
+| `session_id` / `device_type` | Se degradan a `unknown`; **no** rechazan la señal |
+| `first_in_session` (solo en `dashboard_viewed`) | Ausente equivale a `false`: ante la duda no se infla el numerador del KPI |
+| `widgets[].widget` ∈ `{ summary, kg_by_destination, kg_by_plot, yield_evolution }` y `status` ∈ `{ ok, empty, error }` | Los no reconocidos **se descartan uno a uno**, no el lote: un cliente más nuevo debe seguir aportando lo que el servidor sí conoce |
+| `widgets` repetidos | Solo cuenta el primero de cada widget, para que no se pueda inflar la cobertura repitiendo |
+| Ningún widget reconocible en `dashboard_widgets` | `VALIDATION_REQUIRED` (400) |
+| La señal no contiene PII | Solo `event`, `timestamp`, `session_id`, `channel` y `device_type`. **No lleva usuario ni Workspace**, aunque el endpoint sea autenticado y el servidor los conozca (RN-042) |
+
+### 0.e) Salud y señales operativas (MVP-603)
+
+| Operación | Método y ruta | Autenticación | Respuesta |
+|---|---|---|---|
+| Comprobación de salud | `GET /api/v1/health` | Anónima | `200` `{ status, database }` · **`503`** si no alcanza la base de datos |
+| Señales operativas | `GET /api/v1/ops/signals?days=N` | Llave de servicio `X-Ops-Key` | `200` con el informe · `401` sin llave válida · **`404`** si no hay llave configurada |
+
+`/api/v1/health` es la superficie que sondea la plataforma de alojamiento y la que hace comprobable la
+alerta `ServiceDown`. Devuelve **`503`** y no `200` con un cuerpo que diga que va mal: las sondas miran
+el código de estado. No expone versión, ni cadena de conexión, ni el motivo del fallo —es una
+superficie anónima expuesta a Internet—.
+
+`/api/v1/ops/signals` responde `404` cuando `Ops:ApiKey` no está configurada. Es deliberado: si alguna
+vez se despliega sin configurarlo, el fallo debe ser que no se puede consultar, no que lo pueda
+consultar cualquiera. La comparación de la llave es en tiempo constante.
+
+El informe agrupa `daily`, `slo`, `login_funnel_7d`, `product_usage_7d`, `business_7d`, `live` (ventana
+de 30 min) y `alerts`. Los cocientes son `null` —no `0`— cuando el divisor es cero: «ninguna sesión
+abrió el panel» y «no hubo sesiones» no son lo mismo.
+
+`daily` (MVP-699) es la **serie por día**, en orden ascendente y sin huecos: los días sin datos vienen
+con recuentos a `0` y cocientes a `null`, porque omitirlos escondería que ese día no se observó nada.
+
+| Parámetro | Efecto |
+|---|---|
+| `days` | Días de la serie diaria. Por defecto `28`; se acota en silencio a `1..400` y el valor aplicado viaja en `daily_days` |
+
+`days` **no mueve las ventanas de los SLO**: `error_rate_7d` y compañía son de 7 y 30 días porque así
+las define la KB, y son parte del objetivo, no una preferencia de consulta. Lo que el parámetro
+gobierna es otra pregunta —«¿mejora o empeora?»—, que es la que las ventanas fijas no pueden contestar.
 
 ### Ámbito de Workspace en operaciones protegidas (MVP-105)
 

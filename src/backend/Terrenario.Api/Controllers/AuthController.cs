@@ -37,11 +37,16 @@ public sealed class AuthController(
             ? request.FlowId!
             : Guid.NewGuid().ToString("N");
 
+        // MVP-601 — El éxito y el error se emiten aquí, así que las dimensiones que solo conoce el
+        // cliente (sesión y tipo de dispositivo) tienen que viajar en el intercambio o el embudo
+        // quedaría medido a medias: los eventos de entrada con ellas y los de salida sin ellas.
+        var telemetryContext = LoginEventContext.Create(flowId, request.SessionId, request.DeviceType);
+
         try
         {
             var result = await exchangeHandler.HandleAsync(
                 new ExchangeGoogleCodeCommand(request.Code, request.RedirectUri, request.CodeVerifier),
-                flowId,
+                telemetryContext,
                 ct);
 
             SetRefreshTokenCookie(result.RefreshToken);
@@ -132,6 +137,12 @@ public sealed class AuthController(
     /// (pantalla vista, clic en Google, abandono). El éxito y el error se emiten en servidor durante
     /// el intercambio con Google, así que no se aceptan aquí. La traza no contiene PII: solo el
     /// nombre del evento y un flow_id aleatorio (RN-020, CA-2/CA-3).
+    ///
+    /// MVP-601 — El cuerpo admite además <c>session_id</c> y <c>device_type</c>, las dos dimensiones
+    /// mínimas que faltaban. Un valor ausente o mal formado **no descarta el evento**: se registra como
+    /// <c>unknown</c>. Perder la conversión entera por una dimensión secundaria sería peor medida que
+    /// tener una dimensión con huecos, y además convertiría la telemetría en una forma de que el
+    /// cliente decidiera qué se cuenta.
     /// </summary>
     [HttpPost("telemetry/login")]
     [AllowAnonymous]
@@ -145,16 +156,18 @@ public sealed class AuthController(
             return BadRequest(new ApiErrorResponse(
                 ApiError.Validation(ErrorCodes.ValidationRequired, "Evento de login no reconocido.")));
 
+        var context = LoginEventContext.Create(request.FlowId!, request.SessionId, request.DeviceType);
+
         switch (request.Event)
         {
             case LoginFunnelEvents.ScreenViewed:
-                telemetry.LoginScreenViewed(request.FlowId!);
+                telemetry.LoginScreenViewed(context);
                 break;
             case LoginFunnelEvents.GoogleClicked:
-                telemetry.LoginGoogleClicked(request.FlowId!);
+                telemetry.LoginGoogleClicked(context);
                 break;
             case LoginFunnelEvents.Abandonment:
-                telemetry.LoginAbandoned(request.FlowId!);
+                telemetry.LoginAbandoned(context);
                 break;
         }
 
@@ -197,9 +210,15 @@ public sealed record GoogleCallbackRequest(
     [Required][property: JsonPropertyName("code_verifier")] string CodeVerifier,
     // Correlador del embudo de login emitido por el cliente (MVP-105). Opcional: si no llega, el
     // servidor genera uno para no perder la traza de éxito/error.
-    [property: JsonPropertyName("flow_id")] string? FlowId = null);
+    [property: JsonPropertyName("flow_id")] string? FlowId = null,
+    // Dimensiones mínimas del embudo que solo conoce el cliente (MVP-601). Opcionales: su ausencia
+    // degrada la dimensión a `unknown`, nunca impide el acceso.
+    [property: JsonPropertyName("session_id")] string? SessionId = null,
+    [property: JsonPropertyName("device_type")] string? DeviceType = null);
 
-/// <summary>Evento del embudo de login originado en el cliente (MVP-105).</summary>
+/// <summary>Evento del embudo de login originado en el cliente (MVP-105 · MVP-601).</summary>
 public sealed record LoginTelemetryRequest(
     [property: JsonPropertyName("event")] string? Event,
-    [property: JsonPropertyName("flow_id")] string? FlowId);
+    [property: JsonPropertyName("flow_id")] string? FlowId,
+    [property: JsonPropertyName("session_id")] string? SessionId = null,
+    [property: JsonPropertyName("device_type")] string? DeviceType = null);

@@ -262,6 +262,8 @@ entra en esta tabla antes de activarse**.
 | `sessionStorage` `terrenario_post_login_redirect` | Navegador | Recordar a dónde iba quien abrió un enlace de invitación sin sesión | **Estrictamente necesaria** (funcional) |
 | `localStorage` `terrenario:seen_invitations` | Navegador | No repetir el aviso de una invitación ya vista | **Estrictamente necesaria** (funcional) |
 | `sessionStorage` `terrenario_login_flow` y `terrenario_login_started` | Navegador | Correlacionar el embudo de login (RN-020) | **Medición propia** — ver más abajo |
+| `sessionStorage` `terrenario_session` (MVP-601) | Navegador | Identificador aleatorio de la sesión de navegador, dimensión mínima del embudo (RN-020) | **Medición propia** — ver más abajo |
+| `sessionStorage` `terrenario_usage_marks` (MVP-602) | Navegador | Recordar qué hitos ya se han contado en esta sesión, para no contar una sesión como si fueran varias | **Medición propia** — ver más abajo |
 | Google Identity (OIDC) | Servidor | Autenticación de acceso (RN-036) | **Estrictamente necesaria**: es el método de acceso que la persona elige |
 | Tipografías e iconos | **Autoalojados** | Sistema de diseño | Sin transferencia a terceros |
 
@@ -285,6 +287,53 @@ Por qué se concluye que **no requiere consentimiento**:
 Queda registrado como decisión motivada, no como omisión. Si la medición creciera —más eventos, más
 retención, o cualquier herramienta de terceros— dejaría de encajar en este supuesto y `RN-042`
 obligaría a recabar consentimiento previo.
+
+#### Qué cambia con `MVP-601` y por qué sigue encajando
+
+`MVP-601` completa las dimensiones del embudo (`session_id`, `device_type`) y **conserva el resultado
+en servidor** como contadores diarios (`telemetry_daily_counters`). Esto es exactamente el «más
+eventos, más retención» que el párrafo anterior señalaba como límite, así que la evaluación se rehace
+en vez de darse por hecha:
+
+- Lo que se conserva son **cifras, no filas de evento**: un contador por día y por métrica
+  («120 pantallas vistas el 6 de agosto»). **Ningún identificador se persiste**, ni el de sesión ni el
+  de flujo, así que no hay nada que reidentificar, nada que exportar por portabilidad y nada que
+  expurgar por supresión. Se descartó a propósito la alternativa de una tabla con una fila por evento,
+  que sí habría sido un dato conservado.
+- El `session_id` es **de sesión de navegador**: aleatorio, no derivado de la cuenta, en
+  `sessionStorage`, y muere al cerrar la pestaña igual que el de flujo.
+- El `device_type` se deriva de dos señales genéricas —puntero grueso y ancho de ventana—, no de la
+  cadena de agente de usuario: agrupa, no distingue. No es huella de dispositivo.
+- Sigue siendo **de primera parte, agregada y sin perfilado**, que es el supuesto de exención.
+
+El límite se mantiene donde estaba: cualquier herramienta de terceros, cualquier identificador que
+sobreviva a la sesión o cualquier medida a nivel de persona dejaría de encajar y `RN-042` exigiría
+consentimiento previo.
+
+#### Qué cambia con `MVP-602`: ya no se mide solo el acceso
+
+`MVP-602` extiende la medición **más allá del embudo de login**, a cómo se usa el producto: entrada al
+área autenticada, entrada al dashboard, pulsación de «Actualizar» y si cada widget se pudo mostrar. Es
+el cambio de alcance más grande de la medición desde que existe, así que se evalúa entero:
+
+- Lo que se conserva sigue siendo **solo recuentos diarios**, con el mismo diseño que `MVP-601`: no hay
+  fila por evento ni identificador persistido. La pregunta que se puede responder es «cuántas sesiones
+  abrieron el panel», nunca «quién lo abrió».
+- La señal **no lleva usuario ni Workspace**, aunque el endpoint sea autenticado y el servidor los
+  conozca. Es una decisión, no un descuido, y está sostenida por un test que fija el conjunto cerrado
+  de campos de la traza.
+- El identificador de sesión y la marca de hitos ya contados viven en `sessionStorage` y **mueren al
+  cerrar la pestaña**. La marca existe justamente para **no** contar de más: sin ella, una sesión que
+  entra ocho veces al dashboard parecería ocho.
+- Sigue sin haber **perfilado, seguimiento entre sitios ni terceros**, y no se mide nada del contenido
+  de la explotación: se mide el uso de la interfaz, no lo que se registra en ella.
+
+Conclusión: la medición crece en superficie pero **no en poder de identificación**, que es la variable
+de la que depende la exención. No se recaba consentimiento y queda registrado por qué.
+
+Lo que **sí** obligaría a replantearlo, para que el límite no quede en una frase vaga: medir a nivel de
+persona o de Workspace, conservar cualquier identificador más allá de la pestaña, medir el contenido
+registrado, o incorporar cualquier herramienta de terceros.
 
 **No hay publicidad, perfilado ni tecnologías de terceros.** Por eso el producto **no muestra banner
 de cookies**: la guía de la AEPD es explícita en que el banner es para las tecnologías **no exentas**,

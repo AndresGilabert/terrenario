@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router';
 import { AppSidebar } from './AppSidebar';
 import { AppTopbar } from './AppTopbar';
 import { InvitationModal } from '../notifications/InvitationModal';
+import { useUsageTelemetry } from '../../lib/use-usage-telemetry';
+import { UsageEvent, UsageMark, markOnceInSession } from '../../lib/usage-telemetry';
 
 /** Título contextual de la cabecera según la ruta activa. */
 function titleForPath(pathname: string): string {
@@ -30,6 +32,15 @@ function titleForPath(pathname: string): string {
 export const AppLayout: React.FC = () => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const logUsage = useUsageTelemetry();
+
+  // MVP-602 — «Sesión activa»: la que llega al área autenticada. Es el **divisor** del KPI de uso del
+  // dashboard, así que se cuenta aquí y no en la propia pantalla del dashboard: contarlo allí haría que
+  // el porcentaje fuese siempre 100 %, porque solo entrarían en el divisor las sesiones que ya lo han
+  // abierto. Una vez por sesión, no por navegación entre pantallas.
+  useEffect(() => {
+    if (markOnceInSession(UsageMark.AppSession)) logUsage(UsageEvent.AppSessionStarted);
+  }, [logUsage]);
 
   return (
     <div className="min-h-screen bg-[#fcf9f4] text-[#1c1c19] flex flex-col md:flex-row">

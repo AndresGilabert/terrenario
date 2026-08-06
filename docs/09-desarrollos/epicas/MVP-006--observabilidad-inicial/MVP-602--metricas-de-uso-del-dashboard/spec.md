@@ -2,7 +2,7 @@
 id: "MVP-602"
 tipo: feature
 titulo: "Métricas de uso del dashboard"
-estado: borrador
+estado: completado
 prioridad: media
 sprint: ""
 hito: "Hito F — Operación medible"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "telemetry", "dashboard"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-08-06"
 ---
 
 # MVP-602 — Métricas de uso del dashboard
@@ -55,9 +55,9 @@ Disponer de señales básicas de uso del dashboard y recarga manual que permitan
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: El sistema registra el acceso al dashboard de forma suficiente para medir sesiones con uso del panel.
-- [ ] **CA-2**: El sistema registra la recarga manual del dashboard como señal separada.
-- [ ] **CA-3**: Las métricas permiten revisar los KPIs mínimos de uso definidos en la KB.
+- [x] **CA-1**: El sistema registra el acceso al dashboard de forma suficiente para medir sesiones con uso del panel.
+- [x] **CA-2**: El sistema registra la recarga manual del dashboard como señal separada.
+- [x] **CA-3**: Las métricas permiten revisar los KPIs mínimos de uso definidos en la KB.
 
 ## Maquetas y referencias visuales
 
@@ -71,9 +71,16 @@ Disponer de señales básicas de uso del dashboard y recarga manual que permitan
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| DashboardView | RN-006, RN-007 | parcial | Interacciones de filtros y recarga identificables |
-| TopNavbar | RN-006 | parcial | Botones y contexto visibles para instrumentacion |
+| DashboardView | RN-006, RN-007 | cubierto | Entrada, recarga manual y cobertura de los cuatro widgets, verificadas en navegador: el clic en «Actualizar» emite `dashboard_manual_refresh` y el cambio de temporada no |
+| TopNavbar | RN-006 | cubierto | La sesión activa se cuenta en el shell (`AppLayout`), que es el divisor del KPI |
 
 ## Notas y decisiones
 
 - Esta historia mide adopción mínima, no comportamiento exhaustivo.
+- Se miden **sesiones**, no visitas: quien entra ocho veces al panel en una sesión sigue siendo una
+  sesión, y contar visitas daría porcentajes por encima del 100 %.
+- El estado **vacío de un widget cuenta como cubierto**: el KPI de la KB lo admite expresamente, y
+  tratarlo como fallo haría bajar la cobertura con cada Workspace nuevo.
+- Al ampliar la medición más allá del acceso se rehace la evaluación de exención de `RN-042` y se
+  actualiza lo publicado (Política de Privacidad y panel de Ajustes).
+- El detalle técnico y las alternativas descartadas están en [tech-design.md](./tech-design.md).

@@ -2,7 +2,7 @@
 id: "MVP-601"
 tipo: feature
 titulo: "Telemetría mínima del embudo de login"
-estado: borrador
+estado: completado
 prioridad: media
 sprint: ""
 hito: "Hito F — Operación medible"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "telemetry", "login"]
   nivel_riesgo: medio
 creado_en: "2026-07-20"
-actualizado_en: "2026-07-21"
+actualizado_en: "2026-08-06"
 ---
 
 # MVP-601 — Telemetría mínima del embudo de login
@@ -56,9 +56,9 @@ Emitir y conservar la telemetría mínima necesaria para medir conversión, erro
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: El sistema emite los eventos mínimos del embudo de login definidos en la KB.
-- [ ] **CA-2**: Cada evento contiene las dimensiones mínimas requeridas para reconstruir el flujo.
-- [ ] **CA-3**: Ningún evento de login incluye PII sensible en claro.
+- [x] **CA-1**: El sistema emite los eventos mínimos del embudo de login definidos en la KB.
+- [x] **CA-2**: Cada evento contiene las dimensiones mínimas requeridas para reconstruir el flujo.
+- [x] **CA-3**: Ningún evento de login incluye PII sensible en claro.
 
 ## Maquetas y referencias visuales
 
@@ -72,9 +72,13 @@ Emitir y conservar la telemetría mínima necesaria para medir conversión, erro
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| LoginPage | RN-020 | falta | No hay eventos de abandono/exito instrumentados |
-| App rutas auth | RN-020 | parcial | Puntos de enganche definidos por navegacion |
+| LoginPage | RN-020 | cubierto | Abandono por salida **y por inactividad** (90 s), verificado en navegador: pantalla vista a las 07:05:54 y abandono a las 07:07:24 con el mismo `flow_id` |
+| App rutas auth | RN-020 | cubierto | Éxito y error se emiten en el intercambio con las mismas dimensiones que los eventos de cliente |
 
 ## Notas y decisiones
 
 - Esta historia convierte la traza mínima de login en una capacidad medible de operación.
+- La explotación se resuelve con **contadores diarios agregados**, no con una traza de eventos
+  persistida: los KPI de la KB salen igual y no se conserva ningún identificador, así que la medición
+  sigue encajando en el supuesto de exención de `RN-042` (ver `docs/07-seguridad/privacidad-datos.md`).
+- El detalle técnico y las alternativas descartadas están en [tech-design.md](./tech-design.md).

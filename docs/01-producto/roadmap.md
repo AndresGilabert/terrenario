@@ -1,7 +1,7 @@
 ﻿---
 bloque: 01-producto
 documento: roadmap
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-08-07"
 ---
 
 # Roadmap de Alto Nivel
@@ -13,9 +13,9 @@ actualizado_en: "2026-07-20"
 
 ## Estado actual del producto
 
-**Versión en producción**: no definida
-**Estado de definición**: cierre funcional del MVP completado en KB
-**Próximo hito**: Hito A — Identidad y contexto seguro de Workspace
+**Versión en producción**: `v0.6.0-hito-f`, publicada el 2026-08-05 en `https://app.terrenario.com`
+**Estado de definición**: MVP entregado; hitos A a F cerrados
+**Próximo hito**: Hito G — Ajustes de uso real (épica `MVP-007`)
 
 ---
 
@@ -39,13 +39,14 @@ actualizado_en: "2026-07-20"
 |-------|---------|--------------------|-----------------------|------|
 | Endurecimiento y salida a MVP | Hardening de seguridad, tests obligatorios, validación RGPD/LOPDGDD, smoke E2E y criterios de salida | El MVP puede desplegarse con un nivel de riesgo controlado y evidencia mínima de calidad | Hito D | Hito E — Salida controlada a MVP |
 | Observabilidad inicial | Embudo de login, métricas de uso del dashboard, alertas básicas y operación medible | El equipo puede detectar barreras de acceso y degradaciones operativas en los primeros usuarios reales | Hito E | Hito F — Operación medible |
+| Ajustes MVP 01 | Coherencia de contexto (Workspace y temporada), aprovechamiento del espacio, arranque en el diario, modales accesibles, lectura económica mínima de la campaña, identidad de marca, canal de feedback y saneamiento acotado | El MVP publicado deja de contradecirse a sí mismo y el usuario real puede trabajar —y quejarse— sin fricción | Hito F | Hito G — Ajustes de uso real |
 
 ### Largo plazo (6-12 meses)
 
 | Bloque | Alcance | Resultado esperado | Dependencia principal | Hito |
 |-------|---------|--------------------|-----------------------|------|
-| Offline/sync diferido | Outbox, idempotencia, reintentos y resolución de conflictos post-MVP | Captura resiliente fuera de cobertura, sin ampliar el alcance del MVP inicial | Hito F | Hito G — Resiliencia offline |
-| Evoluciones de producto | Permisos granulares, importación desde hoja, balance/molturación/precio, analítica avanzada y meteo+IA | Escalado funcional después de validar adopción y operativa base | Hito F | Hito H — Escalado funcional |
+| Offline/sync diferido | Outbox, idempotencia, reintentos y resolución de conflictos post-MVP | Captura resiliente fuera de cobertura, sin ampliar el alcance del MVP inicial | Hito G | Hito H — Resiliencia offline |
+| Evoluciones de producto | Permisos granulares, importación desde hoja, balance/molturación/precio, analítica avanzada, modelo de producción ampliado (variedad por terreno, producto por Workspace, maestro de almazaras y compradoras) y meteo+IA | Escalado funcional después de validar adopción y operativa base | Hito G | Hito I — Escalado funcional |
 
 ---
 
@@ -109,6 +110,9 @@ Estas líneas no bloquean el roadmap ni deben infiltrarse en las primeras épica
 | Hito D — Visibilidad operativa MVP | Hito C | Cosechas y dashboard requieren operativa y reglas ya estables |
 | Hito E — Salida controlada a MVP | Hito D | No tiene sentido endurecer antes de cerrar el núcleo funcional |
 | Hito F — Operación medible | Hito E | La observabilidad inicial debe medir un MVP ya desplegable |
+| Hito G — Ajustes de uso real | Hito F | Los ajustes salen de usar el MVP publicado: no se pueden anticipar antes de publicarlo |
+| Hito H — Resiliencia offline | Hito G | No tiene sentido hacer resiliente una captura cuyas incoherencias de contexto siguen abiertas |
+| Hito I — Escalado funcional | Hito G | Escalar sobre un producto que aún se contradice multiplica el problema |
 
 ## Trazabilidad con arquitectura
 

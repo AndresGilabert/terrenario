@@ -4,6 +4,8 @@ import { useApiClient } from '../../contexts/ApiContext';
 import { useSeason } from '../../contexts/SeasonContext';
 import { createPurchaseService } from '../../services/purchase.service';
 import { HttpError } from '../../services/http-client';
+import { useSeasonScope } from '../../lib/season-scope';
+import { ALL_SEASONS } from '../../types/season.types';
 import { CONFLICT_VERSION_MISMATCH } from '../../types/activity.types';
 import {
   PURCHASE_PRODUCT_MAX_LENGTH,
@@ -73,7 +75,12 @@ export const ComprasView: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [seasonFilter, setSeasonFilter] = useState('todas');
+  // MVP-701 (`P-082`) — El defecto de temporada lo resuelve el servidor (RN-008), igual que en el
+  // dashboard: el libro de compras ya no arranca en «todas».
+  const seasonScope = useSeasonScope();
+  // Desestructurado para que las dependencias de `reload` sean identificadores estables y la regla de
+  // exhaustividad de los hooks pueda comprobarlas.
+  const { requested: seasonRequested, applyFromResponse: applySeasonScope } = seasonScope;
   const [productFilter, setProductFilter] = useState('');
 
   // Alta en línea (prototipo)
@@ -114,12 +121,14 @@ export const ComprasView: React.FC = () => {
     try {
       const [list, productList, consumptionList, plotList] = await Promise.all([
         purchaseService.listPurchases({
-          seasonId: seasonFilter === 'todas' ? undefined : seasonFilter,
+          seasonId: seasonRequested,
           product: productFilter.trim() || undefined,
         }),
         purchaseService.listProductSuggestions(),
         consumptionService.listConsumptions({
-          seasonId: seasonFilter === 'todas' ? undefined : seasonFilter,
+          // El mismo ámbito que el libro: las dos listas conviven en esta pantalla y hablar de
+          // campañas distintas sería el propio `P-082` dentro de una sola vista.
+          seasonId: seasonRequested,
           // R-06 (MVP-399) — el buscador de material filtraba las compras pero no los consumos.
           product: productFilter.trim() || undefined,
         }),
@@ -128,6 +137,7 @@ export const ComprasView: React.FC = () => {
       ]);
       setPurchases(list.data);
       setTotalCost(list.meta.total_cost);
+      applySeasonScope(list.meta.scope);
       setSuggestions(productList);
       setConsumptions(consumptionList.data);
       setConsumptionsWithoutPurchase(consumptionList.meta.without_purchase);
@@ -139,7 +149,14 @@ export const ComprasView: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [purchaseService, consumptionService, plotService, seasonFilter, productFilter]);
+  }, [
+    purchaseService,
+    consumptionService,
+    plotService,
+    seasonRequested,
+    applySeasonScope,
+    productFilter,
+  ]);
 
   useEffect(() => {
     void reload();
@@ -445,7 +462,7 @@ export const ComprasView: React.FC = () => {
       )}
 
       {/* Filtros */}
-      {(purchases.length > 0 || productFilter || seasonFilter !== 'todas') && (
+      {(purchases.length > 0 || productFilter || seasonScope.isExplicit) && (
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1 bg-white p-3 rounded-2xl border border-[#e5e2dd] flex items-center gap-3">
             <span className="material-symbols-outlined text-[#76786b] pl-2" aria-hidden="true">search</span>
@@ -469,11 +486,13 @@ export const ComprasView: React.FC = () => {
             <label htmlFor="purchase-season-filter" className="sr-only">Filtrar por temporada</label>
             <select
               id="purchase-season-filter"
-              value={seasonFilter}
-              onChange={(e) => setSeasonFilter(e.target.value)}
+              value={seasonScope.value}
+              onChange={(e) => seasonScope.select(e.target.value)}
               className="w-full px-3 py-2.5 bg-white border border-[#e5e2dd] rounded-2xl text-xs font-medium text-[#1c1c19] focus:outline-none focus:border-[#33450d]"
             >
-              <option value="todas">Todas las temporadas</option>
+              {/* Hasta la primera respuesta no se sabe qué campaña aplica el servidor. */}
+              {seasonScope.value === '' && <option value="">Campaña de trabajo…</option>}
+              <option value={ALL_SEASONS}>Todas las temporadas</option>
               {seasons.map((season) => (
                 <option key={season.id} value={season.id}>{season.name}</option>
               ))}
@@ -499,12 +518,14 @@ export const ComprasView: React.FC = () => {
             <span className="material-symbols-outlined text-3xl" aria-hidden="true">receipt_long</span>
           </div>
           <h3 className="font-headline font-bold text-lg text-[#1c1c19]">
-            {productFilter || seasonFilter !== 'todas'
+            {productFilter || seasonScope.isExplicit
               ? 'No hay compras que coincidan'
-              : 'Todavía no has registrado compras'}
+              : seasonScope.label
+                ? `Sin compras en ${seasonScope.label}`
+                : 'Todavía no has registrado compras'}
           </h3>
           <p className="text-sm text-[#45483c] max-w-md mx-auto">
-            {productFilter || seasonFilter !== 'todas'
+            {productFilter || seasonScope.isExplicit
               ? 'Prueba a cambiar el material buscado o la campaña.'
               : 'Apunta arriba lo que compras para la explotación: abonos, fitosanitarios, combustible o material.'}
           </p>

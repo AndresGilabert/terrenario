@@ -3,6 +3,7 @@ import type { Workspace, WorkspaceMembership } from '../types/workspace.types';
 import { workspaceService } from '../services/workspace.service';
 import { invitationService } from '../services/invitation.service';
 import { useAuth } from './AuthContext';
+import { useDataScope } from './DataScopeContext';
 
 interface WorkspaceContextValue {
   activeWorkspace: Workspace | null;
@@ -35,6 +36,7 @@ const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
  */
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading: isAuthLoading, getAccessToken, setAccessToken } = useAuth();
+  const { invalidateScope } = useDataScope();
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(null);
   const [workspaces, setWorkspaces] = useState<WorkspaceMembership[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -96,6 +98,21 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     };
   }, [isAuthenticated, isAuthLoading, loadWorkspaces]);
 
+  /**
+   * MVP-701 — Fija el Workspace activo e invalida los datos cargados **solo si de verdad ha
+   * cambiado**. Renombrar (MVP-206) resincroniza el contexto sin cambiar de Workspace: remontar el
+   * área operativa por un cambio de nombre sería recargarlo todo para nada.
+   */
+  const applyActiveWorkspace = useCallback(
+    (next: Workspace | null) => {
+      setActiveWorkspace((previous) => {
+        if (previous?.id !== next?.id) invalidateScope();
+        return next;
+      });
+    },
+    [invalidateScope]
+  );
+
   const refreshContext = useCallback(async (): Promise<void> => {
     const accessToken = await getAccessTokenRef.current();
     if (!accessToken) return;
@@ -103,13 +120,13 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     try {
       // El activo se resuelve siempre en servidor: si el Workspace en el que estábamos se ha dado
       // de baja, la respuesta ya trae el que pasa a serlo (o `null` si no queda ninguno).
-      setActiveWorkspace(await workspaceService.getActiveWorkspace(accessToken));
+      applyActiveWorkspace(await workspaceService.getActiveWorkspace(accessToken));
     } catch {
-      setActiveWorkspace(null);
+      applyActiveWorkspace(null);
     }
 
     await loadWorkspaces(accessToken);
-  }, [loadWorkspaces]);
+  }, [loadWorkspaces, applyActiveWorkspace]);
 
   const createWorkspace = useCallback(
     async (name: string): Promise<Workspace> => {
@@ -120,12 +137,12 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
       // El backend reemite la sesión ya situada en el nuevo Workspace.
       setAccessToken(result.access_token, result.expires_in);
-      setActiveWorkspace(result.workspace);
+      applyActiveWorkspace(result.workspace);
       await loadWorkspaces(result.access_token);
 
       return result.workspace;
     },
-    [setAccessToken, loadWorkspaces]
+    [setAccessToken, loadWorkspaces, applyActiveWorkspace]
   );
 
   const switchWorkspace = useCallback(
@@ -138,22 +155,24 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       // La sesión reemitida lleva el nuevo Workspace en el claim: al fijarla, cualquier
       // operación posterior queda acotada al contexto elegido (CA-2, sin datos cruzados).
       setAccessToken(result.access_token, result.expires_in);
-      setActiveWorkspace(result.workspace);
+      // MVP-701 (CA-1, CA-2) — y además se invalida lo cargado: reemitir la sesión no bastaba, las
+      // vistas seguían pintando el Workspace anterior porque nada volvía a dispararlas (`P-081`).
+      applyActiveWorkspace(result.workspace);
       await loadWorkspaces(result.access_token);
 
       return result.workspace;
     },
-    [setAccessToken, loadWorkspaces]
+    [setAccessToken, loadWorkspaces, applyActiveWorkspace]
   );
 
   const adoptAcceptedSession = useCallback(
     (result: { access_token: string; expires_in: number; workspace: Workspace }): Workspace => {
       // Igual que al crear un Workspace, el backend reemite la sesión ya situada en el destino.
       setAccessToken(result.access_token, result.expires_in);
-      setActiveWorkspace(result.workspace);
+      applyActiveWorkspace(result.workspace);
       return result.workspace;
     },
-    [setAccessToken]
+    [setAccessToken, applyActiveWorkspace]
   );
 
   const acceptInvitation = useCallback(

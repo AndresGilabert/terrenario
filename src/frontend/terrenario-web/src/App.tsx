@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { DataScopeProvider } from './contexts/DataScopeContext';
 import { WorkspaceProvider, useWorkspace } from './contexts/WorkspaceContext';
 import { ApiProvider } from './contexts/ApiContext';
 import { SeasonProvider, useSeason } from './contexts/SeasonContext';
@@ -174,15 +175,19 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <WorkspaceProvider>
-          <ApiProvider>
-            <SeasonProvider>
-              <NotificationsProvider>
-                <AppRoutes />
-              </NotificationsProvider>
-            </SeasonProvider>
-          </ApiProvider>
-        </WorkspaceProvider>
+        {/* MVP-701 — Por encima de Workspace y temporada: las dos avisan por aquí de que el contexto
+            activo ha cambiado, y `RequireWorkspace` remonta el área operativa al oírlo. */}
+        <DataScopeProvider>
+          <WorkspaceProvider>
+            <ApiProvider>
+              <SeasonProvider>
+                <NotificationsProvider>
+                  <AppRoutes />
+                </NotificationsProvider>
+              </SeasonProvider>
+            </ApiProvider>
+          </WorkspaceProvider>
+        </DataScopeProvider>
       </AuthProvider>
     </BrowserRouter>
   );

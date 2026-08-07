@@ -217,6 +217,10 @@ builder.Services.AddScoped<UpdateHarvestHandler>();
 builder.Services.AddScoped<DeleteHarvestHandler>();
 builder.Services.AddScoped<ListHarvestsHandler>();
 builder.Services.AddScoped<GetHarvestHandler>();
+// MVP-701 — Defecto de temporada de RN-008 en un único punto, compartido por diario, cosechas y
+// compras. Antes cada vista arrancaba en «todas» por su cuenta y el dashboard resolvía el defecto en
+// servidor: dos pantallas respondían distinto a «cuánto llevo esta campaña» (`P-082`).
+builder.Services.AddScoped<SeasonScopeResolver>();
 // Dashboard (MVP-403): agrega la producción capturada; solo lectura y sin refresco continuo (RN-006)
 builder.Services.AddScoped<DashboardScopeResolver>();
 builder.Services.AddScoped<DashboardQueryService>();

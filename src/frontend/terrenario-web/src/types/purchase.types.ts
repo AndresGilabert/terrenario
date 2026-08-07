@@ -1,3 +1,5 @@
+import type { SeasonScope } from './season.types';
+
 /**
  * Compra de material del Workspace (MVP-303). El producto es **texto libre** (RN-031): no hay
  * catálogo cerrado, solo sugerencias aprendidas del histórico. Toda compra pertenece a una temporada
@@ -42,7 +44,7 @@ export type UpdatePurchasePayload = Partial<CreatePurchasePayload>;
 export interface PurchaseListResponse {
   data: Purchase[];
   /** `total_cost` es el gasto acumulado de lo filtrado, calculado en servidor. */
-  meta: { total: number; total_cost: number };
+  meta: { scope: SeasonScope; total: number; total_cost: number };
 }
 
 /** Filtros de `GET /api/v1/purchases`. */

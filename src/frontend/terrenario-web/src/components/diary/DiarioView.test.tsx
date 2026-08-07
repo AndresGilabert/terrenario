@@ -49,6 +49,17 @@ describe('DiarioView', () => {
   });
 
   const meta = (overrides: Partial<DiaryListResponse['meta']> = {}): DiaryListResponse['meta'] => ({
+    // MVP-701 — El ámbito de temporada que el servidor dice haber aplicado (RN-008).
+    scope: {
+      season: {
+        id: 's-1',
+        name: 'Campaña 2025/26',
+        status: 'abierta',
+        start_date: '2025-10-01',
+        end_date: '2026-03-31',
+      },
+      all_seasons: false,
+    },
     total: 1,
     page: 1,
     limit: 20,

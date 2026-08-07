@@ -628,7 +628,15 @@ Reglas de contexto (MVP-301):
 
 | Operación | Método y ruta | Request (query) | Respuesta 2xx |
 |---|---|---|---|
-| Diario del Workspace | `GET /api/v1/diary` | `from?`, `to?`, `plot_id?`, `season_id?`, `type?` (repetible), `worker_id?`, `search?`, `page?`, `limit?` | `200 { data, meta }` |
+| Diario del Workspace | `GET /api/v1/diary` | `from?`, `to?`, `plot_id?`, `season_id?` (id \| `all`), `type?` (repetible), `worker_id?`, `search?`, `page?`, `limit?` | `200 { data, meta }` |
+
+> **MVP-701 — Ámbito de temporada (RN-008).** Sin `season_id` se aplica la **temporada de trabajo del
+> usuario**, no «todas»: hasta esta historia solo el dashboard resolvía el defecto y estas listas
+> arrancaban sin acotar, de modo que dos pantallas daban totales distintos de la misma campaña
+> (`P-082`). El histórico completo se pide con **`season_id=all`**, y el ámbito aplicado viaja en
+> `meta.scope` = `{ season: { id, name, status, start_date, end_date } | null, all_seasons }`. Un
+> `season_id` inexistente o de otro Workspace **cae al defecto**, con el mismo criterio de tolerancia
+> que el dashboard aplica a `plot_ids`.
 
 Es **la vista principal del MVP** (RN-033) y es de **solo lectura**: cada registro se crea, corrige y
 elimina por el recurso al que pertenece (`/activities`, `/purchases`, `/consumptions`), que es donde
@@ -684,7 +692,7 @@ Reglas de contexto:
 | Alta cosecha | `POST /api/v1/harvests` | `date*`, `plot_id*`, `season_id*`, `product*`, `kgs*`, `destination*`, `yield?`, `liters?`, `yield_unit?` | `201 { id, version, ...harvest }` |
 | Editar cosecha | `PATCH /api/v1/harvests/{harvestId}` | campos parciales · `If-Match: <version>` | `200 { ...harvest }` |
 | Eliminar cosecha | `DELETE /api/v1/harvests/{harvestId}` | `If-Match: <version>` | `204` |
-| Listado cosechas | `GET /api/v1/harvests` | `from?`, `to?`, `plot_id?`, `season_id?`, `destination?` | `200 { data, meta: { total, total_kg } }` |
+| Listado cosechas | `GET /api/v1/harvests` | `from?`, `to?`, `plot_id?`, `season_id?` (id \| `all`), `destination?` | `200 { data, meta: { scope, total, total_kg } }` |
 | Una cosecha (MVP-401) | `GET /api/v1/harvests/{harvestId}` | — | `200 { ...harvest }` |
 
 La representación de una cosecha es
@@ -753,11 +761,11 @@ cumplida entera (hallazgo `G-4`).
 | Alta compra | `POST /api/v1/purchases` | `purchase_date*`, `product*`, `total_quantity*`, `total_cost*`, `season_id*` | `201 { id, version, unit_price, ... }` |
 | Editar compra | `PATCH /api/v1/purchases/{purchaseId}` | campos parciales · `If-Match: <version>` | `200 { ...purchase }` |
 | Eliminar compra | `DELETE /api/v1/purchases/{purchaseId}` | `If-Match: <version>` | `204` |
-| Listado compras | `GET /api/v1/purchases` | `product?`, `season_id?`, `from?`, `to?` | `200 { data, meta: { total, total_cost } }` |
+| Listado compras | `GET /api/v1/purchases` | `product?`, `season_id?` (id \| `all`), `from?`, `to?` | `200 { data, meta: { scope, total, total_cost } }` |
 | Materiales del histórico (MVP-303) | `GET /api/v1/purchases/products` | `search?` | `200 { data:[{ product, times_used }], meta:{ total } }` |
 | Imputar compra a terreno | `POST /api/v1/purchases/{purchaseId}/consumptions` | `date*`, `plot_id*`, `quantity*` | `201 { id, purchase_id, plot_id, date, quantity, proportional_cost }` |
 | Registrar consumo **sin compra previa** (RN-032) | `POST /api/v1/consumptions` | `date*`, `plot_id*`, `season_id*`, `product*`, `quantity*` | `201 { id, purchase_id: null, proportional_cost: 0, ... }` |
-| Listado de consumos | `GET /api/v1/consumptions` | `from?`, `to?`, `plot_id?`, `season_id?`, `purchase_id?`, `product?` | `200 { data, meta: { total, total_cost, without_purchase } }` |
+| Listado de consumos | `GET /api/v1/consumptions` | `from?`, `to?`, `plot_id?`, `season_id?` (id \| `all`), `purchase_id?`, `product?` | `200 { data, meta: { scope, total, total_cost, without_purchase } }` |
 | Editar consumo (MVP-304) | `PATCH /api/v1/consumptions/{consumptionId}` | campos parciales · `If-Match: <version>` | `200 { ...consumption }` |
 | Eliminar consumo (MVP-304) | `DELETE /api/v1/consumptions/{consumptionId}` | `If-Match: <version>` | `204` |
 
@@ -851,7 +859,7 @@ Reglas de filtro por defecto:
 
 | Regla | Comportamiento |
 |---|---|
-| Sin `season_id` | backend resuelve la **temporada de trabajo del usuario** que consulta (MVP-209): su `active_season_id` o, en su defecto, `WorkingSeasonPolicy` |
+| Sin `season_id` | backend resuelve la **temporada de trabajo del usuario** que consulta (MVP-209): su `active_season_id` o, en su defecto, `WorkingSeasonPolicy`. Desde MVP-701 el mismo defecto rige en diario, cosechas, compras y consumos (RN-008); el dashboard no admite `all` porque un resumen de campaña sin campaña no significa nada |
 | Sin `plot_ids` | backend usa todos los terrenos activos del workspace |
 | `scope` en la respuesta (MVP-403) | El ámbito **ya resuelto**: `{ season: { id, name, status, start_date, end_date } \| null, plot_ids[], plots }` (MVP-209: `is_active` → `status` derivado). Los defectos los pone el servidor, así que sin devolverlos la pantalla mostraría cifras sin poder decir de qué son; es también lo que permite posicionar los filtros sin duplicar la regla del defecto en el cliente |
 | `season: null` (MVP-403) | El Workspace no tiene temporada que mirar. RN-021 asocia toda la producción a una campaña, así que no es «resumen vacío» sino ámbito imposible: se responden ceros y `null`, y el cliente pide la temporada en vez de presentarlos como datos |

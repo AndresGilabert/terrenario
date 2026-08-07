@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import type { CreateSeasonPayload, Season } from '../types/season.types';
 import { createSeasonService } from '../services/season.service';
 import { useApiClient } from './ApiContext';
+import { useDataScope } from './DataScopeContext';
 import { useWorkspace } from './WorkspaceContext';
 
 interface SeasonContextValue {
@@ -46,6 +47,7 @@ const SeasonContext = createContext<SeasonContextValue | null>(null);
 export function SeasonProvider({ children }: { children: React.ReactNode }) {
   const http = useApiClient();
   const { activeWorkspace } = useWorkspace();
+  const { invalidateScope } = useDataScope();
   const seasonService = useMemo(() => createSeasonService(http), [http]);
 
   const [seasons, setSeasons] = useState<Season[]>([]);
@@ -97,18 +99,24 @@ export function SeasonProvider({ children }: { children: React.ReactNode }) {
       // La nueva pasa a ser la de trabajo del creador (P-017, por usuario): se recarga la lista para
       // que `is_working` quede al día en todas.
       await refresh();
+      // MVP-701 — Crear también cambia la temporada de trabajo, y con ella el defecto de las vistas.
+      invalidateScope();
       return season;
     },
-    [seasonService, refresh]
+    [seasonService, refresh, invalidateScope]
   );
 
   const activateSeason = useCallback(
     async (seasonId: string): Promise<Season> => {
       const season = await seasonService.activateSeason(seasonId);
       await refresh();
+      // MVP-701 (CA-5) — la temporada de trabajo es, desde esta historia, el **defecto de las vistas
+      // operativas** (RN-008): cambiarla cambia lo que enseñan, así que lo cargado bajo la anterior
+      // deja de valer igual que al cambiar de Workspace.
+      invalidateScope();
       return season;
     },
-    [seasonService, refresh]
+    [seasonService, refresh, invalidateScope]
   );
 
   const dismissOffer = useCallback(() => {

@@ -104,12 +104,26 @@ compartible.
 
 **Estado**: activa
 **Fuente**: producto
-**Módulos afectados**: dashboard
+**Módulos afectados**: dashboard, diario, cosechas, compras
 
-Al primer acceso (sin filtros en la URL) se aplican por defecto todos los terrenos activos y la
-**temporada de trabajo del usuario** (MVP-209; su `active_season_id` o, en su defecto, la
-`WorkingSeasonPolicy`). El servidor resuelve el defecto y lo devuelve en el `scope` para posicionar los
-filtros sin duplicar la regla en el cliente.
+Sin filtro explícito se aplica por defecto la **temporada de trabajo del usuario** (MVP-209; su
+`active_season_id` o, en su defecto, la `WorkingSeasonPolicy`). En el dashboard se aplican además
+todos los terrenos activos.
+
+El defecto rige en **todas las vistas operativas**: dashboard, diario, cosechas y compras (con sus
+consumos). Hasta MVP-701 solo lo aplicaba el dashboard y las otras tres arrancaban en «todas las
+temporadas», de modo que dos pantallas del producto respondían con cifras distintas a «cuánto llevo
+esta campaña» (`P-082`).
+
+El servidor resuelve el defecto y devuelve el ámbito aplicado —en el `scope` del dashboard y en
+`meta.scope` de las listas— para posicionar los filtros sin duplicar la regla en el cliente. Si el
+cliente resolviera el defecto, la regla viviría en dos sitios y volvería a divergir.
+
+El histórico completo sigue siendo elegible, pero como **acto explícito**: `season_id=all`. La
+ausencia del parámetro ya significa «aplica el defecto», así que «todas» necesita valor propio.
+
+Un `season_id` que no exista en el Workspace **cae al defecto** en vez de dar error o ampliar el
+ámbito: desde MVP-705 el filtro viaja en la URL y al cambiar de Workspace puede quedar el de otro.
 
 ---
 

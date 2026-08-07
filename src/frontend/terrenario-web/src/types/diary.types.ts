@@ -1,3 +1,5 @@
+import type { SeasonScope } from './season.types';
+
 /**
  * Tipo de entrada del diario (MVP-305). Catálogo cerrado `diary_entry_type`.
  *
@@ -60,6 +62,8 @@ export interface DiaryEntry {
 export interface DiaryListResponse {
   data: DiaryEntry[];
   meta: {
+    /** MVP-701 — Ámbito de temporada que ha aplicado el servidor (RN-008). */
+    scope: SeasonScope;
     /**
      * MVP-506 — Entradas del diario **filtrado completo**, no de la página: es lo que permite saber
      * cuántas páginas hay. El resto de contadores e importes también son del conjunto, porque son la

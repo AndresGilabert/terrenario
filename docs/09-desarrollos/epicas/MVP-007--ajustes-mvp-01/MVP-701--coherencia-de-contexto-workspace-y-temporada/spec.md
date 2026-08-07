@@ -2,7 +2,7 @@
 id: "MVP-701"
 tipo: feature
 titulo: "Coherencia de contexto: Workspace y temporada"
-estado: borrador
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito G — Ajustes de uso real"
@@ -104,20 +104,25 @@ pueda cambiar desde el shell y gobierne por igual lo que muestran todas las vist
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Tras cambiar de Workspace desde el selector, las diez vistas operativas muestran datos
+- [x] **CA-1**: Tras cambiar de Workspace desde el selector, las diez vistas operativas muestran datos
   del Workspace elegido sin recarga manual. Verificado en UI conducida con dos Workspaces de contenido
-  distinto.
-- [ ] **CA-2**: Durante y despues del cambio de Workspace no queda ninguna accion (corregir, eliminar,
-  alta desde formulario abierto) apuntando a un registro del Workspace anterior.
-- [ ] **CA-3**: Sin filtros aplicados, el total de kilos y el numero de partidas de `CosechasView`
+  distinto. El area operativa se **remonta** con la clave de contexto, asi que no hay vista que pueda
+  quedarse fuera —tampoco una futura—.
+- [x] **CA-2**: Durante y despues del cambio de Workspace no queda ninguna accion (corregir, eliminar,
+  alta desde formulario abierto) apuntando a un registro del Workspace anterior. Verificado en
+  Cosechas y Diario: al remontar, las filas y los formularios del Workspace anterior desaparecen.
+- [x] **CA-3**: Sin filtros aplicados, el total de kilos y el numero de partidas de `CosechasView`
   coinciden con los de `GET /dashboard/summary` para la misma temporada de trabajo, comprobado contra
-  la API con datos reales.
-- [ ] **CA-4**: El diario y el libro de compras aplican por defecto la temporada de trabajo y lo dicen
-  en pantalla; «todas las temporadas» sigue siendo elegible.
-- [ ] **CA-5**: La pildora de temporada de la cabecera permite cambiar la temporada de trabajo, y
-  hacerlo actualiza el contenido de la vista en curso sin recarga.
-- [ ] **CA-6**: `RN-008` en `docs/01-producto/reglas-de-negocio.md` describe el defecto aplicado a
-  dashboard, diario, cosechas y compras.
+  la API con datos reales: **4.460,5 kg · 4 partidas** en las dos (antes, 5.460,5 kg · 5 partidas en
+  Cosechas). Fijado como test de regresion en `SeasonScopeIntegrationTests`.
+- [x] **CA-4**: El diario y el libro de compras aplican por defecto la temporada de trabajo y lo dicen
+  en pantalla —el control aparece posicionado en la campana aplicada, que viaja en `meta.scope`—;
+  «todas las temporadas» sigue siendo elegible como `season_id=all`.
+- [x] **CA-5**: La pildora de temporada de la cabecera permite cambiar la temporada de trabajo, y
+  hacerlo actualiza el contenido de la vista en curso sin recarga. Verificado: de 4.461 kg a 1.000 kg
+  al pasar de «Campana 2026» a «Campana 2025».
+- [x] **CA-6**: `RN-008` en `docs/01-producto/reglas-de-negocio.md` describe el defecto aplicado a
+  dashboard, diario, cosechas y compras (y a los consumos, que conviven con las compras en pantalla).
 
 ## Maquetas y referencias visuales
 
@@ -131,9 +136,9 @@ pueda cambiar desde el shell y gobierne por igual lo que muestran todas las vist
 
 | Pantalla prototipo | Regla KB asociada | Estado | Evidencia de prueba |
 |---|---|---|---|
-| TopNavbar (pildora de campana) | RN-008, RN-022 | falta | Pendiente |
-| Sidebar (selector de Workspace) | RN-034 | parcial | El selector existe; falta que su cambio invalide los datos |
-| DiarioView / CosechaModal | RN-008, RN-033 | falta | Pendiente |
+| TopNavbar (pildora de campana) | RN-008, RN-022 | hecho | `SeasonSwitcher`: cambio de campana desde la cabecera, verificado en UI |
+| Sidebar (selector de Workspace) | RN-034 | hecho | El cambio invalida el contexto y remonta el area operativa (`DataScopeContext`) |
+| DiarioView / CosechaModal | RN-008, RN-033 | hecho | Defecto de temporada resuelto en servidor y publicado en `meta.scope` |
 
 ## Notas y decisiones
 

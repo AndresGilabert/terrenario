@@ -2,7 +2,7 @@
 id: "MVP-706"
 tipo: feature
 titulo: "Comportamiento de la Vision General"
-estado: borrador
+estado: completado
 prioridad: media
 sprint: ""
 hito: "Hito G — Ajustes de uso real"
@@ -76,13 +76,21 @@ decidido, con la regla y la metrica alineadas con esa decision.
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Si una de las peticiones del dashboard falla, las demas se pintan y solo el widget
-  afectado muestra su error.
-- [ ] **CA-2**: La medida de cobertura de widgets identifica **cual** falla, no los cuatro.
-- [ ] **CA-3**: El boton «Actualizar» ya no existe en la Vision General.
-- [ ] **CA-4**: `RN-006` describe la estrategia de refresco vigente y su motivo.
-- [ ] **CA-5**: `dashboard.manual_refresh` no aparece en el informe operativo como metrica viva, y el
-  `CA-2` de `MVP-602` refleja el cambio en vez de quedar apuntando a una senal que ya no se emite.
+- [x] **CA-1**: Si una de las peticiones del dashboard falla, las demas se pintan y solo el widget
+  afectado muestra su error. Verificado sobre la aplicacion en marcha interceptando **solo**
+  `GET /dashboard/kg-by-plot` para que devuelva `500`: los otros tres widgets siguen con sus datos
+  reales y el error aparece en el sitio del widget caido, con el mensaje que devolvio la API.
+- [x] **CA-2**: La medida de cobertura de widgets identifica **cual** falla, no los cuatro. Senal
+  emitida en ese mismo escenario: `kg_by_plot: error` y los otros tres con su estado propio.
+- [x] **CA-3**: El boton «Actualizar» ya no existe en la Vision General. El pie de la pantalla explica
+  que el refresco es recargar la pagina o volver a entrar.
+- [x] **CA-4**: `RN-006` describe la estrategia de refresco vigente y su motivo (perfil de uso de
+  explotacion pequena), y `RN-007` se ajusta para no seguir hablando de «recarga manual».
+- [x] **CA-5**: `dashboard.manual_refresh` no aparece en el informe operativo como metrica viva —se
+  retiran `product_usage_7d.manual_refresh_per_session` y `daily[].manual_refresh`, con test de
+  integracion que lo fija— y el `CA-2` de `MVP-602` queda marcado como **superado** en su propio spec.
+  El evento se sigue **aceptando** en el endpoint de telemetria para no responder `400` a un cliente
+  cacheado tras el despliegue.
 
 ## Maquetas y referencias visuales
 
@@ -95,7 +103,7 @@ decidido, con la regla y la metrica alineadas con esa decision.
 
 | Pantalla prototipo | Regla KB asociada | Estado | Evidencia de prueba |
 |---|---|---|---|
-| DashboardView | RN-006, RN-009 | parcial | Los widgets existen; el fallo parcial y el refresco cambian aqui |
+| DashboardView | RN-006, RN-009 | hecho | Fallo parcial acotado al widget y refresco reescrito; verificado con un `500` real en una sola de las cuatro peticiones |
 
 ## Notas y decisiones
 

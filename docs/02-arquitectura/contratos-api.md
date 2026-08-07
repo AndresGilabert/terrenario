@@ -288,7 +288,7 @@ Validaciones y reglas:
 
 | Regla | Código error / comportamiento |
 |---|---|
-| `event` dentro de `{ app_session_started, dashboard_viewed, dashboard_manual_refresh, dashboard_widgets }` | `VALIDATION_REQUIRED` (400) si no |
+| `event` dentro de `{ app_session_started, dashboard_viewed, dashboard_manual_refresh, dashboard_widgets }` | `VALIDATION_REQUIRED` (400) si no. `dashboard_manual_refresh` esta **discontinuado desde MVP-706** —el cliente ya no lo emite— pero se sigue aceptando para no responder `400` a un cliente cacheado |
 | `session_id` / `device_type` | Se degradan a `unknown`; **no** rechazan la señal |
 | `first_in_session` (solo en `dashboard_viewed`) | Ausente equivale a `false`: ante la duda no se infla el numerador del KPI |
 | `widgets[].widget` ∈ `{ summary, kg_by_destination, kg_by_plot, yield_evolution }` y `status` ∈ `{ ok, empty, error }` | Los no reconocidos **se descartan uno a uno**, no el lote: un cliente más nuevo debe seguir aportando lo que el servidor sí conoce |

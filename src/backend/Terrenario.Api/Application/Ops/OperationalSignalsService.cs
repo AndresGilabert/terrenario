@@ -70,8 +70,9 @@ public sealed class OperationalSignalsService(
                 SessionsWithDashboard: last7.GetValueOrDefault(TelemetryMetrics.DashboardSessionWithView),
                 DashboardUsage: Ratio(
                     last7, TelemetryMetrics.DashboardSessionWithView, TelemetryMetrics.AppSessionStarted),
-                ManualRefreshPerSession: Ratio(
-                    last7, TelemetryMetrics.DashboardManualRefresh, TelemetryMetrics.DashboardSessionWithView),
+                // MVP-706 — `manual_refresh_per_session` se retira: el boton «Actualizar» era su unica
+                // fuente y ya no existe. Publicarla ahora dara siempre 0, que se leeria como «nadie
+                // refresca» en vez de como «esto ya no se mide».
                 WidgetCoverage: Coverage(last7)),
             Business7d: new BusinessSignals(
                 Logins: last7.GetValueOrDefault(TelemetryMetrics.LoginSuccess),
@@ -127,7 +128,6 @@ public sealed class OperationalSignalsService(
                     SessionsWithDashboard: totals.GetValueOrDefault(TelemetryMetrics.DashboardSessionWithView),
                     DashboardUsage: Ratio(
                         totals, TelemetryMetrics.DashboardSessionWithView, TelemetryMetrics.AppSessionStarted),
-                    ManualRefresh: totals.GetValueOrDefault(TelemetryMetrics.DashboardManualRefresh),
                     WidgetCoverage: Coverage(totals),
                     Requests: totals.GetValueOrDefault(TelemetryMetrics.ApiRequests),
                     ErrorRate: Ratio(totals, TelemetryMetrics.ApiRequests5xx, TelemetryMetrics.ApiRequests),
@@ -202,7 +202,6 @@ public sealed record ProductUsageSignals(
     long Sessions,
     long SessionsWithDashboard,
     double? DashboardUsage,
-    double? ManualRefreshPerSession,
     double? WidgetCoverage);
 
 /// <summary>El «monitoreo de negocio mínimo (fase A)» de <c>observabilidad.md</c>, tal cual lo enumera.</summary>
@@ -224,7 +223,6 @@ public sealed record DailySignals(
     long Sessions,
     long SessionsWithDashboard,
     double? DashboardUsage,
-    long ManualRefresh,
     double? WidgetCoverage,
     long Requests,
     double? ErrorRate,

@@ -206,14 +206,14 @@ Mismo mecanismo —log estructurado (`product.usage`) mas contador diario— par
 | `app.session_started` | Sesiones que llegan al area autenticada. **Es el divisor** del uso del dashboard |
 | `dashboard.viewed` | Entradas al dashboard, todas |
 | `dashboard.session_with_view` | Sesiones que abren el dashboard **al menos una vez** |
-| `dashboard.manual_refresh` | Pulsaciones de «Actualizar» (RN-006) |
+| `dashboard.manual_refresh` | **Discontinuada (MVP-706)**: contaba las pulsaciones de «Actualizar», botón retirado al reescribir RN-006. El contador conserva su histórico en la tabla, pero el informe de `GET /api/v1/ops/signals` ya no lo publica. El endpoint sigue aceptando el evento para no responder `400` a un cliente cacheado |
 | `dashboard.widget.rendered` · `dashboard.widget.blocked` | Widgets que se pudieron mostrar y los que no |
 | `dashboard.widget.{widget}.{ok\|empty\|error}` | Desglose, para saber **cual** falla y no solo que algo falla |
 
 KPI de producto de `../01-producto/kpis.md`:
 
 - Uso del dashboard en sesiones activas = `dashboard.session_with_view` / `app.session_started`
-- Recargas manuales por sesion = `dashboard.manual_refresh` / `dashboard.session_with_view`
+- ~~Recargas manuales por sesion~~ — retirada en MVP-706 junto con el boton que la alimentaba
 - Cobertura de widgets MVP = `dashboard.widget.rendered` / (`rendered` + `blocked`)
 
 Tres matices que cambian lo que significan estas cifras:

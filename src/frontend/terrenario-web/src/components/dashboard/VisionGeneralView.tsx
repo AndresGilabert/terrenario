@@ -37,6 +37,29 @@ function periodLabel(period: string): string {
 }
 
 /**
+ * MVP-706 — Resultado de **un** widget: sus datos o su error, nunca los dos.
+ *
+ * Existe porque hasta aquí los cuatro compartían suerte: iban en un `Promise.all`, así que el fallo de
+ * uno descartaba el resultado de los otros tres y la pantalla se quedaba solo con el mensaje de error
+ * (`P-075`).
+ */
+type WidgetResult<T> = { data: T; error: null } | { data: null; error: string };
+
+const loaded = <T,>(data: T): WidgetResult<T> => ({ data, error: null });
+const failed = <T,>(error: string): WidgetResult<T> => ({ data: null, error });
+
+/** Mensaje de un fallo de carga, ya legible. */
+const loadMessage = (error: unknown) =>
+  error instanceof HttpError ? error.message : 'No se pudo cargar este dato.';
+
+interface DashboardData {
+  summary: WidgetResult<DashboardSummary>;
+  destinations: WidgetResult<DashboardKgByDestination>;
+  plots: WidgetResult<DashboardKgByPlot>;
+  evolution: WidgetResult<DashboardYieldEvolution>;
+}
+
+/**
  * MVP-602 — Cobertura de widgets MVP: «% de widgets con datos mostrables **sin error bloqueante**».
  *
  * `empty` no resta: el propio KPI de la KB admite los estados vacío/incompleto. Un Workspace que
@@ -45,27 +68,25 @@ function periodLabel(period: string): string {
  *
  * La evolución cuenta como `ok` también cuando solo trae histórico: es el caso que MVP-404 resolvió
  * expresamente para que la pantalla no se quedase en blanco antes de la primera cosecha.
+ *
+ * MVP-706 (CA-2) — La atribución es ahora **por widget**. Antes se informaban los cuatro como `error`
+ * ante cualquier fallo, porque la carga era conjunta: la medida no permitía saber cuál había fallado,
+ * que es justo lo que el KPI de cobertura pregunta.
  */
-function widgetOutcomes(data: {
-  summary: DashboardSummary;
-  destinations: DashboardKgByDestination;
-  plots: DashboardKgByPlot;
-  evolution: DashboardYieldEvolution;
-} | null): DashboardWidgetOutcome[] {
-  if (data === null) {
-    // La carga es una sola petición conjunta: si falla, no se pudo mostrar ninguno de los cuatro.
-    return Object.values(DashboardWidget).map((widget) => ({ widget, status: 'error' as const }));
-  }
-
-  const state = (hasData: boolean) => (hasData ? ('ok' as const) : ('empty' as const));
+function widgetOutcomes(data: DashboardData): DashboardWidgetOutcome[] {
+  const state = <T,>(result: WidgetResult<T>, hasData: (value: T) => boolean) =>
+    result.error !== null ? ('error' as const) : hasData(result.data) ? ('ok' as const) : ('empty' as const);
 
   return [
-    { widget: DashboardWidget.Summary, status: state(data.summary.harvests > 0) },
-    { widget: DashboardWidget.KgByDestination, status: state(data.destinations.data.length > 0) },
-    { widget: DashboardWidget.KgByPlot, status: state(data.plots.data.length > 0) },
+    { widget: DashboardWidget.Summary, status: state(data.summary, (s) => s.harvests > 0) },
+    {
+      widget: DashboardWidget.KgByDestination,
+      status: state(data.destinations, (d) => d.data.length > 0),
+    },
+    { widget: DashboardWidget.KgByPlot, status: state(data.plots, (p) => p.data.length > 0) },
     {
       widget: DashboardWidget.YieldEvolution,
-      status: state(data.evolution.data.length > 0 || data.evolution.history.average !== null),
+      status: state(data.evolution, (e) => e.data.length > 0 || e.history.average !== null),
     },
   ];
 }
@@ -131,44 +152,37 @@ export const VisionGeneralView: React.FC = () => {
     [seasonParam, plotKey]
   );
 
-  const [summary, setSummary] = useState<DashboardSummary | null>(null);
-  const [destinations, setDestinations] = useState<DashboardKgByDestination | null>(null);
-  const [plots, setPlots] = useState<DashboardKgByPlot | null>(null);
-  const [evolution, setEvolution] = useState<DashboardYieldEvolution | null>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [plotOptions, setPlotOptions] = useState<Plot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     setIsLoading(true);
-    setLoadError(null);
     try {
-      // Las cuatro peticiones van juntas: agregan el mismo ámbito y la pantalla las presenta a la vez.
-      const [summaryData, destinationData, plotData, evolutionData] = await Promise.all([
+      // MVP-706 (CA-1) — `allSettled` y no `all`: las cuatro agregan el mismo ámbito, pero **no
+      // comparten suerte**. Con `all`, el fallo de una descartaba el resultado de las otras tres y
+      // dejaba la pantalla con un mensaje de error en vez de con los datos que sí se calcularon.
+      const [summaryResult, destinationResult, plotResult, evolutionResult] = await Promise.allSettled([
         dashboardService.getSummary(filters),
         dashboardService.getKgByDestination(filters),
         dashboardService.getKgByPlot(filters),
         dashboardService.getYieldEvolution(filters),
       ]);
-      setSummary(summaryData);
-      setDestinations(destinationData);
-      setPlots(plotData);
-      setEvolution(evolutionData);
 
-      // MVP-602 — Cobertura de widgets: se emite tras cada carga, con y sin datos.
-      logUsage(UsageEvent.DashboardWidgets, {
-        widgets: widgetOutcomes({
-          summary: summaryData,
-          destinations: destinationData,
-          plots: plotData,
-          evolution: evolutionData,
-        }),
-      });
-    } catch (error) {
-      setLoadError(
-        error instanceof HttpError ? error.message : 'No se pudo cargar la visión general.'
-      );
-      logUsage(UsageEvent.DashboardWidgets, { widgets: widgetOutcomes(null) });
+      const settle = <T,>(result: PromiseSettledResult<T>): WidgetResult<T> =>
+        result.status === 'fulfilled' ? loaded(result.value) : failed<T>(loadMessage(result.reason));
+
+      const next: DashboardData = {
+        summary: settle(summaryResult),
+        destinations: settle(destinationResult),
+        plots: settle(plotResult),
+        evolution: settle(evolutionResult),
+      };
+      setData(next);
+
+      // MVP-602 — Cobertura de widgets: se emite tras cada carga, con y sin datos. Desde MVP-706 el
+      // fallo se atribuye al widget que lo causó, que es lo que el KPI de cobertura pregunta (CA-2).
+      logUsage(UsageEvent.DashboardWidgets, { widgets: widgetOutcomes(next) });
     } finally {
       setIsLoading(false);
     }
@@ -208,8 +222,24 @@ export const VisionGeneralView: React.FC = () => {
     };
   }, [plotService]);
 
+  const summary = data?.summary ?? null;
+  const destinations = data?.destinations ?? null;
+  const plots = data?.plots ?? null;
+  const evolution = data?.evolution ?? null;
+
+  /**
+   * MVP-706 — El ámbito lo publican las cuatro respuestas, así que se toma de la primera que haya
+   * llegado bien. Antes se leía solo del resumen: si el resumen fallaba no se sabía ni de qué campaña
+   * hablaba la pantalla, aunque los otros tres widgets sí lo supieran.
+   */
+  const scope =
+    summary?.data?.scope ?? destinations?.data?.scope ?? plots?.data?.scope ?? evolution?.data?.scope ?? null;
+
+  /** Ningún widget pudo cargarse: es el único caso que sigue siendo un error de pantalla completa. */
+  const allFailed = data !== null && scope === null;
+
   // La temporada aplicada: la de la URL o, en su defecto, la que el servidor resolvió (viaja en `scope`).
-  const appliedSeasonId = seasonParam ?? summary?.scope.season?.id ?? '';
+  const appliedSeasonId = seasonParam ?? scope?.season?.id ?? '';
 
   const onSeasonChange = useCallback(
     (value: string) => {
@@ -247,13 +277,20 @@ export const VisionGeneralView: React.FC = () => {
       ? 'Todos los terrenos'
       : `${selectedPlotIds.size} ${selectedPlotIds.size === 1 ? 'terreno' : 'terrenos'}`;
 
-  const season = summary?.scope.season ?? null;
-  const totalKg = destinations?.meta.total_kg ?? 0;
-  const hasProduction = (summary?.harvests ?? 0) > 0;
+  const season = scope?.season ?? null;
+  const totalKg = destinations?.data?.meta.total_kg ?? 0;
+  /**
+   * MVP-706 — Si el resumen falló, la pantalla no puede preguntarle si hay producción, pero los otros
+   * widgets sí lo saben: se deduce de lo que sí llegó, en vez de dar por vacía una campaña que no lo está.
+   */
+  const hasProduction =
+    summary?.data !== null && summary?.data !== undefined
+      ? summary.data.harvests > 0
+      : (destinations?.data?.data.length ?? 0) > 0 || (plots?.data?.data.length ?? 0) > 0;
   // La evolución puede tener histórico de estas mismas fechas aunque la campaña actual aún no tenga
   // cosechas: en ese caso el resto de widgets están vacíos, pero el histórico sí interesa (petición
   // del PO), así que la pantalla no se queda del todo en blanco.
-  const hasHistoryOnly = !hasProduction && (evolution?.history.average ?? null) !== null;
+  const hasHistoryOnly = !hasProduction && (evolution?.data?.history.average ?? null) !== null;
 
   return (
     <div className="space-y-6 pb-12">
@@ -264,8 +301,8 @@ export const VisionGeneralView: React.FC = () => {
           <h2 className="font-headline font-extrabold text-xl text-[#1c1c19]">Visión General</h2>
           <p className="text-xs text-[#76786b]">
             {season
-              ? `Producción de ${season.name}, sobre ${summary?.scope.plots ?? 0} ${
-                  summary?.scope.plots === 1 ? 'terreno' : 'terrenos'
+              ? `Producción de ${season.name}, sobre ${scope?.plots ?? 0} ${
+                  scope?.plots === 1 ? 'terreno' : 'terrenos'
                 }.`
               : 'Resumen de producción del Workspace.'}
           </p>
@@ -329,26 +366,18 @@ export const VisionGeneralView: React.FC = () => {
             </details>
           )}
 
-          {/* RN-006 — no hay actualización en segundo plano: el refresco es un acto explícito.
-              MVP-602 (CA-2) — Y por ser explícito se mide **aquí y solo aquí**: cambiar un filtro
-              también relanza la carga, pero es otra pregunta («qué quiero ver»), no «dame lo último». */}
-          <button
-            type="button"
-            onClick={() => {
-              logUsage(UsageEvent.DashboardManualRefresh);
-              void reload();
-            }}
-            className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-white border border-[#c6c8b8] hover:bg-[#f0ede8] text-[#33450d] text-xs font-semibold transition-colors shrink-0"
-          >
-            <span className="material-symbols-outlined text-lg" aria-hidden="true">refresh</span>
-            <span>Actualizar</span>
-          </button>
+          {/* MVP-706 (CA-3) — El botón «Actualizar» se retira por decisión del PO sobre `P-085`: el
+              objetivo son explotaciones pequeñas, donde no es habitual que unos introduzcan datos
+              mientras otros esperan a que el panel se actualice. RN-006 pasa a decir que el refresco
+              es recargar la página o volver a entrar en la pantalla. */}
         </div>
       </div>
 
-      {loadError && (
+      {/* MVP-706 — Solo queda el error de pantalla completa cuando **ninguno** de los cuatro pudo
+          cargarse. Si falla uno, el error va en su widget y el resto se pinta. */}
+      {allFailed && (
         <div role="alert" className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-          {loadError}
+          No se pudo cargar la visión general. Recarga la página para volver a intentarlo.
         </div>
       )}
 
@@ -356,7 +385,8 @@ export const VisionGeneralView: React.FC = () => {
         <div className="flex items-center justify-center py-24">
           <div className="w-8 h-8 border-4 border-[#33450d] border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : /* RN-021 — sin temporada no hay nada que agregar: se pide, no se muestran ceros */
+      ) : allFailed ? null /* el aviso de arriba ya lo dice; no se inventa un estado vacío */
+      : /* RN-021 — sin temporada no hay nada que agregar: se pide, no se muestran ceros */
       !season ? (
         <EmptyState
           icon="calendar_today"
@@ -375,43 +405,47 @@ export const VisionGeneralView: React.FC = () => {
             onAction={() => navigate('/app/cosechas')}
           />
           {/* Aunque la campaña aún no tenga cosechas, el histórico de estas fechas sí es útil */}
-          {hasHistoryOnly && evolution && <YieldEvolutionWidget evolution={evolution} />}
+          {hasHistoryOnly && evolution?.data && <YieldEvolutionWidget evolution={evolution.data} />}
         </>
       ) : (
         <>
-          {/* Resumen de temporada (CA-1) */}
+          {/* Resumen de temporada (CA-1). MVP-706 — si esta petición falla, el error se queda aquí
+              y los otros tres widgets se siguen pintando. */}
+          {summary?.error ? (
+            <WidgetError title="Resumen de temporada" message={summary.error} />
+          ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <MetricCard
               label="Kg recolectados"
-              value={`${number(summary!.total_kg)} kg`}
+              value={`${number(summary!.data!.total_kg)} kg`}
               icon="scale"
               iconClass="bg-[#f0ede8] text-[#33450d]"
-              hint={`${summary!.harvests} ${summary!.harvests === 1 ? 'partida' : 'partidas'}`}
+              hint={`${summary!.data!.harvests} ${summary!.data!.harvests === 1 ? 'partida' : 'partidas'}`}
             />
             <MetricCard
               label="Aceite obtenido"
               /* RN-014 — declarado o derivado del rendimiento. `null` es desconocido, no cero. */
-              value={summary!.total_liters === null ? 'Sin dato' : `${number(summary!.total_liters)} L`}
+              value={summary!.data!.total_liters === null ? 'Sin dato' : `${number(summary!.data!.total_liters)} L`}
               icon="water_drop"
               iconClass="bg-[#c9f16f] text-[#33450d]"
               hint={
-                summary!.total_liters === null
+                summary!.data!.total_liters === null
                   ? 'Ninguna partida declara aceite todavía'
-                  : coverageHint(summary!)
+                  : coverageHint(summary!.data!)
               }
             />
             <MetricCard
               label="Rendimiento medio"
               /* RN-013 — unidad canónica L/100kg, ponderado por kilos */
               value={
-                summary!.average_yield === null
+                summary!.data!.average_yield === null
                   ? 'Sin dato'
-                  : `${number(summary!.average_yield, 1)} L/100kg`
+                  : `${number(summary!.data!.average_yield, 1)} L/100kg`
               }
               icon="percent"
               iconClass="bg-[#f0ede8] text-[#4a5d23]"
               hint={
-                summary!.average_yield === null
+                summary!.data!.average_yield === null
                   ? 'Se calculará al declarar el aceite'
                   : 'Ponderado por kilos, no media de partidas'
               }
@@ -420,41 +454,43 @@ export const VisionGeneralView: React.FC = () => {
             <MetricCard
               label="Kg por árbol"
               value={
-                summary!.kg_per_tree === null
+                summary!.data!.kg_per_tree === null
                   ? 'Sin dato'
-                  : `${number(summary!.kg_per_tree, 1)} kg/árbol`
+                  : `${number(summary!.data!.kg_per_tree, 1)} kg/árbol`
               }
               icon="park"
               iconClass="bg-[#f0ede8] text-[#5a3811]"
               hint={
-                summary!.kg_per_tree === null
+                summary!.data!.kg_per_tree === null
                   ? 'Ningún terreno con cosechas tiene nº de árboles'
-                  : `Sobre ${number(summary!.trees_counted)} árboles de ${summary!.plots_counted} ${
-                      summary!.plots_counted === 1 ? 'terreno' : 'terrenos'
+                  : `Sobre ${number(summary!.data!.trees_counted)} árboles de ${summary!.data!.plots_counted} ${
+                      summary!.data!.plots_counted === 1 ? 'terreno' : 'terrenos'
                     }`
               }
             />
           </div>
+          )}
 
           {/* Aviso de cobertura parcial: una media sobre parte de las partidas no es la de la campaña */}
-          {summary!.harvests_with_oil_data > 0 &&
-            summary!.harvests_with_oil_data < summary!.harvests && (
+          {summary?.data &&
+            summary.data.harvests_with_oil_data > 0 &&
+            summary.data.harvests_with_oil_data < summary.data.harvests && (
               <p className="text-xs text-[#8a5a00] bg-[#fff6e5] border border-[#f0d9a8] rounded-xl px-3 py-2 flex items-start gap-1.5">
                 <span className="material-symbols-outlined text-base shrink-0" aria-hidden="true">info</span>
                 <span>
-                  El aceite y el rendimiento se calculan sobre {summary!.harvests_with_oil_data} de{' '}
-                  {summary!.harvests} partidas: el resto todavía no declara litros ni rendimiento.
+                  El aceite y el rendimiento se calculan sobre {summary!.data!.harvests_with_oil_data} de{' '}
+                  {summary!.data!.harvests} partidas: el resto todavía no declara litros ni rendimiento.
                 </span>
               </p>
             )}
 
           {/* RN-010 — el KPI de kg/árbol excluye los terrenos sin número de árboles y lo dice */}
-          {summary!.plots_without_tree_count > 0 && (
+          {summary?.data && summary.data.plots_without_tree_count > 0 && (
             <p className="text-xs text-[#8a5a00] bg-[#fff6e5] border border-[#f0d9a8] rounded-xl px-3 py-2 flex items-start gap-1.5">
               <span className="material-symbols-outlined text-base shrink-0" aria-hidden="true">park</span>
               <span>
-                El KPI de kg/árbol excluye {summary!.plots_without_tree_count}{' '}
-                {summary!.plots_without_tree_count === 1 ? 'terreno' : 'terrenos'} con cosechas pero sin
+                El KPI de kg/árbol excluye {summary!.data!.plots_without_tree_count}{' '}
+                {summary!.data!.plots_without_tree_count === 1 ? 'terreno' : 'terrenos'} con cosechas pero sin
                 número de árboles registrado. Complétalo en Terrenos para incluirlo.
               </span>
             </p>
@@ -467,13 +503,15 @@ export const VisionGeneralView: React.FC = () => {
               <p className="text-xs text-[#76786b]">A dónde va lo recolectado en esta temporada.</p>
             </div>
 
-            {destinations!.data.length === 0 ? (
+            {destinations?.error ? (
+              <p className="text-sm text-red-700">{destinations.error}</p>
+            ) : destinations!.data!.data.length === 0 ? (
               <p className="text-sm text-[#76786b] italic">Sin datos de destino en este ámbito.</p>
             ) : (
               <>
                 {/* Barra apilada: el reparto de un vistazo */}
                 <div className="w-full h-4 rounded-xl overflow-hidden flex shadow-inner bg-[#f0ede8]">
-                  {destinations!.data.map((item) => {
+                  {destinations!.data!.data.map((item) => {
                     const share = totalKg > 0 ? (item.kg / totalKg) * 100 : 0;
                     return (
                       <div
@@ -487,7 +525,7 @@ export const VisionGeneralView: React.FC = () => {
                 </div>
 
                 <ul className="space-y-2">
-                  {destinations!.data.map((item) => {
+                  {destinations!.data!.data.map((item) => {
                     const share = totalKg > 0 ? (item.kg / totalKg) * 100 : 0;
                     const isUnknown = item.destination === 'desconocido';
                     return (
@@ -520,7 +558,7 @@ export const VisionGeneralView: React.FC = () => {
                 </ul>
 
                 {/* RN-012 — el destino sin clasificar es parte de la lectura, no un error a esconder */}
-                {destinations!.data.some((item) => item.destination === 'desconocido') && (
+                {destinations!.data!.data.some((item) => item.destination === 'desconocido') && (
                   <p className="text-[11px] text-[#76786b] flex items-start gap-1.5">
                     <span className="material-symbols-outlined text-sm shrink-0" aria-hidden="true">info</span>
                     «Sin destino» son partidas cuyo cierre comercial o de uso todavía no se ha
@@ -532,16 +570,26 @@ export const VisionGeneralView: React.FC = () => {
           </div>
 
           {/* Kg por terreno (MVP-404, CA-1) — barras en orden fijo de RN-011 */}
-          {plots && plots.data.length > 0 && (
-            <KgByPlotWidget data={plots.data} totalKg={plots.meta.total_kg} />
+          {plots?.error ? (
+            <WidgetError title="Kg por terreno" message={plots.error} />
+          ) : (
+            plots?.data &&
+            plots.data.data.length > 0 && (
+              <KgByPlotWidget data={plots.data.data} totalKg={plots.data.meta.total_kg} />
+            )
           )}
 
           {/* Evolución de rendimiento (MVP-404, CA-2) — serie en L/100kg con histórico básico */}
-          {evolution && <YieldEvolutionWidget evolution={evolution} />}
+          {evolution?.error ? (
+            <WidgetError title="Evolución de rendimiento" message={evolution.error} />
+          ) : (
+            evolution?.data && <YieldEvolutionWidget evolution={evolution.data} />
+          )}
 
+          {/* MVP-706 — RN-006 reescrita: el refresco es recargar la página o volver a entrar. */}
           <p className="text-[11px] text-[#76786b] text-center">
-            Los datos se calculan al entrar en la pantalla o al pulsar «Actualizar»; no se refrescan
-            solos.
+            Los datos se calculan al entrar en la pantalla; no se refrescan solos. Para verlos al día,
+            recarga la página o vuelve a entrar.
           </p>
         </>
       )}
@@ -719,6 +767,32 @@ function coverageHint(summary: DashboardSummary): string {
     ? 'Declarado o calculado del rendimiento'
     : `Sobre ${summary.harvests_with_oil_data} de ${summary.harvests} partidas`;
 }
+
+/**
+ * MVP-706 (CA-1) — Error de **un** widget. Ocupa el sitio del widget que falló, con su nombre, para
+ * que se vea qué falta y no parezca que la campaña no tiene ese dato. El resto de la pantalla sigue
+ * pintada: antes, un fallo cualquiera dejaba los cuatro sin mostrar.
+ *
+ * No lleva botón de reintentar: RN-006 quedó, desde esta misma historia, en que el refresco de la
+ * Visión General es recargar la página o volver a entrar en la pantalla.
+ */
+const WidgetError: React.FC<{ title: string; message: string }> = ({ title, message }) => (
+  <div
+    role="alert"
+    className="bg-white p-5 rounded-2xl border border-red-200 ambient-shadow flex items-start gap-3"
+  >
+    <div className="w-8 h-8 rounded-lg bg-red-50 text-red-700 flex items-center justify-center shrink-0">
+      <span className="material-symbols-outlined text-lg" aria-hidden="true">error</span>
+    </div>
+    <div className="min-w-0">
+      <p className="text-xs font-bold uppercase tracking-wider text-[#76786b]">{title}</p>
+      <p className="text-sm text-red-700 mt-1">{message}</p>
+      <p className="text-[11px] text-[#76786b] mt-1">
+        El resto del panel sí se ha podido calcular. Recarga la página para volver a intentarlo.
+      </p>
+    </div>
+  </div>
+);
 
 const MetricCard: React.FC<{
   label: string;

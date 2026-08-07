@@ -82,9 +82,20 @@ El dashboard MVP se presenta en una sola pantalla con scroll vertical, sin naveg
 **Fuente**: producto
 **Módulos afectados**: dashboard
 
-En MVP no existe actualizacion continua en segundo plano. Los datos se actualizan al entrar al dashboard o mediante recarga manual.
+En MVP no existe actualizacion continua en segundo plano. Los datos se recalculan **al entrar en la
+pantalla**, así que para verlos al día se recarga la página o se vuelve a entrar.
 
-**Excepción**: Ninguna en MVP.
+El refresco **dejó de ser un acto explícito con control propio** en MVP-706: el botón «Actualizar» se
+retiró por decisión del Product Owner. El motivo es el perfil de uso: el objetivo son explotaciones
+pequeñas, donde no va a ser habitual que unos usuarios introduzcan datos mientras otros esperan a que
+el panel se actualice. Un control que casi nadie necesita ocupa sitio y hace creer que sin pulsarlo los
+datos están viejos.
+
+Consecuencia medible: `dashboard.manual_refresh` queda **discontinuada** (era su única fuente) y el
+informe operativo deja de publicarla. Ver `MVP-602` y `docs/05-infraestructura/observabilidad.md`.
+
+**Excepción**: Ninguna en MVP. El refresco automático o al recuperar el foco de la ventana queda
+descartado, no diferido.
 
 ---
 
@@ -94,9 +105,9 @@ En MVP no existe actualizacion continua en segundo plano. Los datos se actualiza
 **Fuente**: producto
 **Módulos afectados**: dashboard
 
-La recarga manual del dashboard mantiene los filtros activos del usuario. Se materializa (MVP-405) con
+La recarga del dashboard mantiene los filtros activos del usuario. Se materializa (MVP-405) con
 los filtros en la **URL** (`?season_id=…&plot_ids=…`): la recarga los conserva y el enlace es
-compartible.
+compartible. Desde MVP-706 «recarga» es la del navegador o la reentrada en la pantalla, no un botón.
 
 ---
 

@@ -1,6 +1,6 @@
 ﻿# Índice — MVP-007--ajustes-mvp-01: Ajustes MVP 01
 
-> **Progreso**: 1/17 completadas · **Hito**: Hito G — Ajustes de uso real
+> **Progreso**: 2/17 completadas · **Hito**: Hito G — Ajustes de uso real
 > _Generado automáticamente por `validar_kb.py`. No editar manualmente._
 
 | Historia | Título | Estado | Responsable | Prioridad |
@@ -10,7 +10,7 @@
 | [MVP-703](./MVP-703--arranque-en-el-diario-y-definicion-de-sesion-activa/spec.md) | Arranque en el diario y definicion de sesion activa | 📝 borrador | @andres | media |
 | [MVP-704](./MVP-704--modales-accesibles/spec.md) | Modales accesibles | 📝 borrador | @andres | media |
 | [MVP-705](./MVP-705--navegacion-del-diario-en-la-url/spec.md) | Navegacion del diario en la URL | 📝 borrador | @andres | media |
-| [MVP-706](./MVP-706--comportamiento-de-la-vision-general/spec.md) | Comportamiento de la Vision General | 📝 borrador | @andres | media |
+| [MVP-706](./MVP-706--comportamiento-de-la-vision-general/spec.md) | Comportamiento de la Vision General | ✔️ completado | @andres | media |
 | [MVP-707](./MVP-707--valor-economico-de-la-campana/spec.md) | Valor economico de la campana | 📝 borrador | @andres | alta |
 | [MVP-708](./MVP-708--roces-de-captura-en-compras-y-consumos/spec.md) | Roces de captura en compras y consumos | 📝 borrador | @andres | baja |
 | [MVP-709](./MVP-709--respuesta-a-la-perdida-de-conexion/spec.md) | Respuesta a la perdida de conexion | 📝 borrador | @andres | media |

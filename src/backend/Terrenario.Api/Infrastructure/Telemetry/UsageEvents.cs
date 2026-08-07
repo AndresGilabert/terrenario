@@ -17,8 +17,13 @@ public static class UsageEvents
     public const string DashboardViewed = "dashboard_viewed";
 
     /// <summary>
-    /// Pulsación de «Actualizar» (RN-006). Señal <b>separada</b> de la entrada, como pide CA-2: entrar
-    /// y recargar responden a preguntas distintas —si se consulta y si se vuelve a consultar—.
+    /// Pulsación de «Actualizar» (RN-006). <b>Discontinuada en MVP-706</b>: el PO retiró el botón, que
+    /// era su única fuente, así que ni el cliente la emite ni el informe operativo la publica.
+    ///
+    /// Se sigue <b>aceptando</b> a propósito: un cliente cacheado en un navegador puede seguir
+    /// enviándola durante un tiempo tras el despliegue, y responderle <c>400</c> convertiría un resto
+    /// inofensivo en un error de cliente contado. Su contador se sigue escribiendo, de modo que la
+    /// serie histórica de la tabla no se rompe; simplemente ya no se lee.
     /// </summary>
     public const string DashboardManualRefresh = "dashboard_manual_refresh";
 

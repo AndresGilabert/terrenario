@@ -122,4 +122,30 @@ public sealed class HealthAndOpsTests : IAsyncLifetime
 
         body.GetProperty("daily_days").GetInt32().Should().Be(28);
     }
+
+    /// <summary>
+    /// MVP-706 (CA-5) — `dashboard.manual_refresh` deja de publicarse. El boton «Actualizar» era su
+    /// unica fuente y el PO lo retiro, asi que seguir informandola daria siempre cero: se leeria como
+    /// «nadie refresca» en vez de como «esto ya no se mide».
+    /// </summary>
+    [Fact]
+    public async Task OpsSignals_NoDeberia_PublicarLaRecargaManual_Discontinuada_EnMvp706()
+    {
+        await using var factory = new TerrenarioApiFactory();
+        await factory.InitializeAsync();
+        var client = factory.WithOpsKey("llave").CreateClient();
+
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/ops/signals");
+        request.Headers.Add(OpsController.ApiKeyHeader, "llave");
+
+        var body = await (await client.SendAsync(request)).Content.ReadFromJsonAsync<JsonElement>();
+
+        var usage = body.GetProperty("product_usage_7d");
+        usage.TryGetProperty("manual_refresh_per_session", out _).Should().BeFalse();
+        // La cobertura de widgets sigue viva: lo que se retira es la recarga manual, no el bloque.
+        usage.TryGetProperty("widget_coverage", out _).Should().BeTrue();
+
+        foreach (var day in body.GetProperty("daily").EnumerateArray())
+            day.TryGetProperty("manual_refresh", out _).Should().BeFalse();
+    }
 }

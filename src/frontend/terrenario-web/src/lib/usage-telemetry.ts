@@ -9,7 +9,9 @@ const MARKS_KEY = 'terrenario_usage_marks';
 export const UsageEvent = {
   AppSessionStarted: 'app_session_started',
   DashboardViewed: 'dashboard_viewed',
-  DashboardManualRefresh: 'dashboard_manual_refresh',
+  // MVP-706 — `dashboard_manual_refresh` se retira aquí: el botón «Actualizar» era su única fuente y
+  // ya no existe (decisión del PO sobre `P-085`). El servidor sigue tolerando el evento para no
+  // responder `400` a un cliente cacheado, pero el informe operativo ya no lo publica.
   DashboardWidgets: 'dashboard_widgets',
 } as const;
 

@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Globalization;
 using Terrenario.Api.Application.Diary;
+using Terrenario.Api.Application.Seasons;
+using Terrenario.Api.Common.Auth;
 using Terrenario.Api.Common.Errors;
 using Terrenario.Api.Common.Workspaces;
 using Terrenario.Api.Domain.Diary;
@@ -27,6 +29,7 @@ namespace Terrenario.Api.Controllers;
 [Route("api/v1/diary")]
 public sealed class DiaryController(
     DiaryQueryService diaryQueryService,
+    SeasonScopeResolver seasonScopeResolver,
     IWorkspaceContext workspaceContext) : ControllerBase
 {
     /// <summary>
@@ -36,13 +39,18 @@ public sealed class DiaryController(
     ///
     /// <b>Todos los filtros se resuelven en servidor</b>, también la búsqueda por texto: sobre una
     /// vista paginada, buscar solo en lo visible daría un resultado falso (`P-052`).
+    ///
+    /// MVP-701 — <c>season_id</c> ausente ya no significa «todas»: aplica el defecto de RN-008, que es
+    /// la temporada de trabajo del usuario. El histórico completo se pide con <c>season_id=all</c>, y
+    /// el ámbito aplicado viaja en <c>meta.scope</c> para que la pantalla lo rotule y posicione su
+    /// control sin repetir la regla.
     /// </summary>
     [HttpGet]
     public async Task<IActionResult> List(
         [FromQuery] string? from,
         [FromQuery] string? to,
         [FromQuery(Name = "plot_id")] Guid? plotId,
-        [FromQuery(Name = "season_id")] Guid? seasonId,
+        [FromQuery(Name = "season_id")] string? seasonId,
         [FromQuery(Name = "type")] string[]? types,
         [FromQuery(Name = "worker_id")] Guid? workerId,
         [FromQuery] string? search,
@@ -70,9 +78,12 @@ public sealed class DiaryController(
             page ?? 1,
             Math.Min(limit ?? DiaryPageRequest.DefaultLimit, DiaryPageRequest.MaxLimit));
 
+        var seasonScope = await seasonScopeResolver.ResolveAsync(
+            User.GetUserId()!.Value, workspaceContext.WorkspaceId, seasonId, ct);
+
         var result = await diaryQueryService.HandleAsync(
             workspaceContext.WorkspaceId,
-            new DiaryFilter(fromDate, toDate, plotId, seasonId, requestedTypes, workerId, search),
+            new DiaryFilter(fromDate, toDate, plotId, seasonScope.FilterId, requestedTypes, workerId, search),
             pageRequest,
             ct);
 
@@ -81,6 +92,8 @@ public sealed class DiaryController(
             data = result.Entries.Select(ToResponse),
             meta = new
             {
+                // MVP-701 — Ámbito de temporada realmente aplicado (RN-008).
+                scope = seasonScope.ToResponse(),
                 // MVP-506 — `total` es el del diario **filtrado completo**, no el de la página: es lo
                 // que permite al cliente saber cuántas páginas hay. Los contadores y los importes
                 // también son del conjunto, porque son la cabecera del muro y cambiarían en cada

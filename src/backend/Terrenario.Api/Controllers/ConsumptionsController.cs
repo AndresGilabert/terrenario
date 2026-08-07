@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Terrenario.Api.Application.Consumptions;
 using Terrenario.Api.Application.Consumptions.Commands;
+using Terrenario.Api.Application.Seasons;
 using Terrenario.Api.Common;
 using Terrenario.Api.Common.Auth;
 using Terrenario.Api.Common.Errors;
@@ -36,19 +37,24 @@ public sealed class ConsumptionsController(
     UpdateConsumptionHandler updateConsumptionHandler,
     DeleteConsumptionHandler deleteConsumptionHandler,
     ListConsumptionsHandler listConsumptionsHandler,
+    SeasonScopeResolver seasonScopeResolver,
     IWorkspaceContext workspaceContext) : ControllerBase
 {
     /// <summary>
     /// Consumos e imputaciones del Workspace, por <b>fecha de negocio</b> descendente (CA-4): un
     /// consumo capturado hoy sobre trabajo de la semana pasada se lee donde ocurrió, no donde se
     /// apuntó.
+    ///
+    /// MVP-701 — Mismo defecto de temporada que el libro de compras (RN-008). Las dos listas se
+    /// pintan en la <b>misma pantalla</b>: si solo una aplicara el defecto, el libro hablaría de una
+    /// campaña y sus consumos de otra.
     /// </summary>
     [HttpGet]
     public async Task<IActionResult> List(
         [FromQuery] string? from,
         [FromQuery] string? to,
         [FromQuery(Name = "plot_id")] Guid? plotId,
-        [FromQuery(Name = "season_id")] Guid? seasonId,
+        [FromQuery(Name = "season_id")] string? seasonId,
         [FromQuery(Name = "purchase_id")] Guid? purchaseId,
         [FromQuery] string? product,
         CancellationToken ct)
@@ -57,9 +63,12 @@ public sealed class ConsumptionsController(
             return BadRequest(new ApiErrorResponse(ApiError.Validation(
                 ErrorCodes.ValidationRequired, "Las fechas de filtro deben tener el formato YYYY-MM-DD.")));
 
+        var seasonScope = await seasonScopeResolver.ResolveAsync(
+            User.GetUserId()!.Value, workspaceContext.WorkspaceId, seasonId, ct);
+
         var consumptions = await listConsumptionsHandler.HandleAsync(
             workspaceContext.WorkspaceId,
-            new ConsumptionFilter(fromDate, toDate, plotId, seasonId, purchaseId, product),
+            new ConsumptionFilter(fromDate, toDate, plotId, seasonScope.FilterId, purchaseId, product),
             ct);
 
         return Ok(new
@@ -67,6 +76,8 @@ public sealed class ConsumptionsController(
             data = consumptions.Select(ToResponse),
             meta = new
             {
+                // MVP-701 — Ámbito de temporada realmente aplicado (RN-008).
+                scope = seasonScope.ToResponse(),
                 total = consumptions.Count,
                 total_cost = consumptions.Sum(c => c.ProportionalCost),
                 // Cuántos se registraron sin compra: es la medida del "impacto en la calidad del

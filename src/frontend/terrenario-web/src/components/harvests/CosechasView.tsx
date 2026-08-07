@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useApiClient } from '../../contexts/ApiContext';
 import { useSeason } from '../../contexts/SeasonContext';
+import { useSeasonScope } from '../../lib/season-scope';
+import { ALL_SEASONS } from '../../types/season.types';
 import { createHarvestService } from '../../services/harvest.service';
 import { createPlotService } from '../../services/plot.service';
 import { HttpError } from '../../services/http-client';
@@ -57,7 +59,13 @@ export const CosechasView: React.FC = () => {
   const [notice, setNotice] = useState<string | null>(null);
 
   const [plotFilter, setPlotFilter] = useState('todos');
-  const [seasonFilter, setSeasonFilter] = useState('todas');
+  // MVP-701 (`P-082`) — El ámbito de temporada ya no arranca en «todas»: lo resuelve el servidor con
+  // el defecto de RN-008. Era la causa de que esta pantalla y la Visión General dieran totales
+  // distintos de la misma campaña.
+  const seasonScope = useSeasonScope();
+  // Desestructurado para que las dependencias de `reload` sean identificadores estables y la regla de
+  // exhaustividad de los hooks pueda comprobarlas.
+  const { requested: seasonRequested, applyFromResponse: applySeasonScope } = seasonScope;
   const [destinationFilter, setDestinationFilter] = useState('todos');
 
   const [isModalOpen, setModalOpen] = useState(false);
@@ -76,7 +84,7 @@ export const CosechasView: React.FC = () => {
       const [list, plotList] = await Promise.all([
         harvestService.listHarvests({
           plotId: plotFilter === 'todos' ? undefined : plotFilter,
-          seasonId: seasonFilter === 'todas' ? undefined : seasonFilter,
+          seasonId: seasonRequested,
           destination: destinationFilter === 'todos' ? undefined : destinationFilter,
         }),
         // Los terrenos se piden activos: es lo que se ofrece para registros nuevos (MVP-202, CA-3).
@@ -84,13 +92,21 @@ export const CosechasView: React.FC = () => {
       ]);
       setHarvests(list.data);
       setTotalKg(list.meta.total_kg);
+      applySeasonScope(list.meta.scope);
       setPlots(plotList);
     } catch (error) {
       setLoadError(error instanceof HttpError ? error.message : 'No se pudieron cargar las cosechas.');
     } finally {
       setIsLoading(false);
     }
-  }, [harvestService, plotService, plotFilter, seasonFilter, destinationFilter]);
+  }, [
+    harvestService,
+    plotService,
+    plotFilter,
+    seasonRequested,
+    applySeasonScope,
+    destinationFilter,
+  ]);
 
   useEffect(() => {
     void reload();
@@ -197,7 +213,7 @@ export const CosechasView: React.FC = () => {
   };
 
   const hasFilters =
-    plotFilter !== 'todos' || seasonFilter !== 'todas' || destinationFilter !== 'todos';
+    plotFilter !== 'todos' || seasonScope.isExplicit || destinationFilter !== 'todos';
 
   return (
     <div className="space-y-6 pb-12">
@@ -288,11 +304,14 @@ export const CosechasView: React.FC = () => {
             <label htmlFor="harvest-filter-season" className="sr-only">Filtrar por temporada</label>
             <select
               id="harvest-filter-season"
-              value={seasonFilter}
-              onChange={(e) => setSeasonFilter(e.target.value)}
+              value={seasonScope.value}
+              onChange={(e) => seasonScope.select(e.target.value)}
               className="w-full px-3 py-2 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-xs font-medium text-[#1c1c19] focus:outline-none focus:border-[#33450d]"
             >
-              <option value="todas">Todas las temporadas</option>
+              {/* Mientras no haya llegado la primera respuesta no se sabe qué campaña aplica el
+                  servidor: se deja el hueco en vez de rotular una que quizá no sea. */}
+              {seasonScope.value === '' && <option value="">Campaña de trabajo…</option>}
+              <option value={ALL_SEASONS}>Todas las temporadas</option>
               {seasons.map((season) => (
                 <option key={season.id} value={season.id}>{season.name}</option>
               ))}

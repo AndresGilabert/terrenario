@@ -11,6 +11,8 @@ import { createPurchaseService } from '../../services/purchase.service';
 import { createTaskService } from '../../services/task.service';
 import { createWorkerService } from '../../services/worker.service';
 import { HttpError } from '../../services/http-client';
+import { useSeasonScope } from '../../lib/season-scope';
+import { ALL_SEASONS } from '../../types/season.types';
 import {
   CONFLICT_VERSION_MISMATCH,
   RESOURCE_NOT_FOUND,
@@ -40,6 +42,8 @@ import { HarvestFormModal } from '../harvests/HarvestFormModal';
 import { ActivityFormModal } from './ActivityFormModal';
 
 const EMPTY_SUMMARY: DiaryListResponse['meta'] = {
+  // MVP-701 — Ámbito todavía sin resolver: la primera respuesta lo sustituye.
+  scope: { season: null, all_seasons: false },
   total: 0,
   page: 1,
   limit: DIARY_PAGE_SIZE,
@@ -116,7 +120,12 @@ export const DiarioView: React.FC = () => {
   const [notice, setNotice] = useState<string | null>(null);
 
   const [plotFilter, setPlotFilter] = useState('todos');
-  const [seasonFilter, setSeasonFilter] = useState('todas');
+  // MVP-701 (`P-082`) — El defecto de temporada lo resuelve el servidor (RN-008): el diario ya no
+  // arranca en «todas» mientras el dashboard arrancaba en la campaña de trabajo.
+  const seasonScope = useSeasonScope();
+  // Desestructurado para que las dependencias de `reload` sean identificadores estables y la regla de
+  // exhaustividad de los hooks pueda comprobarlas.
+  const { requested: seasonRequested, applyFromResponse: applySeasonScope } = seasonScope;
   const [typeFilter, setTypeFilter] = useState<DiaryEntryType | 'todos'>('todos');
   const [workerFilter, setWorkerFilter] = useState('todos');
   const [searchTerm, setSearchTerm] = useState('');
@@ -161,7 +170,7 @@ export const DiarioView: React.FC = () => {
       const [diary, plotList, workerList, taskList] = await Promise.all([
         diaryService.listDiary({
           plotId: plotFilter === 'todos' ? undefined : plotFilter,
-          seasonId: seasonFilter === 'todas' ? undefined : seasonFilter,
+          seasonId: seasonRequested,
           types: typeFilter === 'todos' ? undefined : [typeFilter],
           workerId: workerFilter === 'todos' ? undefined : workerFilter,
           search: appliedSearch.trim() === '' ? undefined : appliedSearch.trim(),
@@ -181,6 +190,7 @@ export const DiarioView: React.FC = () => {
 
       setEntries(diary.data);
       setSummary(diary.meta);
+      applySeasonScope(diary.meta.scope);
       setPlots(plotList);
       setWorkers(workerList);
       setTasks(taskList);
@@ -196,7 +206,8 @@ export const DiarioView: React.FC = () => {
     workerService,
     taskService,
     plotFilter,
-    seasonFilter,
+    seasonRequested,
+    applySeasonScope,
     typeFilter,
     workerFilter,
     appliedSearch,
@@ -238,7 +249,7 @@ export const DiarioView: React.FC = () => {
   const totalPages = Math.max(1, Math.ceil(summary.total / DIARY_PAGE_SIZE));
   const hasFilters =
     plotFilter !== 'todos' ||
-    seasonFilter !== 'todas' ||
+    seasonScope.isExplicit ||
     typeFilter !== 'todos' ||
     workerFilter !== 'todos' ||
     appliedSearch !== '';
@@ -609,11 +620,13 @@ export const DiarioView: React.FC = () => {
             <label htmlFor="diary-season" className="sr-only">Filtrar por temporada</label>
             <select
               id="diary-season"
-              value={seasonFilter}
-              onChange={(e) => changeFilter(() => setSeasonFilter(e.target.value))}
+              value={seasonScope.value}
+              onChange={(e) => changeFilter(() => seasonScope.select(e.target.value))}
               className="w-full px-3 py-2 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-xs font-medium text-[#1c1c19] focus:outline-none focus:border-[#33450d]"
             >
-              <option value="todas">Todas las temporadas</option>
+              {/* Hasta la primera respuesta no se sabe qué campaña aplica el servidor. */}
+              {seasonScope.value === '' && <option value="">Campaña de trabajo…</option>}
+              <option value={ALL_SEASONS}>Todas las temporadas</option>
               {seasons.map((season) => (
                 <option key={season.id} value={season.id}>{season.name}</option>
               ))}

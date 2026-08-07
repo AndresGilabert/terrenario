@@ -52,3 +52,33 @@ export interface SeasonListResponse {
   data: Season[];
   meta: { total: number };
 }
+
+/**
+ * MVP-701 — Ámbito de temporada que el **servidor** ha aplicado a una lectura operativa (RN-008).
+ *
+ * Viaja en `meta.scope` del diario, las cosechas, las compras y los consumos por el mismo motivo por
+ * el que ya viajaba en el dashboard: si el defecto lo resolviera el cliente, la regla viviría en dos
+ * sitios y volvería a divergir, que es exactamente lo que produjo `P-082` —dos pantallas dando
+ * totales distintos de la misma campaña—.
+ */
+export interface SeasonScope {
+  /** Temporada aplicada; `null` si se está viendo el histórico completo o no hay ninguna. */
+  season: SeasonScopeSeason | null;
+  /** Se está viendo el histórico completo, por elección explícita o porque no hay de trabajo. */
+  all_seasons: boolean;
+}
+
+export interface SeasonScopeSeason {
+  id: string;
+  name: string;
+  status: SeasonStatus;
+  start_date: string;
+  end_date: string | null;
+}
+
+/**
+ * MVP-701 — Valor reservado de `season_id` que pide el histórico completo. Sin él no se podría
+ * distinguir «no he elegido, pon el defecto» de «quiero verlo todo»: la ausencia del parámetro ya
+ * significa lo primero.
+ */
+export const ALL_SEASONS = 'all';

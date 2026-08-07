@@ -1,3 +1,5 @@
+import type { SeasonScope } from './season.types';
+
 /**
  * Consumo de material en un terreno (MVP-304). Cubre los **dos** casos con la misma forma, porque son
  * el mismo hecho y solo cambia de dónde sale el coste:
@@ -59,7 +61,7 @@ export interface UpdateConsumptionPayload {
 export interface ConsumptionListResponse {
   data: Consumption[];
   /** `without_purchase` mide el impacto en la calidad del dato (CA-3 de la épica). */
-  meta: { total: number; total_cost: number; without_purchase: number };
+  meta: { scope: SeasonScope; total: number; total_cost: number; without_purchase: number };
 }
 
 export interface ConsumptionFilters {

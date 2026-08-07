@@ -1,3 +1,5 @@
+import type { SeasonScope } from './season.types';
+
 /**
  * Cosecha del Workspace (MVP-401). Es la materia prima del dashboard: convierte la recolección real
  * en kilos, destino y rendimiento comparables entre temporadas.
@@ -132,6 +134,8 @@ export type UpdateHarvestPayload = Partial<CreateHarvestPayload>;
 export interface HarvestListResponse {
   data: Harvest[];
   meta: {
+    /** MVP-701 — Ámbito de temporada que ha aplicado el servidor (RN-008). */
+    scope: SeasonScope;
     total: number;
     /** Kilos acumulados de lo filtrado, calculados en servidor. */
     total_kg: number;

@@ -203,7 +203,7 @@ Mismo mecanismo —log estructurado (`product.usage`) mas contador diario— par
 
 | Contador | Que cuenta |
 |---|---|
-| `app.session_started` | Sesiones que llegan al area autenticada. **Es el divisor** del uso del dashboard |
+| `app.session_started` | **Sesiones activas**: las que llegan al **area operativa** (el shell, tras la guarda de Workspace). **Es el divisor** del uso del dashboard. Una sesion que se queda en el onboarding **no** cuenta: es la definicion, no un olvido (MVP-703) |
 | `dashboard.viewed` | Entradas al dashboard, todas |
 | `dashboard.session_with_view` | Sesiones que abren el dashboard **al menos una vez** |
 | `dashboard.manual_refresh` | **Discontinuada (MVP-706)**: contaba las pulsaciones de «Actualizar», botón retirado al reescribir RN-006. El contador conserva su histórico en la tabla, pero el informe de `GET /api/v1/ops/signals` ya no lo publica. El endpoint sigue aceptando el evento para no responder `400` a un cliente cacheado |
@@ -213,6 +213,7 @@ Mismo mecanismo —log estructurado (`product.usage`) mas contador diario— par
 KPI de producto de `../01-producto/kpis.md`:
 
 - Uso del dashboard en sesiones activas = `dashboard.session_with_view` / `app.session_started`
+  — **de las sesiones que entran al area operativa, cuantas abren el panel** (MVP-703)
 - ~~Recargas manuales por sesion~~ — retirada en MVP-706 junto con el boton que la alimentaba
 - Cobertura de widgets MVP = `dashboard.widget.rendered` / (`rendered` + `blocked`)
 
@@ -221,8 +222,22 @@ Tres matices que cambian lo que significan estas cifras:
 1. **Sesiones, no visitas.** `dashboard.session_with_view` existe porque el KPI pregunta por sesiones:
    quien entra ocho veces en una sesion sigue siendo una sesion, y contar visitas daria porcentajes por
    encima del 100 %.
-2. **La sesion activa se cuenta al entrar a la aplicacion**, no al abrir el dashboard. Contarla en el
+2. **La sesion activa se cuenta al entrar al area operativa**, no al abrir el dashboard. Contarla en el
    propio dashboard haria que el porcentaje fuese siempre 100 %.
+
+   Hasta `MVP-703` el codigo y esta pagina describian cosas distintas: el endpoint de ingesta decia
+   admitir la senal sin Workspace porque «una sesion en onboarding tambien es una sesion activa», pero
+   el cliente la emite desde el shell —que cuelga de la guarda de Workspace— y por tanto no la manda
+   nunca en onboarding (`P-078`). Se fija la definicion **que se cumple**: la sesion activa es la que
+   llega al area operativa. Emitirla tambien en onboarding se descarto a proposito: meteria en el
+   divisor sesiones en las que el panel todavia no existe.
+
+   > **Ruptura de serie declarada (MVP-703).** Hasta esa historia, con los maestros poblados el Home
+   > **era** la Vision General, asi que casi toda sesion activa abria el panel por el mero hecho de
+   > entrar y el KPI rondaba el 100 % por construccion. Desde MVP-703 el arranque es el diario
+   > (RN-033), asi que abrir el panel pasa a ser una **eleccion**: el porcentaje bajara, y esa bajada
+   > **no es una perdida de uso**. Las dos series no son comparables entre si; el corte esta en la
+   > fecha de despliegue de MVP-703.
 3. **`empty` no es `error`.** El KPI admite expresamente los estados vacio/incompleto: un Workspace que
    aun no ha cosechado no tiene el dashboard roto. Solo `error` resta cobertura.
 

@@ -107,6 +107,11 @@ comportamiento; los hallazgos son de documentación, un copy obsoleto y un nit d
   preparada, el Home pasa a ser la Visión General** (se reutiliza la misma vista, no se duplica). Así no
   hay dos pantallas de inicio compitiendo. Verificado en UI: con `tasks=0` se ve el checklist (3/4);
   con todos los maestros poblados, `/app` renderiza el dashboard.
+  **Revertido parcialmente en `MVP-703` (2026-08-08)**: con la explotación preparada, `/app` lleva ahora
+  al **Diario de campo**. La decisión de aquí no era mala; faltaba el dato de que la cosecha se
+  concentra al final de campaña, así que durante la mayor parte del año lo primero que se veía al entrar
+  era «Sin cosechas en {temporada}» —y contradecía a `RN-033`, que declara el diario vista principal del
+  MVP—. La primera cara, el checklist mientras falten maestros, **sigue igual**.
 - **`P-036` (borrado físico de un maestro sin uso) + `P-041` (fusión de maestros duplicados). Diferidos
   a post-MVP (decisión del PO):** no son defectos sino **funcionalidad nueva** (backend + UI) que no
   bloquea la salida a MVP. Se anota que su premisa —poder comprobar el «sin uso histórico»— **ya se

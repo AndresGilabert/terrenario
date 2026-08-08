@@ -7,7 +7,7 @@
 |----------|--------|--------|-------------|-----------|
 | [MVP-701](./MVP-701--coherencia-de-contexto-workspace-y-temporada/spec.md) | Coherencia de contexto: Workspace y temporada | ✔️ completado | @andres | alta |
 | [MVP-702](./MVP-702--aprovechamiento-del-espacio-escritorio-y-movil/spec.md) | Aprovechamiento del espacio: escritorio y movil | 📝 borrador | @andres | media |
-| [MVP-703](./MVP-703--arranque-en-el-diario-y-definicion-de-sesion-activa/spec.md) | Arranque en el diario y definicion de sesion activa | 📝 borrador | @andres | media |
+| [MVP-703](./MVP-703--arranque-en-el-diario-y-definicion-de-sesion-activa/spec.md) | Arranque en el diario y definicion de sesion activa | ✔️ completado | @andres | media |
 | [MVP-704](./MVP-704--modales-accesibles/spec.md) | Modales accesibles | 📝 borrador | @andres | media |
 | [MVP-705](./MVP-705--navegacion-del-diario-en-la-url/spec.md) | Navegacion del diario en la URL | 📝 borrador | @andres | media |
 | [MVP-706](./MVP-706--comportamiento-de-la-vision-general/spec.md) | Comportamiento de la Vision General | ✔️ completado | @andres | media |

@@ -12,6 +12,12 @@
     <PackageReference Include="FluentAssertions" Version="6.12.*" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.*" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.*" />
+    <!-- P-103 — Referencia explícita solo para alinear versiones. `Terrenario.Api` compila contra
+         Relational 9.0.18 (se lo sube `Microsoft.EntityFrameworkCore.Design`, que no propaga por ser
+         `PrivateAssets=all`), pero aquí la única que llegaba era la 9.0.1 que pide Npgsql, y ganaba
+         por ser la principal (`MSB3277`): la suite se ejecutaba contra una Relational más antigua
+         que la del runtime, así que un fallo dependiente de versión podía no verse en los tests. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.*" />
     <!-- Reloj controlable (MVP-601): medir duraciones de login y cadencias de volcado sin esperarlas. -->
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.*" />
     <!-- PostgreSQL real en contenedor (MVP-501): los tests de repositorio y el arnés de API

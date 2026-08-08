@@ -22,7 +22,7 @@ namespace Terrenario.Api.Tests.Activities;
 /// </summary>
 public sealed class ActivityRepositoryPostgresTests : RepositoryTestBase
 {
-    private readonly Guid _userId;
+    private readonly Guid _userId = Guid.NewGuid();
 
     private sealed record Fixture(Workspace Workspace, Plot Plot, Season Season, Worker Worker);
 

@@ -348,12 +348,25 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 
 var app = builder.Build();
 
+var emailOptions = builder.Configuration.GetSection(EmailOptions.SectionName).Get<EmailOptions>() ?? new();
+
 // Sin cuenta de envío las invitaciones por email no salen: la API lo dice con email_sent=false,
 // pero conviene verlo también al arrancar el entorno.
-if (!(builder.Configuration.GetSection(EmailOptions.SectionName).Get<EmailOptions>() ?? new()).IsConfigured)
+if (!emailOptions.IsConfigured)
     app.Logger.LogWarning(
         "Sin cuenta de envío de email configurada ('Email:Host' y 'Email:FromAddress'). "
         + "Las invitaciones se emiten pero deben compartirse por enlace.");
+
+// P-100 — Mismo criterio que el aviso de arriba, y por un motivo peor: un modo de seguridad mal
+// escrito no deja el envío sin hacer, lo hace por un transporte distinto del que se pidió. Falla del
+// lado seguro (StartTLS), pero en silencio, y el síntoma llega el día de la primera entrega fallida.
+if (!emailOptions.IsSecurityModeKnown)
+    app.Logger.LogWarning(
+        "Modo de seguridad de email no reconocido ('Email:SecurityMode' = «{SecurityMode}»): se "
+        + "conectará con «{AppliedMode}». Valores admitidos: {KnownModes}.",
+        emailOptions.SecurityMode,
+        EmailSecurityModes.StartTls,
+        string.Join(", ", EmailSecurityModes.All));
 
 // MVP-603 — Una vigilancia encendida sin destinatario es el peor estado posible: parece que hay
 // alertas, y lo que hay es una anotación en un log que nadie lee. Igual que el aviso de arriba, se

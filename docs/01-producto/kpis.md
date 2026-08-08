@@ -51,7 +51,7 @@ actualizado_en: "2026-06-30"
 | Historico de rendimiento | Serie temporal por temporada | Evolucion de rendimiento |
 | Conversion login | Eventos de embudo de autenticacion | Dashboard de autenticacion |
 | Abandono login | Eventos de embudo de autenticacion | Dashboard de autenticacion |
-| Uso del dashboard en sesiones activas | `dashboard.session_with_view` / `app.session_started` (MVP-602) | Revision semanal de KPIs |
+| Uso del dashboard en sesiones activas | `dashboard.session_with_view` / `app.session_started` (MVP-602). **Redefinido en MVP-703**: mide «de las sesiones que llegan al area operativa, cuantas **eligen** abrir el panel». Antes el Home **era** el panel, asi que el KPI rondaba el 100 % por construccion; con el arranque en el diario (RN-033) bajara, y esa bajada no es perdida de uso. **La serie se rompe en el despliegue de MVP-703: los dos tramos no son comparables** | Revision semanal de KPIs |
 | ~~Uso de recarga manual~~ | **Retirado en MVP-706**: el boton «Actualizar» era su unica fuente y se elimino al reescribir RN-006 | — |
 | Cobertura de widgets MVP | `dashboard.widget.rendered` / (`rendered` + `blocked`) (MVP-602) | Revision semanal de KPIs |
 

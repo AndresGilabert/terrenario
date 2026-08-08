@@ -34,10 +34,15 @@ export const AppLayout: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const logUsage = useUsageTelemetry();
 
-  // MVP-602 — «Sesión activa»: la que llega al área autenticada. Es el **divisor** del KPI de uso del
-  // dashboard, así que se cuenta aquí y no en la propia pantalla del dashboard: contarlo allí haría que
-  // el porcentaje fuese siempre 100 %, porque solo entrarían en el divisor las sesiones que ya lo han
-  // abierto. Una vez por sesión, no por navegación entre pantallas.
+  // MVP-602 · MVP-703 — «Sesión activa»: la que llega al **área operativa**. Es el divisor del KPI de
+  // uso del dashboard, así que se cuenta aquí y no en la propia pantalla del panel: contarlo allí haría
+  // que el porcentaje fuese siempre 100 %, porque solo entrarían en el divisor las sesiones que ya lo
+  // han abierto. Una vez por sesión, no por navegación entre pantallas.
+  //
+  // MVP-703 (CA-4) — La definición se fija aquí y en la KB con las mismas palabras. Este componente
+  // cuelga de `RequireWorkspace`, así que una sesión que se queda en el onboarding **no** emite la
+  // señal: es la definición, no un olvido. Emitirla también allí se descartó a propósito —metería en
+  // el divisor sesiones en las que el panel todavía no existe—.
   useEffect(() => {
     if (markOnceInSession(UsageMark.AppSession)) logUsage(UsageEvent.AppSessionStarted);
   }, [logUsage]);

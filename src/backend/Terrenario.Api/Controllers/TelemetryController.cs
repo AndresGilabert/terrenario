@@ -7,14 +7,20 @@ using Terrenario.Api.Infrastructure.Telemetry;
 namespace Terrenario.Api.Controllers;
 
 /// <summary>
-/// MVP-602 — Ingesta de las señales de uso del producto (entrada al área autenticada, uso del
-/// dashboard, recarga manual y cobertura de widgets).
+/// MVP-602 — Ingesta de las señales de uso del producto (entrada al área operativa, uso del dashboard
+/// y cobertura de widgets).
 ///
 /// <b>Autenticado, pero sin ámbito de Workspace</b>: exigir <c>[Authorize]</c> evita que cualquiera
-/// infle los contadores desde fuera, y no exigir <c>[RequireWorkspaceScope]</c> es deliberado: una
-/// sesión sin Workspace (recién creada, o en onboarding) también es una sesión activa, y dejarla fuera
-/// del divisor haría subir el KPI de uso del dashboard justo con los casos en los que el producto aún
-/// no sirve de nada.
+/// infle los contadores desde fuera, y no exigir <c>[RequireWorkspaceScope]</c> es deliberado, pero
+/// <b>no por lo que este comentario decía hasta MVP-703</b>. Decía que una sesión en onboarding
+/// también contaba como sesión activa; en realidad el cliente emite la señal desde el shell del área
+/// operativa, que cuelga de la guarda de Workspace, así que una sesión que se queda en el onboarding
+/// no la manda nunca. El comentario describía una intención que nadie había construido (`P-078`).
+///
+/// <b>Definición vigente (MVP-703)</b>: «sesión activa» es <b>la que llega al área operativa</b>.
+/// Emitirla también en onboarding se descartó a propósito —metería en el divisor sesiones en las que
+/// el panel todavía no existe—. Lo que se conserva es no exigir el ámbito: la señal no necesita
+/// Workspace para nada y pedirlo solo añadiría un motivo de fallo a una medida.
 ///
 /// La señal <b>no lleva usuario ni Workspace</b> aunque el servidor los conozca: lo que se mide es
 /// cuánto se usa el producto, no quién lo usa (RN-042).

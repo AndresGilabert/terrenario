@@ -2,7 +2,7 @@
 id: "MVP-703"
 tipo: feature
 titulo: "Arranque en el diario y definicion de sesion activa"
-estado: borrador
+estado: completado
 prioridad: media
 sprint: ""
 hito: "Hito G — Ajustes de uso real"
@@ -89,13 +89,25 @@ activa» que sostiene el KPI de uso coincida con lo que el sistema mide de verda
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Con los maestros poblados, entrar en el area operativa lleva al Diario de campo.
-- [ ] **CA-2**: Con maestros pendientes, sigue apareciendo el checklist de preparacion.
-- [ ] **CA-3**: La Vision General sigue siendo alcanzable en un clic desde la navegacion.
-- [ ] **CA-4**: El comentario del codigo y la KB describen «sesion activa» de la misma forma, y esa
-  forma coincide con lo que se emite realmente.
-- [ ] **CA-5**: El KPI de uso del dashboard queda redefinido y documentado para el nuevo arranque, con
-  nota explicita de que su serie historica no es comparable con la anterior.
+- [x] **CA-1**: Con los maestros poblados, entrar en el area operativa lleva al Diario de campo.
+  Verificado sobre el Workspace real: al completar el maestro que faltaba, `/app` redirige a
+  `/app/diario`. La redireccion es `replace`, asi que «atras» no rebota en un Home que solo redirige.
+- [x] **CA-2**: Con maestros pendientes, sigue apareciendo el checklist de preparacion. Verificado con
+  el catalogo de tareas vacio: «Prepara tu explotacion · 3/4». Esa cara del Home **no cambia**, y pasa
+  a tener cobertura propia para que no se pierda al mover la otra.
+- [x] **CA-3**: La Vision General sigue siendo alcanzable en un clic desde la navegacion lateral.
+  Verificado en UI.
+- [x] **CA-4**: El comentario del codigo y la KB describen «sesion activa» de la misma forma, y esa
+  forma coincide con lo que se emite realmente. El comentario de `TelemetryController` afirmaba que una
+  sesion en onboarding tambien contaba; el cliente emite la senal desde el shell, que cuelga de la
+  guarda de Workspace, asi que no la manda nunca alli. Se fija la definicion **que se cumple** —la
+  sesion activa es la que llega al area operativa— en el endpoint, en el shell y en
+  `observabilidad.md`, con las mismas palabras.
+- [x] **CA-5**: El KPI de uso del dashboard queda redefinido y documentado para el nuevo arranque, con
+  nota explicita de que su serie historica no es comparable. Antes el Home **era** el panel, asi que el
+  KPI rondaba el 100 % por construccion; ahora mide «de las sesiones que llegan al area operativa,
+  cuantas **eligen** abrir el panel». La bajada esperada **no es perdida de uso**, y el corte queda
+  fechado en `kpis.md` y en `observabilidad.md`.
 
 ## Maquetas y referencias visuales
 
@@ -108,7 +120,7 @@ activa» que sostiene el KPI de uso coincida con lo que el sistema mide de verda
 
 | Pantalla prototipo | Regla KB asociada | Estado | Evidencia de prueba |
 |---|---|---|---|
-| DiarioView | RN-033 (vista principal) | parcial | Existe, pero no es el arranque |
+| DiarioView | RN-033 (vista principal) | hecho | Es el arranque del area operativa con la explotacion preparada, verificado en UI |
 
 ## Notas y decisiones
 

@@ -12,7 +12,19 @@
  *
  * Ojo: las `VITE_*` se incrustan en el bundle al compilar. Aquí da igual —son datos públicos por
  * obligación legal— pero por eso mismo este módulo no debe crecer con nada que no lo sea.
+ *
+ * MVP-715 — Los valores dejan de estar escritos aquí y pasan a `legal-entity.json`, **porque ahora
+ * hay un segundo consumidor**: el pie legal de los correos transaccionales. La API incrusta ese
+ * mismo fichero al compilar (`<EmbeddedResource>` en `Terrenario.Api.csproj`) en vez de reescribir
+ * el NIF en C#, con el mismo criterio que ya se aplicó a la CSP en `vite.config.ts`: dos copias de
+ * un dato legal divergen y nadie se entera hasta que la equivocada es la que se publica.
+ *
+ * El JSON vive dentro de `src/` y no en la raíz del repositorio por una razón concreta: el
+ * `server.fs.allow` de Vite se calcula desde el `package-lock.json`, que está en
+ * `src/frontend/terrenario-web`, así que un fichero por encima de esa carpeta quedaría bloqueado en
+ * el servidor de desarrollo.
  */
+import legalEntityDefaults from './legal-entity.json';
 
 /** Campos que la normativa exige publicar. Si añades uno, `missingLegalFields` avisa si va vacío. */
 export interface LegalEntity {
@@ -34,16 +46,8 @@ export interface LegalEntity {
   hostingRegion: string;
 }
 
-const DEFAULTS: LegalEntity = {
-  legalName: 'Andrés Gilabert Sánchez',
-  taxId: '21.679.361-K',
-  address: 'Dr. Fleming, 39A, 03830 Muro de Alcoi (Alicante), España',
-  privacyEmail: 'hola@andresgilabert.dev',
-  dpo: 'No designado',
-  emailProvider: 'Arsys',
-  hostingProvider: 'Microsoft Azure',
-  hostingRegion: 'España'
-};
+// El tipado no es decorativo: si el JSON pierde un campo o le cambia el tipo, esto no compila.
+const DEFAULTS: LegalEntity = legalEntityDefaults;
 
 /** Variable de entorno que sobreescribe cada campo. */
 const ENV_KEYS: Record<keyof LegalEntity, string> = {

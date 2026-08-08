@@ -19,7 +19,9 @@ public sealed class SmtpMailer(IOptions<EmailOptions> options, ILogger<SmtpMaile
 
     public bool IsEnabled => _options.IsConfigured;
 
-    public EmailOptions Options => _options;
+    // MVP-715 — Ya no expone `Options`: la usaban los emisores para poner el remitente al componer
+    // su mensaje, y de eso se ocupa ahora `ProductEmailTemplate`. Devolverla seguiría dejando que
+    // alguien se compusiera un correo por su cuenta, que es justo lo que la plantilla cierra.
 
     public async Task SendAsync(MimeMessage message, string context, CancellationToken ct = default)
     {

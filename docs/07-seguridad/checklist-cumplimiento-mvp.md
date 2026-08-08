@@ -1,4 +1,4 @@
----
+﻿---
 bloque: 07-seguridad
 documento: checklist-cumplimiento-mvp
 actualizado_en: "2026-08-08"
@@ -51,7 +51,7 @@ libre) y los `*_user_id` de auditoría. Todas quedan cubiertas por T1–T8.
 
 | Principio | Estado | Evidencia |
 |---|---|---|
-| Licitud, lealtad y transparencia | ✅ | Política de Privacidad accesible **antes de entrar**, desde login y landing (`MVP-505`, CA-1) |
+| Licitud, lealtad y transparencia | ✅ | Política de Privacidad accesible **antes de entrar**, desde login y landing (`MVP-505`, CA-1). Desde `MVP-715`, además, **todos los correos** llevan en el pie la identificación del responsable, el motivo del envío y, donde existe, cómo dejar de recibirlo |
 | Limitación de la finalidad | ✅ | Los datos solo se usan para prestar el servicio; no hay cesión ni finalidad secundaria |
 | Minimización | ⚠️ | La cuenta recoge solo lo que da Google. **Pero** `plots.owner_name` y `activities.description` son texto libre donde el usuario puede introducir más de lo necesario: el producto no lo puede impedir, y la política se lo pide. Ver `R-03` |
 | Exactitud | ⚠️ | Los datos de la cuenta se resincronizan desde Google en cada login (RN-036). **No hay edición de perfil propia** (`P-032`, diferido) |
@@ -80,6 +80,13 @@ equipo del usuario, así que el art. 22.2 LSSI está en juego.
 **Sin transferencias a terceros desde el navegador.** `MVP-505` autoalojó las tipografías y
 `MVP-599` la fotografía de la landing; verificado en navegador y, desde entonces, **por un test que
 recorre el código fuente** (`sin-recursos-externos.test.ts`).
+
+**Ni desde el correo.** `MVP-715` extiende la misma regla a los cinco correos del producto: ninguno
+lleva imagen, tipografía ni hoja de estilo remota, y también lo comprueba un test
+(`ProductEmailInventoryTests`). Un recurso remoto en un correo delata al servidor que lo aloja el
+instante exacto de la apertura, que es seguimiento de apertura aunque nadie lo haya pedido —y en la
+invitación se lo haría a alguien que ni siquiera es usuario del servicio—. Inventario en
+[correos-del-producto.md](../06-integraciones/correos-del-producto.md).
 
 > **Corrección (2026-08-05).** Esta afirmación era **incorrecta** tal y como se verificó la primera
 > vez. La comprobación buscaba «cero peticiones a **dominios de Google**» y se hizo sobre la

@@ -14,9 +14,13 @@ namespace Terrenario.Api.Infrastructure.Telemetry.Alerts;
 ///
 /// Un fallo de envío **no se propaga**: el aviso ya ha quedado en la traza, y que el mecanismo de
 /// alerta tumbe el proceso al que vigila sería el peor final posible.
+///
+/// MVP-715 — El mensaje lo arma <see cref="AlertEmailComposer"/> con la plantilla común del
+/// producto, no este notificador: aquí queda la decisión de cuándo se traza y cuándo se envía.
 /// </summary>
 public sealed class AlertNotifier(
     SmtpMailer mailer,
+    ProductEmailTemplate template,
     IOptions<OpsOptions> options,
     ILogger<AlertNotifier> logger) : IAlertNotifier
 {
@@ -27,9 +31,7 @@ public sealed class AlertNotifier(
             verdict.Name, verdict.Severity.ToString().ToLowerInvariant(), verdict.Detail);
 
         await SendAsync(
-            $"[Terrenario] Alerta {verdict.Name}",
-            $"La alerta {verdict.Name} ({verdict.Severity}) se ha disparado.\n\n{verdict.Detail}\n\n"
-            + "Runbook: docs/08-procesos/gestion-incidentes.md",
+            recipient => AlertEmailComposer.ComposeFiring(template, recipient, verdict),
             ct);
     }
 
@@ -40,9 +42,7 @@ public sealed class AlertNotifier(
             verdict.Name, (long)duration.TotalMinutes, verdict.Detail);
 
         await SendAsync(
-            $"[Terrenario] Resuelta {verdict.Name}",
-            $"La alerta {verdict.Name} se ha resuelto tras {(long)duration.TotalMinutes} minutos.\n\n"
-            + verdict.Detail,
+            recipient => AlertEmailComposer.ComposeResolved(template, recipient, verdict, duration),
             ct);
     }
 
@@ -52,20 +52,14 @@ public sealed class AlertNotifier(
         else logger.LogError(template, args);
     }
 
-    private async Task SendAsync(string subject, string body, CancellationToken ct)
+    private async Task SendAsync(Func<string, MimeMessage> compose, CancellationToken ct)
     {
         var recipient = options.Value.AlertEmail;
         if (string.IsNullOrWhiteSpace(recipient) || !mailer.IsEnabled) return;
 
         try
         {
-            var message = new MimeMessage();
-            message.From.Add(new MailboxAddress(mailer.Options.FromName, mailer.Options.FromAddress));
-            message.To.Add(MailboxAddress.Parse(recipient));
-            message.Subject = subject;
-            message.Body = new TextPart("plain") { Text = body };
-
-            await mailer.SendAsync(message, "alerta-operativa", ct);
+            await mailer.SendAsync(compose(recipient), "alerta-operativa", ct);
         }
         catch (Exception ex)
         {

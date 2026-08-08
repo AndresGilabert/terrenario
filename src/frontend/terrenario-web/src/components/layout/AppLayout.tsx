@@ -6,6 +6,38 @@ import { InvitationModal } from '../notifications/InvitationModal';
 import { useUsageTelemetry } from '../../lib/use-usage-telemetry';
 import { UsageEvent, UsageMark, markOnceInSession } from '../../lib/usage-telemetry';
 
+/**
+ * MVP-702 (`P-086`) — Ancho útil del contenido, **por tipo de contenido**.
+ *
+ * Hasta aquí todas las secciones compartían un único `max-w-3xl` (768 px). El contenedor único se
+ * introdujo en `P-016` para dar coherencia de tamaño y espaciado entre secciones, y **ese objetivo
+ * sigue siendo correcto**: lo que había que revisar era la cota, no retirarla. A 1920 px, con el
+ * lateral de ~256 px, el contenido ocupaba 768 px y el resto era fondo.
+ *
+ * Por eso son dos cotas y no ninguna: la coherencia se mantiene **dentro de cada tipo** (CA-3), que es
+ * la invariante que `P-016` protegía.
+ *
+ * - `ancho`: listados y panel. Su contenido son tablas y rejillas, que ganan con el sitio.
+ * - `estrecho`: formularios y pantallas de lectura. Aquí ensanchar **empeora**: un campo de texto de
+ *   1.000 px o un párrafo de 200 caracteres por línea se leen peor (CA-2).
+ *
+ * El mapa vive aquí y no en cada vista **a propósito**: si cada pantalla eligiera su ancho, la
+ * coherencia duraría hasta la siguiente que se añadiera. Es el mismo criterio que `titleForPath`.
+ */
+const CONTENIDO_ANCHO = 'max-w-7xl';
+const CONTENIDO_ESTRECHO = 'max-w-3xl';
+
+/** Rutas cuyo contenido es de lectura o formulario. El resto son listados o panel. */
+const RUTAS_ESTRECHAS = ['/app/ajustes', '/app/invitations'];
+
+function anchoParaRuta(pathname: string): string {
+  // El Home es checklist de preparación: texto y una lista de pasos, no una tabla.
+  if (pathname === '/app' || pathname === '/app/') return CONTENIDO_ESTRECHO;
+  return RUTAS_ESTRECHAS.some((ruta) => pathname.startsWith(ruta))
+    ? CONTENIDO_ESTRECHO
+    : CONTENIDO_ANCHO;
+}
+
 /** Título contextual de la cabecera según la ruta activa. */
 function titleForPath(pathname: string): string {
   if (pathname.startsWith('/app/diario')) return 'Diario de campo';
@@ -74,10 +106,15 @@ export const AppLayout: React.FC = () => {
           title={titleForPath(location.pathname)}
           onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
         />
-        {/* Contenedor de contenido común a TODAS las secciones: misma anchura y padding, para que
-            las cajas de las distintas pantallas mantengan tamaño y espaciado coherentes. */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
-          <div className="max-w-3xl mx-auto">
+        {/* Contenedor de contenido: mismo padding para todas las secciones y **dos** anchuras según el
+            tipo de contenido (MVP-702). Las de un mismo tipo siguen compartiendo medida y espaciado,
+            que es la coherencia que buscaba `P-016`.
+
+            `@container` marca este bloque como contenedor de consulta: desde aquí las rejillas pueden
+            reaccionar al **ancho real disponible** en vez de al del viewport, que es lo que apretujaba
+            las tarjetas del panel en 768 px con la pantalla a 1920. */}
+        <main className="@container flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
+          <div className={`${anchoParaRuta(location.pathname)} mx-auto`}>
             <Outlet />
           </div>
         </main>

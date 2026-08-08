@@ -17,6 +17,8 @@ import {
 } from '../../types/harvest.types';
 import type { Plot } from '../../types/plot.types';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { MobileDisclosure } from '../common/MobileDisclosure';
+import { SummaryStrip } from '../common/SummaryStrip';
 import { HarvestFormModal } from './HarvestFormModal';
 
 /** Formato de fecha corto y legible, sin depender del locale del navegador. */
@@ -214,6 +216,11 @@ export const CosechasView: React.FC = () => {
 
   const hasFilters =
     plotFilter !== 'todos' || seasonScope.isExplicit || destinationFilter !== 'todos';
+  // MVP-702 — Con los filtros plegados en móvil, el número es lo que evita no saber que hay puestos.
+  const activeFilterCount =
+    (plotFilter !== 'todos' ? 1 : 0) +
+    (seasonScope.isExplicit ? 1 : 0) +
+    (destinationFilter !== 'todos' ? 1 : 0);
 
   return (
     <div className="space-y-6 pb-12">
@@ -262,7 +269,7 @@ export const CosechasView: React.FC = () => {
 
       {/* Resumen de lo que se está viendo */}
       {!isLoading && harvests.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <SummaryStrip desktopClassName="grid-cols-3 gap-3">
           <SummaryTile label="Total recolectado" value={`${number(totalKg)} kg`} icon="scale" />
           <SummaryTile
             label="Rendimiento medio"
@@ -279,11 +286,12 @@ export const CosechasView: React.FC = () => {
             }
           />
           <SummaryTile label="Partidas" value={String(harvests.length)} icon="inventory_2" />
-        </div>
+        </SummaryStrip>
       )}
 
-      {/* Filtros */}
+      {/* Filtros. MVP-702 — plegados en móvil para que los datos no queden bajo el pliegue. */}
       {(harvests.length > 0 || hasFilters) && (
+        <MobileDisclosure label="Filtros" icon="tune" activeCount={activeFilterCount}>
         <div className="bg-white p-4 rounded-2xl border border-[#e5e2dd] grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label htmlFor="harvest-filter-plot" className="sr-only">Filtrar por terreno</label>
@@ -333,6 +341,7 @@ export const CosechasView: React.FC = () => {
             </select>
           </div>
         </div>
+        </MobileDisclosure>
       )}
 
       {loadError && (

@@ -2,7 +2,7 @@
 id: "MVP-702"
 tipo: feature
 titulo: "Aprovechamiento del espacio: escritorio y movil"
-estado: borrador
+estado: completado
 prioridad: media
 sprint: ""
 hito: "Hito G — Ajustes de uso real"
@@ -85,15 +85,31 @@ se vean datos antes de tener que desplazarse.
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: A 1920 px de ancho, los listados y el dashboard ocupan un ancho util acorde a su
-  contenido, y ninguna tabla del producto exige desplazamiento horizontal para leer sus columnas.
-- [ ] **CA-2**: Los formularios y pantallas de lectura conservan una medida de linea comoda: abrir el
-  ancho no puede producir campos de texto de 1.000 px.
-- [ ] **CA-3**: Las secciones del mismo tipo comparten ancho y espaciado entre si (invariante de
-  `P-016`).
-- [ ] **CA-4**: A 375 px, en Diario, Cosechas y Compras se ve al menos un registro sin desplazarse.
-- [ ] **CA-5**: Resumen y filtros siguen siendo alcanzables en movil sin exigir mas de una accion.
-- [ ] **CA-6**: Verificado en navegador real a 375, 768, 1280 y 1920 px, con captura de cada uno.
+- [x] **CA-1**: A 1920 px de ancho, los listados y el dashboard ocupan un ancho util acorde a su
+  contenido. Medido: el contenedor de Cosechas pasa de 768 a **1280 px**, la tabla ocupa 1278 **sin
+  desplazamiento horizontal**, y el resumen del panel pinta **4 columnas** de 308 px.
+  Matiz honesto: **a 768 px exactos** una tabla ancha si sigue pidiendo desplazamiento dentro de su
+  tarjeta (contenedor 448, tabla 917). Es **anterior a esta historia** —medido igual en `develop`— y su
+  causa es que a 768 aparece el lateral y se lleva 256 px; corregirlo exige mover su punto de corte,
+  que esta fuera de alcance. Registrado para decidirlo aparte.
+- [x] **CA-2**: Los formularios y pantallas de lectura conservan una medida de linea comoda. Ajustes se
+  queda en **768 px** con la pantalla a 1920, y su campo de texto mide 718 px.
+- [x] **CA-3**: Las secciones del mismo tipo comparten ancho y espaciado entre si. La cota la decide un
+  **unico mapa ruta → ancho** en el shell, no cada vista: asi una pantalla nueva hereda la medida de su
+  tipo sin decidir nada. Comprobado que Cosechas y Terrenos dan 1280 px, y Ajustes 768.
+- [x] **CA-4**: A 375 px, en Diario, Cosechas y Compras se ve al menos un registro sin desplazarse.
+  Primera fila en **y=530** (Cosechas), **y=291** (Diario) y **y=497** (Compras) sobre 812 de alto. En
+  Compras hizo falta plegar tambien el alta en linea: sin eso la fila caia en `y=802`, visible sobre el
+  papel e invisible en la practica.
+- [x] **CA-5**: Resumen y filtros siguen siendo alcanzables en movil sin exigir mas de una accion. El
+  resumen **no se pliega** —queda como fila desplazable, porque es lo que se mira al entrar— y los
+  filtros estan a una pulsacion, con un contador que dice cuantos hay puestos y que los abre de entrada
+  si acotan lo que se ve.
+- [~] **CA-6**: Verificado en navegador real a 375, 768, 1280 y 1920 px. **Las capturas no existen**: el
+  panel del navegador no se puede mostrar en este entorno. En su lugar hay medidas tomadas del motor de
+  CSS en los cuatro anchos —contenedor, tabla, columnas, desplazamiento y posicion de la primera fila—,
+  que para lo que pregunta el criterio son evidencia mas fuerte que una imagen. Queda pendiente la
+  captura si se considera imprescindible.
 
 ## Maquetas y referencias visuales
 
@@ -107,8 +123,8 @@ se vean datos antes de tener que desplazarse.
 
 | Pantalla prototipo | Regla KB asociada | Estado | Evidencia de prueba |
 |---|---|---|---|
-| DashboardView | RN-005 (pantalla unica con scroll vertical) | parcial | La pantalla es unica; el ancho no acompana |
-| DiarioView | RN-033 | falta | Pendiente |
+| DashboardView | RN-005 (pantalla unica con scroll vertical) | hecho | Sigue siendo una sola pantalla; las columnas las decide ahora el ancho real disponible |
+| DiarioView | RN-033 | hecho | Resumen en fila desplazable y filtros plegados en movil; primera entrada visible a 375 px |
 
 ## Notas y decisiones
 

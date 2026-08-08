@@ -431,11 +431,16 @@ export const VisionGeneralView: React.FC = () => {
       ) : (
         <>
           {/* Resumen de temporada (CA-1). MVP-706 — si esta petición falla, el error se queda aquí
-              y los otros tres widgets se siguen pintando. */}
+              y los otros tres widgets se siguen pintando.
+
+              MVP-702 (`P-086`) — Las columnas las decide el **ancho real disponible**, no el del
+              viewport. `lg:` miraba la pantalla, así que a 1920 px pedía cuatro columnas y las metía
+              en los 768 px del contenedor: cuatro tarjetas apretujadas. `@2xl`/`@5xl` miran el
+              contenedor que marca `AppLayout`, que es donde de verdad tienen que caber. */}
           {summary?.error ? (
             <WidgetError title="Resumen de temporada" message={summary.error} />
           ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 @2xl:grid-cols-2 @5xl:grid-cols-4 gap-4">
             <MetricCard
               label="Kg recolectados"
               value={`${number(summary!.data!.total_kg)} kg`}
@@ -524,7 +529,7 @@ export const VisionGeneralView: React.FC = () => {
             <WidgetError title="Balance de la campaña" message={economics.error} />
           ) : (
             economics?.data && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 @2xl:grid-cols-2 gap-4">
                 <MetricCard
                   label="Gasto de la campaña"
                   value={`${euros(economics.data.expense)} €`}

@@ -48,6 +48,7 @@ public sealed class CreateHarvestHandler(
             // RN-014 — el rendimiento puede llegar en kg de aceite/100kg; se guarda en L/100kg.
             YieldNormalizer.ToCanonical(command.Yield, command.YieldUnit),
             command.Liters,
+            command.UnitPrice,
             command.UserId);
 
         await linkResolver.EnsureLinksAsync(command.WorkspaceId, harvest.PlotId, harvest.SeasonId, ct);
@@ -99,6 +100,7 @@ public sealed class UpdateHarvestHandler(
             command.Destination.Or(harvest.Destination)!,
             yield,
             liters,
+            command.UnitPrice.Or(harvest.UnitPrice),
             command.UserId);
 
         await harvestRepository.SaveChangesAsync(ct);

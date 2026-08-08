@@ -22,6 +22,8 @@ export const DashboardWidget = {
   KgByDestination: 'kg_by_destination',
   KgByPlot: 'kg_by_plot',
   YieldEvolution: 'yield_evolution',
+  /** MVP-707 — Lectura económica de la campaña: RN-009 amplía los widgets obligatorios. */
+  Economics: 'economics',
 } as const;
 
 export type DashboardWidgetKey = (typeof DashboardWidget)[keyof typeof DashboardWidget];

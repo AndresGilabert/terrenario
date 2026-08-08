@@ -98,6 +98,9 @@ public static class ErrorCodes
     /// <summary>MVP-402 — La unidad de rendimiento no está en el catálogo `l_100kg` / `kg_100kg` (RN-014).</summary>
     public const string ValidationHarvestYieldUnitInvalid = "VALIDATION_HARVEST_YIELD_UNIT_INVALID";
     public const string ValidationHarvestLitersRange = "VALIDATION_HARVEST_LITERS_RANGE";
+
+    /// <summary>MVP-707 — Precio por kilo fuera de rango (o cero explícito, que no es «sin dato»).</summary>
+    public const string ValidationHarvestUnitPriceRange = "VALIDATION_HARVEST_UNIT_PRICE_RANGE";
     /// <summary>RN-030 — producto de cosecha obligatorio; el catálogo cerrado lo aplica MVP-402.</summary>
     public const string ValidationProductInvalid = "VALIDATION_PRODUCT_INVALID";
     /// <summary>RN-012 — destino de cosecha obligatorio; el catálogo cerrado lo aplica MVP-402.</summary>

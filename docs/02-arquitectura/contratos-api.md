@@ -291,7 +291,7 @@ Validaciones y reglas:
 | `event` dentro de `{ app_session_started, dashboard_viewed, dashboard_manual_refresh, dashboard_widgets }` | `VALIDATION_REQUIRED` (400) si no. `dashboard_manual_refresh` esta **discontinuado desde MVP-706** —el cliente ya no lo emite— pero se sigue aceptando para no responder `400` a un cliente cacheado |
 | `session_id` / `device_type` | Se degradan a `unknown`; **no** rechazan la señal |
 | `first_in_session` (solo en `dashboard_viewed`) | Ausente equivale a `false`: ante la duda no se infla el numerador del KPI |
-| `widgets[].widget` ∈ `{ summary, kg_by_destination, kg_by_plot, yield_evolution }` y `status` ∈ `{ ok, empty, error }` | Los no reconocidos **se descartan uno a uno**, no el lote: un cliente más nuevo debe seguir aportando lo que el servidor sí conoce |
+| `widgets[].widget` ∈ `{ summary, kg_by_destination, kg_by_plot, yield_evolution, economics }` (`economics` desde MVP-707) y `status` ∈ `{ ok, empty, error }` | Los no reconocidos **se descartan uno a uno**, no el lote: un cliente más nuevo debe seguir aportando lo que el servidor sí conoce |
 | `widgets` repetidos | Solo cuenta el primero de cada widget, para que no se pueda inflar la cobertura repitiendo |
 | Ningún widget reconocible en `dashboard_widgets` | `VALIDATION_REQUIRED` (400) |
 | La señal no contiene PII | Solo `event`, `timestamp`, `session_id`, `channel` y `device_type`. **No lleva usuario ni Workspace**, aunque el endpoint sea autenticado y el servidor los conozca (RN-042) |
@@ -654,9 +654,10 @@ destination, yield }`. Los campos específicos de un tipo llegan a `null` en los
 | `has_purchase` | Solo en consumos: `false` ⇒ el coste es desconocido, no cero (RN-032) |
 | `kgs` / `destination` | Solo en cosechas (MVP-401). Van aparte de `quantity` porque no son la misma magnitud: una cosecha se lee en kilos y la tarjeta la rotula distinto |
 | `yield` | Solo en cosechas (MVP-402): el rendimiento **efectivo** en L/100kg, declarado o derivado de los litros (RN-013/RN-014) |
+| `amount` | Solo en cosechas (MVP-707): importe ingresado (`kgs × unit_price`). `null` cuando la partida no tiene precio |
 
 `meta` es
-`{ total, page, limit, total_cost, imputed_cost, activities, purchases, consumptions, consumptions_without_purchase, harvests, total_kg }`:
+`{ scope, total, page, limit, total_cost, imputed_cost, activities, purchases, consumptions, consumptions_without_purchase, harvests, total_kg, total_income, harvests_with_price }`:
 
 | Campo de `meta` | Qué mide |
 |---|---|
@@ -665,6 +666,7 @@ destination, yield }`. Los campos específicos de un tipo llegan a `null` en los
 | `imputed_cost` | Lo repartido por terrenos: **desglose** de `total_cost`, no gasto añadido |
 | `consumptions_without_purchase` | Consumos sin compra previa. Su coste consta como `0` porque se desconoce (RN-032), así que el gasto real fue algo mayor; la UI lo advierte (CA-3 de `MVP-003`) |
 | `harvests` / `total_kg` | Cosechas y kilos recolectados de lo filtrado (MVP-401). La cosecha **no aporta gasto** (RN-029), así que se resume por kilos: es su magnitud |
+| `total_income` / `harvests_with_price` | **MVP-707** — Ingreso de lo filtrado (`kgs × unit_price` de las cosechas que lo tienen) y sobre cuántas partidas se ha sumado. Va **aparte** de `total_cost`: son magnitudes distintas y mezclarlas obligaría a un signo, que cada consumidor puede leer al revés. `total_income` a `null` significa que ninguna partida tiene precio, que no es lo mismo que 0 € |
 
 | Catálogo | Valores permitidos |
 |---|---|
@@ -689,10 +691,18 @@ Reglas de contexto:
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
-| Alta cosecha | `POST /api/v1/harvests` | `date*`, `plot_id*`, `season_id*`, `product*`, `kgs*`, `destination*`, `yield?`, `liters?`, `yield_unit?` | `201 { id, version, ...harvest }` |
+| Alta cosecha | `POST /api/v1/harvests` | `date*`, `plot_id*`, `season_id*`, `product*`, `kgs*`, `destination*`, `yield?`, `liters?`, `yield_unit?`, `unit_price?` | `201 { id, version, ...harvest }` |
 | Editar cosecha | `PATCH /api/v1/harvests/{harvestId}` | campos parciales · `If-Match: <version>` | `200 { ...harvest }` |
 | Eliminar cosecha | `DELETE /api/v1/harvests/{harvestId}` | `If-Match: <version>` | `204` |
 | Listado cosechas | `GET /api/v1/harvests` | `from?`, `to?`, `plot_id?`, `season_id?` (id \| `all`), `destination?` | `200 { data, meta: { scope, total, total_kg } }` |
+
+> **MVP-707 — `unit_price` y `amount` (RN-029 matizada).** `unit_price` es el precio de venta por kilo,
+> **opcional**; `amount` es su importe (`kgs × unit_price`) y es **derivado, no columna**: no se envía
+> nunca y no se persiste, porque guardarlo permitiría que divergiera de sus factores al corregir los
+> kilos. Los dos llegan a `null` cuando no hay precio, y `null` significa **no se sabe**, no cero: una
+> partida sin precio no ha ingresado 0 €. En `PATCH`, un `unit_price: null` explícito **retira** el
+> precio de una partida que lo tenía. Un `unit_price` de `0` o negativo se rechaza con
+> `VALIDATION_HARVEST_UNIT_PRICE_RANGE` (400): quien no lo sepa deja el campo vacío.
 | Una cosecha (MVP-401) | `GET /api/v1/harvests/{harvestId}` | — | `200 { ...harvest }` |
 
 La representación de una cosecha es
@@ -850,6 +860,15 @@ Reglas de contexto (MVP-303):
 | Kg por temporada (MVP-403) | `GET /api/v1/dashboard/kg-by-season` | — | `200 { data:[{ season_id, season_name, total_kg, harvests }], meta:{ total } }` |
 | Kg por terreno (MVP-404) | `GET /api/v1/dashboard/kg-by-plot` | `season_id?`, `plot_ids?[]` | `200 { scope, data:[{ plot_id, plot_name, kg }], meta:{ total_kg } }` |
 | Evolución rendimiento (MVP-404) | `GET /api/v1/dashboard/yield-evolution` | `season_id?`, `plot_ids?[]`, `granularity?=month\|week` | `200 { scope, granularity, data:[{ period, yield_l_per_100kg, kg }], history:{ average, average_5_years, average_10_years, prior_years_with_data, window } }` |
+| Lectura económica (MVP-707) | `GET /api/v1/dashboard/economics` | `season_id?`, `plot_ids?[]` | `200 { scope, expense, income, harvests, harvests_with_price }` |
+
+> **MVP-707 — Lectura económica (RN-009 ampliada).** `expense` son labores + compras + consumos sin
+> compra; las imputaciones quedan fuera porque reparten dinero que la compra ya aportó (`R-01` de
+> MVP-399). El servidor **no lo recalcula**: se lo pregunta al diario, que es donde vive esa decisión,
+> de modo que panel y diario no pueden discrepar. `income` a `null` significa que **ninguna** partida
+> del ámbito tiene precio, y la pantalla debe decir «sin dato», no «0 €». Acotar por `plot_ids` deja
+> las compras fuera **por definición** —una compra es del Workspace, no de un terreno—, exactamente
+> igual que en el diario.
 
 El dashboard es de **solo lectura** y no se refresca en segundo plano (RN-006): se recalcula al entrar
 en la pantalla o a petición explícita. `plot_ids` es un parámetro **repetible**

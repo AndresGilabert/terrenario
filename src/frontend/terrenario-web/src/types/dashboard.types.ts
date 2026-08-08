@@ -99,6 +99,22 @@ export interface SeasonProductionResponse {
   meta: { total: number };
 }
 
+/**
+ * MVP-707 — Lectura económica de la campaña (RN-009 ampliada): cuánto ha salido y cuánto ha entrado.
+ *
+ * `income` a `null` significa que **ninguna** partida del ámbito tiene precio, y la pantalla debe
+ * decir «sin dato», no «0 €»: una campaña sin precios registrados no ha ingresado cero (CA-5).
+ */
+export interface DashboardEconomics {
+  scope: DashboardScope;
+  /** Labores + compras + consumos sin compra. Las imputaciones quedan fuera (`R-01` de MVP-399). */
+  expense: number;
+  income: number | null;
+  harvests: number;
+  /** Sobre cuántas partidas se ha sumado el ingreso. */
+  harvests_with_price: number;
+}
+
 /** Filtros del dashboard. Todos opcionales: los defectos los pone el servidor (RN-008). */
 export interface DashboardFilters {
   seasonId?: string;

@@ -78,4 +78,9 @@ public sealed record DiaryEntry(
     /// Solo en cosechas (MVP-402): rendimiento en la unidad canónica L/100kg (RN-013), sea informado o
     /// derivado de los litros obtenidos (RN-014). <c>null</c> cuando la partida todavía no lo declara.
     /// </summary>
-    decimal? Yield = null);
+    decimal? Yield = null,
+    /// <summary>
+    /// Solo en cosechas (MVP-707): importe ingresado, <c>kilos × precio</c>. <c>null</c> cuando la
+    /// partida no tiene precio, que no es lo mismo que 0 €.
+    /// </summary>
+    decimal? Amount = null);

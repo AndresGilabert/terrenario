@@ -16,7 +16,8 @@ namespace Terrenario.Api.Domain.Harvests;
 /// <item>RN-023 — una fecha fuera del rango de la temporada <b>no bloquea</b>: se avisa y se guarda.
 /// Por eso el agregado no valida el rango; lo calcula <c>IsOutOfSeasonRange</c> en la lectura.</item>
 /// <item>RN-029 — el alcance MVP se limita a producto, kilos, destino y uno entre rendimiento o
-/// litros: aquí no hay precio, molturación ni balance.</item>
+/// litros. <b>MVP-707 lo matiza</b>: se admite <see cref="UnitPrice"/> opcional y el importe
+/// derivado. Sigue sin haber molturación ni capa comercial.</item>
 /// <item>RN-037 — la eliminación es <b>lógica</b> (<see cref="DeletedAt"/>), con confirmación
 /// explícita en la UI.</item>
 /// </list>
@@ -50,6 +51,12 @@ public sealed class Harvest
     /// </summary>
     public const decimal YieldMax = 100m;
 
+    /// <summary>
+    /// MVP-707 — Cota del precio por kilo, acorde al <c>numeric(12,4)</c> persistido. Holgada a
+    /// propósito: el objetivo es cazar el tecleo imposible, no opinar sobre el mercado.
+    /// </summary>
+    public const decimal UnitPriceMax = 99_999_999.9999m;
+
     public Guid Id { get; private set; }
     public Guid WorkspaceId { get; private set; }
     public Guid PlotId { get; private set; }
@@ -74,6 +81,24 @@ public sealed class Harvest
 
     /// <summary>Destino de lo recolectado (RN-012). El catálogo cerrado lo aplica MVP-402.</summary>
     public string Destination { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// MVP-707 — Precio de venta por kilo, <b>opcional</b>. Es el único campo económico del MVP y el
+    /// matiz que RN-029 admite: sin él la campaña no tiene lectura de ingresos, con él la tiene sin
+    /// arrastrar maestro de compradoras ni molturación.
+    ///
+    /// <c>null</c> significa <b>no se sabe</b>, no cero: una partida sin precio no vale 0 €, es que
+    /// todavía no se ha cerrado su venta o no se va a vender. La diferencia importa porque el panel
+    /// no puede afirmar «has ingresado 0 €» cuando lo cierto es que no lo sabe (CA-2, CA-5).
+    /// </summary>
+    public decimal? UnitPrice { get; private set; }
+
+    /// <summary>
+    /// MVP-707 — Importe de la partida: <c>kilos × precio</c>. Es **derivado, no columna**: guardarlo
+    /// permitiría que divergiera de sus dos factores tras una corrección, y entonces habría dos
+    /// verdades sobre lo mismo (CA-3).
+    /// </summary>
+    public decimal? Amount => UnitPrice is null ? null : decimal.Round(Kgs * UnitPrice.Value, 2, MidpointRounding.AwayFromZero);
 
     public Guid CreatedBy { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
@@ -105,6 +130,7 @@ public sealed class Harvest
         string destination,
         decimal? yield,
         decimal? liters,
+        decimal? unitPrice,
         Guid userId)
     {
         if (workspaceId == Guid.Empty)
@@ -125,7 +151,7 @@ public sealed class Harvest
             Version = 1
         };
 
-        harvest.Apply(plotId, seasonId, date, product, kgs, destination, yield, liters);
+        harvest.Apply(plotId, seasonId, date, product, kgs, destination, yield, liters, unitPrice);
 
         return harvest;
     }
@@ -143,9 +169,10 @@ public sealed class Harvest
         string destination,
         decimal? yield,
         decimal? liters,
+        decimal? unitPrice,
         Guid userId)
     {
-        Apply(plotId, seasonId, date, product, kgs, destination, yield, liters);
+        Apply(plotId, seasonId, date, product, kgs, destination, yield, liters, unitPrice);
         Touch(userId);
     }
 
@@ -191,7 +218,8 @@ public sealed class Harvest
         decimal kgs,
         string destination,
         decimal? yield,
-        decimal? liters)
+        decimal? liters,
+        decimal? unitPrice)
     {
         // RN-001/RN-021 — terreno y temporada son parte del registro mínimo.
         if (plotId == Guid.Empty || seasonId == Guid.Empty)
@@ -248,6 +276,14 @@ public sealed class Harvest
                 ErrorCodes.ValidationHarvestLitersRange,
                 "Los litros deben ser mayores que 0.");
 
+        // MVP-707 — El precio es opcional, pero si viene tiene que ser un precio. Un 0 explícito se
+        // rechaza en vez de guardarse: significaría «he ingresado nada por esta partida», que casi
+        // siempre es un tecleo a medias; quien no lo sepa deja el campo vacío (`null`).
+        if (unitPrice is { } priceValue && (priceValue <= 0 || priceValue > UnitPriceMax))
+            throw new HarvestValidationException(
+                ErrorCodes.ValidationHarvestUnitPriceRange,
+                "El precio por kilo debe ser mayor que 0. Déjalo vacío si todavía no lo sabes.");
+
         PlotId = plotId;
         SeasonId = seasonId;
         Date = date;
@@ -258,5 +294,6 @@ public sealed class Harvest
         Kgs = decimal.Round(kgs, 2, MidpointRounding.AwayFromZero);
         Yield = yield is null ? null : decimal.Round(yield.Value, 4, MidpointRounding.AwayFromZero);
         Liters = liters is null ? null : decimal.Round(liters.Value, 2, MidpointRounding.AwayFromZero);
+        UnitPrice = unitPrice is null ? null : decimal.Round(unitPrice.Value, 4, MidpointRounding.AwayFromZero);
     }
 }

@@ -57,6 +57,11 @@ export interface DiaryEntry {
    * derivado de los litros obtenidos (RN-014). `null` cuando la partida no tiene dato de aceite.
    */
   yield: number | null;
+  /**
+   * Solo en cosechas (MVP-707): importe ingresado (`kgs × unit_price`). `null` cuando la partida no
+   * tiene precio, que no es lo mismo que 0 €.
+   */
+  amount: number | null;
 }
 
 export interface DiaryListResponse {
@@ -87,6 +92,14 @@ export interface DiaryListResponse {
     harvests: number;
     /** MVP-401 — kilos recolectados: la cosecha no aporta gasto (RN-029), así que se resume por kilos. */
     total_kg: number;
+    /**
+     * MVP-707 — Ingreso del conjunto filtrado: la suma de `kgs × unit_price` de las cosechas que
+     * tienen precio. `null` cuando ninguna lo tiene: no es que se haya ingresado cero, es que no se
+     * sabe. Va **aparte** de `total_cost`, que sigue siendo solo gasto.
+     */
+    total_income: number | null;
+    /** Sobre cuántas partidas se ha sumado el ingreso. */
+    harvests_with_price: number;
   };
 }
 

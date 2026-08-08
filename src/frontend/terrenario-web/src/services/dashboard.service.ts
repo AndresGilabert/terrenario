@@ -1,5 +1,6 @@
 import type { HttpClient } from './http-client';
 import type {
+  DashboardEconomics,
   DashboardFilters,
   DashboardKgByDestination,
   DashboardKgByPlot,
@@ -45,6 +46,16 @@ export function createDashboardService(http: HttpClient) {
     ): Promise<DashboardYieldEvolution> {
       return http.request<DashboardYieldEvolution>('/api/v1/dashboard/yield-evolution', {
         query: { season_id: filters?.seasonId, plot_ids: filters?.plotIds, granularity },
+      });
+    },
+
+    /**
+     * MVP-707 — Lectura económica de la campaña sobre el mismo ámbito que el resto de widgets. El
+     * gasto se lo pregunta el servidor al diario, así que panel y diario no pueden discrepar (CA-4).
+     */
+    async getEconomics(filters?: DashboardFilters): Promise<DashboardEconomics> {
+      return http.request<DashboardEconomics>('/api/v1/dashboard/economics', {
+        query: { season_id: filters?.seasonId, plot_ids: filters?.plotIds },
       });
     },
 

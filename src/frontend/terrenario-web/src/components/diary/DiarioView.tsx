@@ -45,6 +45,9 @@ const EMPTY_SUMMARY: DiaryListResponse['meta'] = {
   // MVP-701 — Ámbito todavía sin resolver: la primera respuesta lo sustituye.
   scope: { season: null, all_seasons: false },
   total: 0,
+  // MVP-707 — `null` es «ninguna partida tiene precio», que no es lo mismo que 0 €.
+  total_income: null,
+  harvests_with_price: 0,
   page: 1,
   limit: DIARY_PAGE_SIZE,
   total_cost: 0,
@@ -500,7 +503,7 @@ export const DiarioView: React.FC = () => {
 
       {/* Resumen de lo que se está viendo */}
       {!isLoading && summary.total > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <SummaryTile label="Registros" value={String(summary.total)} icon="event_note" />
           <SummaryTile label="Labores" value={String(summary.activities)} icon="content_cut" />
           {/* MVP-401 — la cosecha se resume por kilos: no aporta gasto (RN-029) */}
@@ -530,6 +533,22 @@ export const DiarioView: React.FC = () => {
               summary.imputed_cost > 0
                 ? `De ese gasto, ${euros(summary.imputed_cost)} € ya están repartidos por terrenos.`
                 : undefined
+            }
+          />
+          {/* MVP-707 — El ingreso va **al lado** del gasto y no dentro de él: son magnitudes distintas
+              y mezclarlas obligaría a un signo, que cada consumidor puede leer al revés. */}
+          <SummaryTile
+            label="Ingreso"
+            /* CA-5 — sin ninguna partida con precio, «sin dato»: no se ha ingresado cero, no se sabe. */
+            value={summary.total_income === null ? 'Sin dato' : `${euros(summary.total_income)} €`}
+            icon="sell"
+            highlight
+            hint={
+              summary.total_income === null
+                ? 'Ninguna cosecha tiene precio por kilo'
+                : summary.harvests_with_price < summary.harvests
+                  ? `Sobre ${summary.harvests_with_price} de ${summary.harvests} partidas con precio.`
+                  : undefined
             }
           />
         </div>
@@ -1030,6 +1049,14 @@ const DiaryCard: React.FC<DiaryCardProps> = ({
                 <span className="flex items-center gap-1 text-[#45483c]">
                   <span className="material-symbols-outlined text-base" aria-hidden="true">local_shipping</span>
                   {harvestDestinationLabel(entry.destination)}
+                </span>
+              )}
+              {/* MVP-707 — Importe ingresado (kilos × precio). Solo aparece cuando hay precio: sin él
+                  no se sabe, y un «0,00 €» afirmaría algo falso. */}
+              {entry.amount !== null && (
+                <span className="flex items-center gap-1 font-bold text-[#33450d]">
+                  <span className="material-symbols-outlined text-base" aria-hidden="true">sell</span>
+                  {euros(entry.amount)} €
                 </span>
               )}
             </>

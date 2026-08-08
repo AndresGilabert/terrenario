@@ -385,6 +385,8 @@ export const CosechasView: React.FC = () => {
                   <th scope="col" className="px-5 py-3.5">Producto</th>
                   <th scope="col" className="px-5 py-3.5 text-right">Kilos</th>
                   <th scope="col" className="px-5 py-3.5 text-right">Aceite</th>
+                  {/* MVP-707 — Importe de la partida: kilos × precio, derivado en servidor. */}
+                  <th scope="col" className="px-5 py-3.5 text-right">Importe</th>
                   <th scope="col" className="px-5 py-3.5">Destino</th>
                   <th scope="col" className="px-5 py-3.5 text-right">Acciones</th>
                 </tr>
@@ -434,6 +436,20 @@ export const CosechasView: React.FC = () => {
                               de {number(harvest.liters ?? 0, 1)} L
                             </span>
                           )}
+                        </>
+                      ) : (
+                        <span className="text-[#a2a496] italic">Sin dato</span>
+                      )}
+                    </td>
+                    {/* MVP-707 — Importe: kilos × precio. «Sin dato» y no «0,00 €» cuando no hay
+                        precio: la partida no ha ingresado cero, es que no se sabe (CA-2). */}
+                    <td className="px-5 py-4 text-right whitespace-nowrap">
+                      {harvest.amount !== null ? (
+                        <>
+                          <span className="font-extrabold text-[#33450d]">{number(harvest.amount, 2)} €</span>
+                          <span className="block text-[10px] text-[#76786b] mt-0.5">
+                            {number(harvest.unit_price ?? 0, 2)} €/kg
+                          </span>
                         </>
                       ) : (
                         <span className="text-[#a2a496] italic">Sin dato</span>

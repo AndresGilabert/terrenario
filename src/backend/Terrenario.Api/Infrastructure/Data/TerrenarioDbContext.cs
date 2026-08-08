@@ -573,6 +573,11 @@ public sealed class TerrenarioDbContext(DbContextOptions<TerrenarioDbContext> op
             // RN-012 — catálogo cerrado con `desconocido` como valor válido.
             entity.Property(h => h.Destination).HasColumnName("destination")
                 .HasMaxLength(Harvest.DestinationMaxLength).IsRequired();
+            // MVP-707 — Precio de venta por kilo, **opcional y aditivo**: ninguna cosecha existente
+            // cambia de significado, porque `null` es «no se sabe» y es lo que ya tenían todas.
+            // El importe **no** es columna: se deriva de kilos × precio (ver `Harvest.Amount`).
+            entity.Property(h => h.UnitPrice).HasColumnName("unit_price").HasPrecision(12, 4);
+            entity.Ignore(h => h.Amount);
             entity.Property(h => h.CreatedBy).HasColumnName("created_by").IsRequired();
             entity.Property(h => h.CreatedAt).HasColumnName("created_at");
             entity.Property(h => h.UpdatedBy).HasColumnName("updated_by").IsRequired();

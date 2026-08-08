@@ -22,7 +22,9 @@ public sealed record CreateHarvestCommand(
     /// MVP-402 — Unidad en la que llega <see cref="Yield"/> (RN-014): <c>l_100kg</c> (canónica, por
     /// defecto) o <c>kg_100kg</c>. Se convierte antes de persistir; el agregado solo conoce la canónica.
     /// </summary>
-    string? YieldUnit = null);
+    string? YieldUnit = null,
+    /// <summary>MVP-707 — Precio de venta por kilo, opcional (RN-029 matizada).</summary>
+    decimal? UnitPrice = null);
 
 /// <summary>
 /// Edición parcial de cosecha (MVP-401, HU-2, <c>PATCH</c>). Cada campo es un
@@ -54,7 +56,13 @@ public sealed record UpdateHarvestCommand(
     /// lo persistido es siempre la unidad canónica, así que no tiene sentido «conservarlo» entre
     /// ediciones y por eso no es un <see cref="FieldUpdate{T}"/>.
     /// </summary>
-    string? YieldUnit = null);
+    string? YieldUnit = null,
+    /// <summary>
+    /// MVP-707 — Precio por kilo. Es un <see cref="FieldUpdate{T}"/> con valor anulable porque hay
+    /// tres casos distintos: ausente (conserva), un precio (lo fija) y <c>null</c> explícito, que es
+    /// <b>retirar</b> el precio de una partida que lo tenía —p. ej. si la venta se cae—.
+    /// </summary>
+    FieldUpdate<decimal?> UnitPrice = default);
 
 /// <summary>
 /// Eliminación <b>lógica</b> de una cosecha (RN-037). La confirmación explícita es responsabilidad de

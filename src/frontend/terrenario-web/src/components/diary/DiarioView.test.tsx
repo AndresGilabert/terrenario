@@ -45,6 +45,7 @@ describe('DiarioView', () => {
     kgs: null,
     destination: null,
     yield: null,
+    amount: null,
     ...overrides,
   });
 
@@ -61,6 +62,9 @@ describe('DiarioView', () => {
       all_seasons: false,
     },
     total: 1,
+    // MVP-707 — `null` = ninguna cosecha con precio; no es lo mismo que 0 €.
+    total_income: null,
+    harvests_with_price: 0,
     page: 1,
     limit: 20,
     total_cost: 120,

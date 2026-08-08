@@ -5,7 +5,8 @@ import type { SeasonScope } from './season.types';
  * en kilos, destino y rendimiento comparables entre temporadas.
  *
  * El alcance del MVP se limita a producto, kilos, destino y **uno** entre rendimiento o litros
- * (RN-029): aquí no hay precio, molturación ni balance.
+ * (RN-029). **MVP-707 lo matiza**: se admite un precio de venta por kilo opcional y su importe
+ * derivado. Sigue sin haber molturación ni capa comercial.
  */
 export interface Harvest {
   id: string;
@@ -36,6 +37,16 @@ export interface Harvest {
   yield_source: YieldSource | null;
   /** Código del catálogo cerrado de destino (RN-012). */
   destination: string;
+  /**
+   * MVP-707 — Precio de venta por kilo. `null` significa **no se sabe**, no cero: una partida sin
+   * precio no ha ingresado 0 €, es que todavía no se ha cerrado su venta o no se va a vender.
+   */
+  unit_price: number | null;
+  /**
+   * MVP-707 — Importe de la partida (`kgs × unit_price`), **derivado en servidor**. `null` si no hay
+   * precio. No se persiste: guardarlo permitiría que divergiera de sus dos factores.
+   */
+  amount: number | null;
   /** RN-023 — la fecha cae fuera del rango de la temporada. Aviso, nunca bloqueo. */
   is_out_of_season_range: boolean;
   /** Versión para el bloqueo optimista: viaja en `If-Match` al editar o eliminar (ADR-0005). */
@@ -74,6 +85,13 @@ export const HARVEST_DESTINATIONS = [
 ] as const;
 
 export type HarvestDestination = (typeof HARVEST_DESTINATIONS)[number];
+
+/**
+ * MVP-707 — Destinos que acaban en venta, y por tanto donde el precio por kilo se **ofrece** con
+ * etiqueta propia. No es una restricción: el precio se admite en cualquier destino, porque quien vende
+ * parte de una partida destinada a consumo propio también quiere apuntarlo.
+ */
+export const HARVEST_SALE_DESTINATIONS: readonly string[] = ['venta_aceituna', 'aceite_para_venta'];
 
 /**
  * Etiquetas visuales del destino. `desconocido` se rotula «Sin destino», que es el alias que RN-012
@@ -126,6 +144,11 @@ export interface CreateHarvestPayload {
    * guarda y lo que se lee es siempre la canónica.
    */
   yield_unit?: HarvestYieldUnit | null;
+  /**
+   * MVP-707 — Precio de venta por kilo, opcional. `null` explícito **retira** el precio de una partida
+   * que lo tenía. El importe no se envía: lo deriva el servidor.
+   */
+  unit_price?: number | null;
 }
 
 /** Edición parcial de cosecha: un campo ausente conserva su valor. */

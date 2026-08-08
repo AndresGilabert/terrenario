@@ -3,6 +3,7 @@ import type { Plot } from '../../types/plot.types';
 import type { Season } from '../../types/season.types';
 import {
   HARVEST_DESTINATIONS,
+  HARVEST_SALE_DESTINATIONS,
   HARVEST_PRODUCTS,
   HARVEST_YIELD_MAX,
   OIL_DENSITY_KG_PER_LITRE,
@@ -60,6 +61,8 @@ export const HarvestFormModal: React.FC<HarvestFormModalProps> = ({
   const [product, setProduct] = useState<string>(HARVEST_PRODUCTS[0]);
   const [kgs, setKgs] = useState('');
   const [destination, setDestination] = useState<string>('desconocido');
+  // MVP-707 — Precio de venta por kilo, opcional. Vacío significa «no se sabe», no cero (CA-2).
+  const [unitPrice, setUnitPrice] = useState('');
   const [yieldMode, setYieldMode] = useState<YieldInputMode>('ninguno');
   const [yieldValue, setYieldValue] = useState('');
   const [fatYield, setFatYield] = useState('');
@@ -77,6 +80,7 @@ export const HarvestFormModal: React.FC<HarvestFormModalProps> = ({
       setProduct(harvest.product);
       setKgs(String(harvest.kgs));
       setDestination(harvest.destination);
+      setUnitPrice(harvest.unit_price !== null ? String(harvest.unit_price) : '');
       // Al corregir se ofrece la unidad canónica, que es la que se persistió (RN-013): mostrar el
       // valor original en kg/100kg exigiría guardar la unidad de entrada, y lo que compara el
       // dashboard es la canónica. Quien quiera volver a escribirlo en rendimiento graso tiene el modo
@@ -98,6 +102,7 @@ export const HarvestFormModal: React.FC<HarvestFormModalProps> = ({
     setKgs('');
     // RN-012 — no conocer todavía el cierre comercial no puede retrasar el registro.
     setDestination('desconocido');
+    setUnitPrice('');
     setYieldMode('ninguno');
     setYieldValue('');
     setFatYield('');
@@ -139,6 +144,26 @@ export const HarvestFormModal: React.FC<HarvestFormModalProps> = ({
 
     return null;
   }, [yieldMode, kgs, liters, fatYield]);
+
+  /**
+   * MVP-707 (CA-1) — El importe **se calcula, no se teclea**. Aquí se anticipa lo que va a guardar el
+   * servidor, que es quien lo deriva de verdad: escribir un precio a ciegas y no ver a cuánto sale la
+   * partida es justo lo que hace que nadie use el campo.
+   */
+  const amountPreview = useMemo(() => {
+    const kilos = Number(kgs);
+    const precio = Number(unitPrice);
+    if (unitPrice.trim() === '' || !Number.isFinite(kilos) || kilos <= 0) return null;
+    if (!Number.isFinite(precio) || precio <= 0) return null;
+    return kilos * precio;
+  }, [kgs, unitPrice]);
+
+  /**
+   * MVP-707 — El precio se **ofrece** cuando el destino es de venta y se **admite sin insistir** en el
+   * resto: quien vende parte de una partida destinada a consumo propio también quiere apuntarlo, pero
+   * a quien no vende no se le pone un campo económico delante.
+   */
+  const isSaleDestination = HARVEST_SALE_DESTINATIONS.includes(destination);
 
   if (!isOpen) return null;
 
@@ -186,6 +211,17 @@ export const HarvestFormModal: React.FC<HarvestFormModalProps> = ({
       litersPayload = value;
     }
 
+    // MVP-707 — El precio es opcional; si se escribe, tiene que ser un precio.
+    let unitPricePayload: number | null = null;
+    if (unitPrice.trim() !== '') {
+      const value = Number(unitPrice);
+      if (!Number.isFinite(value) || value <= 0) {
+        setLocalError('El precio por kilo debe ser mayor que 0. Déjalo vacío si todavía no lo sabes.');
+        return;
+      }
+      unitPricePayload = value;
+    }
+
     setLocalError(null);
     onSubmit({
       date,
@@ -199,6 +235,8 @@ export const HarvestFormModal: React.FC<HarvestFormModalProps> = ({
       yield: yieldPayload,
       liters: litersPayload,
       yield_unit: yieldUnit,
+      // MVP-707 — `null` explícito **retira** el precio de una partida que lo tenía (venta caída).
+      unit_price: unitPricePayload,
     });
   };
 
@@ -350,6 +388,40 @@ export const HarvestFormModal: React.FC<HarvestFormModalProps> = ({
                 Puedes registrar la cosecha sin conocer todavía el destino y completarlo después.
               </p>
             )}
+          </div>
+
+          {/* MVP-707 (CA-1/CA-2) — Precio por kilo, **opcional**. Se ofrece con etiqueta propia cuando
+              el destino es de venta y queda como campo secundario en el resto: el importe es lo que se
+              quiere saber, y se calcula solo. */}
+          <div className="space-y-1.5">
+            <label htmlFor="harvest-unit-price" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
+              {isSaleDestination ? 'Precio de venta por kilo' : 'Precio por kilo (si la vendes)'}
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                id="harvest-unit-price"
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0"
+                value={unitPrice}
+                onChange={(e) => setUnitPrice(e.target.value)}
+                disabled={isSubmitting}
+                placeholder="0,00"
+                className="w-40 px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
+              />
+              <span className="text-xs text-[#76786b]">€/kg</span>
+              {/* El importe no se teclea: se ve mientras se escribe (CA-1). */}
+              {amountPreview !== null && (
+                <span className="text-xs font-semibold text-[#33450d]">
+                  = {amountPreview.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-[#76786b]">
+              Opcional. Si lo dejas vacío, la partida queda <strong>sin dato</strong> de ingreso, que no
+              es lo mismo que 0 €.
+            </p>
           </div>
 
           {/* RN-004 — rendimiento y litros son excluyentes: se elige cómo se informa, o ninguno */}

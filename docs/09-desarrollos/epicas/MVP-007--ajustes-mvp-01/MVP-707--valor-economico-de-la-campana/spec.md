@@ -2,7 +2,7 @@
 id: "MVP-707"
 tipo: feature
 titulo: "Valor economico de la campana"
-estado: borrador
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito G — Ajustes de uso real"
@@ -84,17 +84,28 @@ cifras vivan donde se resume la campana.
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Registrar una cosecha con destino de venta ofrece el precio por kilo, y el importe se
-  calcula y se muestra sin teclearlo.
-- [ ] **CA-2**: El precio es opcional: una cosecha sin el se guarda igual y no aparece con importe cero,
-  que seria afirmar algo falso.
-- [ ] **CA-3**: Editar los kilos o el precio recalcula el importe; el importe no se persiste como dato
-  independiente que pueda divergir.
-- [ ] **CA-4**: La Vision General muestra gasto e ingreso de la campana, coherentes con el ambito de
-  temporada y terrenos aplicado y con lo que suma el diario para el mismo periodo.
-- [ ] **CA-5**: Sin ninguna cosecha con precio, la tarjeta de ingreso dice «sin dato», no «0 €».
-- [ ] **CA-6**: `RN-029` y `RN-009` actualizadas en `docs/01-producto/reglas-de-negocio.md`, y el ER y
-  `contratos-api.md` recogen el campo nuevo.
+- [x] **CA-1**: Registrar una cosecha con destino de venta ofrece el precio por kilo, y el importe se
+  calcula y se muestra sin teclearlo. Verificado en UI: con destino de venta la etiqueta es «Precio de
+  venta por kilo»; escribir `0,75` sobre 1.000 kg actualiza el importe a `= 750,00 €` mientras se
+  escribe. En el resto de destinos el campo sigue disponible con etiqueta secundaria, porque quien
+  vende parte de una partida destinada a consumo propio tambien quiere apuntarlo.
+- [x] **CA-2**: El precio es opcional: una cosecha sin el se guarda igual y no aparece con importe cero.
+  Verificado en el listado real: tres de las cuatro partidas rotulan **«Sin dato»**, no «0,00 €». Un
+  cero explicito se **rechaza** (`VALIDATION_HARVEST_UNIT_PRICE_RANGE`): quien no lo sepa deja el campo
+  vacio.
+- [x] **CA-3**: Editar los kilos o el precio recalcula el importe; el importe no se persiste como dato
+  independiente que pueda divergir. Verificado contra la API: `PATCH kgs = 1.000` sobre una partida con
+  precio `0,62` deja `amount = 620,00 €` sin tocar el precio.
+- [x] **CA-4**: La Vision General muestra gasto e ingreso de la campana, coherentes con el ambito de
+  temporada y terrenos aplicado y con lo que suma el diario para el mismo periodo. **Coinciden por
+  construccion**: el panel no recalcula el gasto, se lo pregunta al diario, que es donde vive la regla
+  de que cuenta como gasto (`R-01` de MVP-399). Medido: `390,00 €` de gasto y `620,00 €` de ingreso en
+  las dos pantallas.
+- [x] **CA-5**: Sin ninguna cosecha con precio, la tarjeta de ingreso dice «sin dato», no «0 €».
+  Verificado contra la API antes de poner ningun precio: `income: null`, `harvests_with_price: 0`.
+- [x] **CA-6**: `RN-029` y `RN-009` actualizadas en `docs/01-producto/reglas-de-negocio.md`, y el ER y
+  `contratos-api.md` recogen el campo nuevo (`unit_price`, `amount` derivado y el endpoint
+  `GET /api/v1/dashboard/economics`).
 
 ## Maquetas y referencias visuales
 
@@ -108,8 +119,8 @@ cifras vivan donde se resume la campana.
 
 | Pantalla prototipo | Regla KB asociada | Estado | Evidencia de prueba |
 |---|---|---|---|
-| CosechaModal | RN-029 (a matizar), RN-012 | falta | Ningun campo economico en la cosecha |
-| DashboardView | RN-009 (a ampliar) | falta | Ninguna cifra economica en el panel |
+| CosechaModal | RN-029 (matizada), RN-012 | hecho | Precio por kilo opcional e importe en vivo, verificado en el formulario real |
+| DashboardView | RN-009 (ampliada) | hecho | Tarjetas de gasto e ingreso como quinto widget, coherentes con el diario |
 
 ## Notas y decisiones
 

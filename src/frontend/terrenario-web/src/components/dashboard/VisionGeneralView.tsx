@@ -6,6 +6,7 @@ import { createDashboardService } from '../../services/dashboard.service';
 import { createPlotService } from '../../services/plot.service';
 import { HttpError } from '../../services/http-client';
 import type {
+  DashboardEconomics,
   DashboardFilters,
   DashboardKgByDestination,
   DashboardKgByPlot,
@@ -25,6 +26,9 @@ import {
 
 const number = (value: number, decimals = 0) =>
   value.toLocaleString('es-ES', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+
+/** MVP-707 — Importes con los dos decimales del euro, como en la cabecera del diario. */
+const euros = (value: number) => number(value, 2);
 
 /** Etiqueta legible de un periodo `YYYY-MM` o `YYYY-Www` para el eje del gráfico de evolución. */
 function periodLabel(period: string): string {
@@ -57,6 +61,8 @@ interface DashboardData {
   destinations: WidgetResult<DashboardKgByDestination>;
   plots: WidgetResult<DashboardKgByPlot>;
   evolution: WidgetResult<DashboardYieldEvolution>;
+  /** MVP-707 — Lectura económica de la campaña (RN-009 ampliada). */
+  economics: WidgetResult<DashboardEconomics>;
 }
 
 /**
@@ -87,6 +93,12 @@ function widgetOutcomes(data: DashboardData): DashboardWidgetOutcome[] {
     {
       widget: DashboardWidget.YieldEvolution,
       status: state(data.evolution, (e) => e.data.length > 0 || e.history.average !== null),
+    },
+    {
+      // MVP-707 — Hay algo que enseñar en cuanto haya gasto o ingreso. Una campaña sin ninguno de los
+      // dos no tiene el widget roto: lo tiene vacío, igual que el resto (CA-5).
+      widget: DashboardWidget.Economics,
+      status: state(data.economics, (e) => e.expense > 0 || e.income !== null),
     },
   ];
 }
@@ -162,12 +174,14 @@ export const VisionGeneralView: React.FC = () => {
       // MVP-706 (CA-1) — `allSettled` y no `all`: las cuatro agregan el mismo ámbito, pero **no
       // comparten suerte**. Con `all`, el fallo de una descartaba el resultado de las otras tres y
       // dejaba la pantalla con un mensaje de error en vez de con los datos que sí se calcularon.
-      const [summaryResult, destinationResult, plotResult, evolutionResult] = await Promise.allSettled([
-        dashboardService.getSummary(filters),
-        dashboardService.getKgByDestination(filters),
-        dashboardService.getKgByPlot(filters),
-        dashboardService.getYieldEvolution(filters),
-      ]);
+      const [summaryResult, destinationResult, plotResult, evolutionResult, economicsResult] =
+        await Promise.allSettled([
+          dashboardService.getSummary(filters),
+          dashboardService.getKgByDestination(filters),
+          dashboardService.getKgByPlot(filters),
+          dashboardService.getYieldEvolution(filters),
+          dashboardService.getEconomics(filters),
+        ]);
 
       const settle = <T,>(result: PromiseSettledResult<T>): WidgetResult<T> =>
         result.status === 'fulfilled' ? loaded(result.value) : failed<T>(loadMessage(result.reason));
@@ -177,6 +191,7 @@ export const VisionGeneralView: React.FC = () => {
         destinations: settle(destinationResult),
         plots: settle(plotResult),
         evolution: settle(evolutionResult),
+        economics: settle(economicsResult),
       };
       setData(next);
 
@@ -226,6 +241,7 @@ export const VisionGeneralView: React.FC = () => {
   const destinations = data?.destinations ?? null;
   const plots = data?.plots ?? null;
   const evolution = data?.evolution ?? null;
+  const economics = data?.economics ?? null;
 
   /**
    * MVP-706 — El ámbito lo publican las cuatro respuestas, así que se toma de la primera que haya
@@ -233,7 +249,12 @@ export const VisionGeneralView: React.FC = () => {
    * hablaba la pantalla, aunque los otros tres widgets sí lo supieran.
    */
   const scope =
-    summary?.data?.scope ?? destinations?.data?.scope ?? plots?.data?.scope ?? evolution?.data?.scope ?? null;
+    summary?.data?.scope ??
+    destinations?.data?.scope ??
+    plots?.data?.scope ??
+    evolution?.data?.scope ??
+    economics?.data?.scope ??
+    null;
 
   /** Ningún widget pudo cargarse: es el único caso que sigue siendo un error de pantalla completa. */
   const allFailed = data !== null && scope === null;
@@ -494,6 +515,42 @@ export const VisionGeneralView: React.FC = () => {
                 número de árboles registrado. Complétalo en Terrenos para incluirlo.
               </span>
             </p>
+          )}
+
+          {/* MVP-707 (CA-4) — Lectura económica de la campaña: RN-009 se amplía con gasto e ingreso.
+              El gasto ya existía y se calculaba —el diario lo rotula en su cabecera—, pero se veía en
+              la vista de registro cronológico y no en la de resumen, que es donde se busca (`P-092`). */}
+          {economics?.error ? (
+            <WidgetError title="Balance de la campaña" message={economics.error} />
+          ) : (
+            economics?.data && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <MetricCard
+                  label="Gasto de la campaña"
+                  value={`${euros(economics.data.expense)} €`}
+                  icon="payments"
+                  iconClass="bg-[#f0ede8] text-[#5a3811]"
+                  hint="Labores, compras y consumos sin compra. Coincide con el diario."
+                />
+                <MetricCard
+                  label="Ingreso de la campaña"
+                  /* CA-5 — sin ninguna partida con precio la tarjeta dice «sin dato», no «0 €»: la
+                     campaña no ha ingresado cero, es que no se sabe. */
+                  value={
+                    economics.data.income === null ? 'Sin dato' : `${euros(economics.data.income)} €`
+                  }
+                  icon="sell"
+                  iconClass="bg-[#c9f16f] text-[#33450d]"
+                  hint={
+                    economics.data.income === null
+                      ? 'Ninguna partida tiene precio por kilo todavía'
+                      : economics.data.harvests_with_price < economics.data.harvests
+                        ? `Sobre ${economics.data.harvests_with_price} de ${economics.data.harvests} partidas con precio`
+                        : 'Kilos por precio de venta de cada partida'
+                  }
+                />
+              </div>
+            )
           )}
 
           {/* Kg por destino (CA-2) */}

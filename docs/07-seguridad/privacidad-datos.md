@@ -85,6 +85,69 @@ Consecuencias, y por qué importan:
 
 ---
 
+## Canal de sugerencias e incidencias (MVP-711)
+
+La aplicación tiene desde `MVP-711` un canal por el que una persona con cuenta puede contar un fallo
+o pedir algo. Se implementa como **formulario propio que envía un correo**, sin herramienta de
+tickets ni widget de terceros; esa decisión es de producto, pero tiene aquí su motivo: cualquier
+proveedor externo sería un **encargado del tratamiento** nuevo (art. 28) y, si carga scripts, activaría
+`RN-042` y obligaría a recabar consentimiento previo.
+
+### Qué se recoge
+
+| Dato | Origen | Por qué está |
+|---|---|---|
+| Tipo (`incidencia` / `sugerencia`) y texto libre | Lo escribe la persona | Es el reporte |
+| Nombre y correo de la cuenta | Ya los tiene el producto (RN-036) | Poder responder: un canal de soporte del que no se puede contestar deja de serlo |
+| Versión desplegada | La resuelve el servidor | Saber sobre qué versión ocurrió |
+| Pantalla desde la que se reporta | Ruta del cliente (`/app/diario`), **sin query ni fragmento** | Reproducir el problema |
+| `X-Request-Id` de la última petición fallida | Cabecera de respuesta de la API (`P-006`) | Saltar del reporte a la traza del servidor |
+| Navegador | Cabecera `User-Agent` de la propia petición | Descartar que sea cosa de un navegador concreto |
+
+**Qué no se recoge, y es deliberado**: nada de la explotación. Ni Workspace, ni temporada, ni
+filtros, ni identificadores de registros. La query de la URL se **recorta en el servidor** porque los
+filtros del panel llevan identificadores de terreno desde `MVP-403`: un canal de soporte no puede ser
+una vía lateral por la que datos operativos acaben en un buzón de correo. Tampoco se adjuntan
+capturas ni ficheros (fuera de alcance del spec).
+
+El texto libre es de la persona y **puede contener lo que ella decida escribir**, incluidos datos de
+terceros. El producto no lo puede impedir —es el mismo límite que en `activities.description`—, y por
+eso el formulario pide «qué estabas haciendo y qué pasó», no datos.
+
+### Con qué base
+
+**Interés legítimo** (art. 6.1.f) en mantener y corregir el servicio, ponderado así: el tratamiento lo
+inicia la propia persona, los datos son los mínimos para atender lo que pide, no hay perfilado ni
+cesión a nadie, y la expectativa razonable de quien escribe a un canal de soporte es exactamente que
+se le lea y se le pueda contestar. La alternativa —consentimiento— sería artificiosa para un
+tratamiento que la persona provoca al pulsar «Enviar».
+
+**Transparencia (art. 13) en el momento**: la pantalla enumera, **antes** de enviar, qué acompaña al
+mensaje —incluidos el nombre y el correo de la cuenta— y dice expresamente que no se envía nada de la
+explotación. No se deja para un documento aparte.
+
+### Cuánto se conserva
+
+El producto **no almacena el reporte**: no hay tabla de reportes, ni estados, ni seguimiento dentro de
+la aplicación. Lo que existe es el correo en el buzón de operación (`Feedback:Recipient`), y ahí es
+donde aplica el plazo.
+
+| Qué | Desde cuándo cuenta | Retención | Acción al expirar |
+|---|---|---|---|
+| Reporte del canal en el buzón de operación | Recepción | **24 meses** (máximo) | Borrado del buzón |
+
+Los 24 meses son el mismo criterio de `RN-041`, no un plazo nuevo: es el techo, y lo normal es
+borrarlo al cerrar el asunto. Es el único plazo del producto que **no ejecuta ninguna rutina**, porque
+lo conservado no está en la base de datos sino en una bandeja de correo; se anota aquí precisamente
+para que sea una obligación escrita y no una costumbre.
+
+**No añade nada al inventario de almacenamiento en el navegador.** El contexto del reporte —dónde
+estaba y qué petición falló— vive en **memoria** de la pestaña, no en `sessionStorage` ni en
+`localStorage`, para no ampliar lo que `RN-042` obliga a inventariar. El precio es que se pierde al
+recargar la página, y se acepta.
+
+---
+
 ## Reglas especificas para autenticacion social
 
 Cuando se use un proveedor externo de identidad (por ejemplo Google):
@@ -230,6 +293,7 @@ criterio de 24 meses que ya regía para la cuenta cancelada:
 | Solicitud de reactivación cerrada o caducada (RN-040) | Cierre o caducidad | 24 meses | Borrado físico |
 | Invitación en estado terminal (aceptada, rechazada, anulada o caducada) | Última transición | 24 meses | Borrado físico |
 | Token de refresco revocado o caducado (MVP-714) | `revoked_at` o `expires_at`, lo primero que ocurra | **30 días** | Borrado físico |
+| Reporte del canal de sugerencias e incidencias (MVP-711) | Recepción en el buzón de operación | 24 meses (máximo) | Borrado del buzón, **a mano**: no está en la base de datos |
 
 #### Por qué la sesión tiene un plazo distinto (MVP-714, `P-071`)
 
@@ -288,6 +352,12 @@ entra en esta tabla antes de activarse**.
 | `sessionStorage` `terrenario_usage_marks` (MVP-602) | Navegador | Recordar qué hitos ya se han contado en esta sesión, para no contar una sesión como si fueran varias | **Medición propia** — ver más abajo |
 | Google Identity (OIDC) | Servidor | Autenticación de acceso (RN-036) | **Estrictamente necesaria**: es el método de acceso que la persona elige |
 | Tipografías e iconos | **Autoalojados** | Sistema de diseño | Sin transferencia a terceros |
+
+> **`MVP-711` no añade ninguna fila a esta tabla**, y no por casualidad. El canal de sugerencias e
+> incidencias necesita recordar dónde estaba quien reporta y qué petición le falló; ese contexto se
+> guarda **en memoria de la pestaña** en vez de en `sessionStorage`, de modo que no hay nada nuevo que
+> inventariar ni clasificar. Tampoco hay widget, script, iframe ni recurso de terceros: la CSP no se
+> toca y `RN-042` sigue sin activarse.
 
 ### El matiz de la telemetría del embudo de login (RN-020)
 

@@ -91,6 +91,7 @@ docker compose up --build
 | `Ops__ApiKey` | secreto | secreto | secreto | Llave de servicio para `GET /api/v1/ops/signals` (MVP-603). **Vacía = el endpoint no existe (404)** |
 | `Ops__AlertEmail` | secreto | secreto | secreto | Destinatario de los avisos de alerta. Vacío = las alertas solo quedan en la traza |
 | `Ops__AlertsEnabled` | `true` | `true` | `true` | Apaga la vigilancia. Se pone a `false` en el arnés de tests |
+| `Feedback__Recipient` | secreto | secreto | secreto | Buzón del canal de sugerencias e incidencias (MVP-711). **Vacío = el canal responde «no disponible»** a quien intente usarlo |
 | `Telemetry__FlushIntervalSeconds` | `60` | `60` | `60` | Cadencia del volcado de contadores (MVP-601) |
 | `Telemetry__RetentionDays` | `400` | `400` | `400` | Histórico de contadores agregados. No es un plazo de `RN-041`: no hay datos personales |
 

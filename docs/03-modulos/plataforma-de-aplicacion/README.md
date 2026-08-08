@@ -44,6 +44,9 @@ sabría dónde está descrito.
 - Presencia pública: landing y páginas legales de privacidad y términos.
 - Identidad del producto fuera de su propia pantalla (`MVP-710`): iconos de marca, `manifest.webmanifest`,
   `theme-color` y las etiquetas sociales del documento, todo **autoalojado** por `RN-042`.
+- Canal de sugerencias e incidencias (`MVP-711`): entrada en la navegación, pantalla del formulario,
+  contexto técnico del reporte y su envío por correo. Vive aquí porque no es de ningún dominio: es
+  soporte del producto entero, y se apoya en el `X-Request-Id` que ya emite este mismo chasis.
 
 **Fuera del scope de este módulo:**
 
@@ -74,9 +77,9 @@ sabría dónde está descrito.
 
 | Capa | Elementos |
 | ---- | --------- |
-| Backend | `Common/Errors`, `Common/Http` (`RequestId`, `SecurityHeaders`, `RequestMetrics`, `IfMatchHeader`, `PartialUpdateBody`), `Infrastructure/Data` |
-| Frontend | `lib/http-client.ts`, `contexts/{ApiContext,DataScopeContext}`, `routes/`, `components/{layout,home,errors,common,marketing,legal}`, `config/legal-entity.ts`, `index.html`, `public/` (iconos, manifest e imagen social) y `scripts/generar-iconos.mjs` |
-| Datos | Ninguna tabla propia: gestiona el `DbContext` y las migraciones de todo el esquema |
+| Backend | `Common/Errors`, `Common/Http` (`RequestId`, `SecurityHeaders`, `RequestMetrics`, `IfMatchHeader`, `PartialUpdateBody`), `Common/DeployedVersion.cs`, `Infrastructure/Data`, `Application/Feedback` e `Infrastructure/Feedback` (MVP-711) |
+| Frontend | `lib/http-client.ts`, `lib/report-context.ts`, `contexts/{ApiContext,DataScopeContext}`, `routes/`, `components/{layout,home,errors,common,marketing,legal,feedback}`, `config/legal-entity.ts`, `index.html`, `public/` (iconos, manifest e imagen social) y `scripts/generar-iconos.mjs` |
+| Datos | Ninguna tabla propia: gestiona el `DbContext` y las migraciones de todo el esquema. El canal de feedback tampoco crea ninguna: el correo **es** el registro |
 
 ---
 
@@ -113,6 +116,7 @@ flowchart LR
 | [MVP-505](../../09-desarrollos/epicas/MVP-005--endurecimiento-y-salida-a-mvp/MVP-505--cumplimiento-funcional-de-salida/tech-design.md) | Páginas legales públicas y panel de privacidad |
 | [MVP-703](../../09-desarrollos/epicas/MVP-007--ajustes-mvp-01/MVP-703--arranque-en-el-diario-y-definicion-de-sesion-activa/tech-design.md) | Decisión de arranque en `HomeView` |
 | [MVP-710](../../09-desarrollos/epicas/MVP-007--ajustes-mvp-01/MVP-710--identidad-de-marca-y-presencia-del-producto/tech-design.md) | Iconos de marca, manifest y tarjeta social, todo autoalojado |
+| [MVP-711](../../09-desarrollos/epicas/MVP-007--ajustes-mvp-01/MVP-711--canal-de-feedback-del-usuario/tech-design.md) | Canal de sugerencias e incidencias: contexto técnico, límite anti-abuso y correo |
 | [Contratos de API](../../02-arquitectura/contratos-api.md) · [Componentes](../../02-arquitectura/componentes.md) | Convenciones de contrato y despiece C4, mantenidos de forma central |
 | [Estándares de código](../../04-ingenieria/estandares-codigo.md) | Convenciones que este chasis impone al resto |
 

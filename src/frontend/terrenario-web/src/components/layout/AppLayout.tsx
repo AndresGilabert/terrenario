@@ -5,6 +5,7 @@ import { AppTopbar } from './AppTopbar';
 import { InvitationModal } from '../notifications/InvitationModal';
 import { useUsageTelemetry } from '../../lib/use-usage-telemetry';
 import { UsageEvent, UsageMark, markOnceInSession } from '../../lib/usage-telemetry';
+import { recordVisitedPath } from '../../lib/report-context';
 
 /**
  * MVP-702 (`P-086`) — Ancho útil del contenido, **por tipo de contenido**.
@@ -28,7 +29,7 @@ const CONTENIDO_ANCHO = 'max-w-7xl';
 const CONTENIDO_ESTRECHO = 'max-w-3xl';
 
 /** Rutas cuyo contenido es de lectura o formulario. El resto son listados o panel. */
-const RUTAS_ESTRECHAS = ['/app/ajustes', '/app/invitations'];
+const RUTAS_ESTRECHAS = ['/app/ajustes', '/app/invitations', '/app/feedback'];
 
 function anchoParaRuta(pathname: string): string {
   // El Home es checklist de preparación: texto y una lista de pasos, no una tabla.
@@ -51,6 +52,7 @@ function titleForPath(pathname: string): string {
   if (pathname.startsWith('/app/miembros')) return 'Miembros y accesos';
   if (pathname.startsWith('/app/tareas')) return 'Catálogo de tareas';
   if (pathname.startsWith('/app/ajustes')) return 'Ajustes del Workspace';
+  if (pathname.startsWith('/app/feedback')) return 'Sugerencias e incidencias';
   // Solo el Home y las rutas desconocidas llegan aquí (las conocidas retornan antes): el shell aloja
   // la pantalla 404 de MVP-406, así que la cabecera lo dice en vez de rotular «Inicio» algo que no lo es.
   if (pathname === '/app' || pathname === '/app/') return 'Inicio';
@@ -78,6 +80,15 @@ export const AppLayout: React.FC = () => {
   useEffect(() => {
     if (markOnceInSession(UsageMark.AppSession)) logUsage(UsageEvent.AppSessionStarted);
   }, [logUsage]);
+
+  // MVP-711 — Dónde estaba quien reporta. Se anota en el shell y no en cada vista porque es una
+  // propiedad de la navegación, no de ninguna pantalla concreta: quien se topa con un fallo va al
+  // canal desde donde le pasó, y sin este rastro el reporte diría «estaba en el formulario de
+  // sugerencias», que es lo único que no interesa saber. Solo la ruta, nunca la query: los filtros
+  // del panel llevan identificadores de terreno (`getReportContext`).
+  useEffect(() => {
+    recordVisitedPath(location.pathname);
+  }, [location.pathname]);
 
   return (
     <div className="min-h-screen bg-[#fcf9f4] text-[#1c1c19] flex flex-col md:flex-row">

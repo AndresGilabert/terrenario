@@ -26,6 +26,7 @@ import { TrabajadoresView } from './components/workers/TrabajadoresView';
 import { TareasView } from './components/tasks/TareasView';
 import { MiembrosView } from './components/members/MiembrosView';
 import { AjustesView } from './components/settings/AjustesView';
+import { FeedbackView } from './components/feedback/FeedbackView';
 import { ReactivationRequestPage } from './components/workspace/ReactivationRequestPage';
 import { ReactivationInboxPage } from './components/workspace/ReactivationInboxPage';
 import { HomeView } from './components/home/HomeView';
@@ -105,6 +106,11 @@ function AppRoutes() {
             {/* Ciclo de vida del Workspace (MVP-206): renombrar y dar de baja no dependen de que
                 haya temporada activa. */}
             <Route path="/app/ajustes" element={<AjustesView />} />
+            {/* Canal de sugerencias e incidencias (MVP-711, `P-088`). Dentro del shell —conserva la
+                navegación y el contexto activo— y fuera de la guarda de oferta de temporada, como el
+                resto: quien todavía no ha creado su campaña es exactamente quien más papeletas tiene
+                para encontrarse con algo que no entiende. */}
+            <Route path="/app/feedback" element={<FeedbackView />} />
             {/* Arranque de la aplicación: si el Workspace activo no tiene temporada, se ofrece
                 crearla (cancelable). Es el único destino que sigue tras la guarda, que es donde
                 MVP-201 la quería: al entrar, no al administrar. */}

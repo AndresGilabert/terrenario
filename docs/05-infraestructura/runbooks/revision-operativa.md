@@ -1,9 +1,9 @@
----
+﻿---
 id: "RB-001"
 titulo: "Revision operativa y respuesta a las alertas del MVP"
 servicio: "terrenario-api"
 owner: "@andres"
-ultima_revision: "2026-08-06"
+ultima_revision: "2026-08-08"
 tiempo_estimado: "15 minutos (revision) / variable (incidente)"
 ---
 
@@ -178,7 +178,8 @@ En **produccion**, sin reejecutar el script completo de configuracion:
 ```bash
 az webapp config appsettings set \
   --resource-group rg-terrenario-prod --name app-terrenario-api -o none \
-  --settings "Ops__AlertEmail=DIRECCION" "Ops__ApiKey=$(openssl rand -base64 32)"
+  --settings "Ops__AlertEmail=DIRECCION" "Ops__ApiKey=$(openssl rand -base64 32)" \
+             "Feedback__Recipient=DIRECCION"
 ```
 
 En **local**, con User Secrets:
@@ -186,7 +187,15 @@ En **local**, con User Secrets:
 ```bash
 dotnet user-secrets set "Ops:AlertEmail" "DIRECCION" \
   --project src/backend/Terrenario.Api
+dotnet user-secrets set "Feedback:Recipient" "DIRECCION" \
+  --project src/backend/Terrenario.Api
 ```
+
+`Feedback__Recipient` (MVP-711) es el buzon al que llegan las sugerencias e incidencias que envian los
+usuarios desde la aplicacion. Va aqui y no en el repositorio por el mismo motivo que `Ops__AlertEmail`:
+el repositorio es **publico**. Puede ser la misma direccion o una distinta; se deja como decision de
+operacion porque una bandeja de alertas automaticas y una de mensajes escritos por personas no se
+atienden igual.
 
 El App Service se reinicia solo al cambiar la configuracion. Para comprobar que ha quedado bien, basta
 con leer el arranque: si falta el destinatario o la llave, la aplicacion lo **avisa al arrancar** en
@@ -194,11 +203,12 @@ vez de descubrirse el dia del incidente.
 
 ```bash
 az webapp log tail --resource-group rg-terrenario-prod --name app-terrenario-api \
-  | grep -i "vigilancia\|llave de operacion"
+  | grep -i "vigilancia\|llave de operacion\|canal de feedback"
 ```
 
 **Resultado esperado**: ningun aviso. Si aparece «Vigilancia de alertas activa sin destinatario», las
-alertas no llegan a nadie.
+alertas no llegan a nadie. Si aparece «Sin buzon del canal de feedback», la entrada «Sugerencias e
+incidencias» esta visible en la aplicacion pero responde que el canal no esta disponible.
 
 ---
 

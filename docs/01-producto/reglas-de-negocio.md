@@ -562,6 +562,10 @@ habria durado vivo**, y dejan cuatro ciclos de la revision operativa semanal par
 sesion sospechosa antes de que el rastro desaparezca, que es lo unico que justifica conservarlo un
 solo dia. Se cuenta desde la revocacion o desde la caducidad, **lo que ocurra primero**.
 
+El plazo concreto es **decision del Product Owner**, confirmada el 2026-08-08 sobre la propuesta de
+`MVP-714`. La decision de anadir la categoria con «plazo corto» ya se habia tomado el 2026-08-06 en la
+clasificacion de `P-071`; lo que se fija aqui es el numero.
+
 Los plazos viven tambien en codigo, no solo en la documentacion, para que sean verificables
 (`AccountRetentionPolicy`), y desde `MVP-504` **hay una rutina que los ejecuta**: una pasada diaria
 purga lo que cumplio su plazo (`RetentionPurgeService`). Antes el plazo estaba declarado y no lo

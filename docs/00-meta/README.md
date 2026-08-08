@@ -27,12 +27,16 @@
 
 > Ver detalle completo en [`../03-modulos/_vision-general.md`](../03-modulos/_vision-general.md)
 > Actualiza esta tabla cuando añadas un módulo nuevo.
-> `modulo-ejemplo` es un ejemplo estructural de la plantilla y debe eliminarse cuando se cree el primer modulo real.
+> El módulo de ejemplo de la plantilla se retiró en `MVP-716`, al consolidarse los módulos reales.
 
 | Módulo | Descripción | Owner | Ruta |
 |--------|-------------|-------|------|
-| `modulo-ejemplo` | Ejemplo de estructura documental, no modulo real del proyecto | plantilla | [03-modulos/modulo-ejemplo/](../03-modulos/modulo-ejemplo/README.md) |
-| _(añadir módulos del proyecto aquí)_ | | | |
+| `identidad-y-workspaces` | Login, sesión, ciclo de vida del Workspace, invitaciones y membresía | @andres | [03-modulos/identidad-y-workspaces/](../03-modulos/identidad-y-workspaces/README.md) |
+| `maestros-operativos` | Terrenos, temporadas, trabajadores, catálogo de tareas y onboarding | @andres | [03-modulos/maestros-operativos/](../03-modulos/maestros-operativos/README.md) |
+| `diario-y-operativa` | Actividades, compras, imputaciones y Diario de campo unificado | @andres | [03-modulos/diario-y-operativa/](../03-modulos/diario-y-operativa/README.md) |
+| `produccion-y-dashboard` | Cosechas, destinos y Visión General con los KPI de campaña | @andres | [03-modulos/produccion-y-dashboard/](../03-modulos/produccion-y-dashboard/README.md) |
+| `plataforma-de-aplicacion` | Contrato de error, concurrencia, acceso a datos, shell y presencia pública | @andres | [03-modulos/plataforma-de-aplicacion/](../03-modulos/plataforma-de-aplicacion/README.md) |
+| `observabilidad` | Embudo de login, métricas de uso, SLO, señales operativas y alertas | @andres | [03-modulos/observabilidad/](../03-modulos/observabilidad/README.md) |
 
 ---
 

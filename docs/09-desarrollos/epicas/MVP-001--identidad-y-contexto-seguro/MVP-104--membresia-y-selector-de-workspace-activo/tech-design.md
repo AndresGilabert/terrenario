@@ -271,6 +271,6 @@ TypeScript y `npm run lint` sin advertencias nuevas.
 - [x] Tests escritos y pasando
 - [x] Documentación de API actualizada en este documento y en `docs/02-arquitectura/contratos-api.md`
 - [x] Modelo de datos actualizado (`docs/02-arquitectura/modelo-de-datos.md`)
-- [ ] Módulo de Workspaces documentado en `docs/03-modulos/` (se consolidará al cerrar la épica en
+- [x] Módulo de Workspaces documentado en `docs/03-modulos/` — consolidado en `MVP-716` como `identidad-y-workspaces` (se consolidará al cerrar la épica en
   `MVP-199`, junto con el resto del bloque de identidad)
 - [x] Sin `TODO` sin resolver en este documento

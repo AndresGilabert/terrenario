@@ -248,5 +248,5 @@ responses:
 - [x] Migraciones de base de datos preparadas (tablas `usuarios` y `refresh_tokens`)
 - [ ] Tests escritos y pasando
 - [ ] Documentación de API actualizada
-- [ ] Módulo Auth documentado en `docs/03-modulos/`
+- [x] Módulo Auth documentado en `docs/03-modulos/` — consolidado en `MVP-716` como `identidad-y-workspaces`
 - [ ] Sin `TODO` sin resolver en este documento

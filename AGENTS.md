@@ -49,8 +49,9 @@ ese archivo define la versión de plantilla adoptada y el núcleo sincronizable.
 | Qué significan los términos del dominio            | `docs/99-glosario/glosario.md`                 |
 | Convenciones y reglas de la KB                     | `docs/00-meta/convenciones.md`                 |
 
-> Nota sobre la plantilla: `docs/03-modulos/modulo-ejemplo/` es un contenedor de ejemplo estructural.
-> No debe tratarse como contexto funcional real del proyecto y debe eliminarse al crear el primer módulo real.
+> Nota sobre módulos: el catálogo real está en `docs/03-modulos/_vision-general.md`. Cada ficha de
+> módulo enlaza los `tech-design.md` de las historias que lo construyeron en vez de duplicarlos, así
+> que el detalle técnico se busca ahí, no en la ficha.
 
 ---
 
@@ -93,7 +94,7 @@ Pregúntame, como mínimo, por:
 - Leer `docs/01-producto/vision-y-objetivos.md` para entender qué es el producto y sus límites de responsabilidad
 - Leer `docs/02-arquitectura/vision-general.md` para entender cómo está construido el sistema
 - Leer `docs/03-modulos/{modulo-afectado}/README.md` si el cambio afecta a un módulo concreto
-- No usar `docs/03-modulos/modulo-ejemplo/` como fuente de verdad funcional salvo que el usuario confirme explícitamente que dejó de ser un ejemplo
+- Seguir desde esa ficha los `tech-design.md` que enlaza: ahí está el diseño y las alternativas descartadas
 - Comprobar `docs/02-arquitectura/decisiones/` por si hay un ADR relevante
 - Leer `docs/04-ingenieria/estandares-codigo.md` y aplicar las convenciones del proyecto
 

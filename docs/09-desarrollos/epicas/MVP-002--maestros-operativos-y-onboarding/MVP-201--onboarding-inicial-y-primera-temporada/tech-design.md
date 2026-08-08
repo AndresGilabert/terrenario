@@ -225,6 +225,6 @@ Resultado local: `dotnet test` en verde (141 tests); `npm run build` y `npm run 
 - [x] Tests escritos y pasando
 - [x] Documentación de API actualizada en este documento
 - [x] Modelo de datos actualizado (`SEASON` con `is_active`; estado de implementación)
-- [ ] Módulo de Temporadas documentado en `docs/03-modulos/` (se consolidará con MVP-203)
+- [x] Módulo de Temporadas documentado en `docs/03-modulos/` — consolidado en `MVP-716` dentro de `maestros-operativos`
 - [x] Puntos fuera de alcance registrados en MVP-999
 - [x] Sin `TODO` sin resolver en este documento

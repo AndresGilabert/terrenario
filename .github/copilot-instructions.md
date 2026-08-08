@@ -58,8 +58,8 @@ Pregúntame, como mínimo, por:
 ### Al tocar un módulo específico
 
 - Carga primero `docs/03-modulos/{modulo}/README.md`
-- Respeta el modelo de dominio en `docs/03-modulos/{modulo}/modelo-dominio.md`
-- Consulta los eventos en `docs/03-modulos/{modulo}/eventos.md` antes de añadir nuevos
+- Sigue desde esa ficha los `tech-design.md` que enlaza: ahi esta el diseno de cada historia
+- Respeta el modelo de dominio de `docs/02-arquitectura/modelo-de-datos.md` y las reglas de `docs/01-producto/reglas-de-negocio.md`
 
 ### Al escribir tests
 
@@ -75,7 +75,7 @@ Pregúntame, como mínimo, por:
 - Sigue las convenciones de naming de `docs/00-meta/convenciones.md`
 - Si existe `docs/00-meta/template-state.md`, úsalo para distinguir núcleo sincronizable de contenido local del proyecto
 - No edites `_indice.md` — es auto-generado
-- Trata `docs/03-modulos/modulo-ejemplo/` solo como contenedor de ejemplo estructural hasta que exista un modulo real; no lo uses como contexto funcional del proyecto
+- El catalogo de modulos reales esta en `docs/03-modulos/_vision-general.md`; las fichas enlazan los `tech-design.md` de las historias en vez de duplicarlos
 
 ---
 

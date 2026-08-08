@@ -20,5 +20,5 @@
 | [MVP-713](./MVP-713--errores-de-oauth-y-ruido-en-las-alertas/spec.md) | Errores de OAuth y ruido en las alertas | 📝 borrador | @andres | media |
 | [MVP-714](./MVP-714--higiene-de-datos-retencion-y-secretos/spec.md) | Higiene de datos: retencion de sesiones y secretos en el repositorio | 📝 borrador | @andres | baja |
 | [MVP-715](./MVP-715--correos-del-producto-inventario-y-maquetacion/spec.md) | Correos del producto: inventario y maquetacion unificada | 📝 borrador | @andres | media |
-| [MVP-716](./MVP-716--consolidacion-del-catalogo-de-modulos/spec.md) | Consolidacion del catalogo de modulos | 📝 borrador | @andres | baja |
+| [MVP-716](./MVP-716--consolidacion-del-catalogo-de-modulos/spec.md) | Consolidacion del catalogo de modulos | ✔️ completado | @andres | baja |
 | [MVP-799](./MVP-799--revision-epica/spec.md) | Revision epica | 📝 borrador | @andres | media |

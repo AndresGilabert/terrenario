@@ -2,7 +2,7 @@
 id: "MVP-716"
 tipo: feature
 titulo: "Consolidacion del catalogo de modulos"
-estado: borrador
+estado: completado
 prioridad: baja
 sprint: ""
 hito: "Hito G — Ajustes de uso real"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "ajustes", "documentacion"]
   nivel_riesgo: bajo
 creado_en: "2026-08-07"
-actualizado_en: "2026-08-07"
+actualizado_en: "2026-08-08"
 ---
 
 # MVP-716 — Consolidacion del catalogo de modulos
@@ -72,10 +72,22 @@ que lleva seis epicas marcada para borrar.
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: `docs/03-modulos/` contiene una ficha por modulo real, sin duplicar contenido ya escrito.
-- [ ] **CA-2**: `_vision-general.md` tiene el catalogo y el mapa poblados.
-- [ ] **CA-3**: `modulo-ejemplo` ya no existe y no queda ningun enlace roto a el.
-- [ ] **CA-4**: El validador de la KB pasa en verde.
+- [x] **CA-1**: `docs/03-modulos/` contiene una ficha por modulo real, sin duplicar contenido ya escrito.
+  Seis fichas: `identidad-y-workspaces`, `maestros-operativos`, `diario-y-operativa`,
+  `produccion-y-dashboard`, `plataforma-de-aplicacion` y `observabilidad`. Cada una tiene una tabla
+  «Documentacion de referencia» que **enlaza** los `tech-design.md` de sus historias, y una tabla de
+  «Superficie entregada» que la contrasta con `src/`.
+- [x] **CA-2**: `_vision-general.md` tiene el catalogo y el mapa poblados. Mapa Mermaid con la
+  separacion core/soporte, catalogo de seis filas con owner, estado y ruta, tabla de trazabilidad
+  modulo-epica y tabla de relaciones con el tipo de cada dependencia.
+- [x] **CA-3**: `modulo-ejemplo` ya no existe y no queda ningun enlace roto a el. Retirados sus ocho
+  ficheros. El barrido `grep -rn "modulo-ejemplo" docs/ *.md .github/` deja solo texto historico
+  (dos entradas del changelog) y el enunciado de este propio spec y de `P-020`. El unico **enlace**
+  estaba en `docs/00-meta/README.md` y ahora apunta a los seis modulos; `AGENTS.md` y
+  `.github/copilot-instructions.md` se reformularon.
+- [x] **CA-4**: El validador de la KB pasa en verde.
+  `validar_pipeline_kb.py --solo-cambios --base-ref origin/develop --check-indices-clean` termina con
+  `PIPELINE EXIT: 0`, y el validador completo sin `--solo-cambios` da 0 errores.
 
 ## Maquetas y referencias visuales
 
@@ -85,9 +97,22 @@ No aplica: documentacion.
 
 | Pantalla prototipo | Regla KB asociada | Estado | Evidencia de prueba |
 |---|---|---|---|
-| — | docs/00-meta/convenciones.md | falta | Solo existe `modulo-ejemplo` |
+| — | docs/00-meta/convenciones.md | cumple | Seis fichas en `docs/03-modulos/` con el frontmatter y las secciones de `plantillas/modulo-readme.md`; `PIPELINE EXIT: 0` |
 
 ## Notas y decisiones
 
 - Sin impacto funcional. Se adelanta a esta epica por decision del PO: es documentacion pura, sin
   riesgo, y retira de una vez una plantilla que lleva seis epicas marcada para borrar.
+- **Son seis modulos, no cinco.** El alcance proponia cinco y los cinco se confirman al recorrer
+  `src/`, pero queda fuera de todos ellos un residuo grande y con historias propias —contrato de
+  error, concurrencia, cabeceras, acceso a datos, cliente HTTP, shell, landing y paginas legales—.
+  Se documenta como `plataforma-de-aplicacion`, modulo de soporte. Repartirlo entre los cuatro core
+  habria repetido el problema que esta historia cierra. Razonamiento completo en el
+  [tech-design](./tech-design.md).
+- **Una ficha por modulo, no los siete documentos de la plantilla.** Instanciarlos serian 42 ficheros
+  y duplicarian los `tech-design.md` que el alcance manda enlazar; ademas `eventos.md` no tiene
+  contenido posible (no hay bus de eventos, `ADR-0002`). La seccion «Documentacion del modulo» de la
+  plantilla se reformula como «Documentacion de referencia».
+- **Deriva aceptada con el nucleo de plantilla.** `docs/00-meta/README.md`, `AGENTS.md` y
+  `.github/copilot-instructions.md` son `synced` y se editan igualmente: describian un estado que ha
+  dejado de ser cierto y el primero enlazaba a un directorio borrado.

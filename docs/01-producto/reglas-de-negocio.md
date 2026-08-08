@@ -590,7 +590,8 @@ sostienen el servicio que la persona ha pedido— no requieren consentimiento. C
 consentimiento **previo**, con la opcion mas protectora por defecto y revocable en cualquier momento.
 
 El MVP no usa ninguna tecnologia no esencial: no hay **analitica de terceros**, publicidad ni
-perfilado, y las tipografias se autoalojan para no transferir la IP de cada visitante a un tercero.
+perfilado, y las tipografias, la fotografia de la landing y los recursos de marca —iconos, manifest e
+imagen social (`MVP-710`)— se autoalojan para no transferir la IP de cada visitante a un tercero.
 Por eso **no se muestra banner de cookies**: la guia de la AEPD reserva el banner para las tecnologias
 no exentas, y mostrarlo cuando solo se usan las tecnicas normaliza el clic automatico sin proteger
 nada. Lo que si hay es un panel donde consultar el inventario.

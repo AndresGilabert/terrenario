@@ -372,6 +372,13 @@ más protectora por defecto y revocable.
 > dirección IP de cada visitante a ese tercero sin base jurídica clara, que es justo el supuesto que
 > obligaría a pedir consentimiento. Autoalojarlas **elimina el problema** en vez de gestionarlo, y de
 > paso permite cerrar la CSP a `'self'`.
+>
+> **Extensión (MVP-710)**: el mismo criterio se aplica a los recursos de marca —favicon, iconos de
+> aplicación, `manifest.webmanifest` e imagen de la tarjeta social—. Se generan y se sirven desde el
+> propio origen; ni el documento ni el manifest apuntan a ningún dominio ajeno. Importa señalarlo
+> porque la imagen social es un caso fácil de pasar por alto: **la piden los servidores de WhatsApp o
+> de Facebook, no el navegador del visitante**, así que alojarla en un tercero no aparecería en
+> ninguna herramienta de red de la propia página.
 
 ---
 

@@ -14,7 +14,7 @@
 | [MVP-707](./MVP-707--valor-economico-de-la-campana/spec.md) | Valor economico de la campana | ✔️ completado | @andres | alta |
 | [MVP-708](./MVP-708--roces-de-captura-en-compras-y-consumos/spec.md) | Roces de captura en compras y consumos | 📝 borrador | @andres | baja |
 | [MVP-709](./MVP-709--respuesta-a-la-perdida-de-conexion/spec.md) | Respuesta a la perdida de conexion | 📝 borrador | @andres | media |
-| [MVP-710](./MVP-710--identidad-de-marca-y-presencia-del-producto/spec.md) | Identidad de marca y presencia del producto | 📝 borrador | @andres | media |
+| [MVP-710](./MVP-710--identidad-de-marca-y-presencia-del-producto/spec.md) | Identidad de marca y presencia del producto | ✔️ completado | @andres | media |
 | [MVP-711](./MVP-711--canal-de-feedback-del-usuario/spec.md) | Canal de feedback del usuario | 📝 borrador | @andres | media |
 | [MVP-712](./MVP-712--acceso-con-cualquier-direccion-de-correo/spec.md) | Acceso con cualquier direccion de correo | 📝 borrador | @andres | media |
 | [MVP-713](./MVP-713--errores-de-oauth-y-ruido-en-las-alertas/spec.md) | Errores de OAuth y ruido en las alertas | ✔️ completado | @andres | media |

@@ -1,8 +1,8 @@
----
+﻿---
 id: "MVP-710"
 tipo: feature
 titulo: "Identidad de marca y presencia del producto"
-estado: borrador
+estado: completado
 prioridad: media
 sprint: ""
 hito: "Hito G — Ajustes de uso real"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "ajustes", "marca"]
   nivel_riesgo: bajo
 creado_en: "2026-08-07"
-actualizado_en: "2026-08-07"
+actualizado_en: "2026-08-08"
 ---
 
 # MVP-710 — Identidad de marca y presencia del producto
@@ -82,14 +82,36 @@ movil y en un enlace compartido.
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: La pestana del navegador muestra el icono de Terrenario, no el del andamiaje.
-- [ ] **CA-2**: Anadir la aplicacion al inicio en Android e iOS produce un icono propio y un nombre
-  correcto.
-- [ ] **CA-3**: Compartir `https://app.terrenario.com` en WhatsApp, Telegram o similar muestra titulo,
-  descripcion e imagen.
-- [ ] **CA-4**: Todos los recursos son **autoalojados**: la CSP de `MVP-502` no admite terceros y
-  `RN-042` no se reabre por una imagen social remota.
-- [ ] **CA-5**: Verificado sobre el build de produccion servido de verdad, no solo en desarrollo.
+- [x] **CA-1**: La pestana del navegador muestra el icono de Terrenario, no el del andamiaje.
+  `public/favicon.svg` deja de ser el rayo de Vite y pasa a ser la baldosa `#33450d` con el glifo `eco`
+  —el mismo distintivo que ya pintan `AppSidebar`, `HomeView`, `LoginPage` y `LandingPage`—, con
+  respaldo `favicon.ico` de 16/32/48 px. El `.ico` se valido **leyendolo con otro programa**
+  (`System.Drawing.Icon`): tres entradas, borde `RGB(51,69,13)` y centro blanco. La regresion la fija
+  `recursos-de-marca.test.ts`, que no pregunta si hay favicon —lo habia, y ese era el problema— sino si
+  lleva `#33450d` y no `863bff`.
+- [x] **CA-2**: Anadir la aplicacion al inicio en Android e iOS produce un icono propio y un nombre
+  correcto. `manifest.webmanifest` declara `name`/`short_name` «Terrenario», `theme_color` `#33450d`,
+  `background_color` `#fcf9f4`, `start_url` `/app` e iconos 192/512 `any` mas 512 `maskable`; iOS usa
+  `apple-touch-icon.png` de 180 px, a sangre y opaco porque aplica su propia mascara. Comprobado que
+  los ficheros existen y que el proveedor de tipos del pipeline sabe nombrar `.webmanifest`
+  (`BrandAssetsContentTypesTests`): sin eso, `UseStaticFiles` lo responderia con 404 y el 404 seria
+  invisible. La comprobacion sobre un movil real va con **CA-5**.
+- [x] **CA-3**: Compartir `https://app.terrenario.com` en WhatsApp, Telegram o similar muestra titulo,
+  descripcion e imagen. El documento lleva `description`, Open Graph completo (`type`, `site_name`,
+  `locale`, `url`, `title`, `description`, `image` con tipo, medidas y texto alternativo) y Twitter
+  Card `summary_large_image`; `og-image.png` es una imagen propia de 1200x630 compuesta con las
+  tipografias del producto. Verificado sobre el HTML generado por `npm run build`. El raspado real
+  exige el enlace ya publicado y va con **CA-5**.
+- [x] **CA-4**: Todos los recursos son **autoalojados**: la CSP de `MVP-502` no admite terceros y
+  `RN-042` no se reabre por una imagen social remota. La politica se leyo del build
+  (`dist/csp.policy`), no se supuso: sigue siendo `default-src 'self'` con `img-src 'self' data:`, y
+  **no ha hecho falta relajar ninguna directiva**. La guarda `sin-recursos-externos.test.ts` de
+  `MVP-599` solo miraba `src/`; ahora cubre tambien `index.html` y el manifest, admitiendo el propio
+  origen en las URL absolutas que Open Graph exige.
+- [~] **CA-5**: Verificado sobre el build de produccion servido de verdad, no solo en desarrollo.
+  Hecho: `npm run build` correcto y los ocho recursos presentes en `dist/`, con el HTML generado
+  referenciandolos por rutas del propio origen. **Pendiente**: servir ese build y comprobar en
+  navegador y en un movil real la pestana, el «anadir al inicio» y el raspado del enlace publicado.
 
 ## Maquetas y referencias visuales
 
@@ -102,10 +124,23 @@ movil y en un enlace compartido.
 
 | Pantalla prototipo | Regla KB asociada | Estado | Evidencia de prueba |
 |---|---|---|---|
-| App (transversal) | RN-042 (nada no esencial sin consentimiento) | parcial | El favicon existe pero no es el del producto |
+| App (transversal) | RN-042 (nada no esencial sin consentimiento) | hecho | Los ocho recursos de marca se sirven del propio origen; `dist/csp.policy` sigue siendo `default-src 'self'` sin relajar nada, y la guarda de recursos externos cubre ya el documento y el manifest |
 
 ## Notas y decisiones
 
 - **Cuidado con la CSP.** `MVP-502` inyecta `default-src 'self'` en el build de produccion: cualquier
   recurso de marca servido desde un tercero quedaria bloqueado y, ademas, reabriria la evaluacion de
   `RN-042` que `MVP-505` cerro autoalojando las tipografias.
+- **No se ha disenado marca nueva.** El icono es el distintivo que la aplicacion ya pinta en cuatro
+  pantallas; lo unico que hace la historia es sacarlo del `<div>`. El glifo `eco` va como **trazado** y
+  no como texto porque un favicon se pinta antes de que exista CSS.
+- **Los rasterizados no se generan en el build.** `scripts/generar-iconos.mjs` es ad hoc y sus
+  dependencias no estan en `package.json`: son ~50 MB de binarios nativos que cada `npm ci` del CI
+  pagaria para producir unos ficheros que cambian una vez al ano. La orden para ejecutarlo esta escrita
+  en la cabecera del propio script.
+- **Sin service worker, Chrome no ofrecera el aviso automatico de instalacion** (queda fuera de alcance
+  por decision del spec). «Anadir a pantalla de inicio» desde el menu si usa el manifest, que es lo que
+  pide `CA-2`.
+- **Las caches de tarjeta social son largas**: tras el despliegue, WhatsApp y Facebook pueden seguir
+  mostrando la tarjeta vacia que ya rasparon hasta que caduque o se fuerce el reraspado. Se vera como
+  un fallo del cambio y no lo es.

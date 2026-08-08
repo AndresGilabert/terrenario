@@ -38,6 +38,8 @@ import type { Plot } from '../../types/plot.types';
 import type { WorkTask } from '../../types/task.types';
 import type { Worker } from '../../types/worker.types';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { MobileDisclosure } from '../common/MobileDisclosure';
+import { SummaryStrip } from '../common/SummaryStrip';
 import { HarvestFormModal } from '../harvests/HarvestFormModal';
 import { ActivityFormModal } from './ActivityFormModal';
 
@@ -268,6 +270,13 @@ export const DiarioView: React.FC = () => {
   const totalPages = Math.max(1, Math.ceil(summary.total / DIARY_PAGE_SIZE));
   // MVP-705 — Lo decide la URL: si hay parámetro, hay filtro. Los defectos no llegan a escribirse.
   const hasFilters = url.hasFilters;
+  // MVP-702 — Con los filtros plegados en móvil, el número es lo que evita no saber que hay puestos.
+  const activeFilterCount =
+    (typeFilter !== 'todos' ? 1 : 0) +
+    (plotFilter !== 'todos' ? 1 : 0) +
+    (seasonScope.isExplicit ? 1 : 0) +
+    (workerFilter !== 'todos' ? 1 : 0) +
+    (appliedSearch !== '' ? 1 : 0);
 
   const missingMasters = useMemo(() => {
     const missing: { label: string; to: string }[] = [];
@@ -515,7 +524,7 @@ export const DiarioView: React.FC = () => {
 
       {/* Resumen de lo que se está viendo */}
       {!isLoading && summary.total > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <SummaryStrip desktopClassName="grid-cols-3 lg:grid-cols-6 gap-3">
           <SummaryTile label="Registros" value={String(summary.total)} icon="event_note" />
           <SummaryTile label="Labores" value={String(summary.activities)} icon="content_cut" />
           {/* MVP-401 — la cosecha se resume por kilos: no aporta gasto (RN-029) */}
@@ -563,7 +572,7 @@ export const DiarioView: React.FC = () => {
                   : undefined
             }
           />
-        </div>
+        </SummaryStrip>
       )}
 
       {/* CA-3 de la épica — el impacto en la calidad del dato queda visible */}
@@ -600,8 +609,11 @@ export const DiarioView: React.FC = () => {
         </div>
       )}
 
-      {/* Filtros. Todos viajan al servidor desde MVP-506, también la búsqueda por texto. */}
+      {/* Filtros. Todos viajan al servidor desde MVP-506, también la búsqueda por texto.
+          MVP-702 — plegados en móvil: cinco controles a ancho completo empujaban los datos por
+          debajo del pliegue. */}
       {(entries.length > 0 || hasFilters) && (
+        <MobileDisclosure label="Filtros" icon="tune" activeCount={activeFilterCount}>
         <div className="bg-white p-4 rounded-2xl border border-[#e5e2dd] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <div className="relative">
             <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#76786b] text-lg" aria-hidden="true">search</span>
@@ -681,6 +693,7 @@ export const DiarioView: React.FC = () => {
             </select>
           </div>
         </div>
+        </MobileDisclosure>
       )}
 
       {/* Filtrar por terreno deja fuera las compras por definición, no por error */}

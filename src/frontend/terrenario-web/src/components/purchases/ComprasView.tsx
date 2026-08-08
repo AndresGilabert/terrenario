@@ -18,6 +18,7 @@ import { createConsumptionService } from '../../services/consumption.service';
 import type { Plot } from '../../types/plot.types';
 import type { Consumption } from '../../types/consumption.types';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { MobileDisclosure } from '../common/MobileDisclosure';
 import { PurchaseFormModal } from './PurchaseFormModal';
 import { ConsumptionFormModal, type ConsumptionFormValues } from './ConsumptionFormModal';
 
@@ -358,8 +359,14 @@ export const ComprasView: React.FC = () => {
         </div>
       )}
 
-      {/* Alta en línea (prototipo) */}
+      {/* Alta en línea (prototipo).
+
+          MVP-702 — Plegada en móvil. Es el único formulario del producto que vive en línea en vez de
+          en un modal —Diario y Cosechas abren el suyo desde un botón—, y sus ~335 px dejaban la
+          primera fila del libro en el borde inferior de la pantalla: técnicamente visible, en la
+          práctica no. Plegado se comporta como los otros dos, y en escritorio no cambia nada. */}
       {hasSeason && (
+        <MobileDisclosure label="Registrar compra" icon="add">
         <form
           onSubmit={(e) => void handleCreate(e)}
           className="bg-white p-4 rounded-2xl border border-[#e5e2dd] space-y-3"
@@ -459,10 +466,17 @@ export const ComprasView: React.FC = () => {
             </div>
           )}
         </form>
+        </MobileDisclosure>
       )}
 
       {/* Filtros */}
+      {/* MVP-702 — Filtros plegados en móvil para que el libro se vea al entrar. */}
       {(purchases.length > 0 || productFilter || seasonScope.isExplicit) && (
+        <MobileDisclosure
+          label="Filtros"
+          icon="tune"
+          activeCount={(productFilter.trim() !== '' ? 1 : 0) + (seasonScope.isExplicit ? 1 : 0)}
+        >
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1 bg-white p-3 rounded-2xl border border-[#e5e2dd] flex items-center gap-3">
             <span className="material-symbols-outlined text-[#76786b] pl-2" aria-hidden="true">search</span>
@@ -499,6 +513,7 @@ export const ComprasView: React.FC = () => {
             </select>
           </div>
         </div>
+        </MobileDisclosure>
       )}
 
       {loadError && (

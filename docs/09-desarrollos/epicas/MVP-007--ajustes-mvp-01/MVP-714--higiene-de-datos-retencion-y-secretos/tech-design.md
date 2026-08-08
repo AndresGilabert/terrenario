@@ -45,6 +45,7 @@ sabido y era falso: no existe cascada que limpie esta tabla.
 | `Tests/Integration/RetentionPurgeTests.cs` | modificado | Tres casos con datos sembrados contra PostgreSQL real |
 | `docs/01-producto/reglas-de-negocio.md` | modificado | `RN-041` con la categoría, el plazo y su motivo |
 | `docs/07-seguridad/privacidad-datos.md` | modificado | Tabla de retención, motivo del plazo distinto y retirada de una nota caducada |
+| `docs/07-seguridad/checklist-cumplimiento-mvp.md` | modificado | El tratamiento `T6` decía «hasta caducidad o revocación», que es justo la frase que `P-071` señalaba |
 | `prototype/.../data/initialData.ts` | modificado | Dirección de ejemplo y nota sobre el historial |
 | `docs/09-desarrollos/.../MVP-999/spec.md` | modificado | `P-071` y `P-076` cerrados |
 

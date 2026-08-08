@@ -95,7 +95,9 @@ Cerrar los dos restos de higiene que quedaron abiertos tras el gate de salida, s
   («Hasta caducidad o revocacion, **mas 30 dias**»), fila en la tabla de `RN-041` con la columna «desde
   cuando cuenta», y un apartado que explica por que la sesion tiene un plazo distinto del resto. De
   paso se retira una nota caducada que afirmaba que la rutina seguia esperando una programacion
-  periodica de infraestructura: `MVP-504` (`B-3`) la entrego como `RetentionPurgeWorker`.
+  periodica de infraestructura: `MVP-504` (`B-3`) la entrego como `RetentionPurgeWorker`. Y se corrige
+  la misma frase donde tambien estaba: el tratamiento `T6` de `checklist-cumplimiento-mvp.md` decia
+  «hasta caducidad o revocacion», que es literalmente lo que `P-071` senalaba.
 - [x] **CA-4**: `initialData.ts` no contiene ninguna direccion personal real, y queda anotado que el
   historial de git si la conserva. `userEmail` pasa a `juan.perez@ejemplo.test` —coherente con el
   `userName: 'Juan Pérez'` de al lado y sobre un TLD reservado (RFC 2606), no registrable ni

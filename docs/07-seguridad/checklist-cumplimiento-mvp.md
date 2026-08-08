@@ -1,7 +1,7 @@
 ---
 bloque: 07-seguridad
 documento: checklist-cumplimiento-mvp
-actualizado_en: "2026-08-05"
+actualizado_en: "2026-08-08"
 ---
 
 # Checklist de cumplimiento del MVP (MVP-503)
@@ -25,7 +25,7 @@ Evidencia mínima de cumplimiento para autorizar la salida controlada del MVP. E
 | T3 | Colaboración en Workspace: invitaciones y membresías | Correo de la persona invitada, nombre de quien invita | **Ejecución del contrato** (6.1.b) | El usuario que invita | Hasta transición terminal; purgado a 24 meses (RN-041) |
 | T4 | Identificación de responsables de labores | `workers.name` (cuadrilla sin cuenta) | **Interés legítimo del titular del Workspace**, que es el responsable | El usuario | Vida del Workspace |
 | T5 | Datos de terceros en maestros y texto libre | `plots.owner_name`, `activities.description` | **Interés legítimo del titular del Workspace** | El usuario | Vida del Workspace |
-| T6 | Seguridad de la sesión | Hash de refresh token, `user_id`, caducidades | **Interés legítimo** (6.1.f): impedir accesos no autorizados | El sistema | Hasta caducidad o revocación |
+| T6 | Seguridad de la sesión | Hash de refresh token, `user_id`, caducidades | **Interés legítimo** (6.1.f): impedir accesos no autorizados | El sistema | Hasta caducidad o revocación, más 30 días (RN-041, MVP-714) |
 | T7 | Trazabilidad técnica de peticiones | `X-Request-Id`, sin PII | **Interés legítimo** (6.1.f): diagnóstico y seguridad | El sistema | 12 meses |
 | T8 | Medición del embudo de acceso (RN-020) | Identificador de flujo aleatorio y nombre del evento; **sin PII** | **Interés legítimo** (6.1.f) | El cliente | Sesión del navegador |
 

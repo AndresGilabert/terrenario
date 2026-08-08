@@ -8,6 +8,19 @@ public sealed record ApiError(string Code, string Message)
     public static ApiError GoogleExchangeFailed() =>
         new(ErrorCodes.AuthGoogleExchangeFailed, "Error al completar el acceso. Por favor inténtalo de nuevo.");
 
+    /// <summary>
+    /// MVP-713 — El mensaje dice **qué hacer**, porque el caso más común es haber recargado la pantalla
+    /// de vuelta de Google y ahí «Error al completar el acceso» no orienta a nadie.
+    /// </summary>
+    public static ApiError GoogleCodeInvalid() =>
+        new(ErrorCodes.AuthGoogleCodeInvalid,
+            "El código de acceso ha caducado o ya se había usado. Vuelve a entrar con Google.");
+
+    /// <summary>MVP-713 — Faltan datos del intercambio o vienen mal formados: los aporta quien llama.</summary>
+    public static ApiError GoogleRequestInvalid() =>
+        new(ErrorCodes.AuthGoogleRequestInvalid,
+            "La petición de acceso no está completa. Vuelve a entrar con Google.");
+
     public static ApiError LoginCancelled() =>
         new(ErrorCodes.AuthLoginCancelled, "El acceso fue cancelado.");
 

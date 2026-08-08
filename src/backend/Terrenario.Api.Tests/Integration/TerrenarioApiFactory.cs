@@ -123,6 +123,7 @@ public sealed class TerrenarioApiFactory : WebApplicationFactory<Program>, IAsyn
 public sealed class FakeGoogleOidcService : IGoogleOidcService
 {
     private readonly Dictionary<string, GoogleIdentity> _identities = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _oauthErrors = new(StringComparer.Ordinal);
 
     /// <summary>Asocia un código de autorización a la identidad que Google devolvería por él.</summary>
     public FakeGoogleOidcService WithIdentity(string code, string sub, string displayName, string email)
@@ -131,14 +132,34 @@ public sealed class FakeGoogleOidcService : IGoogleOidcService
         return this;
     }
 
+    /// <summary>
+    /// MVP-713 — Asocia un código de autorización al <c>error</c> de OAuth 2.0 con el que Google
+    /// respondería al intercambiarlo. La traducción a código de la API la hace el propio
+    /// <see cref="GoogleOAuthErrors"/> de producción: si el doble la duplicara, el test seguiría
+    /// pasando el día que la tabla real cambiara.
+    /// </summary>
+    public FakeGoogleOidcService WithOAuthError(string code, string oauthError)
+    {
+        _oauthErrors[code] = oauthError;
+        return this;
+    }
+
     public Task<GoogleIdentity> ExchangeCodeAsync(
         string code,
         string redirectUri,
         string codeVerifier,
         CancellationToken ct = default)
-        => _identities.TryGetValue(code, out var identity)
-            ? Task.FromResult(identity)
-            : throw new GoogleOidcException(
-                "Código de autorización no válido.",
-                Terrenario.Api.Common.Errors.ErrorCodes.AuthGoogleTokenInvalid);
+    {
+        if (_identities.TryGetValue(code, out var identity))
+            return Task.FromResult(identity);
+
+        if (_oauthErrors.TryGetValue(code, out var oauthError))
+            throw new GoogleOidcException(
+                "Intercambio de código con Google fallido.",
+                GoogleOAuthErrors.ToErrorCode(oauthError));
+
+        throw new GoogleOidcException(
+            "Código de autorización no válido.",
+            Terrenario.Api.Common.Errors.ErrorCodes.AuthGoogleTokenInvalid);
+    }
 }

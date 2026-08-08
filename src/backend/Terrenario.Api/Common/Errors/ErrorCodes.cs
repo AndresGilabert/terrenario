@@ -5,6 +5,29 @@ public static class ErrorCodes
     // Auth errors
     public const string AuthUnauthenticated = "AUTH_UNAUTHENTICATED";
     public const string AuthGoogleTokenInvalid = "AUTH_GOOGLE_TOKEN_INVALID";
+
+    /// <summary>
+    /// MVP-713 (`P-079`) — Google respondió <c>invalid_grant</c>: el código de autorización ya se usó o
+    /// caducó. Recargar la pantalla de vuelta de Google basta para provocarlo, así que es un error de
+    /// <b>quien llama</b> y se responde <c>401</c>. Hasta esta historia caía en
+    /// <see cref="AuthGoogleExchangeFailed"/> → <c>500</c>, contaba en el SLO de tasa de error y llegó a
+    /// disparar <c>HighErrorRate</c>, que es crítica.
+    /// </summary>
+    public const string AuthGoogleCodeInvalid = "AUTH_GOOGLE_CODE_INVALID";
+
+    /// <summary>
+    /// MVP-713 (`P-079`) — Google respondió <c>invalid_request</c>: falta un parámetro del intercambio o
+    /// viene mal formado. Los tres que aporta el cliente (<c>code</c>, <c>redirect_uri</c>,
+    /// <c>code_verifier</c>) son suyos, así que es <c>400</c> y no <c>500</c>.
+    /// </summary>
+    public const string AuthGoogleRequestInvalid = "AUTH_GOOGLE_REQUEST_INVALID";
+
+    /// <summary>
+    /// Fallo del servidor en el intercambio con Google: configuración incorrecta
+    /// (<c>invalid_client</c>, <c>unauthorized_client</c>), caída del proveedor o respuesta que no se
+    /// entiende. Es el <b>caso por defecto</b> desde MVP-713: lo que no se puede atribuir con certeza a
+    /// quien llama se sigue tratando como fallo propio.
+    /// </summary>
     public const string AuthGoogleExchangeFailed = "AUTH_GOOGLE_EXCHANGE_FAILED";
     public const string AuthLoginCancelled = "AUTH_LOGIN_CANCELLED";
     public const string AuthRefreshTokenInvalid = "AUTH_REFRESH_TOKEN_INVALID";

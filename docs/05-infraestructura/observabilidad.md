@@ -1,7 +1,7 @@
 ﻿---
 bloque: 05-infraestructura
 documento: observabilidad
-actualizado_en: "2026-07-18"
+actualizado_en: "2026-08-08"
 ---
 
 # Observabilidad — Monitoring, Alertas y SLOs
@@ -66,6 +66,43 @@ mandaria ciento veinte avisos identicos y el canal dejaria de leerse justo cuand
 **Volumen minimo antes de juzgar**: 20 peticiones para la tasa de error y la latencia, 10 pantallas de
 acceso para el embudo. Sin esto, una madrugada con tres peticiones y un 500 daria un 33 % de error, y
 una alerta que salta sin motivo se acaba ignorando tambien cuando el motivo es real.
+
+### Que cuenta como fallo del servicio (MVP-713)
+
+El numerador de la tasa de error son las respuestas **5xx**, asi que **clasificar bien un error es
+decidir si mueve el SLO**. No es un detalle de contrato: es la definicion de la medida.
+
+`MVP-713` (`P-079`) corrige el caso que lo puso en evidencia. `POST /auth/google/callback` traducia
+**cualquier** respuesta no exitosa del endpoint de token de Google a `AUTH_GOOGLE_EXCHANGE_FAILED` →
+500, incluido `invalid_grant`, que es lo que Google devuelve ante un codigo ya usado o caducado:
+recargar la pantalla de vuelta bastaba para provocarlo. Medido en la revision de `MVP-699` (`R-04`):
+un solo 500 de este tipo sobre 70 peticiones dio **1,43 %** y disparo `HighErrorRate` —critica— con
+envio de correo real.
+
+Desde `MVP-713` la respuesta depende de **de quien es el error**, siguiendo el vocabulario cerrado de
+OAuth 2.0 (la tabla completa esta en `../02-arquitectura/contratos-api.md`, §0.c bis):
+
+| Caso | HTTP | ¿Cuenta en la tasa de error? |
+|---|---|---|
+| Codigo ya usado o caducado (`invalid_grant`) | 401 | No. Sigue en el **divisor**: la peticion se sirvio |
+| Peticion incompleta (`invalid_request`) | 400 | No |
+| Configuracion nuestra (`invalid_client`, `unauthorized_client`) | 500 | **Si** |
+| Caida de Google o respuesta ilegible | 500 | **Si** |
+
+El defecto va hacia el 500: lo que no se puede atribuir con certeza a quien llama se sigue contando
+como fallo propio. Es la misma direccion que `R-03` —donde se saco del SLO lo que no era trafico de
+nadie, pero **contandolo aparte** en `api.internal.*`— y la contraria de la que parece comoda: un
+fallo propio contado como error de cliente desaparece de las alertas, y una alerta ciega es peor que
+una ruidosa.
+
+El **nivel de log** se clasifica igual. Un codigo caducado se registra como `Information` y solo el
+fallo propio como `Warning`/`Error`: el canal por el que se diagnostican las averias no puede estar
+lleno de gente recargando una pantalla.
+
+Lo que **no** cambia es la traza del embudo: el intento sigue emitiendo `login_google_error` con su
+`error_code`, asi que la conversion de login sigue viendo el fallo. Son dos preguntas distintas —«¿ha
+podido entrar la gente?» y «¿esta roto el servicio?»— y solo la segunda es la que gobierna
+`HighErrorRate`.
 
 **Punto ciego, declarado**: un proceso muerto no se vigila a si mismo. Dentro de la aplicacion,
 `ServiceDown` cubre la degradacion observable —la base de datos inalcanzable, que deja el producto
@@ -179,7 +216,7 @@ Contadores del embudo:
 | `login.screen_viewed` | Entradas a la pantalla de login |
 | `login.google_clicked` | Clics en «Continuar con Google» |
 | `login.success` | Accesos completados |
-| `login.error` y `login.error.{codigo}` | Fallos del intercambio, en total y por codigo |
+| `login.error` y `login.error.{codigo}` | Fallos del intercambio, en total y por codigo. Desde `MVP-713` el desglose distingue `auth_google_code_invalid` (codigo caducado o reusado) de `auth_google_exchange_failed` (fallo propio o de Google), que antes se mezclaban bajo el segundo |
 | `login.abandonment` | Abandonos (por inactividad o por salida sin exito) |
 | `login.success.duration_ms.sum` · `login.success.timed` | Suma de duraciones y su divisor, para el «tiempo medio de login exitoso» |
 

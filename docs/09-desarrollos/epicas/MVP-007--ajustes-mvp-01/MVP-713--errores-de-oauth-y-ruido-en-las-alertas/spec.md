@@ -1,8 +1,8 @@
----
+﻿---
 id: "MVP-713"
 tipo: feature
 titulo: "Errores de OAuth y ruido en las alertas"
-estado: borrador
+estado: completado
 prioridad: media
 sprint: ""
 hito: "Hito G — Ajustes de uso real"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "ajustes", "bug"]
   nivel_riesgo: medio
 creado_en: "2026-08-07"
-actualizado_en: "2026-08-07"
+actualizado_en: "2026-08-08"
 ---
 
 # MVP-713 — Errores de OAuth y ruido en las alertas
@@ -73,14 +73,29 @@ salten cuando pasa algo de verdad.
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Recargar la pantalla de callback con un codigo ya usado devuelve 400/401, no 500, y la
-  pantalla lo explica.
-- [ ] **CA-2**: Un fallo de configuracion (`invalid_client`) o una caida de Google siguen devolviendo
-  500, que es lo que son.
-- [ ] **CA-3**: Los casos de cliente no incrementan la tasa de error del SLO.
-- [ ] **CA-4**: Reproducido el escenario que disparo la alerta en `MVP-699` y comprobado que ya no la
-  dispara.
-- [ ] **CA-5**: Test de regresion sobre el mapeo de codigos de OAuth.
+- [x] **CA-1**: Recargar la pantalla de callback con un codigo ya usado devuelve 400/401, no 500, y la
+  pantalla lo explica. `invalid_grant` responde **401 `AUTH_GOOGLE_CODE_INVALID`** e `invalid_request`,
+  **400 `AUTH_GOOGLE_REQUEST_INVALID`**, verificado sobre la aplicacion real en
+  `GoogleOAuthErrorContractTests` (recorre `Program.cs` entero: pipeline, filtros y controlador). La
+  pantalla dice «El acceso ha caducado o esta pagina ya se habia usado. Vuelve a entrar con Google» en
+  vez de «Error al completar el acceso», cubierto en `OAuthCallback.test.tsx`.
+- [x] **CA-2**: Un fallo de configuracion (`invalid_client`) o una caida de Google siguen devolviendo
+  500, que es lo que son. Mismo test de contrato, tercer caso. Y el **defecto** de la tabla es 500: un
+  `error` desconocido, ausente o ilegible tambien se cuenta como fallo propio, porque clasificar por
+  descarte convertiria una averia nueva en un 4xx silencioso.
+- [x] **CA-3**: Los casos de cliente no incrementan la tasa de error del SLO. Comprobado pasando la
+  respuesta del callback por la instrumentacion real (`RequestMetricsMiddleware`): `invalid_grant` e
+  `invalid_request` suman en `api.requests.4xx` y **no** en `api.requests.5xx`, mientras que
+  `invalid_client` sigue sumando en `5xx`. Siguen en el **divisor** (`api.requests`): la peticion se
+  sirvio y la disponibilidad y la latencia la cuentan.
+- [x] **CA-4**: Reproducido el escenario que disparo la alerta en `MVP-699` y comprobado que ya no la
+  dispara. La ventana de la revision —69 peticiones servidas mas un codigo caducado— pasa por
+  `AlertEvaluator` y `HighErrorRate` **no** se dispara; el mismo experimento con `invalid_client` **si**
+  la dispara, que es lo que confirma que el arreglo no la ha dejado ciega.
+- [x] **CA-5**: Test de regresion sobre el mapeo de codigos de OAuth.
+  `GoogleOAuthErrorMappingTests` fija el vocabulario cerrado de RFC 6749 §5.2 —`invalid_grant`,
+  `invalid_request`, `invalid_client`, `unauthorized_client`— con su codigo de API y su estado HTTP, y
+  cubre tambien lo no clasificado (valor vacio, nulo, desconocido y `INVALID_GRANT` en mayusculas).
 
 ## Maquetas y referencias visuales
 
@@ -90,7 +105,7 @@ No aplica: es comportamiento de servidor y de la pantalla de vuelta de Google.
 
 | Pantalla prototipo | Regla KB asociada | Estado | Evidencia de prueba |
 |---|---|---|---|
-| LoginPage / callback | docs/05-infraestructura/observabilidad.md | falta | Un 500 evitable dispara alerta critica |
+| LoginPage / callback | docs/05-infraestructura/observabilidad.md | hecho | Un codigo caducado responde 401, cuenta como 4xx y `HighErrorRate` ya no se dispara con el escenario de `MVP-699`; la pantalla explica que hay que volver a entrar |
 
 ## Notas y decisiones
 

@@ -42,6 +42,7 @@ describe('DiarioView', () => {
     task_id: 't-1',
     quantity: null,
     has_purchase: null,
+    is_before_purchase_date: null,
     kgs: null,
     destination: null,
     yield: null,

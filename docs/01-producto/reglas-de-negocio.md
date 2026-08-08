@@ -608,6 +608,31 @@ opcional: primera parte, identificadores aleatorios que mueren con la pestaña, 
 agregados conservados** y ausencia de perfilado. Cualquier medida que se salga de ahi exige
 consentimiento previo.
 
+---
+
+### RN-043 — Consumo anterior a su compra permitido con aviso
+
+**Estado**: activa
+**Fuente**: producto
+**Módulos afectados**: compras-consumo, diario
+
+Si la fecha de un consumo es **anterior** a la fecha de la compra a la que se imputa, el sistema
+permite guardarlo pero debe mostrar un aviso no bloqueante, tanto en el formulario mientras se
+teclea la fecha como en la fila del registro ya guardado.
+
+No se bloquea porque la captura retroactiva es legítima: `RN-032` ya asume que el papeleo va por
+detrás del campo, y apuntar hoy la compra de la semana pasada con sus consumos ya repartidos es un
+flujo real. Pero gastar algo **antes** de comprarlo casi siempre es un error de tecleo en la fecha
+—un año mal escrito—, y sin aviso nadie lo detecta. Es el mismo trato que `RN-023` da a la fecha
+fuera del rango de la temporada: avisar sin impedir.
+
+El aviso se **deriva en lectura** comparando las dos fechas vigentes, no se congela al guardar: si
+después se corrige la fecha de la compra, el aviso aparece o desaparece solo. Un consumo sin compra
+previa (`RN-032`) nunca lo activa, porque no hay fecha contra la que comparar. La igualdad tampoco:
+comprar y gastar el mismo día es lo normal.
+
+---
+
 ## Reglas obsoletas
 
 | ID | Nombre | Motivo de obsolescencia | Fecha |

@@ -47,39 +47,6 @@ public sealed class PurchaseRepository(TerrenarioDbContext db) : IPurchaseReposi
     public Task<PurchaseView?> GetViewAsync(Guid workspaceId, Guid purchaseId, CancellationToken ct = default)
         => ProjectViews(LivePurchases(workspaceId).Where(p => p.Id == purchaseId)).FirstOrDefaultAsync(ct);
 
-    public async Task<IReadOnlyList<ProductSuggestion>> ListProductSuggestionsAsync(
-        Guid workspaceId,
-        string? search,
-        int limit,
-        CancellationToken ct = default)
-    {
-        var live = LivePurchases(workspaceId);
-
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            var needle = search.Trim().ToLower();
-            live = live.Where(p => p.Product.ToLower().Contains(needle));
-        }
-
-        // Se agrupa por el texto tal cual se escribió: normalizar aquí escondería que el Workspace
-        // tiene «Abono NPK» y «abono npk», que es justo lo que las sugerencias ayudan a evitar a
-        // partir de ahora sin reescribir el histórico.
-        //
-        // La agrupación se proyecta a un tipo anónimo y no directamente a `ProductSuggestion`: EF no
-        // sabe traducir un `ORDER BY` sobre los miembros de un record posicional, igual que pasaba
-        // con `ActivityView` en MVP-301 (lección de P-014). El mapeo al tipo del dominio se hace ya
-        // en memoria, sobre las pocas filas que devuelve el `Take`.
-        var rows = await live
-            .GroupBy(p => p.Product)
-            .Select(g => new { Product = g.Key, TimesUsed = g.Count() })
-            .OrderByDescending(x => x.TimesUsed)
-            .ThenBy(x => x.Product)
-            .Take(limit)
-            .ToListAsync(ct);
-
-        return rows.Select(x => new ProductSuggestion(x.Product, x.TimesUsed)).ToList();
-    }
-
     /// <summary>Compras vivas del Workspace: el filtro de baja lógica en un único sitio (RN-037).</summary>
     private IQueryable<Purchase> LivePurchases(Guid workspaceId)
         => db.Purchases.Where(p => p.WorkspaceId == workspaceId && p.DeletedAt == null);

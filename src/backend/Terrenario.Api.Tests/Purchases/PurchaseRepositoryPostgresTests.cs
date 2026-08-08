@@ -145,48 +145,9 @@ public sealed class PurchaseRepositoryPostgresTests : RepositoryTestBase
         (await repository.GetViewAsync(fixture.Workspace.Id, fuera.Id))!.IsOutOfSeasonRange.Should().BeTrue();
     }
 
-    [Fact]
-    public async Task ListProductSuggestionsAsync_Deberia_AgruparPorProducto_Y_OrdenarPorFrecuencia()
-    {
-        // RN-031 (HU-2) — vocabulario aprendido del histórico, no un catálogo
-        var fixture = await SeedAsync("-g");
-        Db.Purchases.Add(NewPurchase(fixture, new DateOnly(2026, 10, 1), "Abono NPK"));
-        Db.Purchases.Add(NewPurchase(fixture, new DateOnly(2026, 10, 2), "Abono NPK"));
-        Db.Purchases.Add(NewPurchase(fixture, new DateOnly(2026, 10, 3), "Gasóleo B"));
-        await Db.SaveChangesAsync();
-
-        var repository = new PurchaseRepository(Db);
-
-        var suggestions = await repository.ListProductSuggestionsAsync(fixture.Workspace.Id, null, 20);
-
-        suggestions.Select(s => s.Product).Should().ContainInOrder("Abono NPK", "Gasóleo B");
-        suggestions[0].TimesUsed.Should().Be(2);
-        suggestions[1].TimesUsed.Should().Be(1);
-    }
-
-    [Fact]
-    public async Task ListProductSuggestionsAsync_Deberia_BuscarParcialmente_Aislar_Y_NoVerLasEliminadas()
-    {
-        var mine = await SeedAsync("-h");
-        var other = await SeedAsync("-i");
-        Db.Purchases.Add(NewPurchase(mine, new DateOnly(2026, 10, 1), "Abono NPK"));
-        var borrada = NewPurchase(mine, new DateOnly(2026, 10, 2), "Producto retirado");
-        borrada.Delete(_userId);
-        Db.Purchases.Add(borrada);
-        Db.Purchases.Add(NewPurchase(other, new DateOnly(2026, 10, 3), "Abono ajeno"));
-        await Db.SaveChangesAsync();
-
-        var repository = new PurchaseRepository(Db);
-
-        (await repository.ListProductSuggestionsAsync(mine.Workspace.Id, "npk", 20))
-            .Should().ContainSingle().Which.Product.Should().Be("Abono NPK");
-        // Lo eliminado deja de sugerirse: si se retiró, no conviene volver a proponerlo (RN-037).
-        (await repository.ListProductSuggestionsAsync(mine.Workspace.Id, "retirado", 20))
-            .Should().BeEmpty();
-        // El histórico de otro Workspace no se filtra dentro (aislamiento multi-tenant).
-        (await repository.ListProductSuggestionsAsync(mine.Workspace.Id, "ajeno", 20))
-            .Should().BeEmpty();
-    }
+    // MVP-708 (`P-057`) — Las sugerencias de material dejaron de colgar de este repositorio: se
+    // aprenden de compras **y** de consumos sin compra previa. Sus tests viven ahora en
+    // `Materials/MaterialRepositoryPostgresTests`.
 
     [Fact]
     public async Task SaveChangesAsync_Deberia_Traducir_LaColisionDeVersion_A_Conflicto()

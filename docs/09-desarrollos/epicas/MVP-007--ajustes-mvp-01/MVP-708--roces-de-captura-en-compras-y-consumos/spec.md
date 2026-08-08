@@ -1,8 +1,8 @@
----
+﻿---
 id: "MVP-708"
 tipo: feature
 titulo: "Roces de captura en compras y consumos"
-estado: borrador
+estado: completado
 prioridad: baja
 sprint: ""
 hito: "Hito G — Ajustes de uso real"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "ajustes", "ux"]
   nivel_riesgo: bajo
 creado_en: "2026-08-07"
-actualizado_en: "2026-08-07"
+actualizado_en: "2026-08-08"
 ---
 
 # MVP-708 — Roces de captura en compras y consumos
@@ -75,12 +75,29 @@ Reducir dos roces del formulario que ensucian los datos sin que nadie se de cuen
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: El campo de material del consumo sin compra previa sugiere terminos del historico de
+- [x] **CA-1**: El campo de material del consumo sin compra previa sugiere terminos del historico de
   compras **y** de consumos.
-- [ ] **CA-2**: Imputar un consumo con fecha anterior a la de su compra sigue permitido y responde
+  **Evidencia**: `GET /api/v1/purchases/products` une en SQL `purchases` y los consumos sin compra
+  previa (`MaterialRepository`), y `ConsumptionFormModal` alimenta su `datalist` con esa lista.
+  `PurchaseCaptureFrictionTests.ElVocabularioDeMateriales_Deberia_AprenderDeComprasYDeConsumos`:
+  «Cobre de la nave», que solo existe como consumo, se devuelve tambien en la busqueda parcial.
+  `ComprasView.test.tsx` comprueba que el campo del modal ofrece las dos entradas.
+- [x] **CA-2**: Imputar un consumo con fecha anterior a la de su compra sigue permitido y responde
   `201`, con aviso visible en el formulario.
-- [ ] **CA-3**: La fila resultante lleva una etiqueta que lo senala, como ya hace «FUERA DE TEMPORADA».
-- [ ] **CA-4**: La regla queda escrita en `docs/01-producto/reglas-de-negocio.md`.
+  **Evidencia**: `PurchaseCaptureFrictionTests.ImputarConFechaAnteriorALaCompra_Deberia_Responder201_ConElAviso`
+  reproduce el caso del punto —imputar el `2020-01-01` una compra del `2026-07-31`— contra la API
+  real: `201`, `is_before_purchase_date: true` y `proportional_cost` intacto. En el formulario,
+  `ComprasView.test.tsx` verifica que el aviso aparece al teclear la fecha y que el boton de guardar
+  sigue habilitado.
+- [x] **CA-3**: La fila resultante lleva una etiqueta que lo senala, como ya hace «FUERA DE TEMPORADA».
+  **Evidencia**: etiqueta `antes de la compra` en la fila de «Consumos por terreno» (`ComprasView`) y
+  `ANTES DE LA COMPRA` en la tarjeta del diario (`DiarioView`), junto a las de `RN-023` y `RN-032`.
+  `ComprasView.test.tsx` la exige presente con el aviso y ausente sin el; el test de integracion
+  comprueba que la senal llega tanto a `GET /consumptions` como a `GET /diary`.
+- [x] **CA-4**: La regla queda escrita en `docs/01-producto/reglas-de-negocio.md`.
+  **Evidencia**: `RN-043 — Consumo anterior a su compra permitido con aviso`, redactada en paralelo a
+  `RN-023`, con el porque de no bloquear y el criterio de derivarla en lectura. Referenciada desde
+  `contratos-api.md` §7 y desde `03-modulos/diario-y-operativa/README.md`.
 
 ## Maquetas y referencias visuales
 
@@ -93,8 +110,25 @@ Reducir dos roces del formulario que ensucian los datos sin que nadie se de cuen
 
 | Pantalla prototipo | Regla KB asociada | Estado | Evidencia de prueba |
 |---|---|---|---|
-| ComprasView | RN-031, RN-032, RN-023 (analogia) | parcial | Sugerencias solo en compra; sin aviso de fecha |
+| ComprasView | RN-031, RN-032, RN-043 (nueva), RN-023 (analogia) | completo | Vocabulario unico en los dos formularios y aviso de fecha anterior a la compra; `ComprasView.test.tsx` (4 tests) y `PurchaseCaptureFrictionTests` (3 tests) |
+| DiarioView | RN-033, RN-043 | completo | Etiqueta «ANTES DE LA COMPRA» junto a «FUERA DE TEMPORADA»; `is_before_purchase_date` verificado en `GET /diary` |
 
 ## Notas y decisiones
 
 - Los dos son del mismo formulario: separarlos obligaria a tocarlo dos veces.
+- De las dos vias que abria el alcance para `P-057` se elige **combinar** los dos historicos, no un
+  ambito en el endpoint: un ambito dejaria vivos dos vocabularios en la misma pantalla, que es la
+  causa del punto. Razonamiento completo en el [tech-design](./tech-design.md).
+- Las **imputaciones no cuentan** en el vocabulario: copian el material de su compra, asi que no
+  aportan nombres nuevos y solo desordenarian la frecuencia.
+- La ruta `GET /api/v1/purchases/products` **no se mueve** pese a devolver ya material de los dos
+  libros: renombrarla romperia el contrato sin que nadie gane nada. Arruga de nombre anotada.
+- El aviso de `RN-043` se **deriva en lectura**: si se corrige la fecha de la compra, desaparece solo.
+- El aviso llega tambien al diario, que es la vista principal (`RN-033`) y donde `RN-023` ya rotula
+  «FUERA DE TEMPORADA»: un aviso que solo estuviera en el libro solo lo veria quien fuera a buscarlo.
+
+## Resultado
+
+Implementada en la rama `feature/MVP-708--roces-de-captura-en-compras-y-consumos`. Diseno tecnico y
+verificacion en [tech-design.md](./tech-design.md). `P-057` y `P-058` quedan marcados como resueltos
+en el registro de `MVP-999`.

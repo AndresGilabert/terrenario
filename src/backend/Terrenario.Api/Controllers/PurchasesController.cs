@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Terrenario.Api.Application.Consumptions;
 using Terrenario.Api.Application.Consumptions.Commands;
+using Terrenario.Api.Application.Materials;
 using Terrenario.Api.Application.Purchases;
 using Terrenario.Api.Application.Purchases.Commands;
 using Terrenario.Api.Application.Seasons;
@@ -37,7 +38,7 @@ public sealed class PurchasesController(
     UpdatePurchaseHandler updatePurchaseHandler,
     DeletePurchaseHandler deletePurchaseHandler,
     ListPurchasesHandler listPurchasesHandler,
-    ListPurchaseProductsHandler listPurchaseProductsHandler,
+    ListMaterialSuggestionsHandler listMaterialSuggestionsHandler,
     ImputePurchaseHandler imputePurchaseHandler,
     IConsumptionRepository consumptionRepository,
     SeasonScopeResolver seasonScopeResolver,
@@ -93,11 +94,16 @@ public sealed class PurchasesController(
     /// <summary>
     /// Vocabulario de materiales del histórico (RN-031, HU-2). <b>No es un catálogo</b>: no se
     /// administra y el usuario siempre puede escribir algo que no esté en la lista.
+    ///
+    /// MVP-708 (<c>P-057</c>) — Desde esta historia devuelve el vocabulario de los <b>dos</b> libros,
+    /// compras y consumos sin compra previa. La ruta sigue colgando de <c>/purchases</c> porque es la
+    /// contratada en <c>contratos-api.md</c> §7 y moverla sería romper el contrato sin ganar nada
+    /// para quien lo usa; lo que cambia es de dónde se aprende, no qué se pide.
     /// </summary>
     [HttpGet("products")]
     public async Task<IActionResult> ListProducts([FromQuery] string? search, CancellationToken ct)
     {
-        var products = await listPurchaseProductsHandler.HandleAsync(
+        var products = await listMaterialSuggestionsHandler.HandleAsync(
             workspaceContext.WorkspaceId, search, ct);
 
         return Ok(new

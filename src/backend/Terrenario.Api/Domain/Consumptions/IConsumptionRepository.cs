@@ -90,7 +90,13 @@ public sealed record ConsumptionView(
     decimal ProportionalCost,
     long Version,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt)
+    DateTimeOffset UpdatedAt,
+    /// <summary>
+    /// MVP-708 (<c>P-058</c>) — Fecha de la compra imputada; <c>null</c> en un consumo sin compra
+    /// previa. Es lo único que se lee de la compra, y solo para poder avisar de un consumo anterior
+    /// a ella (RN-043). El coste y el material siguen siendo los del propio consumo (RN-032).
+    /// </summary>
+    DateOnly? PurchaseDate = null)
 {
     /// <summary>
     /// <c>false</c> cuando el consumo se registró sin compra previa (RN-032): el coste es <c>0</c>
@@ -101,4 +107,14 @@ public sealed record ConsumptionView(
     /// <summary>RN-023 — aviso no bloqueante de fecha fuera del rango de la temporada.</summary>
     public bool IsOutOfSeasonRange =>
         Date < SeasonStartDate || (SeasonEndDate is { } end && Date > end);
+
+    /// <summary>
+    /// RN-043 (MVP-708, <c>P-058</c>) — Consumo con fecha <b>anterior</b> a la de su compra. No
+    /// bloquea: la captura retroactiva es legítima y RN-032 ya asume que el papeleo va por detrás del
+    /// campo. Pero gastar algo antes de comprarlo es casi siempre un error de tecleo en la fecha, así
+    /// que se señala igual que RN-023 señala la fecha fuera de temporada.
+    ///
+    /// Un consumo sin compra previa nunca lo activa: sin compra no hay fecha contra la que comparar.
+    /// </summary>
+    public bool IsBeforePurchaseDate => PurchaseDate is { } purchased && Date < purchased;
 }

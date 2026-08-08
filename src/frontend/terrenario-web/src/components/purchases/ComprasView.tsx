@@ -731,6 +731,20 @@ export const ComprasView: React.FC = () => {
                             sin compra
                           </span>
                         )}
+                        {/* RN-043 (MVP-708) — misma etiqueta discreta que «fuera de rango» en el
+                            libro: señala sin impedir, y la fila se corrige con el lápiz de al lado */}
+                        {consumption.is_before_purchase_date && (
+                          <span
+                            title={
+                              consumption.purchase_date
+                                ? `El consumo es anterior a su compra, del ${formatDate(consumption.purchase_date)}`
+                                : 'El consumo es anterior a su compra'
+                            }
+                            className="ml-1.5 px-2 py-0.5 rounded-full bg-[#fff6e5] text-[#8a5a00] border border-[#f0d9a8] font-semibold text-[10px] whitespace-nowrap"
+                          >
+                            antes de la compra
+                          </span>
+                        )}
                       </td>
                       <td className="px-5 py-3.5 text-[#45483c]">{consumption.plot_name}</td>
                       <td className="px-5 py-3.5 text-right text-[#45483c] whitespace-nowrap">
@@ -787,6 +801,9 @@ export const ComprasView: React.FC = () => {
         plots={plots}
         seasons={seasons}
         activeSeason={activeSeason}
+        /* MVP-708 (`P-057`) — el mismo vocabulario que el alta en línea: es el mismo campo de texto
+           libre (RN-031) y tener dos listas distintas en la misma pantalla era el origen del punto. */
+        suggestions={suggestions}
         pendingQuantity={consumptionForm?.purchase?.pending_quantity ?? null}
         isSubmitting={isSubmittingConsumption}
         errorMessage={consumptionError}

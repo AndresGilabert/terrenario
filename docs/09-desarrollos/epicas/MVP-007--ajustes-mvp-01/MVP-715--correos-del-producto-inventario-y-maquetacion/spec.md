@@ -1,8 +1,8 @@
----
+﻿---
 id: "MVP-715"
 tipo: feature
 titulo: "Correos del producto: inventario y maquetacion unificada"
-estado: borrador
+estado: completado
 prioridad: media
 sprint: ""
 hito: "Hito G — Ajustes de uso real"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "ajustes", "email"]
   nivel_riesgo: medio
 creado_en: "2026-08-07"
-actualizado_en: "2026-08-07"
+actualizado_en: "2026-08-08"
 ---
 
 # MVP-715 — Correos del producto: inventario y maquetacion unificada
@@ -40,6 +40,9 @@ aviso de solicitud a quien dio de baja y las notificaciones de la baja de cuenta
 LSSI/ePrivacy donde aplique); `P-030` anadio dos plantillas nuevas que refuerzan lo mismo.
 
 Ninguno esta roto: lo que falta es coherencia visual y de contenido, y saber cuantos son.
+
+> El recuento de este parrafo es el de partida y **resulto ser incorrecto**. Lo corregido esta en
+> «Hallazgo del inventario», mas abajo.
 
 ## Objetivo
 
@@ -80,13 +83,38 @@ legalmente tienen que decir, con una sola forma de componerlos.
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Existe el inventario de correos salientes en la KB, con disparador y destinatario.
-- [ ] **CA-2**: Todos los correos del inventario usan la plantilla comun.
-- [ ] **CA-3**: La plantilla incluye la identificacion del responsable y el motivo del envio.
-- [ ] **CA-4**: Cada correo tiene version en texto plano.
+- [x] **CA-1**: Existe el inventario de correos salientes en la KB, con disparador y destinatario.
+  `docs/06-integraciones/correos-del-producto.md`. **Son cinco, no cuatro**: ver «Hallazgo del
+  inventario» mas abajo.
+- [x] **CA-2**: Todos los correos del inventario usan la plantilla comun.
+  Los cinco se componen con `ProductEmailTemplate`; ningun emisor construye marcado.
+  `ProductEmailCatalog` los recorre en la suite.
+- [x] **CA-3**: La plantilla incluye la identificacion del responsable y el motivo del envio.
+  `ProductEmailInventoryTests.CadaCorreo_Deberia_IdentificarAlResponsableDelTratamiento` y
+  `...DecirPorQueSeEnvia`, sobre los cinco y en las dos versiones. La identidad sale del mismo
+  `legal-entity.json` que alimenta la Politica de Privacidad publicada, incrustado en la API.
+- [x] **CA-4**: Cada correo tiene version en texto plano.
+  `ProductEmailInventoryTests.CadaCorreo_Deberia_TenerVersionEnTextoPlano`. Las dos versiones salen
+  del mismo contenido, asi que no pueden decir cosas distintas.
 - [ ] **CA-5**: Verificado enviando cada tipo de correo de verdad y revisando el resultado en un cliente
   real, no solo la plantilla renderizada.
-- [ ] **CA-6**: Ninguna imagen ni recurso remoto de terceros en los correos.
+  **Pendiente del PO**: no se ha enviado ningun correo (no hay cuenta SMTP provisionada).
+  `ProductEmailPreviewTests` deja el HTML y el texto de los cinco en `artifacts/correos/` para que la
+  revision manual sea sobre el correo real y no sobre una maqueta.
+- [x] **CA-6**: Ninguna imagen ni recurso remoto de terceros en los correos.
+  `ProductEmailInventoryTests.CadaCorreo_Deberia_ViajarSinRecursosRemotos`: el unico atributo que
+  puede llevar una URL es `href`; se descartan ademas `<img>`, `<link>`, `<script>`, `@import`,
+  `@font-face`, `background-image` y `url(`.
+
+## Hallazgo del inventario
+
+El spec hablaba de «al menos» cuatro correos y contaba entre ellos unas **notificaciones de la baja de
+cuenta que no existen**: `CloseAccountHandler` no envia ningun correo. Lo que sale por ese camino es
+el aviso de baja de Workspace, porque cerrar la cuenta obliga antes a resolver los Workspaces de
+propiedad unica (RN-038).
+
+En cambio aparecieron **dos que nadie habia contado**: los avisos de alerta de operacion de `MVP-603`
+(disparada y resuelta), que eran el unico correo del producto sin maquetacion ninguna. Total: cinco.
 
 ## Maquetas y referencias visuales
 
@@ -96,9 +124,19 @@ No aplica: el prototipo no cubre correo.
 
 | Pantalla prototipo | Regla KB asociada | Estado | Evidencia de prueba |
 |---|---|---|---|
-| — | RN-017, RN-035 | falta | Composicion ad-hoc por tipo de correo |
+| — | RN-017, RN-035 | hecho | Los cinco correos por `ProductEmailTemplate`; `ProductEmailInventoryTests` (pie legal, motivo, texto plano y cero recursos remotos) y previews en `artifacts/correos/` |
 
 ## Notas y decisiones
 
 - El correo es la unica via del producto hacia alguien que **todavia no tiene cuenta**: la invitacion.
   Que se vea legitimo no es estetica, es tasa de aceptacion.
+- **La identidad del responsable no se copia**: sale del mismo `legal-entity.json` del que se
+  alimentan la Politica de Privacidad y los Terminos publicados, incrustado en la API al compilar.
+  Duplicar un NIF es divergir, y el sitio donde se nota es la bandeja de alguien.
+- **Los avisos de alerta de operacion entran en la plantilla** aunque vayan a una direccion interna:
+  un correo del producto es un correo del producto, y ahi el motivo del envio y el modo de apagarlos
+  son informacion util para quien herede esa bandeja.
+- El **«como dejar de recibirlo» no es igual en los cinco**, y se dice lo que se puede ofrecer de
+  verdad: en los avisos del ciclo de vida del Workspace, que no hay baja posible, en vez de simular
+  una que no existe.
+- Detalle tecnico en el [tech-design.md](./tech-design.md).

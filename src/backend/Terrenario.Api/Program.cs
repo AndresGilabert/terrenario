@@ -84,6 +84,12 @@ builder.Services.Configure<TelemetryOptions>(
     builder.Configuration.GetSection(TelemetryOptions.SectionName));
 builder.Services.Configure<OpsOptions>(
     builder.Configuration.GetSection(OpsOptions.SectionName));
+// MVP-715 — La identidad del responsable del tratamiento se puede ajustar por despliegue, pero lo
+// que no se configura sale del fichero versionado que comparte con las páginas legales: un campo en
+// blanco dejaría un hueco en un texto que la normativa obliga a publicar.
+builder.Services.AddOptions<LegalEntityOptions>()
+    .Bind(builder.Configuration.GetSection(LegalEntityOptions.SectionName))
+    .PostConfigure(legal => legal.FillBlanksFrom(VersionedLegalEntity.Value));
 
 // ── Database ─────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<TerrenarioDbContext>(options =>
@@ -265,6 +271,9 @@ builder.Services.AddScoped<IInvitationTokenService>(sp => sp.GetRequiredService<
 // Mismo esquema de token para los dos enlaces de un solo uso del producto: invitación y reactivación.
 builder.Services.AddScoped<IOneTimeTokenService>(sp => sp.GetRequiredService<InvitationTokenService>());
 builder.Services.AddScoped<SmtpMailer>();
+// MVP-715 — La única forma de componer un correo del producto. Singleton: no tiene estado, solo
+// opciones, y así ningún emisor puede acabar con una plantilla distinta.
+builder.Services.AddSingleton<ProductEmailTemplate>();
 builder.Services.AddScoped<IInvitationEmailSender, SmtpInvitationEmailSender>();
 builder.Services.AddScoped<IWorkspaceLifecycleEmailSender, SmtpWorkspaceLifecycleEmailSender>();
 builder.Services.AddScoped<CreateInvitationHandler>();

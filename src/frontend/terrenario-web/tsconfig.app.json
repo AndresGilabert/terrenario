@@ -7,6 +7,9 @@
     "types": ["vite/client"],
     "allowArbitraryExtensions": true,
     "skipLibCheck": true,
+    // MVP-715 — `config/legal-entity.json` es el origen único de la identidad del responsable del
+    // tratamiento, compartido con la API. Sin esto, importarlo no tipa.
+    "resolveJsonModule": true,
 
     /* Bundler mode */
     "moduleResolution": "bundler",

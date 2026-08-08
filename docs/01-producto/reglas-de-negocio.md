@@ -103,11 +103,24 @@ descartado, no diferido.
 
 **Estado**: activa
 **Fuente**: producto
-**Módulos afectados**: dashboard
+**Módulos afectados**: dashboard, diario
 
-La recarga del dashboard mantiene los filtros activos del usuario. Se materializa (MVP-405) con
-los filtros en la **URL** (`?season_id=…&plot_ids=…`): la recarga los conserva y el enlace es
-compartible. Desde MVP-706 «recarga» es la del navegador o la reentrada en la pantalla, no un botón.
+La recarga mantiene los filtros activos del usuario. Se materializa con los filtros en la **URL**: la
+recarga los conserva y el enlace es compartible.
+
+- **Dashboard** (MVP-405): `?season_id=…&plot_ids=…`.
+- **Diario** (MVP-705): `?type=…&plot_id=…&season_id=…&worker_id=…&search=…&page=…`. Es donde más
+  duele no tenerlo —cinco filtros y paginación— y se había quedado fuera (`P-072`).
+
+Dos condiciones para que la URL sea usable y no un vertedero:
+
+- **Los valores por defecto no se escriben.** «Todos», la página 1 y la búsqueda vacía se omiten, y la
+  temporada por defecto tampoco aparece: desde MVP-701 la resuelve el servidor (RN-008), así que
+  fijarla congelaría la campaña de trabajo del día en que se compartió el enlace.
+- **Escribir en el buscador no genera una entrada de historial por carácter.** El término ya rebotado
+  **sustituye** la entrada; los filtros y la página sí la añaden, para que «atrás» siga sirviendo.
+
+Desde MVP-706 «recarga» es la del navegador o la reentrada en la pantalla, no un botón.
 
 ---
 

@@ -11,6 +11,7 @@ import { createPurchaseService } from '../../services/purchase.service';
 import { createTaskService } from '../../services/task.service';
 import { createWorkerService } from '../../services/worker.service';
 import { HttpError } from '../../services/http-client';
+import { useDiaryUrlState } from '../../lib/diary-url-state';
 import { useSeasonScope } from '../../lib/season-scope';
 import { ALL_SEASONS } from '../../types/season.types';
 import {
@@ -25,7 +26,6 @@ import {
   DIARY_ENTRY_STYLES,
   DIARY_PAGE_SIZE,
   type DiaryEntry,
-  type DiaryEntryType,
   type DiaryListResponse,
 } from '../../types/diary.types';
 import {
@@ -122,22 +122,41 @@ export const DiarioView: React.FC = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const [plotFilter, setPlotFilter] = useState('todos');
+  /**
+   * MVP-705 (`P-072`) — Los seis filtros y la página viven en la **URL** (RN-007), no en el estado del
+   * componente. `RN-007` ya lo exigía y `MVP-405` lo materializó en el dashboard; el diario, que es
+   * donde más duele —cinco filtros y paginación—, se había quedado fuera.
+   */
+  const url = useDiaryUrlState();
+  const {
+    type: typeFilter,
+    plotId: plotFilter,
+    workerId: workerFilter,
+    search: appliedSearch,
+    page,
+    setFilter,
+    setPage,
+    setSearch,
+  } = url;
+
   // MVP-701 (`P-082`) — El defecto de temporada lo resuelve el servidor (RN-008): el diario ya no
-  // arranca en «todas» mientras el dashboard arrancaba en la campaña de trabajo.
-  const seasonScope = useSeasonScope();
+  // arranca en «todas» mientras el dashboard arrancaba en la campaña de trabajo. Desde MVP-705 la
+  // elección vive en la URL, así que el hook va en modo controlado: si la guardara también él,
+  // habría dos copias de lo mismo y podrían divergir.
+  const seasonScope = useSeasonScope({
+    selection: url.seasonSelection,
+    onSelect: useCallback((value: string) => setFilter({ seasonSelection: value }), [setFilter]),
+  });
   // Desestructurado para que las dependencias de `reload` sean identificadores estables y la regla de
   // exhaustividad de los hooks pueda comprobarlas.
   const { requested: seasonRequested, applyFromResponse: applySeasonScope } = seasonScope;
-  const [typeFilter, setTypeFilter] = useState<DiaryEntryType | 'todos'>('todos');
-  const [workerFilter, setWorkerFilter] = useState('todos');
-  const [searchTerm, setSearchTerm] = useState('');
+
   /**
-   * MVP-506 — El término que ya ha viajado al servidor. La búsqueda se resuelve allí (`P-052`),
-   * pero teclear no puede disparar una petición por letra: se espera a que la persona pare.
+   * Lo que se está tecleando. Es lo **único** de la navegación que no vive en la URL: escribirlo allí
+   * en cada pulsación llenaría el historial y dispararía una petición por letra (`MVP-506`). El
+   * término ya rebotado sí viaja a la URL, y de ahí sale `appliedSearch`.
    */
-  const [appliedSearch, setAppliedSearch] = useState('');
-  const [page, setPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState(appliedSearch);
 
   const [isModalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Activity | null>(null);
@@ -225,37 +244,30 @@ export const DiarioView: React.FC = () => {
    * MVP-506 — La búsqueda viaja al servidor, pero no en cada pulsación: se espera a que la persona
    * pare de teclear. Sin esta espera, escribir «sulfatado» serían nueve peticiones y nueve repintados
    * del muro; con ella, una.
+   *
+   * MVP-705 (CA-3/CA-4) — El rebote se conserva **tal cual** y lo que cambia es a dónde escribe: a la
+   * URL, y **sustituyendo** la entrada de historial. Escribir en la URL por pulsación dejaría una
+   * entrada por carácter y el botón «atrás» quedaría inservible.
    */
   useEffect(() => {
     if (searchTerm.trim() === appliedSearch) return;
 
-    const timer = setTimeout(() => {
-      setAppliedSearch(searchTerm.trim());
-      setPage(1);
-    }, 350);
+    const timer = setTimeout(() => setSearch(searchTerm.trim()), 350);
     return () => clearTimeout(timer);
-  }, [searchTerm, appliedSearch]);
+  }, [searchTerm, appliedSearch, setSearch]);
 
   /**
-   * Cualquier cambio de filtro devuelve a la primera página: seguir en la página 4 de un diario que
-   * acaba de reducirse a 12 entradas dejaría la pantalla vacía sin explicar por qué.
-   *
-   * Se hace **junto al cambio de filtro**, no en un efecto aparte: en un efecto, React llegaría a
-   * pintar un estado intermedio (filtro nuevo + página vieja) y saldría una petición de más, cuya
-   * respuesta puede además llegar la última. Aquí las dos actualizaciones van en el mismo lote.
+   * MVP-705 — Cuando la URL cambia **por fuera** —«atrás», «adelante», o un enlace pegado— el cuadro
+   * de búsqueda tiene que seguirla. La comparación con el término tecleado evita que este efecto pise
+   * lo que se está escribiendo: mientras se teclea, la URL todavía no ha cambiado.
    */
-  const changeFilter = (apply: () => void) => {
-    apply();
-    setPage(1);
-  };
+  useEffect(() => {
+    setSearchTerm((current) => (current.trim() === appliedSearch ? current : appliedSearch));
+  }, [appliedSearch]);
 
   const totalPages = Math.max(1, Math.ceil(summary.total / DIARY_PAGE_SIZE));
-  const hasFilters =
-    plotFilter !== 'todos' ||
-    seasonScope.isExplicit ||
-    typeFilter !== 'todos' ||
-    workerFilter !== 'todos' ||
-    appliedSearch !== '';
+  // MVP-705 — Lo decide la URL: si hay parámetro, hay filtro. Los defectos no llegan a escribirse.
+  const hasFilters = url.hasFilters;
 
   const missingMasters = useMemo(() => {
     const missing: { label: string; to: string }[] = [];
@@ -609,7 +621,7 @@ export const DiarioView: React.FC = () => {
             <select
               id="diary-type"
               value={typeFilter}
-              onChange={(e) => changeFilter(() => setTypeFilter(e.target.value as DiaryEntryType | 'todos'))}
+              onChange={(e) => setFilter({ type: e.target.value })}
               className="w-full px-3 py-2 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-xs font-medium text-[#1c1c19] focus:outline-none focus:border-[#33450d]"
             >
               <option value="todos">Todos los tipos</option>
@@ -625,7 +637,7 @@ export const DiarioView: React.FC = () => {
             <select
               id="diary-plot"
               value={plotFilter}
-              onChange={(e) => changeFilter(() => setPlotFilter(e.target.value))}
+              onChange={(e) => setFilter({ plotId: e.target.value })}
               className="w-full px-3 py-2 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-xs font-medium text-[#1c1c19] focus:outline-none focus:border-[#33450d]"
             >
               <option value="todos">Todos los terrenos</option>
@@ -640,7 +652,7 @@ export const DiarioView: React.FC = () => {
             <select
               id="diary-season"
               value={seasonScope.value}
-              onChange={(e) => changeFilter(() => seasonScope.select(e.target.value))}
+              onChange={(e) => seasonScope.select(e.target.value)}
               className="w-full px-3 py-2 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-xs font-medium text-[#1c1c19] focus:outline-none focus:border-[#33450d]"
             >
               {/* Hasta la primera respuesta no se sabe qué campaña aplica el servidor. */}
@@ -659,7 +671,7 @@ export const DiarioView: React.FC = () => {
             <select
               id="diary-worker"
               value={workerFilter}
-              onChange={(e) => changeFilter(() => setWorkerFilter(e.target.value))}
+              onChange={(e) => setFilter({ workerId: e.target.value })}
               className="w-full px-3 py-2 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-xs font-medium text-[#1c1c19] focus:outline-none focus:border-[#33450d]"
             >
               <option value="todos">Todos los responsables</option>
@@ -762,7 +774,7 @@ export const DiarioView: React.FC = () => {
         >
           <button
             type="button"
-            onClick={() => setPage((current) => Math.max(1, current - 1))}
+            onClick={() => setPage(Math.max(1, page - 1))}
             disabled={page <= 1}
             className="px-3 py-1.5 rounded-lg text-xs font-semibold text-[#33450d] hover:bg-[#f0ede8] disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
           >
@@ -780,7 +792,7 @@ export const DiarioView: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+            onClick={() => setPage(Math.min(totalPages, page + 1))}
             disabled={page >= totalPages}
             className="px-3 py-1.5 rounded-lg text-xs font-semibold text-[#33450d] hover:bg-[#f0ede8] disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
           >

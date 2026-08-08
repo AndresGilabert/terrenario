@@ -47,3 +47,6 @@ dist-ssr/
 # conflictos en un fichero que no describe el proyecto. La configuracion compartida (launch.json) si
 # se versiona, para que el arranque del servidor de desarrollo sea reproducible.
 .claude/settings.local.json
+# Worktrees efimeros del desarrollo en paralelo: son copias de trabajo del propio repositorio, no
+# contenido del proyecto. Sin esto, un `git add -A` las mete como repositorios embebidos.
+.claude/worktrees/

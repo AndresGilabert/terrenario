@@ -2,7 +2,7 @@
 id: "MVP-705"
 tipo: feature
 titulo: "Navegacion del diario en la URL"
-estado: borrador
+estado: completado
 prioridad: media
 sprint: ""
 hito: "Hito G — Ajustes de uso real"
@@ -67,14 +67,23 @@ diario reproduzca exactamente lo que veia quien lo comparte.
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Aplicar cualquiera de los seis filtros o cambiar de pagina se refleja en la URL.
-- [ ] **CA-2**: Pegar esa URL en otra pestana reproduce la misma vista.
-- [ ] **CA-3**: El boton «atras» del navegador devuelve al estado anterior de filtros, y escribir en la
-  busqueda no genera una entrada de historial por caracter.
-- [ ] **CA-4**: La busqueda sigue esperando 350 ms antes de disparar la peticion y una respuesta
-  obsoleta sigue sin poder vaciar el muro.
-- [ ] **CA-5**: Los valores por defecto (incluida la temporada de trabajo de `MVP-701`) no aparecen en
-  la URL.
+- [x] **CA-1**: Aplicar cualquiera de los seis filtros o cambiar de pagina se refleja en la URL.
+  Verificado en navegador: `?type=cosecha`, luego `?type=cosecha&plot_id=…`, y la paginacion escribe
+  `page` al avanzar.
+- [x] **CA-2**: Pegar esa URL en otra pestana reproduce la misma vista. Verificado con
+  `?season_id=all&page=2`: «Pagina 2 de 2 · 36 registros» y el selector de campana posicionado en
+  «todas».
+- [x] **CA-3**: El boton «atras» del navegador devuelve al estado anterior de filtros, y escribir en la
+  busqueda no genera una entrada de historial por caracter. Medido: **9 pulsaciones producen 1
+  `replaceState` y 0 `pushState`**; un cambio de filtro si produce `pushState`, y «atras» devuelve al
+  estado anterior con el cuadro de busqueda recuperando su termino.
+- [x] **CA-4**: La busqueda sigue esperando 350 ms antes de disparar la peticion y una respuesta
+  obsoleta sigue sin poder vaciar el muro. El rebote y la guarda `requestSeq` de `MVP-506` **no se han
+  tocado**, y sus 23 tests siguen pasando sin modificarlos: son la red que lo garantiza.
+- [x] **CA-5**: Los valores por defecto (incluida la temporada de trabajo de `MVP-701`) no aparecen en
+  la URL. «Todos», la pagina 1 y la busqueda vacia se omiten. La temporada por defecto tampoco se
+  escribe, y aqui el motivo va mas alla de la estetica: fijarla **congelaria la campana de trabajo del
+  dia en que se compartio el enlace**.
 
 ## Maquetas y referencias visuales
 
@@ -87,7 +96,7 @@ diario reproduzca exactamente lo que veia quien lo comparte.
 
 | Pantalla prototipo | Regla KB asociada | Estado | Evidencia de prueba |
 |---|---|---|---|
-| DiarioView | RN-007 (conservacion de filtros en recarga) | falta | Hoy solo lo cumple el dashboard |
+| DiarioView | RN-007 (conservacion de filtros en recarga) | hecho | Los seis filtros y la pagina en la URL, verificado en navegador |
 
 ## Notas y decisiones
 

@@ -96,11 +96,35 @@ legalmente tienen que decir, con una sola forma de componerlos.
 - [x] **CA-4**: Cada correo tiene version en texto plano.
   `ProductEmailInventoryTests.CadaCorreo_Deberia_TenerVersionEnTextoPlano`. Las dos versiones salen
   del mismo contenido, asi que no pueden decir cosas distintas.
-- [ ] **CA-5**: Verificado enviando cada tipo de correo de verdad y revisando el resultado en un cliente
-  real, no solo la plantilla renderizada.
-  **Pendiente del PO**: no se ha enviado ningun correo (no hay cuenta SMTP provisionada).
-  `ProductEmailPreviewTests` deja el HTML y el texto de los cinco en `artifacts/correos/` para que la
-  revision manual sea sobre el correo real y no sobre una maqueta.
+- [x] **CA-5**: Verificado **enviando cada tipo de correo de verdad** —los cinco, por SMTP, con el
+  `SmtpMailer` de produccion— contra un receptor local que captura lo que MailKit pone en el cable
+  (`scripts/smtp-sink.py`). No es un doble del emisor: habla SMTP por el socket.
+
+  El HTML renderizado **no bastaba**, y esa fue la correccion del PO. El cuerpo es justo lo unico que
+  no puede romperse en el envio; lo que solo aparece al poner el mensaje en el cable es el sobre. Medido
+  en los cinco: `multipart/alternative` con las dos partes en `utf-8` y `quoted-printable` —acentos
+  incluidos—, pie legal presente en **ambas** partes, `From`/`Subject` como los ve la bandeja, y
+  **ningun host remoto** en ninguno.
+
+  | Correo | Tamano | Partes | Pie legal | Remotos |
+  |---|---|---|---|---|
+  | Invitacion | 4.875 B | texto + HTML utf-8 | si | ninguno |
+  | Baja de Workspace | 4.454 B | texto + HTML utf-8 | si | ninguno |
+  | Solicitud de reactivacion | 4.045 B | texto + HTML utf-8 | si | ninguno |
+  | Alerta disparada | 3.398 B | texto + HTML utf-8 | si | ninguno |
+  | Alerta resuelta | 3.238 B | texto + HTML utf-8 | si | ninguno |
+
+  La **invitacion se probo ademas de extremo a extremo**: `POST /workspaces/invitations` contra la API
+  en marcha, sobre un Workspace desechable, con la API apuntando al receptor. Respondio
+  `email_sent: true` y el mensaje llego con la plantilla nueva.
+
+  Reproducible: `ProductEmailDeliveryTests` reenvia los cinco cuando se define
+  `TERRENARIO_SMTP_SINK_PORT`. Los `.eml` capturados se abren en Outlook, Thunderbird o Apple Mail como
+  un mensaje recibido, que es la parte de «cliente real» que queda en manos de quien revisa.
+
+  **Lo que sigue fuera de esto**: como se ve en Outlook clasico, Gmail y Apple Mail de verdad. El `<hr>`
+  y el `border-radius` degradan distinto en Outlook clasico; no es un fallo, pero es lo primero que
+  mirara el ojo.
 - [x] **CA-6**: Ninguna imagen ni recurso remoto de terceros en los correos.
   `ProductEmailInventoryTests.CadaCorreo_Deberia_ViajarSinRecursosRemotos`: el unico atributo que
   puede llevar una URL es `href`; se descartan ademas `<img>`, `<link>`, `<script>`, `@import`,

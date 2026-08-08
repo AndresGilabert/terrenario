@@ -37,9 +37,22 @@ export interface SeasonScopeSelection {
  * Vive aquí y no en cada vista porque son tres —diario, cosechas y compras— y la lección de `P-082` es
  * justamente esa: un defecto copiado en varios sitios acaba divergiendo.
  */
-export function useSeasonScope(): SeasonScopeSelection {
-  const [selection, setSelection] = useState<string>(SEASON_SCOPE_DEFAULT);
+/**
+ * MVP-705 — Modo **controlado**: quien llama guarda la elección donde quiera. Lo estrena el diario,
+ * cuya elección vive en la URL (RN-007) para que un enlace reproduzca lo que veía quien lo comparte.
+ * Sin esto, la elección estaría en dos sitios —el estado del hook y la URL— y podrían divergir.
+ */
+export interface SeasonScopeControl {
+  selection: string;
+  onSelect: (value: string) => void;
+}
+
+export function useSeasonScope(control?: SeasonScopeControl): SeasonScopeSelection {
+  const [localSelection, setLocalSelection] = useState<string>(SEASON_SCOPE_DEFAULT);
   const [applied, setApplied] = useState<SeasonScope | null>(null);
+
+  const selection = control ? control.selection : localSelection;
+  const setSelection = control ? control.onSelect : setLocalSelection;
 
   const isExplicit = selection !== SEASON_SCOPE_DEFAULT;
 
@@ -60,7 +73,7 @@ export function useSeasonScope(): SeasonScopeSelection {
     isExplicit,
     label,
     select: setSelection,
-    reset: useCallback(() => setSelection(SEASON_SCOPE_DEFAULT), []),
+    reset: useCallback(() => setSelection(SEASON_SCOPE_DEFAULT), [setSelection]),
     applyFromResponse: useCallback((scope: SeasonScope) => setApplied(scope), []),
   };
 }

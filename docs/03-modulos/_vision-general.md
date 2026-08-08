@@ -1,4 +1,4 @@
----
+﻿---
 bloque: 03-modulos
 documento: vision-general
 actualizado_en: "2026-08-08"
@@ -84,7 +84,7 @@ flowchart TD
 | `maestros-operativos` | `MVP-002` (salvo `MVP-206`), `MVP-302`, `MVP-407` |
 | `diario-y-operativa` | `MVP-003`, `MVP-506`, `MVP-703` |
 | `produccion-y-dashboard` | `MVP-004` (salvo `MVP-406`/`MVP-407`), `MVP-706`, `MVP-707` |
-| `plataforma-de-aplicacion` | `MVP-105`, `MVP-202`, `MVP-406`, `MVP-502`, `MVP-505`, `MVP-703` |
+| `plataforma-de-aplicacion` | `MVP-105`, `MVP-202`, `MVP-406`, `MVP-502`, `MVP-505`, `MVP-703`, `MVP-710` |
 | `observabilidad` | `MVP-006` (completa), `MVP-703` |
 
 > Varias historias tocan más de un módulo. Aparecen en todos aquellos a los que aportaron

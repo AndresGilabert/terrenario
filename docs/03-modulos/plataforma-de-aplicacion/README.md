@@ -1,4 +1,4 @@
----
+﻿---
 modulo: plataforma-de-aplicacion
 owner: "@andres"
 estado: activo
@@ -42,6 +42,8 @@ sabría dónde está descrito.
 - Shell del área operativa: cabecera, lateral, navegación, 404 dentro y fuera del shell, y la
   decisión de arranque en `HomeView`.
 - Presencia pública: landing y páginas legales de privacidad y términos.
+- Identidad del producto fuera de su propia pantalla (`MVP-710`): iconos de marca, `manifest.webmanifest`,
+  `theme-color` y las etiquetas sociales del documento, todo **autoalojado** por `RN-042`.
 
 **Fuera del scope de este módulo:**
 
@@ -73,7 +75,7 @@ sabría dónde está descrito.
 | Capa | Elementos |
 | ---- | --------- |
 | Backend | `Common/Errors`, `Common/Http` (`RequestId`, `SecurityHeaders`, `RequestMetrics`, `IfMatchHeader`, `PartialUpdateBody`), `Infrastructure/Data` |
-| Frontend | `lib/http-client.ts`, `contexts/{ApiContext,DataScopeContext}`, `routes/`, `components/{layout,home,errors,common,marketing,legal}`, `config/legal-entity.ts` |
+| Frontend | `lib/http-client.ts`, `contexts/{ApiContext,DataScopeContext}`, `routes/`, `components/{layout,home,errors,common,marketing,legal}`, `config/legal-entity.ts`, `index.html`, `public/` (iconos, manifest e imagen social) y `scripts/generar-iconos.mjs` |
 | Datos | Ninguna tabla propia: gestiona el `DbContext` y las migraciones de todo el esquema |
 
 ---
@@ -110,6 +112,7 @@ flowchart LR
 | [MVP-502](../../09-desarrollos/epicas/MVP-005--endurecimiento-y-salida-a-mvp/MVP-502--hardening-de-seguridad-y-validacion-de-pii/tech-design.md) | Endurecimiento del borde y validación de entrada |
 | [MVP-505](../../09-desarrollos/epicas/MVP-005--endurecimiento-y-salida-a-mvp/MVP-505--cumplimiento-funcional-de-salida/tech-design.md) | Páginas legales públicas y panel de privacidad |
 | [MVP-703](../../09-desarrollos/epicas/MVP-007--ajustes-mvp-01/MVP-703--arranque-en-el-diario-y-definicion-de-sesion-activa/tech-design.md) | Decisión de arranque en `HomeView` |
+| [MVP-710](../../09-desarrollos/epicas/MVP-007--ajustes-mvp-01/MVP-710--identidad-de-marca-y-presencia-del-producto/tech-design.md) | Iconos de marca, manifest y tarjeta social, todo autoalojado |
 | [Contratos de API](../../02-arquitectura/contratos-api.md) · [Componentes](../../02-arquitectura/componentes.md) | Convenciones de contrato y despiece C4, mantenidos de forma central |
 | [Estándares de código](../../04-ingenieria/estandares-codigo.md) | Convenciones que este chasis impone al resto |
 

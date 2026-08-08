@@ -88,6 +88,13 @@ instante exacto de la apertura, que es seguimiento de apertura aunque nadie lo h
 invitación se lo haría a alguien que ni siquiera es usuario del servicio—. Inventario en
 [correos-del-producto.md](../06-integraciones/correos-del-producto.md).
 
+`MVP-710` añadió los recursos de marca —iconos, `manifest.webmanifest` e imagen social— y los
+autoalojó desde el principio, en vez de recurrir a un generador en línea o a un CDN, que es la salida
+habitual para esta clase de ficheros. De paso amplió esa guarda: **solo miraba `src/`**, y los iconos,
+el manifest y las etiquetas de Open Graph viven en `index.html` y en `public/`, es decir, justo fuera
+del alcance que la comprobación tenía. Ahora los cubre, admitiendo el propio origen en las URL
+absolutas que Open Graph exige por formato.
+
 > **Corrección (2026-08-05).** Esta afirmación era **incorrecta** tal y como se verificó la primera
 > vez. La comprobación buscaba «cero peticiones a **dominios de Google**» y se hizo sobre la
 > aplicación autenticada, así que no vio una fotografía servida desde `images.unsplash.com` en la

@@ -140,7 +140,7 @@ o marcadores (`tu-cuenta@gmail.com`), salvo dos:
 
 | Dirección | Dónde | Decisión |
 |---|---|---|
-| `andresgilabertsanchez@gmail.com` | `prototype/.../initialData.ts` | **Sustituida**. Es `P-076` |
+| La personal del titular, en `gmail.com` (no se transcribe aquí: sería reintroducirla) | `prototype/.../initialData.ts` | **Sustituida**. Es `P-076` |
 | `hola@andresgilabert.dev` | `legal-entity.ts` y tres documentos | **Se conserva** |
 
 La segunda es real, pero no es una filtración: es el contacto del responsable del tratamiento donde se

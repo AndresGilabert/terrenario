@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useNotifications } from '../../contexts/NotificationsContext';
+import { Modal } from '../common/Modal';
 import { ReceivedInvitationCard } from './ReceivedInvitationCard';
 import { useInvitationActions } from './useInvitationActions';
 
@@ -7,44 +8,40 @@ import { useInvitationActions } from './useInvitationActions';
  * MVP-107 (HU-2, CA-3) — Modal no bloqueante que aparece al llegar a la operativa con una invitación
  * nueva pendiente. Se puede cerrar dejándola pendiente: no es una puerta obligatoria. Aceptar sitúa
  * la sesión en el Workspace; rechazar la declina sin sacar de la plataforma.
+ *
+ * `MVP-704` lo trajo a {@link Modal}. Tenía ya su propio `Escape` y su propio clic en el velo, escritos
+ * a mano y distintos de los de los demás: eran dos de las tres formas de hacer lo mismo que había en el
+ * producto. Lo que aporta el componente y aquí faltaba es apagar el fondo y atrapar el foco —justo lo
+ * que más importa en un diálogo que aparece **solo**, sin que nadie lo haya pedido, y que por tanto
+ * puede pillar al usuario tecleando en otra cosa—.
  */
 export const InvitationModal: React.FC = () => {
   const { newInvitation, dismissNew } = useNotifications();
   const { busyFor, error, acceptInvitation, rejectInvitation } = useInvitationActions();
 
-  // Cerrar con Escape, como cualquier modal descartable.
-  useEffect(() => {
-    if (!newInvitation) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') dismissNew();
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [newInvitation, dismissNew]);
+  const busy = newInvitation ? busyFor(newInvitation.id) : null;
 
   if (!newInvitation) return null;
 
-  const busy = busyFor(newInvitation.id);
-
   return (
-    <div
-      className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/40"
-      role="presentation"
-      onMouseDown={(event) => {
-        // Clic en el velo = cerrar y dejar pendiente. No cierra si hay una acción en curso.
-        if (event.target === event.currentTarget && busy === null) dismissNew();
-      }}
+    <Modal
+      isOpen
+      onClose={dismissNew}
+      title="Tienes una invitación"
+      header={null}
+      panelClassName="max-w-md"
+      // Mientras se acepta o se rechaza no se cierra por ninguna de las tres vías: el resultado hay
+      // que verlo, y era ya el criterio del clic en el velo antes de la unificación.
+      closeDisabled={busy !== null}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="invitation-modal-title"
-        className="w-full max-w-md bg-[#fcf9f4] rounded-2xl border border-[#e5e2dd] shadow-xl p-6 space-y-4"
-      >
+      {/* El panel de este diálogo es crema y no blanco. Se pinta desde dentro en vez de sobrescribir
+          el fondo del panel: dos utilidades de fondo en la misma clase dependerían del orden de la
+          hoja de estilos, que no es algo que se pueda dar por seguro. */}
+      <div className="bg-[#fcf9f4] p-6 space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2 text-xs font-bold text-[#33450d]">
             <span className="material-symbols-outlined text-base" aria-hidden="true">mail</span>
-            <span id="invitation-modal-title">Tienes una invitación</span>
+            <span>Tienes una invitación</span>
           </div>
           <button
             type="button"
@@ -79,6 +76,6 @@ export const InvitationModal: React.FC = () => {
           Decidir más tarde
         </button>
       </div>
-    </div>
+    </Modal>
   );
 };

@@ -8,6 +8,7 @@ using Terrenario.Api.Domain.Seasons;
 using Terrenario.Api.Domain.Users;
 using Terrenario.Api.Domain.Workers;
 using Terrenario.Api.Domain.Workspaces;
+using Terrenario.Api.Infrastructure.Auth;
 using Terrenario.Api.Infrastructure.Retention;
 
 namespace Terrenario.Api.Tests.Integration;
@@ -21,6 +22,9 @@ namespace Terrenario.Api.Tests.Integration;
 ///
 /// El instante se pasa como parámetro, así que probar una retención de 24 meses no exige esperarlos:
 /// se pregunta «¿qué habría que purgar dentro de 25 meses?».
+///
+/// <b>MVP-714 (CA-2)</b> añade los tokens de refresco. Su plazo son 30 días, no 24 meses, así que
+/// esos casos siembran las fechas hacia atrás y preguntan por <i>hoy</i>.
 /// </summary>
 public sealed class RetentionPurgeTests : RepositoryTestBase
 {
@@ -190,6 +194,121 @@ public sealed class RetentionPurgeTests : RepositoryTestBase
         (await db.WorkspaceInvitations.AnyAsync(i => i.Id == invitation.Id)).Should().BeFalse();
         (await db.Users.AnyAsync(u => u.Id == owner.Id)).Should().BeFalse();
     }
+
+    /// <summary>
+    /// MVP-714 (CA-2) — Los tokens de refresco muertos, con su plazo propio de 30 días.
+    ///
+    /// Se siembran las cuatro situaciones que se dan en la tabla y se comprueba <b>una sola pasada</b>
+    /// contra las cuatro: si se probaran por separado, un predicado que borrase de más pasaría igual
+    /// mientras el token vivo no estuviera delante.
+    /// </summary>
+    [Fact]
+    public async Task Deberia_PurgarLosTokensDeRefrescoMuertos_Y_NoTocarLosVivos()
+    {
+        var (owner, _) = await SeedWorkspaceAsync("tokens");
+        var ahora = DateTimeOffset.UtcNow;
+
+        // Caducado hace 31 días y nunca revocado: el usuario simplemente dejó de volver.
+        var caducado = NuevoToken(owner.Id, "caducado", expiresAt: ahora.AddDays(-31));
+
+        // Revocado hace 31 días por rotación, con la caducidad todavía por delante: es el caso
+        // masivo, uno por cada refresco de cada sesión activa.
+        var revocado = NuevoToken(
+            owner.Id, "revocado", expiresAt: ahora.AddDays(-1), revokedAt: ahora.AddDays(-31));
+
+        // Muerto, pero hace solo una semana: dentro del plazo, se queda.
+        var recienMuerto = NuevoToken(owner.Id, "reciente", expiresAt: ahora.AddDays(-7));
+
+        // Sesión viva. Que siga aquí es la mitad del criterio: la rutina no puede echar a nadie.
+        var vivo = NuevoToken(owner.Id, "vivo", expiresAt: ahora.AddDays(23));
+
+        Db.RefreshTokens.AddRange(caducado, revocado, recienMuerto, vivo);
+        await Db.SaveChangesAsync();
+
+        // `ahora`, no `PlazoCumplido`: el plazo de esta categoría no son 24 meses, así que se
+        // comprueba con el reloj de hoy. Con `PlazoCumplido` no se distinguiría de los demás.
+        var report = await NewService().PurgeAsync(ahora);
+
+        report.RefreshTokens.Should().Be(2);
+
+        await using var db = NewDb();
+        (await db.RefreshTokens.AnyAsync(rt => rt.Id == caducado.Id)).Should().BeFalse();
+        (await db.RefreshTokens.AnyAsync(rt => rt.Id == revocado.Id)).Should().BeFalse();
+        (await db.RefreshTokens.AnyAsync(rt => rt.Id == recienMuerto.Id)).Should().BeTrue(
+            "un token muerto hace una semana no ha cumplido los 30 días de RN-041");
+        (await db.RefreshTokens.AnyAsync(rt => rt.Id == vivo.Id)).Should().BeTrue(
+            "purgar una sesión abierta echaría al usuario, que es lo contrario de lo que se pide");
+    }
+
+    /// <summary>
+    /// MVP-714 — El día justo. Sin esto, un error de signo en <c>RefreshTokenCutoffFrom</c> daría
+    /// igual: el token de 31 días se borraría de todos modos.
+    /// </summary>
+    [Fact]
+    public async Task Deberia_RespetarElPlazoExactoDeTreintaDias()
+    {
+        var (owner, _) = await SeedWorkspaceAsync("frontera");
+        var ahora = DateTimeOffset.UtcNow;
+
+        var justoAntes = NuevoToken(
+            owner.Id, "justo-antes",
+            expiresAt: ahora.AddDays(-AccountRetentionPolicy.RefreshTokenRetentionDays).AddHours(-1));
+        var justoDespues = NuevoToken(
+            owner.Id, "justo-despues",
+            expiresAt: ahora.AddDays(-AccountRetentionPolicy.RefreshTokenRetentionDays).AddHours(1));
+
+        Db.RefreshTokens.AddRange(justoAntes, justoDespues);
+        await Db.SaveChangesAsync();
+
+        (await NewService().PurgeAsync(ahora)).RefreshTokens.Should().Be(1);
+
+        await using var db = NewDb();
+        (await db.RefreshTokens.AnyAsync(rt => rt.Id == justoAntes.Id)).Should().BeFalse();
+        (await db.RefreshTokens.AnyAsync(rt => rt.Id == justoDespues.Id)).Should().BeTrue();
+    }
+
+    /// <summary>
+    /// MVP-714 — El motivo real de <c>P-071</c>: <c>refresh_tokens</c> <b>no tiene FK</b> hacia
+    /// <c>users</c>, así que purgar la cuenta no arrastra sus tokens y las filas quedaban huérfanas
+    /// para siempre. Este test fija la conducta contra la que se escribió la línea nueva.
+    /// </summary>
+    [Fact]
+    public async Task Deberia_DejarHuerfanoElToken_Cuando_SePurgaLaCuentaYElTokenSigueEnPlazo()
+    {
+        var user = User.Create("sub-huerfano", "Andrés", "andres-huerfano@ejemplo.test");
+        Db.Users.Add(user);
+
+        // Revocado al cerrar la cuenta, como hace `CloseAccountHandler`.
+        var token = NuevoToken(user.Id, "huerfano", expiresAt: Ahora.AddDays(30), revokedAt: Ahora);
+        Db.RefreshTokens.Add(token);
+        user.Anonymize(Ahora);
+        await Db.SaveChangesAsync();
+
+        // A los 25 meses la cuenta cumple su plazo; el token cumplió el suyo mucho antes, así que
+        // esta pasada se lleva las dos cosas y no queda huérfano nada.
+        var report = await NewService().PurgeAsync(PlazoCumplido);
+
+        report.Accounts.Should().Be(1);
+        report.RefreshTokens.Should().Be(1);
+
+        await using var db = NewDb();
+        (await db.RefreshTokens.AnyAsync(rt => rt.UserId == user.Id)).Should().BeFalse(
+            "sin FK no hay cascada: si la rutina no los borra, no los borra nadie");
+    }
+
+    /// <summary>Token con las fechas puestas a mano: sembrar por el store obligaría a esperar 30 días.</summary>
+    private static RefreshTokenEntity NuevoToken(
+        Guid userId, string sufijo, DateTimeOffset expiresAt, DateTimeOffset? revokedAt = null) => new()
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            // El valor no se parece a un token real a propósito: no hace falta y el índice único solo
+            // exige que no se repita.
+            TokenHash = $"hash-{sufijo}-{Guid.NewGuid():N}",
+            ExpiresAt = expiresAt,
+            RevokedAt = revokedAt,
+            CreatedAt = expiresAt.AddDays(-30)
+        };
 
     [Fact]
     public async Task Deberia_SerIdempotente_Cuando_SeEjecutaDosVeces()

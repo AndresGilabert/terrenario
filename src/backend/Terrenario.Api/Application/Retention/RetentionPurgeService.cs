@@ -21,6 +21,9 @@ namespace Terrenario.Api.Application.Retention;
 /// <b>Orden</b>: de hijo a padre. Las FK hacia <c>users</c> son <c>Restrict</c> —a propósito, para
 /// que nada borre por accidente el rastro de quién hizo qué—, así que una cuenta solo puede
 /// purgarse cuando ya no la referencia nadie. Por eso va la última y por eso puede quedarse.
+///
+/// <b>MVP-714 (P-071)</b> añade una sexta categoría con <b>plazo propio</b>: los tokens de refresco
+/// muertos, a 30 días. Es la única línea que no usa el corte de 24 meses, y por eso se calculan dos.
 /// </summary>
 public sealed class RetentionPurgeService(TerrenarioDbContext db, AccountRetentionPolicy policy)
 {
@@ -33,6 +36,7 @@ public sealed class RetentionPurgeService(TerrenarioDbContext db, AccountRetenti
     public async Task<RetentionPurgeReport> PurgeAsync(DateTimeOffset now, CancellationToken ct = default)
     {
         var cutoff = policy.CutoffFrom(now);
+        var tokenCutoff = policy.RefreshTokenCutoffFrom(now);
 
         // 1. Invitaciones terminales. La caducada no es un estado persistido (se deriva de
         //    `expires_at`), así que se comprueba la fecha en vez del estado.
@@ -70,7 +74,27 @@ public sealed class RetentionPurgeService(TerrenarioDbContext db, AccountRetenti
         // 5. Cuentas dadas de baja que ya no referencia nadie.
         var (accounts, retained) = await PurgeAccountsAsync(cutoff, ct);
 
-        return new RetentionPurgeReport(invitations, reactivations, operational, workspaces, accounts, retained);
+        // 6. Tokens de refresco muertos (MVP-714, P-071). Va al final aunque cuelgue de una cuenta
+        //    porque `refresh_tokens` **no tiene FK** hacia `users`: no retiene a nadie ni la retiene
+        //    nadie, así que el orden es indiferente.
+        //
+        //    Esa ausencia de FK es justo lo que hacía falta arreglar. La suposición al registrar
+        //    P-071 era que la purga de la cuenta se llevaba los tokens por cascada y que el problema
+        //    era solo el plazo; en realidad no hay cascada que valga y las filas quedaban huérfanas
+        //    para siempre, sin cuenta a la que volver. Con esta línea desaparecen 30 días después de
+        //    morir, mucho antes de que la cuenta llegue a purgarse.
+        //
+        //    Un token muere en cuanto se revoca **o** caduca, lo que ocurra primero, y desde ahí
+        //    corre su plazo: de ahí el `OR`. Lo vivo —sin revocar y con `expires_at` en el futuro—
+        //    no puede cumplir ninguna de las dos condiciones, porque `expires_at > now > tokenCutoff`.
+        var refreshTokens = await db.RefreshTokens
+            .Where(rt =>
+                (rt.RevokedAt != null && rt.RevokedAt < tokenCutoff) ||
+                rt.ExpiresAt < tokenCutoff)
+            .ExecuteDeleteAsync(ct);
+
+        return new RetentionPurgeReport(
+            invitations, reactivations, operational, workspaces, accounts, refreshTokens, retained);
     }
 
     /// <summary>
@@ -115,12 +139,15 @@ public sealed record RetentionPurgeReport(
     int OperationalRecords,
     int Workspaces,
     int Accounts,
+    int RefreshTokens,
     int AccountsRetained)
 {
-    public int Total => Invitations + ReactivationRequests + OperationalRecords + Workspaces + Accounts;
+    public int Total =>
+        Invitations + ReactivationRequests + OperationalRecords + Workspaces + Accounts + RefreshTokens;
 
     public override string ToString() =>
         $"invitaciones={Invitations}, reactivaciones={ReactivationRequests}, " +
         $"registros operativos={OperationalRecords}, workspaces={Workspaces}, " +
-        $"cuentas={Accounts} (retenidas por referencias={AccountsRetained})";
+        $"cuentas={Accounts} (retenidas por referencias={AccountsRetained}), " +
+        $"tokens de refresco={RefreshTokens}";
 }

@@ -1,7 +1,7 @@
 ﻿---
 bloque: 07-seguridad
 documento: privacidad-datos
-actualizado_en: "2026-08-04"
+actualizado_en: "2026-08-08"
 ---
 
 # Privacidad de Datos y GDPR
@@ -206,6 +206,7 @@ Si no existe base juridica valida, el tratamiento queda prohibido.
 |-------------|-----------|------------------|
 | Datos de cuenta activa | Duración de la cuenta | — |
 | Datos de cuenta cancelada | 24 meses tras cancelación | Anonimización / borrado |
+| Sesión (token de refresco) | Hasta caducidad o revocación, **más 30 días** (RN-041) | Borrado físico |
 | Logs de transacciones de pago | 5 años (si existe obligacion legal aplicable al caso) | Archivado seguro |
 | Logs de acceso / auditoría | 12 meses | Borrado |
 | Datos de comportamiento | 6 meses | Anonimización |
@@ -228,18 +229,39 @@ criterio de 24 meses que ya regía para la cuenta cancelada:
 | Registro operativo eliminado lógicamente (RN-037) | `deleted_at` del registro | 24 meses | Borrado físico |
 | Solicitud de reactivación cerrada o caducada (RN-040) | Cierre o caducidad | 24 meses | Borrado físico |
 | Invitación en estado terminal (aceptada, rechazada, anulada o caducada) | Última transición | 24 meses | Borrado físico |
+| Token de refresco revocado o caducado (MVP-714) | `revoked_at` o `expires_at`, lo primero que ocurra | **30 días** | Borrado físico |
+
+#### Por qué la sesión tiene un plazo distinto (MVP-714, `P-071`)
+
+La fila de `refresh_tokens` es un **dato de sesión** —hash del token, cuenta y fechas—, no histórico
+operativo que nadie más pueda reconstruir. Aplicarle los 24 meses del resto sería conservador de más
+justo en la categoría que más filas genera: la rotación crea una fila por cada refresco, así que un
+usuario activo deja miles al año.
+
+Los 30 días son el mismo orden que la vida del propio token (`Auth:RefreshToken:LifetimeSeconds`, 30
+días), de modo que la regla se lee como «un token muerto no dura más de lo que habría durado vivo».
+Y dejan cuatro ciclos de la revisión operativa semanal de `observabilidad.md` para investigar una
+sesión sospechosa antes de que el rastro desaparezca, que es lo único que justifica conservarlo un
+solo día.
+
+Corrige además una suposición equivocada de `P-071`: se creía que purgar la cuenta arrastraba sus
+tokens por cascada y que el único problema era el plazo. **No hay tal cascada** —`refresh_tokens` no
+tiene FK hacia `users`—, así que las filas quedaban huérfanas indefinidamente. Con el plazo propio
+desaparecen 30 días después de morir, mucho antes de que la cuenta llegue a purgarse.
 
 **Los datos personales no esperan a ese plazo.** La baja de cuenta los borra o anonimiza en el acto
 —nombre, correo e identificador del proveedor de identidad, tanto en la cuenta como en los maestros de
 sus Workspaces y en las invitaciones que la nombraban—. Lo que se conserva 24 meses es la **fila
 anonimizada**, que ya no identifica a nadie y solo sostiene la autoría del histórico operativo.
 
-El plazo vive también en código (`AccountRetentionPolicy`) para que sea verificable y no solo
-declarado: la respuesta de la baja devuelve la fecha de purga concreta.
+Los plazos viven también en código (`AccountRetentionPolicy`) para que sean verificables y no solo
+declarados: la respuesta de la baja devuelve la fecha de purga concreta.
 
-> **Pendiente de despliegue**: la rutina que ejecuta el expurgo al vencer el plazo necesita una
-> programación periódica, que es una decisión de infraestructura. Queda anotado en el gate de
-> `MVP-504`. La política, el plazo y el cálculo de la fecha de purga sí están.
+Y **hay quien los ejecuta** desde `MVP-504` (`B-3`): `RetentionPurgeWorker` hace una pasada diaria
+dentro de la propia API —con cerrojo para que dos réplicas no purguen a la vez— y
+`RetentionPurgeService` aplica las seis categorías. Se retira aquí la nota que decía que la rutina
+seguía esperando una programación periódica de infraestructura: eso dejó de ser cierto al entregar
+`B-3`.
 
 ---
 

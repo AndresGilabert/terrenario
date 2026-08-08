@@ -3,6 +3,7 @@ import type {
   WorkspaceClosureOptions,
   WorkspaceClosureResult,
 } from '../../types/workspace-lifecycle.types';
+import { Modal } from '../common/Modal';
 
 type Decision = 'transfer' | 'delete';
 
@@ -44,19 +45,21 @@ export const CloseWorkspaceModal: React.FC<CloseWorkspaceModalProps> = ({
   const title = isAutoTransfer ? 'Salir y ceder mi propiedad' : 'Dar de baja el Workspace';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-xs" onClick={onCancel} aria-hidden="true" />
-
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="close-workspace-title"
-        className="relative z-10 w-full max-w-lg bg-white rounded-2xl border border-[#e5e2dd] shadow-xl p-6 space-y-5 max-h-[90vh] overflow-y-auto"
-      >
+    <Modal
+      isOpen
+      onClose={onCancel}
+      title={title}
+      // El encabezado va dentro, con el nombre del Workspace debajo: aquí importa mucho *cuál* se
+      // está cerrando, y en la cabecera por defecto no cabe esa segunda línea.
+      header={null}
+      // Cerrar al pulsar fuera descartaría una decisión larga —elegir destinatario— por un clic
+      // despistado. Antes sí cerraba: el velo llevaba un `onClick={onCancel}` sin más.
+      closeOnBackdrop={false}
+      closeDisabled={isBusy}
+    >
+      <div className="p-6 space-y-5 overflow-y-auto">
         <div className="space-y-1.5">
-          <h3 id="close-workspace-title" className="font-headline font-bold text-lg text-[#1c1c19]">
-            {title}
-          </h3>
+          <h3 className="font-headline font-bold text-lg text-[#1c1c19]">{title}</h3>
           <p className="text-sm text-[#45483c]">
             Workspace: <span className="font-semibold">{options.workspace.name}</span>
           </p>
@@ -192,6 +195,6 @@ export const CloseWorkspaceModal: React.FC<CloseWorkspaceModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };

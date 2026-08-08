@@ -6,6 +6,7 @@ import {
   CONSUMPTION_PRODUCT_MAX_LENGTH,
   type Consumption,
 } from '../../types/consumption.types';
+import { Modal } from '../common/Modal';
 
 /** Lo que el formulario devuelve; quien lo abre decide a qué endpoint va (MVP-304). */
 export interface ConsumptionFormValues {
@@ -139,194 +140,180 @@ export const ConsumptionFormModal: React.FC<ConsumptionFormModalProps> = ({
       : 'Registrar consumo sin compra';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-      <div className="bg-white rounded-2xl max-w-lg w-full border border-[#e5e2dd] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-        <div className="bg-[#f6f3ee] px-6 py-4 border-b border-[#e5e2dd] flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[#33450d] text-xl" aria-hidden="true">
-              {inheritsFromPurchase ? 'call_split' : 'inventory_2'}
-            </span>
-            <h3 className="font-headline font-bold text-lg text-[#1c1c19]">{title}</h3>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      icon={inheritsFromPurchase ? 'call_split' : 'inventory_2'}
+      closeDisabled={isSubmitting}
+    >
+      <form onSubmit={handleSubmit} className="p-6 space-y-4 text-sm overflow-y-auto" noValidate>
+        {/* Con compra, el material no se elige: lo pone la compra */}
+        {inheritsFromPurchase ? (
+          <div className="bg-[#f6f3ee] border border-[#e5e2dd] rounded-xl px-3.5 py-2.5">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#76786b]">Material</p>
+            <p className="text-sm font-bold text-[#1c1c19]">{product}</p>
+            {pendingQuantity !== null && (
+              <p className="text-[11px] text-[#76786b] mt-0.5">
+                Quedan {pendingQuantity.toLocaleString('es-ES')} por repartir de esta compra ·
+                {' '}{unitPrice.toLocaleString('es-ES', { maximumFractionDigits: 4 })} € por unidad.
+              </p>
+            )}
           </div>
+        ) : (
+          <div className="space-y-1.5">
+            <label htmlFor="consumption-product" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
+              Producto o material <span className="text-[#ba1a1a]">*</span>
+            </label>
+            <input
+              id="consumption-product"
+              type="text"
+              required
+              maxLength={CONSUMPTION_PRODUCT_MAX_LENGTH}
+              value={product}
+              onChange={(e) => setProduct(e.target.value)}
+              placeholder="ej. Abono que había en la nave"
+              disabled={isSubmitting}
+              className="w-full px-3.5 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
+            />
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <label htmlFor="consumption-plot" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
+              Terreno <span className="text-[#ba1a1a]">*</span>
+            </label>
+            <select
+              id="consumption-plot"
+              value={plotId}
+              onChange={(e) => setPlotId(e.target.value)}
+              disabled={isSubmitting}
+              className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
+            >
+              {plots.map((plot) => (
+                <option key={plot.id} value={plot.id}>{plot.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="consumption-quantity" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
+              Cantidad consumida <span className="text-[#ba1a1a]">*</span>
+            </label>
+            <input
+              id="consumption-quantity"
+              type="number"
+              min="0.01"
+              step="0.01"
+              required
+              autoFocus
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              placeholder="Aproximada"
+              disabled={isSubmitting}
+              className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <label htmlFor="consumption-date" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
+              Fecha <span className="text-[#ba1a1a]">*</span>
+            </label>
+            <input
+              id="consumption-date"
+              type="date"
+              required
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              disabled={isSubmitting}
+              className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="consumption-season" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
+              Temporada <span className="text-[#ba1a1a]">*</span>
+            </label>
+            <select
+              id="consumption-season"
+              value={seasonId}
+              onChange={(e) => setSeasonId(e.target.value)}
+              /* Con compra la temporada la hereda de ella: cambiarla aquí desalinearía el reparto */
+              disabled={isSubmitting || (inheritsFromPurchase && !isEdit)}
+              className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
+            >
+              {seasons.map((season) => (
+                <option key={season.id} value={season.id}>
+                  {season.name}
+                  {season.is_working ? ' · en curso' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {isOutOfSeasonRange && (
+          <p role="status" className="text-[11px] text-[#8a5a00] bg-[#fff6e5] border border-[#f0d9a8] rounded-lg px-2.5 py-1.5 flex items-start gap-1.5">
+            <span className="material-symbols-outlined text-sm shrink-0" aria-hidden="true">warning</span>
+            <span>
+              La fecha queda fuera del rango de «{selectedSeason?.name}». Puedes guardarla igual;
+              solo es un aviso.
+            </span>
+          </p>
+        )}
+
+        {/* CA-2 — el aviso de RN-032: sin compra el coste es 0 porque se desconoce */}
+        {inheritsFromPurchase ? (
+          projectedCost !== null && (
+            <p className="text-xs text-[#45483c] bg-[#eef2e0] border border-[#c9dba0] rounded-xl px-3 py-2 flex items-start gap-1.5">
+              <span className="material-symbols-outlined text-base shrink-0" aria-hidden="true">calculate</span>
+              <span>
+                Coste proporcional que se imputará:{' '}
+                <strong>{projectedCost.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</strong>.
+              </span>
+            </p>
+          )
+        ) : (
+          <p role="status" className="text-xs text-[#8a5a00] bg-[#fff6e5] border border-[#f0d9a8] rounded-xl px-3 py-2 flex items-start gap-1.5">
+            <span className="material-symbols-outlined text-base shrink-0" aria-hidden="true">info</span>
+            <span>
+              Como no hay una compra detrás, este consumo se guardará con <strong>coste 0</strong>:
+              queda el registro de qué se gastó y dónde, pero no cuánto costó. Si registras la compra
+              más adelante, este consumo <strong>no</strong> se recalculará.
+            </span>
+          </p>
+        )}
+
+        {shownError && (
+          <div role="alert" className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+            {shownError}
+          </div>
+        )}
+
+        <div className="pt-3 flex items-center justify-end gap-3 border-t border-[#e5e2dd]">
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            aria-label="Cerrar"
-            className="p-1 rounded-lg text-[#76786b] hover:bg-[#e5e2dd] disabled:opacity-60"
+            className="px-4 py-2 text-xs font-semibold text-[#45483c] hover:bg-[#f0ede8] rounded-xl disabled:opacity-60"
           >
-            <span className="material-symbols-outlined text-lg" aria-hidden="true">close</span>
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#33450d] hover:bg-[#4a5d23] text-white font-semibold text-xs rounded-xl shadow-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <span>
+              {isSubmitting ? 'Guardando…' : isEdit ? 'Guardar cambios' : 'Registrar consumo'}
+            </span>
+            <span className="material-symbols-outlined text-sm" aria-hidden="true">check</span>
           </button>
         </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 text-sm overflow-y-auto" noValidate>
-          {/* Con compra, el material no se elige: lo pone la compra */}
-          {inheritsFromPurchase ? (
-            <div className="bg-[#f6f3ee] border border-[#e5e2dd] rounded-xl px-3.5 py-2.5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#76786b]">Material</p>
-              <p className="text-sm font-bold text-[#1c1c19]">{product}</p>
-              {pendingQuantity !== null && (
-                <p className="text-[11px] text-[#76786b] mt-0.5">
-                  Quedan {pendingQuantity.toLocaleString('es-ES')} por repartir de esta compra ·
-                  {' '}{unitPrice.toLocaleString('es-ES', { maximumFractionDigits: 4 })} € por unidad.
-                </p>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              <label htmlFor="consumption-product" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
-                Producto o material <span className="text-[#ba1a1a]">*</span>
-              </label>
-              <input
-                id="consumption-product"
-                type="text"
-                required
-                maxLength={CONSUMPTION_PRODUCT_MAX_LENGTH}
-                value={product}
-                onChange={(e) => setProduct(e.target.value)}
-                placeholder="ej. Abono que había en la nave"
-                disabled={isSubmitting}
-                className="w-full px-3.5 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
-              />
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label htmlFor="consumption-plot" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
-                Terreno <span className="text-[#ba1a1a]">*</span>
-              </label>
-              <select
-                id="consumption-plot"
-                value={plotId}
-                onChange={(e) => setPlotId(e.target.value)}
-                disabled={isSubmitting}
-                className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
-              >
-                {plots.map((plot) => (
-                  <option key={plot.id} value={plot.id}>{plot.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label htmlFor="consumption-quantity" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
-                Cantidad consumida <span className="text-[#ba1a1a]">*</span>
-              </label>
-              <input
-                id="consumption-quantity"
-                type="number"
-                min="0.01"
-                step="0.01"
-                required
-                autoFocus
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                placeholder="Aproximada"
-                disabled={isSubmitting}
-                className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label htmlFor="consumption-date" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
-                Fecha <span className="text-[#ba1a1a]">*</span>
-              </label>
-              <input
-                id="consumption-date"
-                type="date"
-                required
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                disabled={isSubmitting}
-                className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label htmlFor="consumption-season" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
-                Temporada <span className="text-[#ba1a1a]">*</span>
-              </label>
-              <select
-                id="consumption-season"
-                value={seasonId}
-                onChange={(e) => setSeasonId(e.target.value)}
-                /* Con compra la temporada la hereda de ella: cambiarla aquí desalinearía el reparto */
-                disabled={isSubmitting || (inheritsFromPurchase && !isEdit)}
-                className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
-              >
-                {seasons.map((season) => (
-                  <option key={season.id} value={season.id}>
-                    {season.name}
-                    {season.is_working ? ' · en curso' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {isOutOfSeasonRange && (
-            <p role="status" className="text-[11px] text-[#8a5a00] bg-[#fff6e5] border border-[#f0d9a8] rounded-lg px-2.5 py-1.5 flex items-start gap-1.5">
-              <span className="material-symbols-outlined text-sm shrink-0" aria-hidden="true">warning</span>
-              <span>
-                La fecha queda fuera del rango de «{selectedSeason?.name}». Puedes guardarla igual;
-                solo es un aviso.
-              </span>
-            </p>
-          )}
-
-          {/* CA-2 — el aviso de RN-032: sin compra el coste es 0 porque se desconoce */}
-          {inheritsFromPurchase ? (
-            projectedCost !== null && (
-              <p className="text-xs text-[#45483c] bg-[#eef2e0] border border-[#c9dba0] rounded-xl px-3 py-2 flex items-start gap-1.5">
-                <span className="material-symbols-outlined text-base shrink-0" aria-hidden="true">calculate</span>
-                <span>
-                  Coste proporcional que se imputará:{' '}
-                  <strong>{projectedCost.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</strong>.
-                </span>
-              </p>
-            )
-          ) : (
-            <p role="status" className="text-xs text-[#8a5a00] bg-[#fff6e5] border border-[#f0d9a8] rounded-xl px-3 py-2 flex items-start gap-1.5">
-              <span className="material-symbols-outlined text-base shrink-0" aria-hidden="true">info</span>
-              <span>
-                Como no hay una compra detrás, este consumo se guardará con <strong>coste 0</strong>:
-                queda el registro de qué se gastó y dónde, pero no cuánto costó. Si registras la compra
-                más adelante, este consumo <strong>no</strong> se recalculará.
-              </span>
-            </p>
-          )}
-
-          {shownError && (
-            <div role="alert" className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-              {shownError}
-            </div>
-          )}
-
-          <div className="pt-3 flex items-center justify-end gap-3 border-t border-[#e5e2dd]">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="px-4 py-2 text-xs font-semibold text-[#45483c] hover:bg-[#f0ede8] rounded-xl disabled:opacity-60"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex items-center gap-2 px-5 py-2.5 bg-[#33450d] hover:bg-[#4a5d23] text-white font-semibold text-xs rounded-xl shadow-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <span>
-                {isSubmitting ? 'Guardando…' : isEdit ? 'Guardar cambios' : 'Registrar consumo'}
-              </span>
-              <span className="material-symbols-outlined text-sm" aria-hidden="true">check</span>
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </Modal>
   );
 };

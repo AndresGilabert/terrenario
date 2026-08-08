@@ -1,4 +1,4 @@
----
+﻿---
 modulo: identidad-y-workspaces
 owner: "@andres"
 estado: activo
@@ -51,6 +51,7 @@ consultar, porque toda entidad del sistema lleva `workspace_id` y se autoriza po
 
 | Término | Descripción |
 | ------- | ----------- |
+| Cuenta de Google | El proveedor de identidad del MVP (`RN-036`), **no un dominio de correo**: se da de alta con la dirección que la persona ya tiene, sea de Gmail o no. Los textos de acceso lo dicen desde `MVP-712` |
 | Workspace | Unidad de aislamiento y de autorización. Toda entidad operativa pertenece a uno |
 | Workspace activo | El que el usuario tiene seleccionado; se persiste en `users.active_workspace_id` |
 | Membresía | Relación usuario–Workspace con estado `invitado`/`activo`/`revocado` |

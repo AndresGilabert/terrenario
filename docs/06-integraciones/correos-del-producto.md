@@ -26,7 +26,7 @@ ninguna.
 
 | Correo | Disparador | Destinatario | Contenido | Emisor |
 |---|---|---|---|---|
-| Invitación a Workspace | `POST /api/v1/workspaces/invitations` y su reenvío (`.../{id}/resend`) | La dirección invitada, que **puede no tener cuenta** | Quién invita y a qué Workspace, enlace de aceptación de un solo uso, caducidad y qué hacer si no la esperaba | `SmtpInvitationEmailSender` |
+| Invitación a Workspace | `POST /api/v1/workspaces/invitations` y su reenvío (`.../{id}/resend`) | La dirección invitada, que **puede no tener cuenta** | Quién invita y a qué Workspace, enlace de aceptación de un solo uso, caducidad, qué hacer si no la esperaba y que esa misma dirección sirve aunque no sea de Gmail (`MVP-712`) | `SmtpInvitationEmailSender` |
 | Baja de Workspace | `POST /api/v1/workspaces/active/closure` | Cada miembro activo del Workspace que se da de baja | Quién lo dio de baja, que no se ha borrado nada y enlace de un solo uso para pedir traspaso y reactivación | `SmtpWorkspaceLifecycleEmailSender` |
 | Solicitud de traspaso y reactivación | `POST /api/v1/workspaces/reactivations/{token}/request` | Quien dio de baja el Workspace | Quién lo pide y enlace a su bandeja de autorizaciones (autorizar exige entrar con su cuenta) | `SmtpWorkspaceLifecycleEmailSender` |
 | Alerta de operación disparada | `AlertMonitor`, en su barrido de cada minuto | `Ops:AlertEmail` | Nombre y severidad de la alerta, detalle y runbook | `AlertNotifier` |

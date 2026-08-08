@@ -481,6 +481,10 @@ El flujo multiusuario del MVP debe soportar invitaciones a Workspace por email y
 
 El MVP sale con Google OIDC como único proveedor real de autenticación. Otros proveedores se consideran evolución posterior.
 
+**Cuenta de Google no es lo mismo que direccion de Gmail** (aclaracion de `MVP-712`, `P-089`; la regla no cambia). Una Cuenta de Google se da de alta con **una direccion de correo que ya se tiene** —Hotmail, Outlook, la de una cooperativa— sin crear ningun buzon nuevo. Lo que esta regla limita es el **proveedor de identidad**, no el dominio del correo, asi que ninguna direccion queda excluida del producto: queda excluida mientras no este dada de alta en Google, que es un paso que la persona puede dar.
+
+La consecuencia es de producto y obliga a los textos: login, landing, aviso de aptitud de invitacion y correo de invitacion deben decirlo, porque «accede con tu cuenta de Google» se lee como «necesitas un Gmail» y quien no lo tiene se descarta sin que nadie se entere.
+
 ---
 
 ### RN-037 — Borrado de registro operativo con confirmacion explicita

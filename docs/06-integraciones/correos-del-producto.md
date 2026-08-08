@@ -8,6 +8,7 @@ actualizado_en: "2026-08-08"
 
 > Qué correos salen de Terrenario, quién los recibe y qué garantiza la plantilla común.
 > Origen: `MVP-715`, que cierra `P-001` y `P-030` del registro de `MVP-999`.
+> Ampliado por `MVP-711`, que añade el sexto: el del canal de feedback.
 
 El transporte es común desde `MVP-206` (`SmtpMailer`, [ADR-0010](../02-arquitectura/decisiones/ADR-0010--envio-de-email-transaccional-por-smtp.md)).
 Desde `MVP-715` también lo es **la composición**: todos los correos de este inventario se arman con
@@ -17,12 +18,16 @@ Desde `MVP-715` también lo es **la composición**: todos los correos de este in
 
 ## Inventario
 
-Son **cinco**, no cuatro. El spec de `MVP-715` hablaba de «al menos» cuatro y contaba entre ellos unas
-notificaciones de baja de cuenta que **no existen**: dar de baja la cuenta no envía ningún correo. Lo
-que sí sale por ese camino es el aviso de baja de Workspace, porque cerrar la cuenta obliga antes a
-resolver los Workspaces de propiedad única (RN-038). Y aparecieron dos que nadie había contado: los
-avisos de alerta de operación de `MVP-603`, que eran el único correo del producto sin maquetación
+Son **seis**. `MVP-715` encontró cinco donde su spec decía «al menos cuatro» —contaba entre ellos unas
+notificaciones de baja de cuenta que **no existen**, porque dar de baja la cuenta no envía ningún
+correo; lo que sí sale por ese camino es el aviso de baja de Workspace, ya que cerrar la cuenta obliga
+antes a resolver los Workspaces de propiedad única (RN-038)— y descubrió dos que nadie había contado:
+los avisos de alerta de operación de `MVP-603`, que eran el único correo del producto sin maquetación
 ninguna.
+
+El sexto lo añade `MVP-711`: el reporte del **canal de sugerencias e incidencias**. Es el primero que
+llega después de que exista este inventario, y por eso importa cómo llegó: por la plantilla común y
+por el catálogo ejecutable, que es justo lo que `MVP-715` dejó pedido para cuando apareciera.
 
 | Correo | Disparador | Destinatario | Contenido | Emisor |
 |---|---|---|---|---|
@@ -31,10 +36,15 @@ ninguna.
 | Solicitud de traspaso y reactivación | `POST /api/v1/workspaces/reactivations/{token}/request` | Quien dio de baja el Workspace | Quién lo pide y enlace a su bandeja de autorizaciones (autorizar exige entrar con su cuenta) | `SmtpWorkspaceLifecycleEmailSender` |
 | Alerta de operación disparada | `AlertMonitor`, en su barrido de cada minuto | `Ops:AlertEmail` | Nombre y severidad de la alerta, detalle y runbook | `AlertNotifier` |
 | Alerta de operación resuelta | `AlertMonitor`, al detectar la transición | `Ops:AlertEmail` | Nombre de la alerta, cuánto duró y detalle | `AlertNotifier` |
+| Sugerencia o incidencia del usuario (MVP-711) | `POST /api/v1/feedback` desde «Sugerencias e incidencias» | `Feedback:Recipient` | Lo que ha escrito la persona, quién es y el contexto técnico: versión desplegada, pantalla, `X-Request-Id` del último fallo y navegador | `SmtpFeedbackEmailSender` |
 
-Los tres primeros van a personas; los dos últimos, a la dirección de operación. Se maquetan igual a
+Los tres primeros van a personas; los tres últimos, a buzones de operación. Se maquetan igual a
 propósito: un correo del producto es un correo del producto, y en los de alerta el motivo del envío y
 el modo de apagarlos son además información operativa útil para quien herede esa bandeja.
+
+El del canal de feedback es el único que **lo dispara una persona** y el único cuyo cuerpo contiene
+texto que escribe ella, que es exactamente el caso en el que olvidarse de escapar duele. Escapa la
+plantilla, no el emisor, así que no hay nada que recordar.
 
 **Sin cuenta de envío configurada no sale ninguno.** El arranque lo advierte y las invitaciones se
 comparten por enlace (`email_sent: false`); ver el plan de fallback en
@@ -44,7 +54,7 @@ comparten por enlace (`email_sent: false`); ver el plan de fallback en
 
 ## La plantilla común
 
-`ProductEmailTemplate` (`Infrastructure/Email/`) impone la misma estructura a los cinco:
+`ProductEmailTemplate` (`Infrastructure/Email/`) impone la misma estructura a los seis:
 
 - **Cabecera**: el nombre del remitente (`Email:FromName`) como texto, nunca como imagen.
 - **Cuerpo**: un titular y los párrafos del correo.
@@ -95,7 +105,7 @@ Privacidad y los Términos publicados; la API lo incrusta al compilar (`<Embedde
 CSP, que la API lee del build del cliente en lugar de duplicarla. Cada campo se puede sobreescribir
 por despliegue con `Legal:*`; un valor en blanco cae al versionado, igual que en el cliente.
 
-Sobre el «cómo dejar de recibirlo», los cinco no son iguales y **decirlo importa**:
+Sobre el «cómo dejar de recibirlo», los seis no son iguales y **decirlo importa**:
 
 - **Invitación**: es el único que llega a quien no es usuario, así que no puede ofrecer «sal del
   Workspace». Dice que no hay ninguna lista, que no se vuelve a escribir si no se acepta y que para
@@ -103,12 +113,14 @@ Sobre el «cómo dejar de recibirlo», los cinco no son iguales y **decirlo impo
 - **Baja de Workspace** y **solicitud de reactivación**: son avisos imprescindibles del servicio y no
   se pueden desactivar. Se dice tal cual, en vez de ofrecer una baja que no existe.
 - **Alertas**: se apagan retirando la dirección de `Ops:AlertEmail`.
+- **Sugerencias e incidencias**: se apagan retirando la dirección de `Feedback:Recipient`, con la
+  consecuencia dicha: el canal deja de existir para quien lo intente usar.
 
 ---
 
 ## Cómo revisar un correo
 
-`ProductEmailPreviewTests` escribe el HTML y el texto plano de los cinco en `artifacts/correos/` cada
+`ProductEmailPreviewTests` escribe el HTML y el texto plano de los seis en `artifacts/correos/` cada
 vez que corre la suite:
 
 ```bash
@@ -133,8 +145,8 @@ de que el olvido se note.
 - **Notificaciones in-app** (`P-011`, `P-029`): en backlog post-MVP.
 - **Correo de la baja de cuenta**: no existe hoy. Si `MVP-505` acaba necesitando uno, entra por esta
   plantilla como los demás.
-- **Canal de feedback** (`MVP-711`, en borrador): añadirá un sexto correo sobre el mismo
-  `SmtpMailer`. Cuando se implemente, tiene que entrar en este inventario y en el catálogo de la
-  suite.
+- **Acuse de recibo al usuario que reporta** (`MVP-711`): el canal no devuelve un correo de «hemos
+  recibido tu mensaje». La confirmación se da **en pantalla**, que es donde está la persona en ese
+  momento; un correo automático añadiría un séptimo envío para decir lo que ya se ha dicho.
 - **Seguimiento de aperturas, plataforma de envío o marketing**: fuera de alcance por decisión de
   producto, y las dos primeras incompatibles con la regla de no usar recursos remotos.

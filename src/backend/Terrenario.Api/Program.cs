@@ -9,6 +9,7 @@ using Terrenario.Api.Application.Activities;
 using Terrenario.Api.Application.Auth;
 using Terrenario.Api.Application.Consumptions;
 using Terrenario.Api.Application.Dashboard;
+using Terrenario.Api.Application.Feedback;
 using Terrenario.Api.Application.Diary;
 using Terrenario.Api.Application.Harvests;
 using Terrenario.Api.Application.Invitations;
@@ -38,6 +39,7 @@ using Terrenario.Api.Infrastructure.Auth;
 using Terrenario.Api.Infrastructure.Data;
 using Terrenario.Api.Infrastructure.Data.Repositories;
 using Terrenario.Api.Infrastructure.Email;
+using Terrenario.Api.Infrastructure.Feedback;
 using Terrenario.Api.Infrastructure.Invitations;
 using Terrenario.Api.Infrastructure.Telemetry;
 using Terrenario.Api.Infrastructure.Telemetry.Alerts;
@@ -86,6 +88,8 @@ builder.Services.Configure<TelemetryOptions>(
     builder.Configuration.GetSection(TelemetryOptions.SectionName));
 builder.Services.Configure<OpsOptions>(
     builder.Configuration.GetSection(OpsOptions.SectionName));
+builder.Services.Configure<FeedbackOptions>(
+    builder.Configuration.GetSection(FeedbackOptions.SectionName));
 // MVP-715 — La identidad del responsable del tratamiento se puede ajustar por despliegue, pero lo
 // que no se configura sale del fichero versionado que comparte con las páginas legales: un campo en
 // blanco dejaría un hueco en un texto que la normativa obliga a publicar.
@@ -279,6 +283,11 @@ builder.Services.AddScoped<SmtpMailer>();
 // MVP-715 — La única forma de componer un correo del producto. Singleton: no tiene estado, solo
 // opciones, y así ningún emisor puede acabar con una plantilla distinta.
 builder.Services.AddSingleton<ProductEmailTemplate>();
+// MVP-711 — Canal de feedback. El limitador es **singleton**: su cuenta es por usuario y tiene que
+// sobrevivir a la petición, igual que el estado de las alertas (`AlertStateStore`).
+builder.Services.AddSingleton<FeedbackRateLimiter>();
+builder.Services.AddScoped<IFeedbackEmailSender, SmtpFeedbackEmailSender>();
+builder.Services.AddScoped<SubmitFeedbackHandler>();
 builder.Services.AddScoped<IInvitationEmailSender, SmtpInvitationEmailSender>();
 builder.Services.AddScoped<IWorkspaceLifecycleEmailSender, SmtpWorkspaceLifecycleEmailSender>();
 builder.Services.AddScoped<CreateInvitationHandler>();
@@ -307,6 +316,11 @@ builder.Services.AddCors(options =>
             .WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod()
+            // MVP-711 — `AllowAnyHeader` es de **petición**: las de respuesta hay que exponerlas una
+            // a una o el navegador no deja leerlas. El canal de feedback adjunta el `X-Request-Id`
+            // de la última petición fallida, y sin esto ese dato sería `null` en cualquier despliegue
+            // con front y API en orígenes distintos (que es el de desarrollo: 5173 contra 5127).
+            .WithExposedHeaders(RequestIdMiddleware.HeaderName)
             .AllowCredentials();
     });
 });
@@ -350,6 +364,15 @@ if (opsConfigurados.AlertsEnabled && string.IsNullOrWhiteSpace(opsConfigurados.A
     app.Logger.LogWarning(
         "Vigilancia de alertas activa sin destinatario ('Ops:AlertEmail'). "
         + "Las alertas solo quedarán en la traza: nadie recibirá aviso.");
+
+// MVP-711 — Mismo criterio que los dos avisos de arriba: el destinatario del canal de feedback es un
+// secreto de despliegue (el repositorio es público), así que lo normal en una máquina de trabajo es
+// que falte. Lo que no puede pasar es que falte en producción sin que nadie se entere: sin buzón, la
+// aplicación ofrece un canal que responde «no disponible» a quien intenta usarlo.
+if (!(builder.Configuration.GetSection(FeedbackOptions.SectionName).Get<FeedbackOptions>() ?? new()).IsConfigured)
+    app.Logger.LogWarning(
+        "Sin buzón del canal de feedback ('Feedback:Recipient'). "
+        + "«Sugerencias e incidencias» responderá que el canal no está disponible.");
 
 if (!opsConfigurados.IsSignalsEndpointEnabled)
     app.Logger.LogWarning(

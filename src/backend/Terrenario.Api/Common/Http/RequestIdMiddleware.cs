@@ -28,12 +28,16 @@ public sealed class RequestIdMiddleware(RequestDelegate next, ILogger<RequestIdM
     private static string ResolveRequestId(HttpContext context)
     {
         var incoming = context.Request.Headers[HeaderName].ToString();
-        return IsValid(incoming) ? incoming : Guid.NewGuid().ToString("N");
+        return IsValidRequestId(incoming) ? incoming : Guid.NewGuid().ToString("N");
     }
 
     // Se acota el valor entrante para que no pueda inyectar contenido arbitrario en la traza ni en
     // el header de respuesta.
-    private static bool IsValid(string? value) =>
+    //
+    // MVP-711 — Pasa a ser público: el canal de feedback recibe del cliente el `X-Request-Id` de la
+    // última petición que le falló y tiene que descartarlo si no tiene esta forma. Se comparte la
+    // definición en vez de copiarla, que es como acaban divergiendo dos validaciones de lo mismo.
+    public static bool IsValidRequestId(string? value) =>
         !string.IsNullOrEmpty(value) &&
         value.Length <= MaxLength &&
         value.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_');

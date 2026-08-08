@@ -1,5 +1,6 @@
 import { marcarConConexion, marcarSinConexion } from '../lib/connectivity';
 import { API_BASE, readErrorBody } from './api.config';
+import { recordFailedRequest } from '../lib/report-context';
 
 /**
  * Error de una llamada HTTP con el contrato `{ error: { code, message } }` de la API
@@ -181,6 +182,12 @@ export function createHttpClient(opts: {
         if (response.status === 204) return undefined as T;
         return (await response.json()) as T;
       }
+
+      // MVP-711 — Se anota aquí, en el único punto por el que pasa toda la operativa, y no en cada
+      // pantalla: quien reporta un fallo casi nunca vuelve a la que lo provocó, y el canal de
+      // feedback necesita el identificador de **la** petición que falló, no el de la última que se
+      // hizo. La cabecera la emite `RequestIdMiddleware` desde MVP-105 (`P-006`).
+      recordFailedRequest(response.headers.get('X-Request-Id'));
 
       const errorBody = await readErrorBody(response);
       const code = errorBody?.error?.code ?? 'REQUEST_FAILED';

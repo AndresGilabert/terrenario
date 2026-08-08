@@ -8,6 +8,7 @@ import {
   HttpError,
   NETWORK_UNREACHABLE,
 } from './http-client';
+import { getReportContext, resetReportContext } from '../lib/report-context';
 import { estadoDeConexion, marcarConConexion } from '../lib/connectivity';
 
 /**
@@ -24,11 +25,14 @@ describe('createHttpClient', () => {
   const respondWith = (
     status: number,
     body: unknown,
-    init: { json?: boolean } = { json: true }
+    init: { json?: boolean; requestId?: string } = { json: true }
   ): Response =>
     ({
       ok: status >= 200 && status < 300,
       status,
+      // MVP-711 — Las respuestas de la API traen `X-Request-Id` desde MVP-105 (`P-006`), y el cliente
+      // lo lee para el canal de feedback. El doble tiene que traerlo o estaría probando otra cosa.
+      headers: new Headers(init.requestId ? { 'X-Request-Id': init.requestId } : {}),
       json: init.json === false ? () => Promise.reject(new Error('sin cuerpo')) : () => Promise.resolve(body),
     }) as unknown as Response;
 
@@ -186,6 +190,41 @@ describe('createHttpClient', () => {
         status: 500,
         code: 'REQUEST_FAILED',
       });
+    });
+  });
+
+  describe('correlación para el canal de feedback (MVP-711)', () => {
+    beforeEach(() => resetReportContext());
+
+    it('Deberia_RetenerLaCorrelacion_Cuando_UnaPeticionFalla', async () => {
+      fetchMock.mockResolvedValue(
+        respondWith(500, null, { json: false, requestId: 'a1b2c3d4e5f6' })
+      );
+
+      await expect(clientWith({}).request('/api/v1/plots')).rejects.toBeInstanceOf(HttpError);
+
+      // Es lo que convierte «me ha dado un error» en una línea concreta de la traza del servidor.
+      expect(getReportContext().lastFailedRequestId).toBe('a1b2c3d4e5f6');
+    });
+
+    it('Deberia_NoRetenerNada_Cuando_LaPeticionVaBien', async () => {
+      fetchMock.mockResolvedValue(respondWith(200, {}, { requestId: 'no-deberia-guardarse' }));
+
+      await clientWith({}).request('/api/v1/plots');
+
+      expect(getReportContext().lastFailedRequestId).toBeNull();
+    });
+
+    it('Deberia_ConservarElUltimoFallo_Cuando_ElSiguienteNoTraeCabecera', async () => {
+      fetchMock.mockResolvedValueOnce(respondWith(500, null, { json: false, requestId: 'el-bueno' }));
+      await expect(clientWith({}).request('/api/v1/plots')).rejects.toBeInstanceOf(HttpError);
+
+      // Sin cabecera —un proxy por medio, o CORS sin exponerla— es mejor el último identificador
+      // conocido que ninguno.
+      fetchMock.mockResolvedValueOnce(respondWith(500, null, { json: false }));
+      await expect(clientWith({}).request('/api/v1/plots')).rejects.toBeInstanceOf(HttpError);
+
+      expect(getReportContext().lastFailedRequestId).toBe('el-bueno');
     });
   });
 

@@ -44,7 +44,15 @@ const NAV_SECTIONS: NavSection[] = [
   },
   {
     title: 'Configuración',
-    items: [{ label: 'Ajustes', icon: 'settings', to: '/app/ajustes' }],
+    items: [
+      { label: 'Ajustes', icon: 'settings', to: '/app/ajustes' },
+      // MVP-711 (CA-1) — La entrada al canal va **en la navegación** y no como un panel al final de
+      // Ajustes. Ajustes termina en la zona de baja de cuenta, que está deliberadamente al final por
+      // ser lo irreversible (MVP-505): colgar el canal ahí lo dejaría por debajo de lo más peligroso
+      // de la aplicación, que es lo contrario de «entrada visible». Aquí se ve desde cualquier
+      // pantalla, que es donde hace falta cuando algo acaba de fallar.
+      { label: 'Sugerencias e incidencias', icon: 'feedback', to: '/app/feedback' },
+    ],
   },
 ];
 

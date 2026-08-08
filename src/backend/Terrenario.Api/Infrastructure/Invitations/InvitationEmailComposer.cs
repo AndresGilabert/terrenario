@@ -23,11 +23,23 @@ public static class InvitationEmailComposer
             [
                 Invitation(invitation),
                 "Terrenario es un cuaderno de campo para llevar el día a día de una explotación "
-                + "agrícola. Entra con tu cuenta de Google desde el enlace de abajo."
+                + "agrícola. Se entra con una Cuenta de Google, desde el enlace de abajo."
             ],
             Action = new EmailAction("Unirme al Workspace", invitation.AcceptUrl),
             Notes =
             [
+                // MVP-712 — Este correo llega a una dirección que puede no ser de Gmail, y es el
+                // primer contacto con el producto: si aquí se lee «cuenta de Google» como «Gmail»,
+                // no hay segunda pantalla donde desmentirlo. La invitación solo se acepta desde la
+                // dirección invitada, así que sin esta frase quien no tenga Cuenta de Google en ella
+                // se queda en un callejón sin salida (`P-089`).
+                //
+                // La dirección va en texto plano, no como enlace: la plantilla admite una sola
+                // llamada a la acción —que es aceptar la invitación— y añadir un segundo botón
+                // compitiendo con ella dejaría el correo sin acción principal.
+                "Esta misma dirección sirve, sea o no de Gmail: solo tiene que estar dada de alta "
+                + "como Cuenta de Google. Si todavía no lo está, puedes darla de alta gratis en "
+                + "https://accounts.google.com/signup y aceptar la invitación con ella.",
                 "El enlace es de un solo uso y caduca en unos días.",
                 "Si no esperabas esta invitación, puedes ignorar este mensaje: sin aceptarla no se "
                 + "crea ninguna cuenta a tu nombre y la invitación caduca sola."

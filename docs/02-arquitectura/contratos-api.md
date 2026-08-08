@@ -75,6 +75,7 @@ y se mantienen en español.
 | `invitation_status` | `pendiente`, `aceptada`, `rechazada`, `anulada` |
 | `reactivation_request_status` | `pendiente`, `solicitada`, `autorizada`, `denegada`, `cerrada` |
 | `diary_entry_type` (MVP-305) | `actividad`, `compra`, `consumo`, `cosecha` (los cuatro vivos desde `MVP-401`) |
+| `feedback_kind` (MVP-711) | `incidencia`, `sugerencia` — solo dos: quien está atascado no debería tener que clasificar su problema |
 
 ---
 
@@ -319,6 +320,39 @@ Validaciones y reglas:
 | `widgets` repetidos | Solo cuenta el primero de cada widget, para que no se pueda inflar la cobertura repitiendo |
 | Ningún widget reconocible en `dashboard_widgets` | `VALIDATION_REQUIRED` (400) |
 | La señal no contiene PII | Solo `event`, `timestamp`, `session_id`, `channel` y `device_type`. **No lleva usuario ni Workspace**, aunque el endpoint sea autenticado y el servidor los conozca (RN-042) |
+
+### 0.d bis) Canal de sugerencias e incidencias (MVP-711)
+
+| Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
+|---|---|---|---|
+| Enviar un reporte | `POST /api/v1/feedback` | `kind*`, `message*`, `path`, `last_failed_request_id` | `202` (sin cuerpo) |
+
+**Autenticada, sin ámbito de Workspace.** Autenticada porque el reporte lleva quién lo manda y porque
+el límite anti-abuso es por cuenta; sin ámbito de Workspace por el mismo motivo que la baja de cuenta
+(`MVP-505`): quien no tiene Workspace activo —o acaba de perderlo— es quien más motivos puede tener
+para escribir.
+
+El `202` confirma que **el correo ha salido**, no que alguien lo haya leído: el producto no tiene
+estados de reporte y no los finge.
+
+Validaciones y reglas:
+
+| Regla | Código error / comportamiento |
+|---|---|
+| `kind` dentro del catálogo `feedback_kind` | `VALIDATION_FEEDBACK_KIND_INVALID` (400) |
+| `message` no vacío tras recortar espacios | `VALIDATION_REQUIRED_FEEDBACK_MESSAGE` (400) |
+| `message` de 2000 caracteres como mucho | `VALIDATION_FEEDBACK_MESSAGE_LENGTH` (400) |
+| `path` con forma de ruta del cliente | Se **recorta la query y el fragmento** y se descarta lo que no tenga esa forma; nunca rechaza la petición |
+| `last_failed_request_id` con la forma que emite `RequestIdMiddleware` | Se descarta si no la tiene; nunca rechaza la petición |
+| Como mucho **3 reportes por hora y cuenta** | `RATE_LIMIT_FEEDBACK` (429) con cabecera `Retry-After`. El cupo se consume **al entregar**, no al intentar |
+| Sin `Feedback:Recipient` o sin cuenta de envío | `FEEDBACK_CHANNEL_UNAVAILABLE` (503) |
+| El proveedor de correo no acepta el envío | `FEEDBACK_DELIVERY_FAILED` (503). **No se confirma nada**: decir «enviado» sin haber enviado es peor que el fallo |
+
+El contexto técnico que acompaña al reporte **no lo compone el cliente**: la versión desplegada y el
+navegador los pone el servidor (ensamblado y cabecera `User-Agent`), y de lo que sí aporta el cliente
+solo se acepta lo que tiene forma de serlo. No viaja **nada de la explotación**: ni Workspace, ni
+temporada, ni identificadores de registros. Detalle del tratamiento en
+[privacidad-datos.md](../07-seguridad/privacidad-datos.md).
 
 ### 0.e) Salud y señales operativas (MVP-603)
 
@@ -986,6 +1020,9 @@ unidad canónica L/100kg (RN-013).
 | 400 | `FOREIGN_KEY_WORKSPACE_MISMATCH` | Un vínculo del registro operativo no existe en el Workspace activo |
 | 409 | `CONFLICT_VERSION_MISMATCH` | Colisión de versión por edición concurrente |
 | 422 | `BUSINESS_RULE_*` | Regla de negocio incumplida |
+| 429 | `RATE_LIMIT_FEEDBACK` | Cupo del canal de sugerencias e incidencias agotado (MVP-711). Lleva `Retry-After` |
+| 503 | `FEEDBACK_CHANNEL_UNAVAILABLE` | El canal no tiene buzón o cuenta de envío configurados (MVP-711) |
+| 503 | `FEEDBACK_DELIVERY_FAILED` | El proveedor de correo no aceptó el reporte; reintentar tiene sentido (MVP-711) |
 | 500 | `AUTH_GOOGLE_EXCHANGE_FAILED` | Fallo propio o del proveedor al intercambiar el código (MVP-713) |
 | 500 | `INTERNAL_ERROR` | Error inesperado trazable por `X-Request-Id` |
 

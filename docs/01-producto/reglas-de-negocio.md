@@ -1,7 +1,7 @@
 ﻿---
 bloque: 01-producto
 documento: reglas-de-negocio
-actualizado_en: "2026-07-28"
+actualizado_en: "2026-08-08"
 ---
 
 # Reglas de Negocio Globales
@@ -552,15 +552,27 @@ Los **datos personales no esperan a ese plazo**: la baja de cuenta los borra o a
 sus Workspaces y en las invitaciones que la nombraban—. Lo que se conserva es la fila anonimizada, que
 ya no identifica a nadie.
 
-El plazo vive tambien en codigo, no solo en la documentacion, para que sea verificable
-(`AccountRetentionPolicy`), y desde `MVP-504` **hay una rutina que lo ejecuta**: una pasada diaria
-purga lo que cumplio los 24 meses (`RetentionPurgeService`). Antes el plazo estaba declarado y no lo
+Los **tokens de refresco muertos** —revocados o caducados— son la excepcion al plazo comun: se
+conservan **30 dias** desde que mueren y despues se purgan. Lo que hay en `refresh_tokens` es un dato
+de sesion (hash del token, cuenta y fechas), no historico operativo que nadie mas pueda reconstruir,
+asi que los 24 meses serian conservadores de mas justo en la categoria que mas filas genera: la
+rotacion crea una fila por cada refresco, de modo que un usuario activo deja miles al año. Los 30 dias
+son el mismo orden que la vida del propio token, asi que **un token muerto no dura mas de lo que
+habria durado vivo**, y dejan cuatro ciclos de la revision operativa semanal para investigar una
+sesion sospechosa antes de que el rastro desaparezca, que es lo unico que justifica conservarlo un
+solo dia. Se cuenta desde la revocacion o desde la caducidad, **lo que ocurra primero**.
+
+Los plazos viven tambien en codigo, no solo en la documentacion, para que sean verificables
+(`AccountRetentionPolicy`), y desde `MVP-504` **hay una rutina que los ejecuta**: una pasada diaria
+purga lo que cumplio su plazo (`RetentionPurgeService`). Antes el plazo estaba declarado y no lo
 aplicaba nadie, que es peor que no declararlo.
 
 Una **cuenta anonimizada puede sobrevivir al plazo** si todavia la referencia algo vivo: las FK hacia
 `users` son `Restrict` para no borrar por accidente el rastro de quien hizo que. No es una excepcion a
 la regla ni una fuga —la fila dejo de identificar a nadie en el momento de la baja—, es limpieza
-pendiente, y la rutina la cuenta en su informe.
+pendiente, y la rutina la cuenta en su informe. Los tokens de refresco **no** son ese caso: no tienen
+FK hacia `users`, asi que purgar la cuenta nunca se los llevo por cascada y quedaban huerfanos para
+siempre. Su plazo propio es tambien lo que cierra ese hueco.
 
 ### RN-042 — Ninguna tecnologia no esencial se activa sin consentimiento
 

@@ -1,11 +1,24 @@
 import { Terreno, DiarioEntry, HarvestRecord, Worker, PurchaseRecord, WorkspaceConfig } from '../types';
 
+/**
+ * MVP-714 (P-076) — Estos son datos de maqueta y **ninguno puede ser real**.
+ *
+ * `userEmail` contenía la dirección personal del titular. El prototipo no se despliega, pero el
+ * repositorio es público y ahí la recogen los rastreadores de spam. Se sustituye por una dirección
+ * de ejemplo sobre `ejemplo.test`, que es un TLD reservado y por tanto no entregable ni registrable.
+ *
+ * **El historial de git sigue conservando la dirección original**, y eso se acepta a sabiendas: el
+ * PO descartó reescribir la historia porque invalidaría clones, tags y referencias existentes
+ * —incluidos los tags de release desde los que se despliega— y no recuperaría lo ya copiado. La
+ * mitigación real es que no vuelva a entrar: si alguna vez hace falta un dato de contacto de verdad
+ * en la maqueta, no va aquí.
+ */
 export const initialWorkspace: WorkspaceConfig = {
   nombreWorkspace: 'Finca El Olivar',
   temporadaActiva: 'Campaña 2024',
   fechaInicioTemporada: '2024-01-15',
   fechaFinEstimada: '2024-12-30',
-  userEmail: 'andresgilabertsanchez@gmail.com',
+  userEmail: 'juan.perez@ejemplo.test',
   userName: 'Juan Pérez',
   userAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAXAO-74S9-2IPDCvPZqJFAtxDV5Bn0xzBbLjzqD5KG5GgKmKJ77c9cCMttqK45autdTP1NXkrAWiD_YD-e5ro3cbGckg8xZz01WdfK1IvgCixvfZfYn7hvEUY_-L2qVKEspE1p1C2bpMI0sSdVT1DJrvOWdb1UFdkJQb6taU0SY6iydmwUsUJWQs9j-6lpqDu0zlO7Ik98VdLMCYGjH9qCZMFuG33knY-kkxev306Ul8HHSx19RSj6wA'
 };

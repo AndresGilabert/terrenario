@@ -1,6 +1,6 @@
 ﻿# Índice — MVP-007--ajustes-mvp-01: Ajustes MVP 01
 
-> **Progreso**: 6/17 completadas · **Hito**: Hito G — Ajustes de uso real
+> **Progreso**: 5/17 completadas · **Hito**: Hito G — Ajustes de uso real
 > _Generado automáticamente por `validar_kb.py`. No editar manualmente._
 
 | Historia | Título | Estado | Responsable | Prioridad |
@@ -17,8 +17,8 @@
 | [MVP-710](./MVP-710--identidad-de-marca-y-presencia-del-producto/spec.md) | Identidad de marca y presencia del producto | 📝 borrador | @andres | media |
 | [MVP-711](./MVP-711--canal-de-feedback-del-usuario/spec.md) | Canal de feedback del usuario | 📝 borrador | @andres | media |
 | [MVP-712](./MVP-712--acceso-con-cualquier-direccion-de-correo/spec.md) | Acceso con cualquier direccion de correo | 📝 borrador | @andres | media |
-| [MVP-713](./MVP-713--errores-de-oauth-y-ruido-en-las-alertas/spec.md) | Errores de OAuth y ruido en las alertas | ✔️ completado | @andres | media |
-| [MVP-714](./MVP-714--higiene-de-datos-retencion-y-secretos/spec.md) | Higiene de datos: retencion de sesiones y secretos en el repositorio | 📝 borrador | @andres | baja |
+| [MVP-713](./MVP-713--errores-de-oauth-y-ruido-en-las-alertas/spec.md) | Errores de OAuth y ruido en las alertas | 📝 borrador | @andres | media |
+| [MVP-714](./MVP-714--higiene-de-datos-retencion-y-secretos/spec.md) | Higiene de datos: retencion de sesiones y secretos en el repositorio | ✔️ completado | @andres | baja |
 | [MVP-715](./MVP-715--correos-del-producto-inventario-y-maquetacion/spec.md) | Correos del producto: inventario y maquetacion unificada | 📝 borrador | @andres | media |
-| [MVP-716](./MVP-716--consolidacion-del-catalogo-de-modulos/spec.md) | Consolidacion del catalogo de modulos | ✔️ completado | @andres | baja |
+| [MVP-716](./MVP-716--consolidacion-del-catalogo-de-modulos/spec.md) | Consolidacion del catalogo de modulos | 📝 borrador | @andres | baja |
 | [MVP-799](./MVP-799--revision-epica/spec.md) | Revision epica | 📝 borrador | @andres | media |

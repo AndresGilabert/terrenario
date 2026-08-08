@@ -7,10 +7,12 @@ Te invitan a Finca El Olivar
 
 Antonio te invita a colaborar en Finca El Olivar dentro de Terrenario.
 
-Terrenario es un cuaderno de campo para llevar el día a día de una explotación agrícola. Entra con tu cuenta de Google desde el enlace de abajo.
+Terrenario es un cuaderno de campo para llevar el día a día de una explotación agrícola. Se entra con una Cuenta de Google, desde el enlace de abajo.
 
 Unirme al Workspace:
 https://app.terrenario.com/invitations/token-en-claro
+
+Esta misma dirección sirve, sea o no de Gmail: solo tiene que estar dada de alta como Cuenta de Google. Si todavía no lo está, puedes darla de alta gratis en https://accounts.google.com/signup y aceptar la invitación con ella.
 
 El enlace es de un solo uso y caduca en unos días.
 

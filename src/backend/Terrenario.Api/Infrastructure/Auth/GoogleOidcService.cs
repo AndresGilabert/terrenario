@@ -84,11 +84,21 @@ public sealed class GoogleOidcService : IGoogleOidcService
             // «los tokens y credenciales del proveedor no se almacenarán en claro en logs»
             // (`privacidad-datos.md`). Se conserva solo el código de error de OAuth, que es lo único
             // que sirve para diagnosticar y es un valor de vocabulario cerrado.
-            _logger.LogWarning(
-                "Intercambio de código con Google fallido ({StatusCode}, {OAuthError}).",
+            var oauthError = await ReadOAuthErrorAsync(response, ct);
+            var errorCode = GoogleOAuthErrors.ToErrorCode(oauthError);
+
+            // MVP-713 (`P-079`) — El nivel también se clasifica. Recargar la pantalla de vuelta de
+            // Google es un suceso normal del uso, no una anomalía que alguien deba mirar: dejarlo en
+            // `Warning` seguiría llenando de ruido el mismo canal por el que se diagnostican los fallos
+            // de verdad, que es la otra mitad del problema que resuelve esta historia.
+            _logger.Log(
+                GoogleOidcErrorMapper.IsServerFault(errorCode) ? LogLevel.Warning : LogLevel.Information,
+                "Intercambio de código con Google fallido ({StatusCode}, {OAuthError}, {ErrorCode}).",
                 (int)response.StatusCode,
-                await ReadOAuthErrorAsync(response, ct));
-            throw new GoogleOidcException("Intercambio de código con Google fallido.", ErrorCodes.AuthGoogleExchangeFailed);
+                oauthError,
+                errorCode);
+
+            throw new GoogleOidcException("Intercambio de código con Google fallido.", errorCode);
         }
 
         var tokenResponse = await response.Content.ReadFromJsonAsync<GoogleTokenResponse>(ct)
@@ -102,17 +112,20 @@ public sealed class GoogleOidcService : IGoogleOidcService
     /// (RFC 6749 §5.2), que es un vocabulario cerrado (<c>invalid_grant</c>, <c>invalid_client</c>…)
     /// y por tanto seguro de registrar. Si el cuerpo no tiene esa forma no se registra nada de él:
     /// una carga ajena que no reconocemos no puede acabar en un log.
+    ///
+    /// MVP-713 — Desde esta historia el valor además <b>clasifica</b> la respuesta
+    /// (<see cref="GoogleOAuthErrors"/>), así que ya no es solo material de diagnóstico.
     /// </summary>
     private static async Task<string> ReadOAuthErrorAsync(HttpResponseMessage response, CancellationToken ct)
     {
         try
         {
             var error = await response.Content.ReadFromJsonAsync<GoogleOAuthError>(ct);
-            return string.IsNullOrWhiteSpace(error?.Error) ? "sin_detalle" : error.Error;
+            return string.IsNullOrWhiteSpace(error?.Error) ? GoogleOAuthErrors.Unknown : error.Error;
         }
         catch
         {
-            return "sin_detalle";
+            return GoogleOAuthErrors.Unknown;
         }
     }
 

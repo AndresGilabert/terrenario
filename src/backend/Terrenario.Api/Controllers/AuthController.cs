@@ -59,15 +59,20 @@ public sealed class AuthController(
                 workspace = ToWorkspacePayload(result.Workspace)
             });
         }
-        catch (GoogleOidcException ex) when (ex.ErrorCode == ErrorCodes.AuthGoogleTokenInvalid)
+        catch (GoogleOidcException ex)
         {
-            return Unauthorized(new ApiErrorResponse(ApiError.GoogleTokenInvalid()));
-        }
-        catch (GoogleOidcException ex) when (ex.ErrorCode == ErrorCodes.AuthGoogleExchangeFailed)
-        {
-            logger.LogError(ex, "Google code exchange failed for flow {FlowId}", flowId);
-            return StatusCode(StatusCodes.Status500InternalServerError,
-                new ApiErrorResponse(ApiError.GoogleExchangeFailed()));
+            // MVP-713 (`P-079`) — Una sola captura sobre la tabla de clasificación, en vez de una
+            // cláusula por código: un código nuevo sin clasificar se resuelve como 500 (el defecto
+            // conservador) en lugar de escaparse sin capturar, que era lo que ocurría antes.
+            var statusCode = GoogleOidcErrorMapper.StatusFor(ex.ErrorCode);
+
+            // `LogError` solo para lo que de verdad es un fallo del servidor. Un código de Google
+            // caducado no es una incidencia: es alguien recargando la pantalla de vuelta.
+            if (GoogleOidcErrorMapper.IsServerFault(ex.ErrorCode))
+                logger.LogError(ex, "Intercambio de código con Google fallido en el flujo {FlowId}.", flowId);
+
+            return StatusCode(statusCode,
+                new ApiErrorResponse(GoogleOidcErrorMapper.ToApiError(ex.ErrorCode)));
         }
     }
 

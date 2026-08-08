@@ -1,7 +1,7 @@
 ﻿---
 bloque: 02-arquitectura
 documento: contratos-api
-actualizado_en: "2026-07-29"
+actualizado_en: "2026-08-08"
 ---
 
 # Contratos de API
@@ -272,6 +272,30 @@ cliente decidir qué se cuenta con solo mandar un valor inválido.
 > El detalle de eventos y campos mínimos del embudo vive en
 > `../07-seguridad/autenticacion-autorizacion.md`; cómo se explotan (contadores agregados y ventanas
 > de los SLO) en `../05-infraestructura/observabilidad.md`.
+
+### 0.c bis) Errores del intercambio de código con Google (MVP-713)
+
+Cuando `POST /api/v1/auth/google/callback` no puede completar el intercambio, el código de respuesta
+depende de **de quién es el error**, según el vocabulario cerrado del endpoint de token de OAuth 2.0
+(RFC 6749 §5.2).
+
+| `error` de Google | HTTP | Código de la API | Qué ha pasado |
+|---|---|---|---|
+| `invalid_grant` | 401 | `AUTH_GOOGLE_CODE_INVALID` | El código de autorización ya se usó o caducó. **Recargar la pantalla de vuelta de Google basta para provocarlo**: el código es de un solo uso |
+| `invalid_request` | 400 | `AUTH_GOOGLE_REQUEST_INVALID` | Falta un parámetro del intercambio o viene mal formado. Los tres que aporta el cliente (`code`, `redirect_uri`, `code_verifier`) son suyos |
+| `invalid_client`, `unauthorized_client` | 500 | `AUTH_GOOGLE_EXCHANGE_FAILED` | Credenciales o registro de la aplicación mal configurados: es nuestro |
+| cualquier otro, o sin `error` legible | 500 | `AUTH_GOOGLE_EXCHANGE_FAILED` | Caída de Google o respuesta que no se entiende |
+| — (el intercambio va bien y falla la validación del `id_token`) | 401 | `AUTH_GOOGLE_TOKEN_INVALID` | Sin cambios desde MVP-101 |
+
+Por qué importa el código de estado y no solo el mensaje: **el SLO de tasa de error y la alerta
+`HighErrorRate` se calculan sobre las respuestas 5xx**. Hasta `MVP-713`, cualquier respuesta no
+exitosa de Google se traducía a `AUTH_GOOGLE_EXCHANGE_FAILED` → 500, así que recargar la pantalla de
+callback contaba como fallo del servicio; un solo caso sobre 70 peticiones dio 1,43 % y disparó una
+alerta **crítica** con correo real (`MVP-699`, `R-04` · `MVP-999`, `P-079`).
+
+Lo que **no** está clasificado como error de quien llama responde 500 **por defecto**. La dirección
+del defecto es deliberada: un fallo propio contado como error de cliente desaparece de las alertas, y
+eso es peor que una alerta de más.
 
 ### 0.d) Señales de uso del producto (MVP-602)
 
@@ -950,7 +974,10 @@ unidad canónica L/100kg (RN-013).
 | HTTP | Código | Uso |
 |---|---|---|
 | 400 | `VALIDATION_*` | Error de campos o formato |
+| 400 | `AUTH_GOOGLE_REQUEST_INVALID` | Falta un dato del intercambio con Google (MVP-713) |
 | 401 | `AUTH_UNAUTHENTICATED` | Token ausente/inválido |
+| 401 | `AUTH_GOOGLE_CODE_INVALID` | El código de autorización de Google ya se usó o caducó (MVP-713) |
+| 401 | `AUTH_GOOGLE_TOKEN_INVALID` | El `id_token` de Google no valida |
 | 403 | `AUTH_WORKSPACE_FORBIDDEN` | Acceso fuera de workspace |
 | 403 | `AUTH_WORKSPACE_SCOPE_REQUIRED` | Operación que exige Workspace activo en la sesión |
 | 403 | `AUTH_WORKSPACE_OWNER_REQUIRED` | Operación reservada al propietario del Workspace (baja y traspaso, RN-038) |
@@ -959,6 +986,7 @@ unidad canónica L/100kg (RN-013).
 | 400 | `FOREIGN_KEY_WORKSPACE_MISMATCH` | Un vínculo del registro operativo no existe en el Workspace activo |
 | 409 | `CONFLICT_VERSION_MISMATCH` | Colisión de versión por edición concurrente |
 | 422 | `BUSINESS_RULE_*` | Regla de negocio incumplida |
+| 500 | `AUTH_GOOGLE_EXCHANGE_FAILED` | Fallo propio o del proveedor al intercambiar el código (MVP-713) |
 | 500 | `INTERNAL_ERROR` | Error inesperado trazable por `X-Request-Id` |
 
 ---

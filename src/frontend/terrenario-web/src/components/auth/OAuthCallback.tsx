@@ -15,6 +15,16 @@ const REDIRECT_URI = `${window.location.origin}/auth/callback`;
 const ERROR_MESSAGES: Record<string, string> = {
   access_denied: 'Acceso cancelado. Puedes intentarlo de nuevo cuando quieras.',
   AUTH_GOOGLE_TOKEN_INVALID: 'No se pudo verificar tu identidad con Google. Inténtalo de nuevo.',
+  // MVP-713 (`P-079`) — El caso más frecuente de esta pantalla es haber recargado: el código de
+  // Google es de un solo uso, así que la recarga lo reenvía ya gastado. El mensaje dice **qué ha
+  // pasado y qué hacer**; «Error al completar el acceso» dejaba al usuario pensando que el producto
+  // estaba roto justo cuando basta con volver a entrar.
+  AUTH_GOOGLE_CODE_INVALID:
+    'El acceso ha caducado o esta página ya se había usado. Vuelve a entrar con Google.',
+  AUTH_GOOGLE_REQUEST_INVALID:
+    'Faltan datos para completar el acceso. Vuelve a entrar con Google desde la pantalla de acceso.',
+  // Se reserva para lo que de verdad es un fallo nuestro (configuración o caída de Google), que es
+  // lo único que sigue respondiendo 500.
   AUTH_GOOGLE_EXCHANGE_FAILED: 'Error al completar el acceso. Por favor, inténtalo de nuevo.',
 };
 

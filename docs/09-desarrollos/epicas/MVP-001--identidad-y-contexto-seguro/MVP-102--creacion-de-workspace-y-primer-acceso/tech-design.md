@@ -283,6 +283,6 @@ Resultado local: `dotnet test` en verde (30 tests) y `npm run build` sin errores
 - [x] Migraciones de base de datos preparadas (renombrado a inglés + tablas `workspaces` y `workspace_members`)
 - [x] Tests escritos y pasando
 - [x] Documentación de API actualizada en este documento
-- [ ] Módulo de Workspaces documentado en `docs/03-modulos/` (se creará al consolidar el módulo
+- [x] Módulo de Workspaces documentado en `docs/03-modulos/` — consolidado en `MVP-716` como `identidad-y-workspaces` (se creará al consolidar el módulo
   con MVP-103 y MVP-104, que completan membresías e invitaciones)
 - [x] Sin `TODO` sin resolver en este documento

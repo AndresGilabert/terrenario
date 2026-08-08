@@ -1,3 +1,4 @@
+import { marcarConConexion, marcarSinConexion } from '../lib/connectivity';
 import { API_BASE, readErrorBody } from './api.config';
 
 /**
@@ -15,6 +16,71 @@ export class HttpError extends Error {
     this.status = status;
     this.code = code;
   }
+}
+
+/** Código propio: no viene del contrato de la API, porque no hay respuesta de la API que lo traiga. */
+export const NETWORK_UNREACHABLE = 'NETWORK_UNREACHABLE';
+
+/**
+ * MVP-709 (`P-091`) — La petición murió sin respuesta: no hay cobertura, o el servidor no se alcanza.
+ *
+ * <b>Hereda de `HttpError` a propósito.</b> Toda la aplicación está escrita como
+ * `error instanceof HttpError ? error.message : 'No se pudieron cargar…'`. Si esto fuera una clase
+ * aparte, cada una de esas decenas de pantallas caería en su texto genérico —justo el «no se pudieron
+ * cargar los datos» indistinguible de un fallo del servidor que el `CA-1` prohíbe— y habría que
+ * repasarlas una a una. Heredando, el mensaje correcto aparece en todas a la vez, y las que quieran
+ * distinguirlo pueden mirar el código.
+ *
+ * El `status` es `0`, que es lo que vale «no hubo respuesta»: ningún código HTTP lo representa sin
+ * mentir.
+ */
+export class NetworkError extends HttpError {
+  constructor(message: string) {
+    super(0, NETWORK_UNREACHABLE, message);
+    this.name = 'NetworkError';
+  }
+}
+
+export function esFalloDeRed(error: unknown): error is NetworkError {
+  return error instanceof HttpError && error.code === NETWORK_UNREACHABLE;
+}
+
+/**
+ * Se distinguen los dos casos porque la acción del usuario es distinta: si el móvil dice que no hay
+ * red, toca buscar cobertura; si dice que sí y aun así no se llega, el problema puede estar al otro
+ * lado y volver a intentarlo tiene sentido.
+ */
+function mensajeDeRed(): string {
+  const sinInterfaz = typeof navigator !== 'undefined' && navigator.onLine === false;
+  return sinInterfaz
+    ? 'Sin conexión. Comprueba la cobertura y vuelve a intentarlo.'
+    : 'No se ha podido contactar con el servidor. Comprueba la cobertura y vuelve a intentarlo.';
+}
+
+/**
+ * MVP-709 — `fetch` con la caída de red traducida. Lo usan este cliente y `auth.service`, que es el
+ * otro sitio por el que salen peticiones.
+ *
+ * `fetch` solo rechaza cuando la petición **no llega a tener respuesta**: sin red, DNS que no
+ * resuelve, TLS que falla o CORS que la bloquea. Cualquier respuesta del servidor —incluido un 500—
+ * resuelve. Esa frontera es exactamente la que pide el `CA-1`.
+ *
+ * La cancelación se deja pasar tal cual: abortar una petición al cambiar de pantalla es lo normal y
+ * no es un fallo de conexión. Confundirlas pintaría «sin conexión» cada vez que alguien navega rápido.
+ */
+export async function fetchVigilado(input: string, init?: RequestInit): Promise<Response> {
+  let response: Response;
+  try {
+    response = await fetch(input, init);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error;
+    marcarSinConexion();
+    throw new NetworkError(mensajeDeRed());
+  }
+
+  // Hubo respuesta: hay conexión, diga lo que diga `navigator.onLine`.
+  marcarConConexion();
+  return response;
 }
 
 /** Códigos de ámbito de Workspace/autenticación que exigen una reacción global de sesión (MVP-105). */
@@ -101,7 +167,9 @@ export function createHttpClient(opts: {
       const hasBody = options.body !== undefined;
       if (hasBody) headers['Content-Type'] = 'application/json';
 
-      const response = await fetch(url.toString(), {
+      // MVP-709: `fetchVigilado` traduce la caída de red a `NetworkError` y mantiene al día el estado
+      // de conexión. Lo que sale de aquí es siempre una respuesta del servidor.
+      const response = await fetchVigilado(url.toString(), {
         method: options.method ?? 'GET',
         credentials: 'include',
         headers,

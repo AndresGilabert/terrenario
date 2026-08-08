@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router';
 import { AppSidebar } from './AppSidebar';
 import { AppTopbar } from './AppTopbar';
+import { OfflineBanner } from './OfflineBanner';
 import { InvitationModal } from '../notifications/InvitationModal';
 import { useUsageTelemetry } from '../../lib/use-usage-telemetry';
 import { UsageEvent, UsageMark, markOnceInSession } from '../../lib/usage-telemetry';
@@ -106,6 +107,9 @@ export const AppLayout: React.FC = () => {
           title={titleForPath(location.pathname)}
           onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
         />
+        {/* Bajo la cabecera y **fuera** del área desplazable: si fuera dentro, bastaría con bajar por
+            la lista para dejar de ver que no hay conexión (MVP-709). */}
+        <OfflineBanner />
         {/* Contenedor de contenido: mismo padding para todas las secciones y **dos** anchuras según el
             tipo de contenido (MVP-702). Las de un mismo tipo siguen compartiendo medida y espaciado,
             que es la coherencia que buscaba `P-016`.

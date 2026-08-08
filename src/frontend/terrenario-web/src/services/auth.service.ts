@@ -1,5 +1,6 @@
 import type { TokenResponse } from '../types/auth.types';
 import { API_BASE } from './api.config';
+import { fetchVigilado } from './http-client';
 
 export interface AuthCallbackParams {
   code: string;
@@ -18,7 +19,7 @@ export interface AuthCallbackParams {
 
 export const authService = {
   async exchangeGoogleCode(params: AuthCallbackParams): Promise<TokenResponse> {
-    const response = await fetch(`${API_BASE}/api/v1/auth/google/callback`, {
+    const response = await fetchVigilado(`${API_BASE}/api/v1/auth/google/callback`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -44,7 +45,7 @@ export const authService = {
   },
 
   async refreshToken(): Promise<{ access_token: string; expires_in: number }> {
-    const response = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
+    const response = await fetchVigilado(`${API_BASE}/api/v1/auth/refresh`, {
       method: 'POST',
       credentials: 'include',
     });
@@ -57,14 +58,14 @@ export const authService = {
   },
 
   async logout(): Promise<void> {
-    await fetch(`${API_BASE}/api/v1/auth/logout`, {
+    await fetchVigilado(`${API_BASE}/api/v1/auth/logout`, {
       method: 'POST',
       credentials: 'include',
     });
   },
 
   async getMe(accessToken: string): Promise<{ id: string; display_name: string }> {
-    const response = await fetch(`${API_BASE}/api/v1/auth/me`, {
+    const response = await fetchVigilado(`${API_BASE}/api/v1/auth/me`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 

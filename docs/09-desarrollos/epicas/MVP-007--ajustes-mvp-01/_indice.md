@@ -1,6 +1,6 @@
 ﻿# Índice — MVP-007--ajustes-mvp-01: Ajustes MVP 01
 
-> **Progreso**: 16/17 completadas · **Hito**: Hito G — Ajustes de uso real
+> **Progreso**: 17/17 completadas · **Hito**: Hito G — Ajustes de uso real
 > _Generado automáticamente por `validar_kb.py`. No editar manualmente._
 
 | Historia | Título | Estado | Responsable | Prioridad |
@@ -21,4 +21,4 @@
 | [MVP-714](./MVP-714--higiene-de-datos-retencion-y-secretos/spec.md) | Higiene de datos: retencion de sesiones y secretos en el repositorio | ✔️ completado | @andres | baja |
 | [MVP-715](./MVP-715--correos-del-producto-inventario-y-maquetacion/spec.md) | Correos del producto: inventario y maquetacion unificada | ✔️ completado | @andres | media |
 | [MVP-716](./MVP-716--consolidacion-del-catalogo-de-modulos/spec.md) | Consolidacion del catalogo de modulos | ✔️ completado | @andres | baja |
-| [MVP-799](./MVP-799--revision-epica/spec.md) | Revision epica | 📝 borrador | @andres | media |
+| [MVP-799](./MVP-799--revision-epica/spec.md) | Revision epica | ✔️ completado | @andres | media |

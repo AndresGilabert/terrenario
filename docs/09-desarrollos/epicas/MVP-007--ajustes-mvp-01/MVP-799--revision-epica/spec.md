@@ -1,8 +1,8 @@
----
+﻿---
 id: "MVP-799"
 tipo: feature
 titulo: "Revision epica"
-estado: borrador
+estado: completado
 prioridad: media
 sprint: ""
 hito: "Hito G — Ajustes de uso real"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "ajustes", "revision"]
   nivel_riesgo: medio
 creado_en: "2026-08-07"
-actualizado_en: "2026-08-07"
+actualizado_en: "2026-08-08"
 ---
 
 # MVP-799 — Revision epica
@@ -69,12 +69,24 @@ Dar por cerrada la epica solo si lo que dice estar hecho lo esta, medido contra 
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Tabla de veredicto con evidencia por cada criterio de aceptacion de `MVP-007`.
-- [ ] **CA-2**: Hallazgos numerados `R-xx` con evidencia reproducible.
-- [ ] **CA-3**: Trazabilidad punto a punto: los 25 puntos aprobados aparecen como `resuelto` en el
-  registro de `MVP-999`, con la historia que los cerro.
-- [ ] **CA-4**: Los derivados quedan dados de alta como `P-xxx` con destino explicito.
-- [ ] **CA-5**: `RN-006`, `RN-008`, `RN-009`, `RN-029` y `RN-041` reflejan el estado real del producto.
+- [x] **CA-1**: Tabla de veredicto con evidencia por cada criterio de aceptacion de `MVP-007`. Los
+  seis, en el [tech-design](./tech-design.md), medidos contra el sistema en marcha y no releidos.
+- [x] **CA-2**: Hallazgos numerados con evidencia reproducible. Nueve, de `R-01` a `R-09`, dados de
+  alta como `P-096` … `P-104`. **Tres resultaron mayores de lo que decia el reporte que los origino**,
+  precisamente por comprobarlos en vez de darlos por buenos.
+- [x] **CA-3**: Trazabilidad punto a punto. Y aqui esta el hallazgo principal: **quince filas seguian
+  en `aprobado-crear-historia` con su historia de destino ya `completado` y mergeada**, `P-055` entre
+  ellas. Se verificaron una a una —las quince estaban construidas, no habia funcionalidad perdida— y se
+  cerraron nombrando la evidencia de cada una.
+- [x] **CA-4**: Los derivados quedan dados de alta como `P-xxx` con destino explicito. Los nueve, con
+  destino `por decidir` porque son decision de producto: ninguno se asigna a una historia por
+  iniciativa de la revision, que es como se empezo a perder `P-055`.
+- [x] **CA-5**: `RN-006`, `RN-008`, `RN-009`, `RN-029` y `RN-041` reflejan el estado real. Comprobadas
+  una a una contra el producto, no solo contra su redaccion: el boton «Actualizar» no existe
+  (`RN-006`), el defecto de temporada lo resuelve el servidor y lo devuelve en `meta.scope` (`RN-008`),
+  el quinto widget esta cableado en `VisionGeneralView` y su endpoint responde (`RN-009`), la cosecha
+  admite `unit_price` con importe derivado y no almacenado (`RN-029`), y el plazo de 30 dias para los
+  tokens muertos esta escrito con su razon (`RN-041`). Se anade `RN-043`, que `MVP-708` creo.
 
 ## Maquetas y referencias visuales
 
@@ -84,9 +96,24 @@ No aplica.
 
 | Pantalla prototipo | Regla KB asociada | Estado | Evidencia de prueba |
 |---|---|---|---|
-| Todas | Criterios de aceptacion de MVP-007 | pendiente | Pendiente |
+| Todas | Criterios de aceptacion de MVP-007 | hecho | Los seis verificados contra el sistema en marcha; el contraste numerico del `CA-2` se hizo sobre la API con datos que ejercitan ingresos e imputacion, no solo kg |
 
 ## Notas y decisiones
 
 - Los hallazgos con filo salen de **contar y comparar cifras del sistema en marcha**, no de releer. En
   esta epica el contraste obvio es el de `CA-2`, que es el mismo metodo con el que se detecto `P-082`.
+- **El contraste hubo que provocarlo.** Con los datos que habia, ninguna cosecha tenia precio y no
+  existia ninguna imputacion, asi que el contraste habria pasado sin tocar nada de lo que `MVP-707` y
+  `MVP-708` construyeron. Se creo el caso que **si** puede divergir —precio en dos partidas y un
+  consumo imputado a una compra— y despues se restauro el estado anterior. Cuadro todo, incluido lo que
+  mas importaba: el gasto **no duplica** el coste de una compra ya contada cuando parte de ella esta
+  imputada.
+- **El hallazgo principal no es de producto, es de proceso.** `P-096`: el registro de puntos no lo
+  comprueba nadie, y por eso quince filas llevaban semanas diciendo que estaba pendiente algo que ya
+  estaba hecho. El `CA-6` de la epica existe por `P-055`, y `P-055` volvia a estar en esa lista —esta
+  vez construido, pero igual de mal anotado—. Mientras el registro dependa de que alguien se acuerde,
+  se seguira perdiendo lo mismo.
+- **Tres hallazgos crecieron al verificarlos**: los `.md` sin BOM pasaron de «probablemente haya mas» a
+  74 de 210 con la regla sin respaldo del gate; los ficheros versionados de `artifacts/correos` pasaron
+  de uno a once, contra lo que dice el propio `.gitignore`; y `formatDate` pasa de tres vistas a siete
+  ficheros. Es el argumento para no cerrar una revision sobre informes ajenos.

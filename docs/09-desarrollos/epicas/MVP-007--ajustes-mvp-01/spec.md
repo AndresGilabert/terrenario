@@ -1,8 +1,8 @@
----
+﻿---
 id: "MVP-007"
 tipo: epica
 titulo: "Ajustes MVP 01"
-estado: borrador
+estado: completado
 prioridad: alta
 hito: "Hito G — Ajustes de uso real"
 tickets: []
@@ -19,7 +19,7 @@ ai_context:
   etiquetas: ["mvp", "ajustes", "post-primer-uso"]
   nivel_riesgo: medio
 creado_en: "2026-08-07"
-actualizado_en: "2026-08-07"
+actualizado_en: "2026-08-08"
 ---
 
 # EPICA MVP-007 — Ajustes MVP 01
@@ -85,18 +85,31 @@ mas alla de lo que el Product Owner aprobo punto por punto.
 
 ## Criterios de aceptación de la épica
 
-- [ ] **CA-1**: Todas las historias de la epica estan en estado `completado`.
-- [ ] **CA-2**: Las cifras de una misma campana coinciden entre el diario, el listado de cosechas, el
-  libro de compras y la Vision General, verificado contra la API con datos reales.
-- [ ] **CA-3**: Cambiar de Workspace o de temporada desde el shell deja todas las vistas mostrando el
-  contexto elegido, sin recarga manual.
-- [ ] **CA-4**: Un usuario puede reportar una incidencia desde dentro del producto y el equipo la
-  recibe con contexto tecnico suficiente para reproducirla.
-- [ ] **CA-5**: Las reglas de negocio que esta epica modifica (`RN-006`, `RN-008`, `RN-009`, `RN-029`,
-  `RN-041`) estan actualizadas en `docs/01-producto/reglas-de-negocio.md` antes de cerrar la epica.
-- [ ] **CA-6**: Ningun punto aprobado en la clasificacion queda sin historia que lo construya. Este
-  criterio existe porque `P-055` se perdio exactamente asi: se le asigno destino y la historia de
-  destino se cerro sin recogerlo.
+- [x] **CA-1**: Todas las historias de la epica estan en estado `completado`. Las dieciseis, con sus PR
+  mergeados en `develop`.
+- [x] **CA-2**: Las cifras de una misma campana coinciden entre el diario, el listado de cosechas, el
+  libro de compras y la Vision General, verificado contra la API con datos reales. Coinciden las seis
+  superficies —diario, cosechas, compras, consumos, `dashboard/summary` y `dashboard/economics`— y
+  tambien el calculo a mano sumando fila a fila. **El contraste hubo que provocarlo**: con los datos que
+  habia, ninguna cosecha tenia precio y no existia ninguna imputacion, asi que habria pasado sin tocar
+  lo que `MVP-707` y `MVP-708` construyeron. Detalle en el [TDD de MVP-799](./MVP-799--revision-epica/tech-design.md).
+- [x] **CA-3**: Cambiar de Workspace o de temporada desde el shell deja todas las vistas mostrando el
+  contexto elegido, sin recarga manual. Comprobado sobre la aplicacion: diario, cosechas y panel pasan a
+  la campana elegida con `performance.getEntriesByType('navigation').length` todavia en **1**.
+- [x] **CA-4**: Un usuario puede reportar una incidencia desde dentro del producto y el equipo la recibe
+  con contexto tecnico suficiente. Verificado con **envio real por SMTP**, no solo con el HTML: correo
+  entregado de 4.501 bytes, `multipart/alternative`, con version desplegada, ruta, `X-Request-Id` y
+  navegador, y **sin nada de la explotacion** —se envio a proposito una ruta con identificadores de
+  temporada y terreno en la query y no llega ninguno—.
+- [x] **CA-5**: Las reglas de negocio que esta epica modifica estan actualizadas. `RN-006`, `RN-008`,
+  `RN-009`, `RN-029` y `RN-041`, comprobadas contra el producto y no solo contra su redaccion. Se anade
+  `RN-043`, que `MVP-708` creo.
+- [x] **CA-6**: Ningun punto aprobado en la clasificacion queda sin historia que lo construya. **Se
+  cumple, con una salvedad que es el hallazgo principal de la revision**: ninguno se quedo sin
+  construir, pero **quince filas del registro seguian diciendo que si**, `P-055` entre ellas. Se
+  verificaron una a una, las quince estaban hechas, y se han cerrado con su evidencia. Que el punto que
+  motivo este criterio volviera a estar mal anotado demuestra que no se cierra con diligencia sino con
+  una comprobacion: es `P-096`.
 
 ## Historias de esta épica
 

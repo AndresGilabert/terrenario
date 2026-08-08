@@ -1,6 +1,6 @@
 ﻿# Índice — MVP-007--ajustes-mvp-01: Ajustes MVP 01
 
-> **Progreso**: 5/17 completadas · **Hito**: Hito G — Ajustes de uso real
+> **Progreso**: 6/17 completadas · **Hito**: Hito G — Ajustes de uso real
 > _Generado automáticamente por `validar_kb.py`. No editar manualmente._
 
 | Historia | Título | Estado | Responsable | Prioridad |

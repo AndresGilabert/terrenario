@@ -4,9 +4,12 @@ import {
   AUTH_WORKSPACE_FORBIDDEN,
   AUTH_WORKSPACE_SCOPE_REQUIRED,
   createHttpClient,
+  esFalloDeRed,
   HttpError,
+  NETWORK_UNREACHABLE,
 } from './http-client';
 import { getReportContext, resetReportContext } from '../lib/report-context';
+import { estadoDeConexion, marcarConConexion } from '../lib/connectivity';
 
 /**
  * MVP-501 — El cliente HTTP común (P-007/P-018) es el punto por el que pasa **toda** la operativa
@@ -222,6 +225,81 @@ describe('createHttpClient', () => {
       await expect(clientWith({}).request('/api/v1/plots')).rejects.toBeInstanceOf(HttpError);
 
       expect(getReportContext().lastFailedRequestId).toBe('el-bueno');
+    });
+  });
+
+  /**
+   * MVP-709 (`P-091`) — La caída de red, distinguida del error del servidor.
+   *
+   * `fetch` solo rechaza cuando la petición **no llega a tener respuesta**. Esa frontera es la que
+   * separa «no hay cobertura» de «el servidor ha contestado que no», y es lo que pide el `CA-1`.
+   */
+  describe('MVP-709 — caida de red', () => {
+    beforeEach(() => {
+      marcarConConexion();
+    });
+
+    it('Deberia_DecirQueNoHayConexion_Cuando_LaPeticionMuereSinRespuesta', async () => {
+      // Así falla `fetch` de verdad sin red: un `TypeError`, no una respuesta con estado.
+      fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+
+      const error = await clientWith({}).request('/api/v1/plots').catch((e: unknown) => e);
+
+      expect(esFalloDeRed(error)).toBe(true);
+      expect((error as HttpError).status).toBe(0);
+      expect((error as HttpError).code).toBe(NETWORK_UNREACHABLE);
+      // El texto no puede ser el generico: es lo que el CA-1 prohibe.
+      expect((error as HttpError).message).toMatch(/conexión|servidor/i);
+    });
+
+    it('Deberia_HeredarDeHttpError_Para_QueTodaLaAplicacionLoDigaBien', async () => {
+      // Media aplicacion esta escrita como `error instanceof HttpError ? error.message : generico`.
+      // Si esto no heredara, todas esas pantallas volverian al texto que el CA-1 prohibe.
+      fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+
+      const error = await clientWith({}).request('/api/v1/plots').catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(HttpError);
+    });
+
+    it('Deberia_MarcarSinConexion_Cuando_FallaLaRed', async () => {
+      fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+
+      await clientWith({}).request('/api/v1/plots').catch(() => null);
+
+      expect(estadoDeConexion()).toBe('sin-conexion');
+    });
+
+    it('Deberia_VolverAMarcarConexion_Cuando_UnaPeticionTraeRespuesta', async () => {
+      fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+      await clientWith({}).request('/api/v1/plots').catch(() => null);
+
+      // Incluso un 500 demuestra que hay conexion: es lo unico que este estado mide.
+      fetchMock.mockResolvedValue(respondWith(500, null, { json: false }));
+      await clientWith({}).request('/api/v1/plots').catch(() => null);
+
+      expect(estadoDeConexion()).toBe('en-linea');
+    });
+
+    it('Deberia_NoCerrarSesion_Cuando_ElFalloEsDeRed', async () => {
+      // Lo peor que podia pasar: perder la cobertura y que la aplicacion lo lea como sesion invalida.
+      const onAuthError = vi.fn();
+      fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+
+      await clientWith({ onAuthError }).request('/api/v1/plots').catch(() => null);
+
+      expect(onAuthError).not.toHaveBeenCalled();
+    });
+
+    it('Deberia_DejarPasarLaCancelacion_SinConfundirlaConUnCorte', async () => {
+      // Abortar al cambiar de pantalla es lo normal; pintarlo como «sin conexion» seria mentir.
+      fetchMock.mockRejectedValue(new DOMException('cancelada', 'AbortError'));
+
+      const error = await clientWith({}).request('/api/v1/plots').catch((e: unknown) => e);
+
+      expect(esFalloDeRed(error)).toBe(false);
+      expect((error as DOMException).name).toBe('AbortError');
+      expect(estadoDeConexion()).toBe('en-linea');
     });
   });
 });

@@ -830,7 +830,7 @@ cumplida entera (hallazgo `G-4`).
 | Editar compra | `PATCH /api/v1/purchases/{purchaseId}` | campos parciales · `If-Match: <version>` | `200 { ...purchase }` |
 | Eliminar compra | `DELETE /api/v1/purchases/{purchaseId}` | `If-Match: <version>` | `204` |
 | Listado compras | `GET /api/v1/purchases` | `product?`, `season_id?` (id \| `all`), `from?`, `to?` | `200 { data, meta: { scope, total, total_cost } }` |
-| Materiales del histórico (MVP-303) | `GET /api/v1/purchases/products` | `search?` | `200 { data:[{ product, times_used }], meta:{ total } }` |
+| Materiales del histórico (MVP-303 · MVP-708) | `GET /api/v1/purchases/products` | `search?` | `200 { data:[{ product, times_used }], meta:{ total } }` |
 | Imputar compra a terreno | `POST /api/v1/purchases/{purchaseId}/consumptions` | `date*`, `plot_id*`, `quantity*` | `201 { id, purchase_id, plot_id, date, quantity, proportional_cost }` |
 | Registrar consumo **sin compra previa** (RN-032) | `POST /api/v1/consumptions` | `date*`, `plot_id*`, `season_id*`, `product*`, `quantity*` | `201 { id, purchase_id: null, proportional_cost: 0, ... }` |
 | Listado de consumos | `GET /api/v1/consumptions` | `from?`, `to?`, `plot_id?`, `season_id?` (id \| `all`), `purchase_id?`, `product?` | `200 { data, meta: { scope, total, total_cost, without_purchase } }` |
@@ -838,11 +838,17 @@ cumplida entera (hallazgo `G-4`).
 | Eliminar consumo (MVP-304) | `DELETE /api/v1/consumptions/{consumptionId}` | `If-Match: <version>` | `204` |
 
 La representación de un consumo es
-`{ id, workspace_id, purchase_id, has_purchase, plot_id, plot_name, season_id, season_name, date,
-product, quantity, unit_price, proportional_cost, is_out_of_season_range, version, created_at,
-updated_at }` (MVP-304). `has_purchase` es **derivado** y desambigua el coste: `proportional_cost: 0`
-con `has_purchase: false` significa «se desconoce», no «fue gratis». `meta.without_purchase` cuenta
-esos registros: es la medida del impacto en la calidad del dato que pide el CA-3 de `MVP-003`.
+`{ id, workspace_id, purchase_id, has_purchase, purchase_date, plot_id, plot_name, season_id,
+season_name, date, product, quantity, unit_price, proportional_cost, is_out_of_season_range,
+is_before_purchase_date, version, created_at, updated_at }` (MVP-304 · MVP-708). `has_purchase` es
+**derivado** y desambigua el coste: `proportional_cost: 0` con `has_purchase: false` significa «se
+desconoce», no «fue gratis». `meta.without_purchase` cuenta esos registros: es la medida del impacto
+en la calidad del dato que pide el CA-3 de `MVP-003`.
+
+`purchase_date` e `is_before_purchase_date` los añade `MVP-708` (RN-043) y son **derivados** de la
+compra tal y como está ahora, no columnas del consumo: `null` y `false` respectivamente cuando no hay
+compra previa. La fecha viaja para que el formulario pueda avisar mientras se teclea sin tener que
+pedir la compra aparte.
 
 La representación de una compra es
 `{ id, workspace_id, purchase_date, season_id, season_name, product, total_quantity, total_cost,
@@ -881,12 +887,14 @@ Reglas de contexto de consumos (MVP-304):
 | `imputed_quantity` / `pending_quantity` | El listado de compras los incluye para poder mostrar «imputado / total» sin una consulta por fila |
 | Orden del listado de consumos | Fecha de **negocio** descendente (RN-033, CA-4): un consumo capturado hoy sobre trabajo de la semana pasada se lee donde ocurrió |
 | Filtro `product` (MVP-399) | Búsqueda **parcial** e insensible a mayúsculas, igual que en compras. Añadido en la revisión de cierre (`R-06`): el buscador de material del libro filtraba las compras y dejaba los consumos intactos |
+| Consumo anterior a su compra (MVP-708, RN-043) | Se admite y responde `201`: la captura retroactiva es legítima y `RN-032` ya asume que el papeleo va por detrás del campo. Se **avisa** —señal en el formulario y etiqueta en la fila— con la misma filosofía que `RN-023` usa para la temporada (`P-058`). La igualdad de fechas no avisa: comprar y gastar el mismo día es lo normal |
 
 Reglas de contexto (MVP-303):
 
 | Regla | Comportamiento |
 |---|---|
 | Producto en texto libre (RN-031) | No hay catálogo cerrado ni normalización: «Abono NPK» y «abono npk» conviven. `GET /purchases/products` devuelve el vocabulario **aprendido del histórico vivo**, los más usados primero y con tope de 20; es una ayuda de escritura, no un maestro |
+| Alcance del vocabulario (MVP-708) | Desde `MVP-708` (`P-057`) el vocabulario sale de los **dos** libros: compras y consumos **sin compra previa**. Las imputaciones no cuentan —copian el material de su compra, así que no pueden aportar un nombre nuevo y solo inflarían `times_used`—. La ruta sigue bajo `/purchases` porque es la contratada; lo que cambió es de dónde se aprende, no qué se pide |
 | Filtro `product` | Búsqueda **parcial** e insensible a mayúsculas: el texto libre obligaría, si no, a recordar cómo se escribió |
 | `unit_price` | Derivado de `total_cost / total_quantity` con 4 decimales y **persistido**. Es la base del coste proporcional de las imputaciones (`MVP-304`) y permite explicar una imputación antigua aunque la compra se edite después (RN-032). Se recalcula en cada `PATCH` que toque cantidad o coste |
 | Temporadas cerradas | Siguen admitiendo compras: cerrar es informativo (RN-024) |

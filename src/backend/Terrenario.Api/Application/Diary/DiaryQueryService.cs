@@ -59,6 +59,7 @@ public sealed class DiaryQueryService(IDiaryRepository diaryRepository)
         TaskId: row.TaskId,
         Quantity: row.Quantity,
         HasPurchase: row.HasPurchase,
+        IsBeforePurchaseDate: IsBeforePurchaseDate(row),
         Kgs: row.Kgs,
         Destination: row.Destination,
         Yield: row.Yield,
@@ -72,4 +73,15 @@ public sealed class DiaryQueryService(IDiaryRepository diaryRepository)
     private static bool IsOutOfSeasonRange(DiaryRow row)
         => row.Date < row.SeasonStartDate
            || (row.SeasonEndDate is { } end && row.Date > end);
+
+    /// <summary>
+    /// RN-043 (MVP-708) — el consumo es anterior a la compra que lo paga. Se deriva igual que el
+    /// aviso de RN-023 y por el mismo motivo: es contexto de lectura, no un campo del registro, así
+    /// que también aparece en lo capturado antes de existir la regla.
+    ///
+    /// <c>null</c> —y no <c>false</c>— en todo lo que no sea un consumo con compra: allí la pregunta
+    /// no aplica, y responder «no» afirmaría algo que nadie ha comprobado.
+    /// </summary>
+    private static bool? IsBeforePurchaseDate(DiaryRow row)
+        => row.PurchaseDate is { } purchased ? row.Date < purchased : null;
 }

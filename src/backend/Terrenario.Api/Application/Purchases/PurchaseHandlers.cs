@@ -140,19 +140,6 @@ public sealed class ListPurchasesHandler(IPurchaseRepository purchaseRepository)
         => purchaseRepository.ListAsync(workspaceId, filter, ct);
 }
 
-/// <summary>
-/// MVP-303 (HU-2) — Vocabulario de materiales aprendido del histórico del Workspace (RN-031). No es
-/// un catálogo: no se administra, no se puede editar y el usuario siempre puede escribir algo que no
-/// esté en la lista. Solo existe para escribir menos y repetir menos variantes del mismo nombre.
-/// </summary>
-public sealed class ListPurchaseProductsHandler(IPurchaseRepository purchaseRepository)
-{
-    /// <summary>Tope de sugerencias devueltas: es una ayuda de escritura, no un listado navegable.</summary>
-    public const int MaxSuggestions = 20;
-
-    public Task<IReadOnlyList<ProductSuggestion>> HandleAsync(
-        Guid workspaceId,
-        string? search,
-        CancellationToken ct = default)
-        => purchaseRepository.ListProductSuggestionsAsync(workspaceId, search, MaxSuggestions, ct);
-}
+// MVP-708 (`P-057`) — El vocabulario de materiales (RN-031) se mudó a
+// `Application/Materials/ListMaterialSuggestionsHandler`: dejó de ser de las compras cuando pasó a
+// aprenderse también de los consumos sin compra previa.

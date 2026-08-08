@@ -13,6 +13,7 @@ import {
   type Harvest,
   type YieldInputMode,
 } from '../../types/harvest.types';
+import { Modal } from '../common/Modal';
 
 interface HarvestFormModalProps {
   isOpen: boolean;
@@ -244,317 +245,303 @@ export const HarvestFormModal: React.FC<HarvestFormModalProps> = ({
   const isEditing = harvest !== null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-      <div className="bg-white rounded-2xl max-w-lg w-full border border-[#e5e2dd] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-        <div className="bg-[#f6f3ee] px-6 py-4 border-b border-[#e5e2dd] flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[#33450d] text-xl" aria-hidden="true">agriculture</span>
-            <h3 className="font-headline font-bold text-lg text-[#1c1c19]">
-              {isEditing ? 'Corregir cosecha' : 'Registrar cosecha'}
-            </h3>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={isEditing ? 'Corregir cosecha' : 'Registrar cosecha'}
+      icon="agriculture"
+      closeDisabled={isSubmitting}
+    >
+      <form onSubmit={handleSubmit} className="p-6 space-y-4 text-sm overflow-y-auto" noValidate>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <label htmlFor="harvest-plot" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
+              Terreno <span className="text-[#ba1a1a]">*</span>
+            </label>
+            <select
+              id="harvest-plot"
+              value={plotId}
+              onChange={(e) => setPlotId(e.target.value)}
+              disabled={isSubmitting}
+              className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
+            >
+              {plots.map((plot) => (
+                <option key={plot.id} value={plot.id}>{plot.name}</option>
+              ))}
+            </select>
           </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="harvest-date" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
+              Fecha de recolección <span className="text-[#ba1a1a]">*</span>
+            </label>
+            <input
+              id="harvest-date"
+              type="date"
+              required
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              disabled={isSubmitting}
+              className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="harvest-season" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
+            Temporada <span className="text-[#ba1a1a]">*</span>
+          </label>
+          <select
+            id="harvest-season"
+            value={seasonId}
+            onChange={(e) => setSeasonId(e.target.value)}
+            disabled={isSubmitting}
+            className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
+          >
+            {seasons.map((season) => (
+              <option key={season.id} value={season.id}>
+                {season.name}
+                {season.is_working ? ' · en curso' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {isOutOfSeasonRange && (
+          <p role="status" className="text-[11px] text-[#8a5a00] bg-[#fff6e5] border border-[#f0d9a8] rounded-lg px-2.5 py-1.5 flex items-start gap-1.5">
+            <span className="material-symbols-outlined text-sm shrink-0" aria-hidden="true">warning</span>
+            <span>
+              La fecha queda fuera del rango de «{selectedSeason?.name}». Puedes guardarla igual; solo
+              es un aviso.
+            </span>
+          </p>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <label htmlFor="harvest-product" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
+              Producto <span className="text-[#ba1a1a]">*</span>
+            </label>
+            <select
+              id="harvest-product"
+              value={product}
+              onChange={(e) => setProduct(e.target.value)}
+              disabled={isSubmitting}
+              className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
+            >
+              {/* RN-030 — catálogo global fijo, no editable por el usuario. Hoy el MVP está ligado
+                  al olivar y no distingue variedades: eso pertenece al terreno, no a la cosecha. */}
+              {HARVEST_PRODUCTS.map((value) => (
+                <option key={value} value={value}>{harvestProductLabel(value)}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="harvest-kgs" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
+              Kilos recolectados <span className="text-[#ba1a1a]">*</span>
+            </label>
+            <input
+              id="harvest-kgs"
+              type="number"
+              min="0.01"
+              step="0.01"
+              required
+              value={kgs}
+              onChange={(e) => setKgs(e.target.value)}
+              disabled={isSubmitting}
+              placeholder="1200"
+              className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="harvest-destination" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
+            Destino <span className="text-[#ba1a1a]">*</span>
+          </label>
+          <select
+            id="harvest-destination"
+            value={destination}
+            onChange={(e) => setDestination(e.target.value)}
+            disabled={isSubmitting}
+            className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
+          >
+            {HARVEST_DESTINATIONS.map((value) => (
+              <option key={value} value={value}>{harvestDestinationLabel(value)}</option>
+            ))}
+          </select>
+          {destination === 'desconocido' && (
+            <p className="text-[11px] text-[#76786b]">
+              Puedes registrar la cosecha sin conocer todavía el destino y completarlo después.
+            </p>
+          )}
+        </div>
+
+        {/* MVP-707 (CA-1/CA-2) — Precio por kilo, **opcional**. Se ofrece con etiqueta propia cuando
+            el destino es de venta y queda como campo secundario en el resto: el importe es lo que se
+            quiere saber, y se calcula solo. */}
+        <div className="space-y-1.5">
+          <label htmlFor="harvest-unit-price" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
+            {isSaleDestination ? 'Precio de venta por kilo' : 'Precio por kilo (si la vendes)'}
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              id="harvest-unit-price"
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              min="0"
+              value={unitPrice}
+              onChange={(e) => setUnitPrice(e.target.value)}
+              disabled={isSubmitting}
+              placeholder="0,00"
+              className="w-40 px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
+            />
+            <span className="text-xs text-[#76786b]">€/kg</span>
+            {/* El importe no se teclea: se ve mientras se escribe (CA-1). */}
+            {amountPreview !== null && (
+              <span className="text-xs font-semibold text-[#33450d]">
+                = {amountPreview.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-[#76786b]">
+            Opcional. Si lo dejas vacío, la partida queda <strong>sin dato</strong> de ingreso, que no
+            es lo mismo que 0 €.
+          </p>
+        </div>
+
+        {/* RN-004 — rendimiento y litros son excluyentes: se elige cómo se informa, o ninguno */}
+        <fieldset className="space-y-2 pt-1 border-t border-[#f0ede8]">
+          <legend className="text-xs font-bold uppercase tracking-wider text-[#45483c] pt-3">
+            Aceite obtenido
+          </legend>
+          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Cómo informar el aceite obtenido">
+            {/* RN-014 — los tres orígenes admitidos, más «no lo sé»: cualquiera de ellos acaba en la
+                misma unidad canónica L/100kg (RN-013). */}
+            {(
+              [
+                ['ninguno', 'Todavía no lo sé'],
+                ['rendimiento', 'Rendimiento (L/100kg)'],
+                ['rendimiento_graso', 'Rendimiento graso (kg/100kg)'],
+                ['litros', 'Litros obtenidos'],
+              ] as [YieldInputMode, string][]
+            ).map(([mode, label]) => (
+              <button
+                key={mode}
+                type="button"
+                role="radio"
+                aria-checked={yieldMode === mode}
+                onClick={() => setYieldMode(mode)}
+                disabled={isSubmitting}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors disabled:opacity-60 ${
+                  yieldMode === mode
+                    ? 'bg-[#33450d] text-white border-[#33450d]'
+                    : 'bg-[#f6f3ee] text-[#45483c] border-[#c6c8b8] hover:bg-[#ebe8e3]'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {yieldMode === 'rendimiento' && (
+            <div className="space-y-1.5">
+              <label htmlFor="harvest-yield" className="sr-only">Rendimiento en litros por cada 100 kg</label>
+              <input
+                id="harvest-yield"
+                type="number"
+                min="0.01"
+                max={HARVEST_YIELD_MAX}
+                step="0.01"
+                value={yieldValue}
+                onChange={(e) => setYieldValue(e.target.value)}
+                disabled={isSubmitting}
+                placeholder="18,5"
+                className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
+              />
+              <p className="text-[11px] text-[#76786b]">
+                Litros de aceite por cada 100 kg de aceituna: la unidad canónica del producto.
+              </p>
+            </div>
+          )}
+
+          {yieldMode === 'rendimiento_graso' && (
+            <div className="space-y-1.5">
+              <label htmlFor="harvest-fat-yield" className="sr-only">
+                Rendimiento graso en kilos de aceite por cada 100 kg
+              </label>
+              <input
+                id="harvest-fat-yield"
+                type="number"
+                min="0.01"
+                max="92"
+                step="0.01"
+                value={fatYield}
+                onChange={(e) => setFatYield(e.target.value)}
+                disabled={isSubmitting}
+                placeholder="20"
+                className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
+              />
+              <p className="text-[11px] text-[#76786b]">
+                Kilos de aceite por cada 100 kg de aceituna, que es como suele darlo la almazara.
+              </p>
+            </div>
+          )}
+
+          {yieldMode === 'litros' && (
+            <div className="space-y-1.5">
+              <label htmlFor="harvest-liters" className="sr-only">Litros de aceite obtenidos</label>
+              <input
+                id="harvest-liters"
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={liters}
+                onChange={(e) => setLiters(e.target.value)}
+                disabled={isSubmitting}
+                placeholder="220"
+                className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
+              />
+            </div>
+          )}
+
+          {/* Se anticipa lo que va a guardar el servidor, para que nadie escriba a ciegas */}
+          {canonicalPreview !== null && (
+            <p className="text-[11px] text-[#76786b] flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-sm" aria-hidden="true">calculate</span>
+              Equivale a {canonicalPreview.toLocaleString('es-ES', { maximumFractionDigits: 2 })} L/100kg,
+              que es la unidad con la que se comparan las campañas.
+            </p>
+          )}
+        </fieldset>
+
+        {shownError && (
+          <div role="alert" className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+            {shownError}
+          </div>
+        )}
+
+        <div className="pt-3 flex items-center justify-end gap-3 border-t border-[#e5e2dd]">
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            aria-label="Cerrar"
-            className="p-1 rounded-lg text-[#76786b] hover:bg-[#e5e2dd] disabled:opacity-60"
+            className="px-4 py-2 text-xs font-semibold text-[#45483c] hover:bg-[#f0ede8] rounded-xl disabled:opacity-60"
           >
-            <span className="material-symbols-outlined text-lg" aria-hidden="true">close</span>
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#33450d] hover:bg-[#4a5d23] text-white font-semibold text-xs rounded-xl shadow-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <span>{isSubmitting ? 'Guardando…' : isEditing ? 'Guardar cambios' : 'Guardar cosecha'}</span>
+            <span className="material-symbols-outlined text-sm" aria-hidden="true">check</span>
           </button>
         </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 text-sm overflow-y-auto" noValidate>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label htmlFor="harvest-plot" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
-                Terreno <span className="text-[#ba1a1a]">*</span>
-              </label>
-              <select
-                id="harvest-plot"
-                value={plotId}
-                onChange={(e) => setPlotId(e.target.value)}
-                disabled={isSubmitting}
-                className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
-              >
-                {plots.map((plot) => (
-                  <option key={plot.id} value={plot.id}>{plot.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label htmlFor="harvest-date" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
-                Fecha de recolección <span className="text-[#ba1a1a]">*</span>
-              </label>
-              <input
-                id="harvest-date"
-                type="date"
-                required
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                disabled={isSubmitting}
-                className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label htmlFor="harvest-season" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
-              Temporada <span className="text-[#ba1a1a]">*</span>
-            </label>
-            <select
-              id="harvest-season"
-              value={seasonId}
-              onChange={(e) => setSeasonId(e.target.value)}
-              disabled={isSubmitting}
-              className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
-            >
-              {seasons.map((season) => (
-                <option key={season.id} value={season.id}>
-                  {season.name}
-                  {season.is_working ? ' · en curso' : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {isOutOfSeasonRange && (
-            <p role="status" className="text-[11px] text-[#8a5a00] bg-[#fff6e5] border border-[#f0d9a8] rounded-lg px-2.5 py-1.5 flex items-start gap-1.5">
-              <span className="material-symbols-outlined text-sm shrink-0" aria-hidden="true">warning</span>
-              <span>
-                La fecha queda fuera del rango de «{selectedSeason?.name}». Puedes guardarla igual; solo
-                es un aviso.
-              </span>
-            </p>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label htmlFor="harvest-product" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
-                Producto <span className="text-[#ba1a1a]">*</span>
-              </label>
-              <select
-                id="harvest-product"
-                value={product}
-                onChange={(e) => setProduct(e.target.value)}
-                disabled={isSubmitting}
-                className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
-              >
-                {/* RN-030 — catálogo global fijo, no editable por el usuario. Hoy el MVP está ligado
-                    al olivar y no distingue variedades: eso pertenece al terreno, no a la cosecha. */}
-                {HARVEST_PRODUCTS.map((value) => (
-                  <option key={value} value={value}>{harvestProductLabel(value)}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label htmlFor="harvest-kgs" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
-                Kilos recolectados <span className="text-[#ba1a1a]">*</span>
-              </label>
-              <input
-                id="harvest-kgs"
-                type="number"
-                min="0.01"
-                step="0.01"
-                required
-                value={kgs}
-                onChange={(e) => setKgs(e.target.value)}
-                disabled={isSubmitting}
-                placeholder="1200"
-                className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label htmlFor="harvest-destination" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
-              Destino <span className="text-[#ba1a1a]">*</span>
-            </label>
-            <select
-              id="harvest-destination"
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-              disabled={isSubmitting}
-              className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
-            >
-              {HARVEST_DESTINATIONS.map((value) => (
-                <option key={value} value={value}>{harvestDestinationLabel(value)}</option>
-              ))}
-            </select>
-            {destination === 'desconocido' && (
-              <p className="text-[11px] text-[#76786b]">
-                Puedes registrar la cosecha sin conocer todavía el destino y completarlo después.
-              </p>
-            )}
-          </div>
-
-          {/* MVP-707 (CA-1/CA-2) — Precio por kilo, **opcional**. Se ofrece con etiqueta propia cuando
-              el destino es de venta y queda como campo secundario en el resto: el importe es lo que se
-              quiere saber, y se calcula solo. */}
-          <div className="space-y-1.5">
-            <label htmlFor="harvest-unit-price" className="block text-xs font-bold uppercase tracking-wider text-[#45483c]">
-              {isSaleDestination ? 'Precio de venta por kilo' : 'Precio por kilo (si la vendes)'}
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                id="harvest-unit-price"
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                min="0"
-                value={unitPrice}
-                onChange={(e) => setUnitPrice(e.target.value)}
-                disabled={isSubmitting}
-                placeholder="0,00"
-                className="w-40 px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
-              />
-              <span className="text-xs text-[#76786b]">€/kg</span>
-              {/* El importe no se teclea: se ve mientras se escribe (CA-1). */}
-              {amountPreview !== null && (
-                <span className="text-xs font-semibold text-[#33450d]">
-                  = {amountPreview.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                </span>
-              )}
-            </div>
-            <p className="text-[11px] text-[#76786b]">
-              Opcional. Si lo dejas vacío, la partida queda <strong>sin dato</strong> de ingreso, que no
-              es lo mismo que 0 €.
-            </p>
-          </div>
-
-          {/* RN-004 — rendimiento y litros son excluyentes: se elige cómo se informa, o ninguno */}
-          <fieldset className="space-y-2 pt-1 border-t border-[#f0ede8]">
-            <legend className="text-xs font-bold uppercase tracking-wider text-[#45483c] pt-3">
-              Aceite obtenido
-            </legend>
-            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Cómo informar el aceite obtenido">
-              {/* RN-014 — los tres orígenes admitidos, más «no lo sé»: cualquiera de ellos acaba en la
-                  misma unidad canónica L/100kg (RN-013). */}
-              {(
-                [
-                  ['ninguno', 'Todavía no lo sé'],
-                  ['rendimiento', 'Rendimiento (L/100kg)'],
-                  ['rendimiento_graso', 'Rendimiento graso (kg/100kg)'],
-                  ['litros', 'Litros obtenidos'],
-                ] as [YieldInputMode, string][]
-              ).map(([mode, label]) => (
-                <button
-                  key={mode}
-                  type="button"
-                  role="radio"
-                  aria-checked={yieldMode === mode}
-                  onClick={() => setYieldMode(mode)}
-                  disabled={isSubmitting}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors disabled:opacity-60 ${
-                    yieldMode === mode
-                      ? 'bg-[#33450d] text-white border-[#33450d]'
-                      : 'bg-[#f6f3ee] text-[#45483c] border-[#c6c8b8] hover:bg-[#ebe8e3]'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {yieldMode === 'rendimiento' && (
-              <div className="space-y-1.5">
-                <label htmlFor="harvest-yield" className="sr-only">Rendimiento en litros por cada 100 kg</label>
-                <input
-                  id="harvest-yield"
-                  type="number"
-                  min="0.01"
-                  max={HARVEST_YIELD_MAX}
-                  step="0.01"
-                  value={yieldValue}
-                  onChange={(e) => setYieldValue(e.target.value)}
-                  disabled={isSubmitting}
-                  placeholder="18,5"
-                  className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
-                />
-                <p className="text-[11px] text-[#76786b]">
-                  Litros de aceite por cada 100 kg de aceituna: la unidad canónica del producto.
-                </p>
-              </div>
-            )}
-
-            {yieldMode === 'rendimiento_graso' && (
-              <div className="space-y-1.5">
-                <label htmlFor="harvest-fat-yield" className="sr-only">
-                  Rendimiento graso en kilos de aceite por cada 100 kg
-                </label>
-                <input
-                  id="harvest-fat-yield"
-                  type="number"
-                  min="0.01"
-                  max="92"
-                  step="0.01"
-                  value={fatYield}
-                  onChange={(e) => setFatYield(e.target.value)}
-                  disabled={isSubmitting}
-                  placeholder="20"
-                  className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
-                />
-                <p className="text-[11px] text-[#76786b]">
-                  Kilos de aceite por cada 100 kg de aceituna, que es como suele darlo la almazara.
-                </p>
-              </div>
-            )}
-
-            {yieldMode === 'litros' && (
-              <div className="space-y-1.5">
-                <label htmlFor="harvest-liters" className="sr-only">Litros de aceite obtenidos</label>
-                <input
-                  id="harvest-liters"
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={liters}
-                  onChange={(e) => setLiters(e.target.value)}
-                  disabled={isSubmitting}
-                  placeholder="220"
-                  className="w-full px-3 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
-                />
-              </div>
-            )}
-
-            {/* Se anticipa lo que va a guardar el servidor, para que nadie escriba a ciegas */}
-            {canonicalPreview !== null && (
-              <p className="text-[11px] text-[#76786b] flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-sm" aria-hidden="true">calculate</span>
-                Equivale a {canonicalPreview.toLocaleString('es-ES', { maximumFractionDigits: 2 })} L/100kg,
-                que es la unidad con la que se comparan las campañas.
-              </p>
-            )}
-          </fieldset>
-
-          {shownError && (
-            <div role="alert" className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-              {shownError}
-            </div>
-          )}
-
-          <div className="pt-3 flex items-center justify-end gap-3 border-t border-[#e5e2dd]">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="px-4 py-2 text-xs font-semibold text-[#45483c] hover:bg-[#f0ede8] rounded-xl disabled:opacity-60"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex items-center gap-2 px-5 py-2.5 bg-[#33450d] hover:bg-[#4a5d23] text-white font-semibold text-xs rounded-xl shadow-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <span>{isSubmitting ? 'Guardando…' : isEditing ? 'Guardar cambios' : 'Guardar cosecha'}</span>
-              <span className="material-symbols-outlined text-sm" aria-hidden="true">check</span>
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </Modal>
   );
 };

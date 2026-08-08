@@ -4,6 +4,7 @@ import { createDiaryService } from '../../services/diary.service';
 import { HttpError } from '../../services/http-client';
 import type { DiaryEntry } from '../../types/diary.types';
 import { harvestDestinationLabel } from '../../types/harvest.types';
+import { Modal } from '../common/Modal';
 import { PLOT_OWNERSHIP_LABELS, type Plot } from '../../types/plot.types';
 
 const number = (value: number, decimals = 0) =>
@@ -86,212 +87,208 @@ export const TerrenoDetailModal: React.FC<TerrenoDetailModalProps> = ({ plot, on
   if (!plot) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
-      onClick={onClose}
-      role="presentation"
+    <Modal
+      isOpen
+      onClose={onClose}
+      title={`Detalle del terreno ${plot.name}`}
+      // Cabecera propia: lleva las etiquetas del terreno y el nombre a tamaño de titular, que no cabe
+      // en la de por defecto.
+      header={null}
+      panelClassName="max-w-2xl"
     >
-      <div
-        className="bg-white rounded-2xl max-w-2xl w-full border border-[#e5e2dd] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Detalle del terreno ${plot.name}`}
-      >
-        {/* Cabecera */}
-        <div className="p-6 border-b border-[#e5e2dd] flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              {plot.alias && (
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-[#f0ede8] text-[#33450d]">
-                  {plot.alias}
-                </span>
-              )}
-              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-[#eef2e0] text-[#33450d]">
-                {PLOT_OWNERSHIP_LABELS[plot.ownership_type]}
+      {/* Cabecera */}
+      <div className="p-6 border-b border-[#e5e2dd] flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            {plot.alias && (
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-[#f0ede8] text-[#33450d]">
+                {plot.alias}
               </span>
-              {!plot.is_active && (
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-[#e5e2dd] text-[#76786b]">
-                  Inactivo
-                </span>
-              )}
-            </div>
-            <h2 className="font-headline font-extrabold text-2xl text-[#1c1c19] mt-1 truncate">
-              {plot.name}
-            </h2>
-            {plot.location && (
-              <p className="text-xs text-[#76786b] flex items-center gap-1 mt-0.5">
-                <span className="material-symbols-outlined text-sm" aria-hidden="true">location_on</span>
-                <span className="truncate">{plot.location}</span>
+            )}
+            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-[#eef2e0] text-[#33450d]">
+              {PLOT_OWNERSHIP_LABELS[plot.ownership_type]}
+            </span>
+            {!plot.is_active && (
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-[#e5e2dd] text-[#76786b]">
+                Inactivo
+              </span>
+            )}
+          </div>
+          <h2 className="font-headline font-extrabold text-2xl text-[#1c1c19] mt-1 truncate">
+            {plot.name}
+          </h2>
+          {plot.location && (
+            <p className="text-xs text-[#76786b] flex items-center gap-1 mt-0.5">
+              <span className="material-symbols-outlined text-sm" aria-hidden="true">location_on</span>
+              <span className="truncate">{plot.location}</span>
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar"
+          className="w-9 h-9 rounded-full bg-[#f0ede8] hover:bg-[#ebe8e3] flex items-center justify-center text-[#45483c] shrink-0"
+        >
+          <span className="material-symbols-outlined text-xl" aria-hidden="true">close</span>
+        </button>
+      </div>
+
+      {/* Cuerpo */}
+      <div className="p-6 overflow-y-auto space-y-6 flex-1 text-sm">
+        {/* Datos reales del terreno (RN-028) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#f6f3ee] p-4 rounded-xl border border-[#e5e2dd]">
+          <div>
+            <p className="text-[11px] font-bold text-[#76786b] uppercase">Nº de árboles</p>
+            {plot.tree_count != null ? (
+              <p className="text-base font-extrabold text-[#1c1c19]">{number(plot.tree_count)}</p>
+            ) : (
+              <p className="text-xs font-semibold text-[#8a6d1a] flex items-center gap-1 mt-1">
+                <span className="material-symbols-outlined text-sm" aria-hidden="true">error</span>
+                Sin registrar
               </p>
             )}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar"
-            className="w-9 h-9 rounded-full bg-[#f0ede8] hover:bg-[#ebe8e3] flex items-center justify-center text-[#45483c] shrink-0"
-          >
-            <span className="material-symbols-outlined text-xl" aria-hidden="true">close</span>
-          </button>
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold text-[#76786b] uppercase">Propietario</p>
+            <p className="text-xs font-semibold text-[#45483c] mt-1 truncate">{plot.owner_name ?? '—'}</p>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold text-[#76786b] uppercase">Ref. catastral</p>
+            <p className="text-xs font-semibold text-[#45483c] mt-1 truncate">
+              {plot.cadastral_reference ?? '—'}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] font-bold text-[#76786b] uppercase">Estado</p>
+            <p className="text-xs font-semibold text-[#45483c] mt-1">
+              {plot.is_active ? 'Activo' : 'Inactivo'}
+            </p>
+          </div>
         </div>
 
-        {/* Cuerpo */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1 text-sm">
-          {/* Datos reales del terreno (RN-028) */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#f6f3ee] p-4 rounded-xl border border-[#e5e2dd]">
-            <div>
-              <p className="text-[11px] font-bold text-[#76786b] uppercase">Nº de árboles</p>
-              {plot.tree_count != null ? (
-                <p className="text-base font-extrabold text-[#1c1c19]">{number(plot.tree_count)}</p>
-              ) : (
-                <p className="text-xs font-semibold text-[#8a6d1a] flex items-center gap-1 mt-1">
-                  <span className="material-symbols-outlined text-sm" aria-hidden="true">error</span>
-                  Sin registrar
-                </p>
-              )}
-            </div>
-            <div className="min-w-0">
-              <p className="text-[11px] font-bold text-[#76786b] uppercase">Propietario</p>
-              <p className="text-xs font-semibold text-[#45483c] mt-1 truncate">{plot.owner_name ?? '—'}</p>
-            </div>
-            <div className="min-w-0">
-              <p className="text-[11px] font-bold text-[#76786b] uppercase">Ref. catastral</p>
-              <p className="text-xs font-semibold text-[#45483c] mt-1 truncate">
-                {plot.cadastral_reference ?? '—'}
-              </p>
-            </div>
-            <div>
-              <p className="text-[11px] font-bold text-[#76786b] uppercase">Estado</p>
-              <p className="text-xs font-semibold text-[#45483c] mt-1">
-                {plot.is_active ? 'Activo' : 'Inactivo'}
-              </p>
-            </div>
+        {loadError && (
+          <div role="alert" className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+            {loadError}
           </div>
+        )}
 
-          {loadError && (
-            <div role="alert" className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-              {loadError}
-            </div>
-          )}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-10">
+            <div className="w-7 h-7 border-4 border-[#33450d] border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : (
+          <>
+            {/* Histórico de cosechas (CA-2) */}
+            <section className="space-y-3">
+              <h3 className="font-headline font-bold text-base text-[#1c1c19] flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#33450d]" aria-hidden="true">agriculture</span>
+                <span>Cosechas en esta parcela</span>
+                {harvests.length > 0 && (
+                  <span className="text-[11px] font-semibold text-[#76786b]">({harvests.length})</span>
+                )}
+              </h3>
 
-          {isLoading ? (
-            <div className="flex items-center justify-center py-10">
-              <div className="w-7 h-7 border-4 border-[#33450d] border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : (
-            <>
-              {/* Histórico de cosechas (CA-2) */}
-              <section className="space-y-3">
-                <h3 className="font-headline font-bold text-base text-[#1c1c19] flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#33450d]" aria-hidden="true">agriculture</span>
-                  <span>Cosechas en esta parcela</span>
-                  {harvests.length > 0 && (
-                    <span className="text-[11px] font-semibold text-[#76786b]">({harvests.length})</span>
-                  )}
-                </h3>
+              {harvests.length === 0 ? (
+                <p className="text-xs text-[#76786b] italic bg-[#f6f3ee] p-3 rounded-xl">
+                  Aún no hay cosechas registradas en este terreno.
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {harvests.map((h) => (
+                    <li
+                      key={h.id}
+                      className="bg-[#f6f3ee] p-3 rounded-xl border border-[#e5e2dd] flex items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-bold text-[#1c1c19]">
+                          {h.kgs != null ? `${number(h.kgs)} kg` : 'Cosecha'}
+                          {h.destination && (
+                            <span className="font-normal text-[#76786b]">
+                              {' '}· {harvestDestinationLabel(h.destination)}
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-[#76786b]">
+                          {dateLabel(h.date)} · {h.season_name}
+                        </p>
+                      </div>
+                      {h.yield != null && (
+                        <span className="font-bold text-[#33450d] bg-[#c9f16f] px-2.5 py-1 rounded-full text-[11px] shrink-0">
+                          {number(h.yield, 1)} L/100kg
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
 
-                {harvests.length === 0 ? (
-                  <p className="text-xs text-[#76786b] italic bg-[#f6f3ee] p-3 rounded-xl">
-                    Aún no hay cosechas registradas en este terreno.
-                  </p>
-                ) : (
-                  <ul className="space-y-2">
-                    {harvests.map((h) => (
-                      <li
-                        key={h.id}
-                        className="bg-[#f6f3ee] p-3 rounded-xl border border-[#e5e2dd] flex items-center justify-between gap-3 text-xs"
-                      >
-                        <div className="min-w-0">
-                          <p className="font-bold text-[#1c1c19]">
-                            {h.kgs != null ? `${number(h.kgs)} kg` : 'Cosecha'}
-                            {h.destination && (
-                              <span className="font-normal text-[#76786b]">
-                                {' '}· {harvestDestinationLabel(h.destination)}
-                              </span>
-                            )}
-                          </p>
-                          <p className="text-[#76786b]">
-                            {dateLabel(h.date)} · {h.season_name}
-                          </p>
-                        </div>
-                        {h.yield != null && (
-                          <span className="font-bold text-[#33450d] bg-[#c9f16f] px-2.5 py-1 rounded-full text-[11px] shrink-0">
-                            {number(h.yield, 1)} L/100kg
+            {/* Histórico de labores (CA-3) */}
+            <section className="space-y-3">
+              <h3 className="font-headline font-bold text-base text-[#1c1c19] flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#33450d]" aria-hidden="true">event_note</span>
+                <span>Historial de labores</span>
+                {labores.length > 0 && (
+                  <span className="text-[11px] font-semibold text-[#76786b]">({labores.length})</span>
+                )}
+              </h3>
+
+              {labores.length === 0 ? (
+                <p className="text-xs text-[#76786b] italic bg-[#f6f3ee] p-3 rounded-xl">
+                  Sin labores anotadas en el diario para este terreno.
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {labores.map((l) => (
+                    <li key={l.id} className="bg-[#f6f3ee] p-3 rounded-xl border border-[#e5e2dd] space-y-1 text-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-[#1c1c19] truncate">{l.title}</span>
+                        <span className="text-[#76786b] shrink-0">{dateLabel(l.date)}</span>
+                      </div>
+                      <p className="text-[11px] text-[#76786b] flex flex-wrap gap-x-3 gap-y-0.5">
+                        {l.worker_name && (
+                          <span className="flex items-center gap-1">
+                            <span className="material-symbols-outlined text-sm" aria-hidden="true">person</span>
+                            {l.worker_name}
                           </span>
                         )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-
-              {/* Histórico de labores (CA-3) */}
-              <section className="space-y-3">
-                <h3 className="font-headline font-bold text-base text-[#1c1c19] flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#33450d]" aria-hidden="true">event_note</span>
-                  <span>Historial de labores</span>
-                  {labores.length > 0 && (
-                    <span className="text-[11px] font-semibold text-[#76786b]">({labores.length})</span>
-                  )}
-                </h3>
-
-                {labores.length === 0 ? (
-                  <p className="text-xs text-[#76786b] italic bg-[#f6f3ee] p-3 rounded-xl">
-                    Sin labores anotadas en el diario para este terreno.
-                  </p>
-                ) : (
-                  <ul className="space-y-2">
-                    {labores.map((l) => (
-                      <li key={l.id} className="bg-[#f6f3ee] p-3 rounded-xl border border-[#e5e2dd] space-y-1 text-xs">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-bold text-[#1c1c19] truncate">{l.title}</span>
-                          <span className="text-[#76786b] shrink-0">{dateLabel(l.date)}</span>
-                        </div>
-                        <p className="text-[11px] text-[#76786b] flex flex-wrap gap-x-3 gap-y-0.5">
-                          {l.worker_name && (
-                            <span className="flex items-center gap-1">
-                              <span className="material-symbols-outlined text-sm" aria-hidden="true">person</span>
-                              {l.worker_name}
-                            </span>
-                          )}
-                          {l.hours != null && (
-                            <span className="flex items-center gap-1">
-                              <span className="material-symbols-outlined text-sm" aria-hidden="true">schedule</span>
-                              {number(l.hours, 1)} h
-                            </span>
-                          )}
-                          <span>{l.season_name}</span>
-                        </p>
-                        {l.description && <p className="text-[11px] text-[#45483c]">{l.description}</p>}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-            </>
-          )}
-        </div>
-
-        {/* Pie */}
-        <div className="p-4 bg-[#f0ede8] border-t border-[#e5e2dd] flex justify-between items-center gap-2">
-          <button
-            type="button"
-            onClick={() => onEdit(plot)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-[#c6c8b8] hover:bg-[#ebe8e3] text-[#33450d] text-xs font-semibold transition-colors"
-          >
-            <span className="material-symbols-outlined text-base" aria-hidden="true">edit</span>
-            Editar terreno
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-5 py-2 bg-[#33450d] hover:bg-[#4a5d23] text-white text-xs font-bold rounded-xl transition-colors"
-          >
-            Cerrar
-          </button>
-        </div>
+                        {l.hours != null && (
+                          <span className="flex items-center gap-1">
+                            <span className="material-symbols-outlined text-sm" aria-hidden="true">schedule</span>
+                            {number(l.hours, 1)} h
+                          </span>
+                        )}
+                        <span>{l.season_name}</span>
+                      </p>
+                      {l.description && <p className="text-[11px] text-[#45483c]">{l.description}</p>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </>
+        )}
       </div>
-    </div>
+
+      {/* Pie */}
+      <div className="p-4 bg-[#f0ede8] border-t border-[#e5e2dd] flex justify-between items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onEdit(plot)}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-[#c6c8b8] hover:bg-[#ebe8e3] text-[#33450d] text-xs font-semibold transition-colors"
+        >
+          <span className="material-symbols-outlined text-base" aria-hidden="true">edit</span>
+          Editar terreno
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-5 py-2 bg-[#33450d] hover:bg-[#4a5d23] text-white text-xs font-bold rounded-xl transition-colors"
+        >
+          Cerrar
+        </button>
+      </div>
+    </Modal>
   );
 };

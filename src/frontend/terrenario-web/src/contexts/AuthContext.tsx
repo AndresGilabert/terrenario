@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 import type { AuthAction, AuthState, AuthUser } from '../types/auth.types';
 import { authService } from '../services/auth.service';
+import { esFalloDeRed } from '../services/http-client';
 
 const ACCESS_TOKEN_KEY = 'terrenario_at';
 
@@ -51,21 +52,44 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 const REFRESH_BEFORE_EXPIRY_MS = 60_000;
 
+/**
+ * MVP-709 — Espera antes de reintentar el refresco cuando lo que falló fue la red.
+ *
+ * No se reutiliza `scheduleRefresh` con una caducidad corta: su retardo es
+ * `caducidad - REFRESH_BEFORE_EXPIRY_MS`, así que cualquier valor por debajo del minuto da cero y el
+ * reintento se convierte en un bucle que machaca la red mientras no la haya.
+ */
+const REINTENTO_SIN_CONEXION_MS = 30_000;
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(authReducer, initialState);
   const expiresAtRef = useRef<number | null>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const scheduleRefresh = useCallback((expiresIn: number) => {
+  const scheduleRefresh = useCallback((expiresIn: number, delayMs?: number) => {
     if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-    const delay = Math.max(0, expiresIn * 1000 - REFRESH_BEFORE_EXPIRY_MS);
+    const delay = delayMs ?? Math.max(0, expiresIn * 1000 - REFRESH_BEFORE_EXPIRY_MS);
     refreshTimerRef.current = setTimeout(async () => {
       try {
         const result = await authService.refreshToken();
         dispatch({ type: 'REFRESH_SUCCESS', payload: { accessToken: result.access_token } });
         sessionStorage.setItem(ACCESS_TOKEN_KEY, result.access_token);
         scheduleRefresh(result.expires_in);
-      } catch {
+      } catch (error) {
+        // MVP-709 (`P-091`) — **Un corte de cobertura no cierra la sesión.**
+        //
+        // Este temporizador se dispara solo, cada cuarto de hora largo. Sin esta distinción, saltar
+        // justo mientras el móvil está sin cobertura echaba fuera al usuario y se llevaba por delante
+        // el formulario que estuviera escribiendo, que es exactamente lo que la historia evita. Y el
+        // motivo del cierre era una red caída, no un rechazo del servidor.
+        //
+        // Solo se cierra cuando el servidor **responde** que la sesión ya no vale. Si no hubo
+        // respuesta, se conserva y se vuelve a intentar en un minuto: el `refresh_token` es una cookie
+        // de larga duración y sigue siendo válido cuando la cobertura vuelva.
+        if (esFalloDeRed(error)) {
+          scheduleRefresh(expiresIn, REINTENTO_SIN_CONEXION_MS);
+          return;
+        }
         dispatch({ type: 'LOGOUT' });
         sessionStorage.removeItem(ACCESS_TOKEN_KEY);
       }
@@ -86,8 +110,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             },
           });
         })
-        .catch(() => {
-          sessionStorage.removeItem(ACCESS_TOKEN_KEY);
+        .catch((error: unknown) => {
+          // MVP-709 — Arrancar sin cobertura no debe borrar el token guardado: no se ha podido
+          // comprobar si vale, que no es lo mismo que saber que no vale. Se deja la sesión en estado
+          // de carga resuelto y sin usuario, y la primera petición con cobertura la recupera. Borrarlo
+          // obligaba a volver a pasar por Google para algo que era un problema de red.
+          if (!esFalloDeRed(error)) sessionStorage.removeItem(ACCESS_TOKEN_KEY);
           dispatch({ type: 'SET_LOADING', payload: false });
         });
     } else {
@@ -136,7 +164,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       dispatch({ type: 'REFRESH_SUCCESS', payload: { accessToken: result.access_token } });
       sessionStorage.setItem(ACCESS_TOKEN_KEY, result.access_token);
       return result.access_token;
-    } catch {
+    } catch (error) {
+      // MVP-709 — Devolver `null` aquí significa «no hay sesión», y el cliente HTTP lo traduce en
+      // cerrarla. Sin cobertura eso es mentira: no se sabe si la sesión vale, solo que no se ha
+      // podido preguntar. Se propaga el fallo de red para que la pantalla diga «sin conexión» y la
+      // sesión siga en pie.
+      if (esFalloDeRed(error)) throw error;
       return null;
     }
   }, [state.accessToken]);

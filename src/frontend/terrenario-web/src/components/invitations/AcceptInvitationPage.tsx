@@ -4,7 +4,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { invitationService, InvitationServiceError } from '../../services/invitation.service';
 import type { InvitationPreview } from '../../types/invitation.types';
-import { viewerReasonMessage } from '../../lib/invitation-ui';
+import { shouldOfferGoogleSignup, viewerReasonMessage } from '../../lib/invitation-ui';
+import {
+  GOOGLE_ACCOUNT_SIGNUP_LABEL,
+  GOOGLE_ACCOUNT_SIGNUP_URL,
+} from '../../lib/google-account';
 
 /**
  * MVP-103 / MVP-107 — Pantalla de decisión al abrir un enlace de invitación (HU-2). Informa la
@@ -105,6 +109,7 @@ export const AcceptInvitationPage: React.FC = () => {
   const canAccept = invitation?.viewer.can_accept ?? false;
   const aptitudeMessage = invitation ? viewerReasonMessage(invitation.viewer.reason) : null;
   const alreadyMember = invitation?.viewer.reason === 'already_member';
+  const offerGoogleSignup = shouldOfferGoogleSignup(invitation?.viewer.reason ?? null);
 
   return (
     <div className="min-h-screen bg-[#fcf9f4] flex flex-col items-center justify-center p-4">
@@ -136,6 +141,23 @@ export const AcceptInvitationPage: React.FC = () => {
             }
           >
             {aptitudeMessage}
+            {/* MVP-712 (CA-3) — El aviso explicaba el problema y no la salida: quien fue invitado en
+                una dirección sin Cuenta de Google se quedaba sin nada que hacer. El enlace va dentro
+                del propio aviso porque es la continuación de su última frase, y en pestaña nueva
+                para no perder la invitación al ir a darse de alta. */}
+            {offerGoogleSignup && (
+              <>
+                {' '}
+                <a
+                  href={GOOGLE_ACCOUNT_SIGNUP_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-semibold underline"
+                >
+                  {GOOGLE_ACCOUNT_SIGNUP_LABEL}
+                </a>
+              </>
+            )}
           </p>
         )}
 

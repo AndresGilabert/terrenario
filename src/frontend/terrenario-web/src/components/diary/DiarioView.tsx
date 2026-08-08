@@ -957,6 +957,16 @@ const DiaryCard: React.FC<DiaryCardProps> = ({
                   SIN COMPRA
                 </span>
               )}
+              {/* RN-043 (MVP-708) — la vista principal (RN-033) señala el consumo anterior a su
+                  compra igual que señala la fecha fuera de temporada: avisa, no impide */}
+              {entry.is_before_purchase_date === true && (
+                <span
+                  title="El consumo es anterior a la compra que lo paga: revisa la fecha"
+                  className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#fff6e5] text-[#8a5a00] border border-[#f0d9a8]"
+                >
+                  ANTES DE LA COMPRA
+                </span>
+              )}
               {/* RN-012 — el destino sin clasificar se rotula «Sin destino», sin bloquear nada */}
               {isHarvest && entry.destination === 'desconocido' && (
                 <span

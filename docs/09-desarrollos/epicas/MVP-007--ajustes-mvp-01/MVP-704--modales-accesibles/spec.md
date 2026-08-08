@@ -1,8 +1,8 @@
----
+﻿---
 id: "MVP-704"
 tipo: feature
 titulo: "Modales accesibles"
-estado: borrador
+estado: completado
 prioridad: media
 sprint: ""
 hito: "Hito G — Ajustes de uso real"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "ajustes", "a11y", "reabierto"]
   nivel_riesgo: medio
 creado_en: "2026-08-07"
-actualizado_en: "2026-08-07"
+actualizado_en: "2026-08-08"
 ---
 
 # MVP-704 — Modales accesibles
@@ -81,14 +81,33 @@ raton, teclado o lector de pantalla.
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Con cualquiera de los modales abierto, tabular no alcanza ningun control del fondo y el
-  foco cicla dentro del dialogo.
-- [ ] **CA-2**: `Escape` cierra cualquier modal del producto, de forma uniforme.
-- [ ] **CA-3**: Al cerrar, el foco vuelve al control que abrio el modal.
-- [ ] **CA-4**: Los once modales exponen `role="dialog"`, `aria-modal="true"` y un nombre accesible.
-- [ ] **CA-5**: Reproducido y corregido el defecto original: con un modal abierto, enviar el formulario
-  en linea del fondo ya no es posible. Verificado en UI conducida.
-- [ ] **CA-6**: Cobertura de test del componente comun (trampa de foco, `Escape`, restauracion).
+- [x] **CA-1**: Con cualquiera de los modales abierto, tabular no alcanza ningun control del fondo y el
+  foco cicla dentro del dialogo. Lo garantiza `inert` sobre `#root` —que apaga el fondo entero, no solo
+  el tabulador— mas una trampa que cierra el ciclo en los extremos. Medido sobre la aplicacion en
+  marcha con el modal de correccion de compra abierto: de los **30 controles del fondo, 0** pueden
+  recibir foco, y tras **40 pulsaciones reales** de tabulador el foco sigue dentro del dialogo.
+- [x] **CA-2**: `Escape` cierra cualquier modal del producto, de forma uniforme. Lo hace el componente
+  comun, asi que ya no hay modales que lo tengan y modales que no: antes solo lo tenia
+  `InvitationModal`. Se anade una excepcion deliberada —no cierra mientras hay un envio en curso—,
+  descrita en el TDD.
+- [x] **CA-3**: Al cerrar, el foco vuelve al control que abrio el modal. Verificado en UI conducida:
+  tras `Escape`, el foco esta de vuelta en «Corregir la compra de Abono NPK». Se comprueba
+  `document.contains` antes de devolverlo, porque el disparador puede haber desaparecido con la fila
+  que se acaba de borrar.
+- [x] **CA-4**: Los once modales exponen `role="dialog"`, `aria-modal="true"` y un nombre accesible.
+  Abiertos **uno a uno en la aplicacion**, no deducidos del codigo: «Corregir compra», «Imputar compra
+  a un terreno», «¿Eliminar la compra?», «Añadir nuevo terreno», «Detalle del terreno La Via»,
+  «Registrar cosecha», «Nueva actividad», «Añadir trabajador», «Nueva temporada», «Dar de baja el
+  Workspace» y «Tienes una invitacion». Los once, ademas, fuera de `#root` y con `#root` inerte.
+- [x] **CA-5**: Reproducido y corregido el defecto original: con un modal abierto, enviar el formulario
+  en linea del fondo ya no es posible. El escenario es literalmente el que lo origino —la vista de
+  compras tiene el alta en linea detras—: con el modal abierto, `document.elementFromPoint` sobre las
+  coordenadas del boton de envio del fondo devuelve **el velo**, y el boton no puede recibir foco.
+- [x] **CA-6**: Cobertura de test del componente comun (trampa de foco, `Escape`, restauracion). Trece
+  tests en `Modal.test.tsx`, que cubren ademas el defecto de `P-055` con un formulario en linea de
+  fondo y el caso de **dos modales apilados** —el contador, no un booleano—. `jsdom` no implementa
+  `inert`: alli se comprueba que el control del fondo cae dentro del subarbol marcado y que el dialogo
+  no, y el efecto real lo cierra la UI conducida.
 
 ## Maquetas y referencias visuales
 
@@ -101,7 +120,7 @@ raton, teclado o lector de pantalla.
 
 | Pantalla prototipo | Regla KB asociada | Estado | Evidencia de prueba |
 |---|---|---|---|
-| CosechaModal y equivalentes | docs/04-ingenieria/estandares-codigo.md | falta | Ningun modal de formulario lo cumple hoy |
+| CosechaModal y equivalentes | docs/04-ingenieria/estandares-codigo.md | hecho | Los once modales usan `components/common/Modal.tsx`; abiertos uno a uno en la aplicacion con `role`, `aria-modal`, nombre accesible y fondo inerte |
 
 ## Notas y decisiones
 
@@ -109,3 +128,15 @@ raton, teclado o lector de pantalla.
   «lo hara la historia de al lado» si esa historia no lo tiene en su alcance escrito.
 - El PO descarto la variante «solo la parte funcional» (bloquear el fondo sin el trabajo de a11y):
   dejaba fuera teclado y lector de pantalla, que es el grueso del punto.
+- **Habia tres formas distintas de hacer lo mismo**, no una y ocho ausencias: `ConfirmDialog` ponia
+  `role`/`aria-modal` en el **velo** en vez de en el panel, `InvitationModal` tenia su propio `Escape`
+  y su propio clic en el velo, y `TerrenoDetailModal` y `CloseWorkspaceModal` cerraban con `onClick` en
+  el velo. Unificarlas era la mitad del valor de la historia.
+- **Dos cierres dejan de responder al clic fuera**: `ConfirmDialog` y `CloseWorkspaceModal`. Son
+  decisiones que se acaban de pedir de forma explicita y la segunda incluye elegir destinatario;
+  descartarlas por un clic despistado es peor que exigir `Escape` o «Cancelar».
+- **El *drawer* de navegacion de movil de `AppLayout` queda fuera** y se registra en `MVP-999`: es el
+  ultimo overlay sin trampa de foco, pero su forma es otra —lateral, sin titulo ni cabecera— y meterlo
+  en `Modal` obligaria a un modo «lateral» que condiciona el componente por un solo uso.
+- **`NotificationBell` no se toca**: es un popover anclado, no un modal. Tiene `role="dialog"` sin
+  `aria-modal` y **no debe** atrapar el foco.

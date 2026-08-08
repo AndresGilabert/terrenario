@@ -13,6 +13,7 @@ using Terrenario.Api.Application.Feedback;
 using Terrenario.Api.Application.Diary;
 using Terrenario.Api.Application.Harvests;
 using Terrenario.Api.Application.Invitations;
+using Terrenario.Api.Application.Materials;
 using Terrenario.Api.Application.Plots;
 using Terrenario.Api.Application.Purchases;
 using Terrenario.Api.Application.Seasons;
@@ -26,6 +27,7 @@ using Terrenario.Api.Domain.Activities;
 using Terrenario.Api.Domain.Consumptions;
 using Terrenario.Api.Domain.Diary;
 using Terrenario.Api.Domain.Harvests;
+using Terrenario.Api.Domain.Materials;
 using Terrenario.Api.Domain.Plots;
 using Terrenario.Api.Domain.Purchases;
 using Terrenario.Api.Domain.Seasons;
@@ -209,7 +211,10 @@ builder.Services.AddScoped<CreatePurchaseHandler>();
 builder.Services.AddScoped<UpdatePurchaseHandler>();
 builder.Services.AddScoped<DeletePurchaseHandler>();
 builder.Services.AddScoped<ListPurchasesHandler>();
-builder.Services.AddScoped<ListPurchaseProductsHandler>();
+// Vocabulario de materiales (RN-031). MVP-708 (`P-057`) lo saca del puerto de compras: se aprende de
+// los dos libros, así que un método en `IPurchaseRepository` sería una firma que miente.
+builder.Services.AddScoped<IMaterialRepository, MaterialRepository>();
+builder.Services.AddScoped<ListMaterialSuggestionsHandler>();
 // Imputación por terrenos y consumo sin compra previa (MVP-304)
 builder.Services.AddScoped<IConsumptionRepository, ConsumptionRepository>();
 builder.Services.AddScoped<ConsumptionLinkResolver>();

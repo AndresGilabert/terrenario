@@ -108,10 +108,20 @@ movil y en un enlace compartido.
   **no ha hecho falta relajar ninguna directiva**. La guarda `sin-recursos-externos.test.ts` de
   `MVP-599` solo miraba `src/`; ahora cubre tambien `index.html` y el manifest, admitiendo el propio
   origen en las URL absolutas que Open Graph exige.
-- [~] **CA-5**: Verificado sobre el build de produccion servido de verdad, no solo en desarrollo.
-  Hecho: `npm run build` correcto y los ocho recursos presentes en `dist/`, con el HTML generado
-  referenciandolos por rutas del propio origen. **Pendiente**: servir ese build y comprobar en
-  navegador y en un movil real la pestana, el «anadir al inicio» y el raspado del enlace publicado.
+- [x] **CA-5**: Verificado sobre el build de produccion **servido de verdad**, no solo en desarrollo.
+  Se levanto `vite preview` sobre `dist/` y se pidio cada recurso: `favicon.svg` (`image/svg+xml`),
+  `favicon.ico` (`image/x-icon`), `apple-touch-icon.png`, `icon-512.png` y `og-image.png`
+  (`image/png`) y `manifest.webmanifest` (**`application/manifest+json`**, que es justo el tipo que
+  antes faltaba y devolvia 404). Los seis responden `200`. En el HTML servido estan las etiquetas de
+  icono, manifest, `theme-color` y las de Open Graph y Twitter, y las **unicas** URL absolutas son las
+  de nuestro propio origen que el formato de Open Graph exige.
+  El `.ico` se valido ademas **leyendo su estructura con un lector ajeno al que lo escribio**: 3
+  entradas DIB (16, 32 y 48 px a 32 bpp), con desplazamientos y tamanos coherentes y 15.086 bytes que
+  cuadran con lo que predice el formato.
+  **Queda fuera de lo comprobable aqui** y va con el despliegue: ver el icono en el escritorio de un
+  movil real tras «anadir al inicio», y el raspado de la tarjeta social, que exige el enlace publicado
+  —y cuya cache en WhatsApp y Facebook es larga, asi que puede seguir viendose la tarjeta vieja un
+  tiempo—.
 
 ## Maquetas y referencias visuales
 

@@ -1,0 +1,10 @@
+Correos del producto (MVP-715), regenerados por ProductEmailPreviewTests.
+
+- Invitación a Workspace — invitacion-a-workspace.html · invitacion-a-workspace.txt
+- Baja de Workspace — baja-de-workspace.html · baja-de-workspace.txt
+- Solicitud de traspaso y reactivación — solicitud-de-reactivacion.html · solicitud-de-reactivacion.txt
+- Alerta de operación disparada — alerta-disparada.html · alerta-disparada.txt
+- Alerta de operación resuelta — alerta-resuelta.html · alerta-resuelta.txt
+
+Abre los .html en el navegador o envíatelos para revisarlos en un cliente real (CA-5).
+El inventario en prosa está en docs/06-integraciones/correos-del-producto.md.

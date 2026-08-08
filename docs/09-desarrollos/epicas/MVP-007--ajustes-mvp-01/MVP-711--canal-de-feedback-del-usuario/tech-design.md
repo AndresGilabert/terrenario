@@ -262,8 +262,15 @@ que el fallo: la persona se queda esperando una respuesta que nadie va a dar.
 - **El recorrido en la aplicación en marcha.** No se han levantado los servidores (puertos ocupados),
   así que la entrada en la barra lateral, el título de la cabecera y el envío real están cubiertos por
   pruebas pero no vistos en pantalla.
+  **Cerrado en `MVP-799` (2026-08-08)**: el envío se comprobó con el transporte de producción contra un
+  receptor SMTP local. Llegó un `multipart/alternative` de 4.501 bytes con la versión desplegada, la
+  ruta, el `X-Request-Id` y el navegador, y **sin nada de la explotación**: se envió a propósito una
+  ruta con identificadores de temporada y de terreno en la query y no viaja ninguno, ni el nombre del
+  Workspace.
 - **`Feedback__Recipient` en el despliegue.** Es configuración de producción y hay que darla de alta
   en el App Service; hasta entonces el canal responde que no está disponible.
+  **Dado de alta por el Product Owner el 2026-08-09**, con lo que el canal queda operativo en
+  producción.
 
 ## Checklist de implementación
 

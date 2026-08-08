@@ -154,8 +154,9 @@ revisión, que es como se empezó a perder `P-055`.
 ## Qué no se ha verificado
 
 - **Nada en producción.** Todo lo de aquí es contra el entorno de desarrollo con la API compilada de
-  `develop`. `Feedback__Recipient` sigue sin dar de alta en App Service, así que en producción el canal
-  está visible y responde que no está disponible.
+  `develop`. `Feedback__Recipient` lo dio de alta el Product Owner en App Service el **2026-08-09**, con
+  lo que el canal queda operativo allí; la evidencia de entrega que recoge este documento es la del
+  envío local por SMTP, y la confirmación de extremo a extremo en producción es del PO.
 - **El aspecto** de las tres etiquetas de `MVP-708` y del aviso de fecha, y el `datalist` nativo al
   teclear. Su lógica sí está cubierta por tests de vista.
 - **Los textos de `MVP-712`** en pantalla y el correo de invitación en un cliente real.

@@ -238,6 +238,56 @@ public sealed class ConsumptionRepositoryPostgresTests : RepositoryTestBase
         view.HasPurchase.Should().BeFalse();
         view.ProportionalCost.Should().Be(0m);
         view.UnitPrice.Should().Be(0m);
+        // MVP-708 — sin compra no hay fecha contra la que comparar: el aviso de RN-043 no aplica, y
+        // la compra posterior del mismo material no lo enciende (no hay emparejamiento por nombre).
+        view.PurchaseDate.Should().BeNull();
+        view.IsBeforePurchaseDate.Should().BeFalse();
     }
 
+    [Fact]
+    public async Task GetViewAsync_Deberia_SenalarElConsumoAnteriorASuCompra()
+    {
+        // RN-043 (MVP-708, `P-058`) — la compra es del 2026-10-01: imputarla al 2020-01-01 se guarda
+        // igual, pero la vista lo señala. Es un aviso, como el de RN-023, no un bloqueo.
+        var fixture = await SeedAsync("-k");
+        var antes = Imputed(fixture, new DateOnly(2020, 1, 1));
+        var despues = Imputed(fixture, new DateOnly(2026, 10, 12));
+        // El mismo día de la compra no es «antes»: comprar y gastar en la jornada es lo normal.
+        var mismoDia = Imputed(fixture, new DateOnly(2026, 10, 1));
+        Db.PurchaseConsumptions.AddRange(antes, despues, mismoDia);
+        await Db.SaveChangesAsync();
+
+        var repository = new ConsumptionRepository(Db);
+        var workspaceId = fixture.Workspace.Id;
+
+        var vistaAntes = (await repository.GetViewAsync(workspaceId, antes.Id))!;
+        vistaAntes.PurchaseDate.Should().Be(new DateOnly(2026, 10, 1));
+        vistaAntes.IsBeforePurchaseDate.Should().BeTrue();
+        (await repository.GetViewAsync(workspaceId, despues.Id))!.IsBeforePurchaseDate.Should().BeFalse();
+        (await repository.GetViewAsync(workspaceId, mismoDia.Id))!.IsBeforePurchaseDate.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ElAvisoDeFechaAnterior_Deberia_SeguirALaCompra_Cuando_SeCorrigeSuFecha()
+    {
+        // El aviso se deriva en lectura contra la compra tal y como está **ahora**: corregir la fecha
+        // de la compra tiene que apagarlo sin tocar el consumo. Por eso la fecha se une en la
+        // proyección en vez de congelarse en el consumo.
+        var fixture = await SeedAsync("-l");
+        var consumo = Imputed(fixture, new DateOnly(2026, 9, 20));
+        Db.PurchaseConsumptions.Add(consumo);
+        await Db.SaveChangesAsync();
+
+        var repository = new ConsumptionRepository(Db);
+        (await repository.GetViewAsync(fixture.Workspace.Id, consumo.Id))!
+            .IsBeforePurchaseDate.Should().BeTrue();
+
+        fixture.Purchase.Update(
+            fixture.Season.Id, new DateOnly(2026, 9, 15), fixture.Purchase.Product,
+            fixture.Purchase.TotalQuantity, fixture.Purchase.TotalCost, _userId);
+        await Db.SaveChangesAsync();
+
+        (await repository.GetViewAsync(fixture.Workspace.Id, consumo.Id))!
+            .IsBeforePurchaseDate.Should().BeFalse();
+    }
 }

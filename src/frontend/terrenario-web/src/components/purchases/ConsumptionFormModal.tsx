@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type { Plot } from '../../types/plot.types';
 import type { Season } from '../../types/season.types';
-import type { Purchase } from '../../types/purchase.types';
+import type { ProductSuggestion, Purchase } from '../../types/purchase.types';
 import {
   CONSUMPTION_PRODUCT_MAX_LENGTH,
   type Consumption,
@@ -29,6 +29,11 @@ interface ConsumptionFormModalProps {
   plots: Plot[];
   seasons: Season[];
   activeSeason: Season | null;
+  /**
+   * MVP-708 (`P-057`) — Vocabulario de materiales del Workspace (RN-031), el mismo que usa el alta de
+   * compra. Solo se ofrece cuando el material se escribe: al imputar lo pone la compra.
+   */
+  suggestions: ProductSuggestion[];
   /** Cantidad ya imputada de la compra, para saber cuánto queda por repartir (CA-1). */
   pendingQuantity: number | null;
   isSubmitting: boolean;
@@ -40,6 +45,16 @@ interface ConsumptionFormModalProps {
 function todayIso(): string {
   const now = new Date();
   return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+}
+
+/** Fecha `YYYY-MM-DD` en formato corto, para poder nombrar la de la compra dentro del aviso. */
+function formatDate(iso: string): string {
+  const [year, month, day] = iso.split('-').map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString('es-ES', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 /**
@@ -57,6 +72,7 @@ export const ConsumptionFormModal: React.FC<ConsumptionFormModalProps> = ({
   plots,
   seasons,
   activeSeason,
+  suggestions,
   pendingQuantity,
   isSubmitting,
   errorMessage,
@@ -97,6 +113,21 @@ export const ConsumptionFormModal: React.FC<ConsumptionFormModalProps> = ({
     if (date < selectedSeason.start_date) return true;
     return selectedSeason.end_date !== null && date > selectedSeason.end_date;
   }, [selectedSeason, date]);
+
+  /**
+   * RN-043 (MVP-708, `P-058`) — Fecha de la compra que paga este consumo: la que se está imputando o,
+   * al corregir, la que el consumo ya arrastra. `null` en un consumo sin compra previa, donde no hay
+   * nada contra lo que comparar.
+   */
+  const purchaseDate = purchase?.purchase_date ?? consumption?.purchase_date ?? null;
+
+  // Aviso, nunca bloqueo: la captura retroactiva es legítima (RN-032) y quien imputa una compra vieja
+  // sabe lo que hace. Se compara como texto porque las dos fechas son `YYYY-MM-DD`, igual que el
+  // aviso de temporada de arriba.
+  const isBeforePurchaseDate = useMemo(
+    () => purchaseDate !== null && date !== '' && date < purchaseDate,
+    [purchaseDate, date]
+  );
 
   const unitPrice = purchase?.unit_price ?? consumption?.unit_price ?? 0;
 
@@ -181,6 +212,7 @@ export const ConsumptionFormModal: React.FC<ConsumptionFormModalProps> = ({
                 id="consumption-product"
                 type="text"
                 required
+                list="consumption-product-options"
                 maxLength={CONSUMPTION_PRODUCT_MAX_LENGTH}
                 value={product}
                 onChange={(e) => setProduct(e.target.value)}
@@ -188,6 +220,15 @@ export const ConsumptionFormModal: React.FC<ConsumptionFormModalProps> = ({
                 disabled={isSubmitting}
                 className="w-full px-3.5 py-2.5 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-[#1c1c19] focus:outline-none focus:border-[#33450d] focus:bg-white disabled:opacity-60"
               />
+              {/* MVP-708 (`P-057`) — El mismo vocabulario que el alta de compra (RN-031). Aquí no lo
+                  había, y era justo el campo donde nacen los nombres nuevos: sin sugerencias, «Abono
+                  NPK» comprado y «abono npk» consumido convivían sin que nadie lo notara. Sigue
+                  siendo texto libre: sugiere, no impone. */}
+              <datalist id="consumption-product-options">
+                {suggestions.map((suggestion) => (
+                  <option key={suggestion.product} value={suggestion.product} />
+                ))}
+              </datalist>
             </div>
           )}
 
@@ -273,6 +314,19 @@ export const ConsumptionFormModal: React.FC<ConsumptionFormModalProps> = ({
               <span>
                 La fecha queda fuera del rango de «{selectedSeason?.name}». Puedes guardarla igual;
                 solo es un aviso.
+              </span>
+            </p>
+          )}
+
+          {/* RN-043 (`P-058`) — Mismo trato que RN-023: se avisa y se deja guardar. Apuntar hoy lo que
+              se gastó la semana pasada es normal (RN-032 ya asume que el papeleo va por detrás del
+              campo), pero gastar algo *antes* de comprarlo casi siempre es un tecleo en la fecha. */}
+          {isBeforePurchaseDate && purchaseDate !== null && (
+            <p role="status" className="text-[11px] text-[#8a5a00] bg-[#fff6e5] border border-[#f0d9a8] rounded-lg px-2.5 py-1.5 flex items-start gap-1.5">
+              <span className="material-symbols-outlined text-sm shrink-0" aria-hidden="true">warning</span>
+              <span>
+                Este consumo es anterior a su compra, del {formatDate(purchaseDate)}. Puedes
+                guardarlo igual; revisa la fecha por si se te ha colado un año.
               </span>
             </p>
           )}

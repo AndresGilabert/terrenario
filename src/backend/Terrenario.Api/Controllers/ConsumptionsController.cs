@@ -265,6 +265,9 @@ public sealed class ConsumptionsController(
         purchase_id = consumption.PurchaseId,
         // RN-032 — `false` significa «coste desconocido», no «gratis»: es la señal del aviso (CA-2).
         has_purchase = consumption.HasPurchase,
+        // MVP-708 (RN-043) — Fecha de la compra imputada, para que el formulario pueda avisar
+        // mientras se teclea la del consumo sin tener que pedir la compra aparte.
+        purchase_date = consumption.PurchaseDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
         plot_id = consumption.PlotId,
         plot_name = consumption.PlotName,
         season_id = consumption.SeasonId,
@@ -275,6 +278,8 @@ public sealed class ConsumptionsController(
         unit_price = consumption.UnitPrice,
         proportional_cost = consumption.ProportionalCost,
         is_out_of_season_range = consumption.IsOutOfSeasonRange,
+        // RN-043 — aviso no bloqueante: el consumo es anterior a la compra que lo paga.
+        is_before_purchase_date = consumption.IsBeforePurchaseDate,
         version = consumption.Version,
         created_at = consumption.CreatedAt,
         updated_at = consumption.UpdatedAt

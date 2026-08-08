@@ -15,6 +15,11 @@ export interface Consumption {
   purchase_id: string | null;
   /** `false` ⇒ coste desconocido: se registró sin compra previa (RN-032, CA-2). */
   has_purchase: boolean;
+  /**
+   * Fecha (`YYYY-MM-DD`) de la compra imputada; `null` sin compra previa. Viaja para que el
+   * formulario pueda avisar de RN-043 mientras se teclea la fecha, sin pedir la compra aparte.
+   */
+  purchase_date: string | null;
   plot_id: string;
   plot_name: string;
   season_id: string;
@@ -28,6 +33,12 @@ export interface Consumption {
   proportional_cost: number;
   /** RN-023 — aviso no bloqueante de fecha fuera del rango de la temporada. */
   is_out_of_season_range: boolean;
+  /**
+   * RN-043 (MVP-708) — la fecha del consumo es **anterior** a la de su compra. Aviso, nunca bloqueo:
+   * la captura retroactiva es legítima, pero gastar algo antes de comprarlo suele ser un tecleo.
+   * Siempre `false` sin compra previa: no hay fecha contra la que comparar.
+   */
+  is_before_purchase_date: boolean;
   version: number;
   created_at: string;
   updated_at: string;

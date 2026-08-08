@@ -148,6 +148,7 @@ public sealed class DiaryRepository(TerrenarioDbContext db) : IDiaryRepository
                        TaskId = a.TaskId,
                        Quantity = null,
                        HasPurchase = null,
+                       PurchaseDate = null,
                        Kgs = null,
                        Destination = null,
                        Yield = null,
@@ -203,6 +204,7 @@ public sealed class DiaryRepository(TerrenarioDbContext db) : IDiaryRepository
                        TaskId = null,
                        Quantity = null,
                        HasPurchase = null,
+                       PurchaseDate = null,
                        Kgs = h.Kgs,
                        Destination = h.Destination,
                        // MVP-402 — rendimiento efectivo: el declarado o el que se deduce de los litros
@@ -258,6 +260,7 @@ public sealed class DiaryRepository(TerrenarioDbContext db) : IDiaryRepository
                        TaskId = null,
                        Quantity = p.TotalQuantity,
                        HasPurchase = null,
+                       PurchaseDate = null,
                        Kgs = null,
                        Destination = null,
                        Yield = null,
@@ -285,6 +288,11 @@ public sealed class DiaryRepository(TerrenarioDbContext db) : IDiaryRepository
         var rows = from c in live
                    join p in db.Plots on c.PlotId equals p.Id
                    join s in db.Seasons on c.SeasonId equals s.Id
+                   // MVP-708 (RN-043) — LEFT JOIN porque el consumo puede no tener compra (RN-032).
+                   // Solo se trae la fecha, y solo para poder avisar de un consumo anterior a ella:
+                   // el coste y el material siguen siendo los que el propio consumo congeló.
+                   join pu in db.Purchases on c.PurchaseId equals pu.Id into purchaseMatches
+                   from pu in purchaseMatches.DefaultIfEmpty()
                    select new DiaryRow
                    {
                        Type = DiaryEntryTypes.Consumption,
@@ -307,6 +315,7 @@ public sealed class DiaryRepository(TerrenarioDbContext db) : IDiaryRepository
                        Quantity = c.ConsumedQuantity,
                        // `false` implica consumo sin compra previa: su coste es desconocido, no cero (RN-032).
                        HasPurchase = c.PurchaseId != null,
+                       PurchaseDate = pu != null ? pu.PurchaseDate : null,
                        Kgs = null,
                        Destination = null,
                        Yield = null,

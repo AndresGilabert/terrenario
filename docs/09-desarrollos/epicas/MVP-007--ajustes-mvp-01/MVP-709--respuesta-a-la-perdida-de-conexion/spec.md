@@ -1,8 +1,8 @@
----
+﻿---
 id: "MVP-709"
 tipo: feature
 titulo: "Respuesta a la perdida de conexion"
-estado: borrador
+estado: completado
 prioridad: media
 sprint: ""
 hito: "Hito G — Ajustes de uso real"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["mvp", "ajustes", "ux", "campo"]
   nivel_riesgo: medio
 creado_en: "2026-08-07"
-actualizado_en: "2026-08-07"
+actualizado_en: "2026-08-08"
 ---
 
 # MVP-709 — Respuesta a la perdida de conexion
@@ -73,13 +73,26 @@ Que una caida de red se reconozca como tal, se diga con claridad y no cueste el 
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Con la red cortada, la aplicacion dice «sin conexion» y no «no se pudieron cargar los
-  datos», que es lo mismo que dice ante un fallo del servidor.
-- [ ] **CA-2**: Al recuperar la conexion, el aviso desaparece sin exigir recargar.
-- [ ] **CA-3**: Un guardado que falla por red conserva el contenido del formulario y ofrece reintentar.
-- [ ] **CA-4**: `ADR-0002` sigue vigente: esta historia no introduce operacion sin conexion, y asi se
-  hace constar.
-- [ ] **CA-5**: Verificado cortando la red de verdad con el formulario abierto, no simulando el error.
+- [x] **CA-1**: Con la red cortada, la aplicacion dice «sin conexion» y no «no se pudieron cargar los
+  datos». La deteccion vive en un unico sitio —`fetch` solo rechaza cuando la peticion **no llega a
+  tener respuesta**, que es justo la frontera que separa la falta de cobertura del error del servidor—
+  y el `NetworkError` **hereda de `HttpError`** a proposito: media aplicacion esta escrita como
+  `error instanceof HttpError ? error.message : generico`, asi que heredando el mensaje correcto sale
+  en todas las pantallas a la vez en lugar de tener que repasarlas una a una.
+- [x] **CA-2**: Al recuperar la conexion, el aviso desaparece sin exigir recargar. Lo retiran dos
+  fuentes: el evento `online` del navegador y la primera peticion que vuelve con respuesta —aunque sea
+  un 500: eso ya demuestra que hay conexion—. Comprobado en UI conducida con **una sola navegacion**
+  registrada: el aviso se fue solo.
+- [x] **CA-3**: Un guardado que falla por red conserva el contenido del formulario y ofrece reintentar.
+  Verificado con 1847 kg escritos: el modal sigue abierto, el valor sigue ahi y «Guardar» vuelve a
+  estar disponible; al volver la API, el mismo boton lo guardo sin volver a teclear nada.
+- [x] **CA-4**: `ADR-0002` sigue vigente. No hay cola de salida, ni reintento automatico de
+  operaciones, ni almacenamiento local de nada que el usuario haya escrito, ni resolucion de
+  conflictos. Solo se **sabe** si hay conexion para poder decirlo. El unico reintento automatico es el
+  del refresco de sesion, que no es una operacion del usuario y no crea ni modifica datos.
+- [x] **CA-5**: Verificado cortando la red de verdad —**parando el proceso de la API**, no simulando el
+  error— con el formulario de cosecha abierto y relleno. Ademas, la prueba de regresion de la sesion se
+  comprobo rompiendola a proposito para confirmar que falla sin el arreglo.
 
 ## Maquetas y referencias visuales
 
@@ -92,9 +105,27 @@ Que una caida de red se reconozca como tal, se diga con claridad y no cueste el 
 
 | Pantalla prototipo | Regla KB asociada | Estado | Evidencia de prueba |
 |---|---|---|---|
-| App (transversal) | ADR-0002 (online-first) | falta | Ninguna reaccion a la perdida de red |
+| App (transversal) | ADR-0002 (online-first) | hecho | Corte real de la conexion con el formulario abierto: aviso persistente, formulario conservado y reintento correcto sin recargar |
 
 ## Notas y decisiones
 
 - La frontera esta escrita a proposito: **avisar y no perder** cabe en unos ajustes; **operar sin
   conexion** no, y confundirlos convertiria esta epica en otra cosa.
+- **Hallazgo: un corte de cobertura cerraba la sesion.** Al recorrer el camino de red aparecio algo
+  peor de lo que el punto describia: habia **tres** sitios donde una red caida se leia como sesion
+  invalida —el refresco programado, que se dispara solo cada cuarto de hora largo; `getAccessToken`,
+  que devolvia `null` y el cliente traducia a «cerrar sesion»; y el arranque con token guardado, que lo
+  borraba—. Cerrar la sesion se lleva por delante todo lo tecleado, que es exactamente lo que el `HU-2`
+  quiere evitar, asi que entra en el alcance. Ahora solo se cierra cuando el servidor **responde** que
+  la sesion no vale; si fue la red, se conserva y se reintenta. Es seguro porque el `refresh_token` es
+  una cookie de larga duracion que sigue valiendo cuando vuelva la cobertura.
+- **`navigator.onLine` no basta y no se usa solo.** Sabe si hay interfaz de red, no si se llega al
+  servidor, y en el campo el caso normal es el contrario del que detecta: el movil enganchado a una
+  antena con una barra, `navigator.onLine` en `true` y las peticiones muriendo igual. Su `false` es
+  fiable; su `true` no significa nada. Por eso manda lo que le pasa a cada peticion.
+- **Cancelar no es un corte.** Un `AbortError` se deja pasar tal cual: abortar al cambiar de pantalla es
+  lo normal y confundirlo con falta de cobertura pintaria el aviso cada vez que alguien navega rapido.
+- **Arrancar con un token guardado no programa el refresco de sesion.** Se descubrio al montar la
+  prueba de regresion, que sin darse cuenta no llegaba a disparar el temporizador. Queda **fuera de
+  alcance** —no lo empeora esta historia y arreglarlo toca el ciclo de sesion— y se registra en
+  `MVP-999`.

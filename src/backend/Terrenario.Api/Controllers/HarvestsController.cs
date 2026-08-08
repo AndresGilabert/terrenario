@@ -121,7 +121,8 @@ public sealed class HarvestsController(
                     request.Destination,
                     request.Yield,
                     request.Liters,
-                    request.YieldUnit),
+                    request.YieldUnit,
+                    request.UnitPrice),
                 ct);
 
             return CreatedAtAction(nameof(GetById), new { harvestId = harvest.Id }, ToResponse(harvest));
@@ -163,7 +164,9 @@ public sealed class HarvestsController(
                 ReadString(body, "destination"),
                 ReadNullableDecimal(body, "yield"),
                 ReadNullableDecimal(body, "liters"),
-                ReadPlainString(body, "yield_unit"));
+                ReadPlainString(body, "yield_unit"),
+                // MVP-707 — anulable a propósito: `null` explícito **retira** el precio.
+                ReadNullableDecimal(body, "unit_price"));
         }
         catch (HarvestValidationException ex)
         {
@@ -333,6 +336,11 @@ public sealed class HarvestsController(
         effective_yield = harvest.EffectiveYield,
         yield_source = harvest.YieldSource,
         destination = harvest.Destination,
+        // MVP-707 — Precio por kilo e importe. `null` en los dos significa **no se sabe**, no cero: una
+        // partida sin precio no ha ingresado 0 € (CA-2).
+        unit_price = harvest.UnitPrice,
+        // Derivado, nunca columna: guardarlo permitiría que divergiera de kilos × precio (CA-3).
+        amount = harvest.Amount,
         // RN-023 — aviso no bloqueante de fecha fuera del rango de la temporada (CA-3).
         is_out_of_season_range = harvest.IsOutOfSeasonRange,
         version = harvest.Version,
@@ -362,4 +370,9 @@ public sealed record CreateHarvestRequest(
     /// <c>kg_100kg</c>, que es como dan el rendimiento graso muchas almazaras. Se convierte con la
     /// densidad de RN-016 antes de persistir.
     /// </summary>
-    [property: JsonPropertyName("yield_unit")] string? YieldUnit);
+    [property: JsonPropertyName("yield_unit")] string? YieldUnit,
+    /// <summary>
+    /// MVP-707 — Precio de venta por kilo, <b>opcional</b> (RN-029 matizada). Ausente o <c>null</c>
+    /// significa que no se sabe; el importe se deriva y no se envía.
+    /// </summary>
+    [property: JsonPropertyName("unit_price")] decimal? UnitPrice = null);

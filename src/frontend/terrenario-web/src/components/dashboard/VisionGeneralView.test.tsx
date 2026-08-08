@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -7,6 +7,7 @@ import { createFakeHttpClient, type FakeHttpClient } from '../../test/http';
 import { UsageEvent } from '../../lib/usage-telemetry';
 import type { UsageEventPayload } from '../../services/telemetry.service';
 import type {
+  DashboardEconomics,
   DashboardKgByDestination,
   DashboardKgByPlot,
   DashboardScope,
@@ -64,6 +65,15 @@ const kgByPlot = (empty: boolean): DashboardKgByPlot => ({
   meta: { total_kg: empty ? 0 : 1200 },
 });
 
+/** MVP-707 — Lectura económica de la campaña. `income: null` = ninguna partida con precio. */
+const economics = (income: number | null = 800, expense = 400): DashboardEconomics => ({
+  scope,
+  expense,
+  income,
+  harvests: 3,
+  harvests_with_price: income === null ? 0 : 2,
+});
+
 const evolution = (empty: boolean, history: number | null = null): DashboardYieldEvolution => ({
   scope,
   granularity: 'month',
@@ -104,6 +114,7 @@ describe('VisionGeneralView — señales de uso', () => {
       destinations?: DashboardKgByDestination;
       plots?: DashboardKgByPlot;
       evolution?: DashboardYieldEvolution;
+      economics?: DashboardEconomics;
     } = {},
     { falla = false, fallan = [] }: { falla?: boolean; fallan?: string[] } = {}
   ) => {
@@ -121,6 +132,7 @@ describe('VisionGeneralView — señales de uso', () => {
       '/api/v1/dashboard/kg-by-destination': ep('kg-by-destination', data.destinations ?? destinations(false)),
       '/api/v1/dashboard/kg-by-plot': ep('kg-by-plot', data.plots ?? kgByPlot(false)),
       '/api/v1/dashboard/yield-evolution': ep('yield-evolution', data.evolution ?? evolution(false)),
+      '/api/v1/dashboard/economics': ep('economics', data.economics ?? economics()),
       '/api/v1/plots': { data: [], meta: { total: 0 } },
     });
 
@@ -186,6 +198,7 @@ describe('VisionGeneralView — señales de uso', () => {
         kg_by_destination: 'ok',
         kg_by_plot: 'ok',
         yield_evolution: 'ok',
+        economics: 'ok',
       })
     );
   });
@@ -198,6 +211,7 @@ describe('VisionGeneralView — señales de uso', () => {
       destinations: destinations(true),
       plots: kgByPlot(true),
       evolution: evolution(true),
+      economics: economics(null, 0),
     });
 
     await waitFor(() =>
@@ -206,6 +220,7 @@ describe('VisionGeneralView — señales de uso', () => {
         kg_by_destination: 'empty',
         kg_by_plot: 'empty',
         yield_evolution: 'empty',
+        economics: 'empty',
       })
     );
   });
@@ -227,6 +242,7 @@ describe('VisionGeneralView — señales de uso', () => {
         kg_by_destination: 'error',
         kg_by_plot: 'error',
         yield_evolution: 'error',
+        economics: 'error',
       })
     );
   });
@@ -243,6 +259,7 @@ describe('VisionGeneralView — señales de uso', () => {
         kg_by_destination: 'ok',
         kg_by_plot: 'error',
         yield_evolution: 'ok',
+        economics: 'ok',
       })
     );
   });
@@ -258,6 +275,36 @@ describe('VisionGeneralView — señales de uso', () => {
     // …y los que sí se calcularon siguen en pantalla, que es lo que antes se perdía.
     expect(screen.getByText(/Kg recolectados/)).toBeInTheDocument();
     expect(screen.getByText(/Kg por destino/)).toBeInTheDocument();
+  });
+
+  it('publica gasto e ingreso de la campaña', async () => {
+    // MVP-707 (CA-4, `P-092`) — El gasto ya existía y se calculaba, pero se veía en el diario y no en
+    // la vista de resumen, que es donde se busca.
+    renderWith();
+
+    expect(await screen.findByText('Gasto de la campaña')).toBeInTheDocument();
+    expect(screen.getByText('400,00 €')).toBeInTheDocument();
+    expect(screen.getByText('Ingreso de la campaña')).toBeInTheDocument();
+    expect(screen.getByText('800,00 €')).toBeInTheDocument();
+  });
+
+  it('dice «sin dato» y no «0 €» cuando ninguna partida tiene precio', async () => {
+    // CA-5 — «0 €» afirmaría que la campaña no ha ingresado nada; lo cierto es que no se sabe.
+    renderWith({ economics: economics(null) });
+
+    // La tarjeta de ingreso, no cualquier «Sin dato» de la pantalla: el resumen también los tiene.
+    const tarjeta = (await screen.findByText('Ingreso de la campaña')).closest('div')!.parentElement!;
+    expect(within(tarjeta).getByText('Sin dato')).toBeInTheDocument();
+    expect(
+      within(tarjeta).getByText(/Ninguna partida tiene precio por kilo todav[ií]a/)
+    ).toBeInTheDocument();
+  });
+
+  it('dice sobre cuántas partidas suma el ingreso', async () => {
+    // Sin esto, 800 € parecería el ingreso de las tres partidas y no de las dos que tienen precio.
+    renderWith();
+
+    expect(await screen.findByText(/Sobre 2 de 3 partidas con precio/)).toBeInTheDocument();
   });
 
   it('sigue sabiendo de qué campaña habla aunque falle el resumen', async () => {

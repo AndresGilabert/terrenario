@@ -107,6 +107,7 @@ public sealed class HarvestRepository(TerrenarioDbContext db) : IHarvestReposito
                h.Yield,
                h.Liters,
                h.Destination,
+               h.UnitPrice,
                h.Version,
                h.CreatedAt,
                h.UpdatedAt);

@@ -23,8 +23,36 @@ namespace Terrenario.Api.Controllers;
 [Route("api/v1/dashboard")]
 public sealed class DashboardController(
     DashboardQueryService dashboardQueryService,
+    DashboardEconomicsService dashboardEconomicsService,
     IWorkspaceContext workspaceContext) : ControllerBase
 {
+    /// <summary>
+    /// MVP-707 — Lectura económica de la campaña (RN-009 ampliada): cuánto ha salido y cuánto ha
+    /// entrado, sobre el mismo ámbito que el resto de widgets.
+    ///
+    /// <c>income</c> a <c>null</c> significa que <b>ninguna</b> partida del ámbito tiene precio, y la
+    /// pantalla debe decir «sin dato», no «0 €»: una campaña sin precios registrados no ha ingresado
+    /// cero (CA-5). <c>harvests_with_price</c> explica sobre cuántas partidas se suma.
+    /// </summary>
+    [HttpGet("economics")]
+    public async Task<IActionResult> Economics(
+        [FromQuery(Name = "season_id")] Guid? seasonId,
+        [FromQuery(Name = "plot_ids")] Guid[]? plotIds,
+        CancellationToken ct)
+    {
+        var economics = await dashboardEconomicsService.HandleAsync(
+            User.GetUserId()!.Value, workspaceContext.WorkspaceId, new DashboardRequest(seasonId, plotIds), ct);
+
+        return Ok(new
+        {
+            scope = ToScope(economics.Scope),
+            expense = economics.Expense,
+            income = economics.Income,
+            harvests = economics.Harvests,
+            harvests_with_price = economics.HarvestsWithPrice
+        });
+    }
+
     /// <summary>Resumen de temporada: kilos, litros y rendimiento medio (CA-1).</summary>
     [HttpGet("summary")]
     public async Task<IActionResult> Summary(

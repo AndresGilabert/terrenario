@@ -144,12 +144,20 @@ Un `season_id` que no exista en el Workspace **cae al defecto** en vez de dar er
 **Fuente**: producto
 **Módulos afectados**: dashboard
 
-El dashboard MVP debe mostrar estos cuatro widgets:
+El dashboard MVP debe mostrar estos widgets:
 
 1. Resumen de temporada
 2. Kg por destino
 3. Kg por terreno
 4. Evolucion de rendimiento
+5. **Lectura económica de la campaña** (MVP-707): gasto e ingreso
+
+El quinto lo añade MVP-707. El gasto **ya existía y ya se calculaba** —el diario lo rotula en su
+cabecera—, pero se veía en la vista de registro cronológico y no en la de resumen, que es donde se
+busca (`P-092`). El ingreso llega con el `unit_price` de la cosecha (RN-029 matizada).
+
+Alcance deliberadamente mínimo: **dos cifras, no un módulo de contabilidad**. Quedan fuera margen,
+rentabilidad y desglose de gasto por tipo.
 
 ---
 
@@ -375,7 +383,20 @@ El alta mínima de terreno exige `nombre` y `tipo_propiedad`. El resto de campos
 **Fuente**: producto
 **Módulos afectados**: produccion
 
-La producción MVP se limita a `producto`, `kgs`, `destino` y uno entre `rendimiento` o `litros`. Quedan fuera de alcance precio, molturación y balance.
+La producción MVP se limita a `producto`, `kgs`, `destino` y uno entre `rendimiento` o `litros`.
+
+**Matiz de MVP-707**: la cosecha admite además un `unit_price` **opcional** —precio de venta por
+kilo— y su **importe derivado** (`kgs × unit_price`). Sigue sin haber molturación ni capa comercial:
+ni maestro de almazaras y compradoras, ni precio pactado, ni facturas, cobros o pagos.
+
+El importe **no es columna**: se deriva de sus dos factores. Guardarlo permitiría que divergiera de
+ellos tras una corrección, y entonces habría dos verdades sobre lo mismo.
+
+`unit_price` a `null` significa **no se sabe**, no cero: una partida sin precio no ha ingresado 0 €, y
+afirmarlo sería afirmar algo falso sobre la campaña.
+
+Motivo del matiz: sin ningún campo económico, el MVP solo registraba gasto (`RN-003`) y la pregunta
+«¿me ha salido a cuenta la campaña?» no tenía respuesta en el producto (`P-084`).
 
 ---
 

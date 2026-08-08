@@ -224,6 +224,9 @@ builder.Services.AddScoped<SeasonScopeResolver>();
 // Dashboard (MVP-403): agrega la producción capturada; solo lectura y sin refresco continuo (RN-006)
 builder.Services.AddScoped<DashboardScopeResolver>();
 builder.Services.AddScoped<DashboardQueryService>();
+// MVP-707 — Lectura económica de la campaña (RN-009 ampliada). Le pregunta el gasto al diario en vez
+// de recalcularlo: es donde vive la decisión de qué cuenta como gasto (`R-01` de MVP-399).
+builder.Services.AddScoped<DashboardEconomicsService>();
 // Diario cronológico unificado (MVP-305): agrega las cuatro entidades operativas, de solo lectura.
 // MVP-401 enciende la cosecha, que es lo que completa RN-033 (hallazgo `G-4`).
 // MVP-506 mueve la mezcla a SQL con su propio repositorio: paginar sobre cuatro listas ya

@@ -56,7 +56,11 @@ public sealed class DiaryRepository(TerrenarioDbContext db) : IDiaryRepository
                 group.Key.HasPurchase,
                 Count = group.Count(),
                 Cost = group.Sum(row => row.Cost),
-                Kgs = group.Sum(row => row.Kgs ?? 0m)
+                Kgs = group.Sum(row => row.Kgs ?? 0m),
+                // MVP-707 — Ingreso y cuántas partidas lo aportan. El contador es lo que permite
+                // distinguir «cero euros» de «ninguna partida tiene precio» (CA-5).
+                Income = group.Sum(row => row.Amount ?? 0m),
+                WithPrice = group.Count(row => row.Amount != null)
             })
             .ToListAsync(ct);
 
@@ -74,7 +78,11 @@ public sealed class DiaryRepository(TerrenarioDbContext db) : IDiaryRepository
             // es `false`.
             TotalCost: groups.Where(g => g.HasPurchase != true).Sum(g => g.Cost),
             ImputedCost: groups.Where(g => g.HasPurchase == true).Sum(g => g.Cost),
-            ConsumptionsWithoutPurchase: groups.Where(g => g.HasPurchase == false).Sum(g => g.Count));
+            ConsumptionsWithoutPurchase: groups.Where(g => g.HasPurchase == false).Sum(g => g.Count),
+            // `null` y no `0` cuando ninguna partida tiene precio: la campaña no ha ingresado cero,
+            // es que no se sabe. Afirmar el cero sería afirmar algo falso (CA-5).
+            TotalIncome: groups.Sum(g => g.WithPrice) == 0 ? null : groups.Sum(g => g.Income),
+            HarvestsWithPrice: groups.Sum(g => g.WithPrice));
     }
 
     /// <summary>
@@ -107,6 +115,7 @@ public sealed class DiaryRepository(TerrenarioDbContext db) : IDiaryRepository
         if (filter.From is { } from) live = live.Where(a => a.Date >= from);
         if (filter.To is { } to) live = live.Where(a => a.Date <= to);
         if (filter.PlotId is { } plotId) live = live.Where(a => a.PlotId == plotId);
+        if (filter.PlotIds is { Count: > 0 } plotIds) live = live.Where(a => plotIds.Contains(a.PlotId));
         if (filter.SeasonId is { } seasonId) live = live.Where(a => a.SeasonId == seasonId);
         if (filter.WorkerId is { } workerId) live = live.Where(a => a.WorkerId == workerId);
 
@@ -141,7 +150,8 @@ public sealed class DiaryRepository(TerrenarioDbContext db) : IDiaryRepository
                        HasPurchase = null,
                        Kgs = null,
                        Destination = null,
-                       Yield = null
+                       Yield = null,
+                       Amount = null
                    };
 
         if (Needle(filter) is { } needle)
@@ -164,6 +174,7 @@ public sealed class DiaryRepository(TerrenarioDbContext db) : IDiaryRepository
         if (filter.From is { } from) live = live.Where(h => h.Date >= from);
         if (filter.To is { } to) live = live.Where(h => h.Date <= to);
         if (filter.PlotId is { } plotId) live = live.Where(h => h.PlotId == plotId);
+        if (filter.PlotIds is { Count: > 0 } plotIds) live = live.Where(h => plotIds.Contains(h.PlotId));
         if (filter.SeasonId is { } seasonId) live = live.Where(h => h.SeasonId == seasonId);
 
         var rows = from h in live
@@ -196,7 +207,9 @@ public sealed class DiaryRepository(TerrenarioDbContext db) : IDiaryRepository
                        Destination = h.Destination,
                        // MVP-402 — rendimiento efectivo: el declarado o el que se deduce de los litros
                        // obtenidos (RN-014). Para quien lee es el mismo dato.
-                       Yield = h.Yield ?? (h.Liters != null && h.Kgs > 0 ? h.Liters * 100m / h.Kgs : null)
+                       Yield = h.Yield ?? (h.Liters != null && h.Kgs > 0 ? h.Liters * 100m / h.Kgs : null),
+                       // MVP-707 — Importe ingresado, derivado en la propia consulta: kilos × precio.
+                       Amount = h.UnitPrice != null ? h.Kgs * h.UnitPrice : null
                    };
 
         if (Needle(filter) is { } needle)
@@ -211,7 +224,9 @@ public sealed class DiaryRepository(TerrenarioDbContext db) : IDiaryRepository
     {
         // Una compra es del Workspace, no de un terreno ni de una persona: los dos filtros la dejan
         // fuera por definición, no por olvido. El reparto por terrenos es la imputación (MVP-304).
-        if (filter.PlotId is not null || filter.WorkerId is not null) return Empty();
+        // MVP-707 — `PlotIds` cuenta igual que `PlotId`: acotar por terrenos deja la compra fuera.
+        if (filter.PlotId is not null || filter.PlotIds is { Count: > 0 } || filter.WorkerId is not null)
+            return Empty();
 
         var live = db.Purchases.Where(p => p.WorkspaceId == workspaceId && p.DeletedAt == null);
 
@@ -245,7 +260,8 @@ public sealed class DiaryRepository(TerrenarioDbContext db) : IDiaryRepository
                        HasPurchase = null,
                        Kgs = null,
                        Destination = null,
-                       Yield = null
+                       Yield = null,
+                       Amount = null
                    };
 
         if (Needle(filter) is { } needle)
@@ -263,6 +279,7 @@ public sealed class DiaryRepository(TerrenarioDbContext db) : IDiaryRepository
         if (filter.From is { } from) live = live.Where(c => c.Date >= from);
         if (filter.To is { } to) live = live.Where(c => c.Date <= to);
         if (filter.PlotId is { } plotId) live = live.Where(c => c.PlotId == plotId);
+        if (filter.PlotIds is { Count: > 0 } plotIds) live = live.Where(c => plotIds.Contains(c.PlotId));
         if (filter.SeasonId is { } seasonId) live = live.Where(c => c.SeasonId == seasonId);
 
         var rows = from c in live
@@ -292,7 +309,8 @@ public sealed class DiaryRepository(TerrenarioDbContext db) : IDiaryRepository
                        HasPurchase = c.PurchaseId != null,
                        Kgs = null,
                        Destination = null,
-                       Yield = null
+                       Yield = null,
+                       Amount = null
                    };
 
         if (Needle(filter) is { } needle)

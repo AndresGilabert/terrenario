@@ -52,6 +52,13 @@ public static class DashboardWidgets
     public const string KgByPlot = "kg_by_plot";
     public const string YieldEvolution = "yield_evolution";
 
+    /// <summary>
+    /// MVP-707 — Lectura económica de la campaña. RN-009 amplía los widgets obligatorios con gasto e
+    /// ingreso, así que la cobertura tiene que contarlo: si no, un panel con el widget económico roto
+    /// seguiría midiendo 100 %.
+    /// </summary>
+    public const string Economics = "economics";
+
     /// <summary>Se pintó con datos.</summary>
     public const string StatusOk = "ok";
 
@@ -66,7 +73,10 @@ public static class DashboardWidgets
     public const string StatusError = "error";
 
     public static readonly IReadOnlySet<string> Keys =
-        new HashSet<string>(StringComparer.Ordinal) { Summary, KgByDestination, KgByPlot, YieldEvolution };
+        new HashSet<string>(StringComparer.Ordinal)
+        {
+            Summary, KgByDestination, KgByPlot, YieldEvolution, Economics
+        };
 
     public static readonly IReadOnlySet<string> Statuses =
         new HashSet<string>(StringComparer.Ordinal) { StatusOk, StatusEmpty, StatusError };

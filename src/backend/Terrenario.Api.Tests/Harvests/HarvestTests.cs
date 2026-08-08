@@ -24,7 +24,7 @@ public class HarvestTests
         string product = "aceituna_olivar",
         string destination = "aceite_para_venta")
         => Harvest.Create(
-            WorkspaceId, PlotId, SeasonId, Date, product, kgs, destination, yield, liters, UserId);
+            WorkspaceId, PlotId, SeasonId, Date, product, kgs, destination, yield, liters, null, UserId);
 
     [Fact]
     public void Create_Deberia_RegistrarLaCosecha_ConLosCamposMinimos()
@@ -121,7 +121,7 @@ public class HarvestTests
         // RN-023 — la fecha fuera de rango **avisa**, no bloquea: el aviso lo calcula la lectura
         var act = () => Harvest.Create(
             WorkspaceId, PlotId, SeasonId, new DateOnly(2019, 1, 1),
-            "aceituna_olivar", 1200m, "desconocido", null, null, UserId);
+            "aceituna_olivar", 1200m, "desconocido", null, null, null, UserId);
 
         act.Should().NotThrow();
     }
@@ -132,7 +132,7 @@ public class HarvestTests
         // ADR-0005 — cada mutación mueve la versión: es lo que hace útil el If-Match
         var harvest = Create();
 
-        harvest.Update(PlotId, SeasonId, Date, "aceituna_olivar", 1500m, "venta_aceituna", 19m, null, UserId);
+        harvest.Update(PlotId, SeasonId, Date, "aceituna_olivar", 1500m, "venta_aceituna", 19m, null, null, UserId);
 
         harvest.Kgs.Should().Be(1500m);
         harvest.Version.Should().Be(2);
@@ -143,7 +143,7 @@ public class HarvestTests
     {
         // CA-5 — dos personas corrigiendo la misma cosecha no pueden pisarse en silencio
         var harvest = Create();
-        harvest.Update(PlotId, SeasonId, Date, "aceituna_olivar", 1500m, "venta_aceituna", null, null, UserId);
+        harvest.Update(PlotId, SeasonId, Date, "aceituna_olivar", 1500m, "venta_aceituna", null, null, null, UserId);
 
         var act = () => harvest.EnsureVersion(1);
 

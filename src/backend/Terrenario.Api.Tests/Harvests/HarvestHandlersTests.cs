@@ -54,11 +54,11 @@ public class HarvestHandlersTests
     {
         var harvest = Harvest.Create(
             WorkspaceId, PlotId, SeasonId, Date, "aceituna_olivar", 1200m, "aceite_para_venta",
-            yield, liters, UserId);
+            yield, liters, null, UserId);
 
         for (var i = 1; i < version; i++)
             harvest.Update(PlotId, SeasonId, Date, "aceituna_olivar", 1200m, "aceite_para_venta",
-                yield, liters, UserId);
+                yield, liters, null, UserId);
 
         return harvest;
     }
@@ -66,8 +66,8 @@ public class HarvestHandlersTests
     private static HarvestView ViewOf(Harvest harvest) => new(
         harvest.Id, WorkspaceId, PlotId, "Olivar Alto", SeasonId, "2026/2027",
         new DateOnly(2026, 9, 1), new DateOnly(2027, 2, 28), harvest.Date, harvest.Product,
-        harvest.Kgs, harvest.Yield, harvest.Liters, harvest.Destination, harvest.Version,
-        harvest.CreatedAt, harvest.UpdatedAt);
+        harvest.Kgs, harvest.Yield, harvest.Liters, harvest.Destination, harvest.UnitPrice,
+        harvest.Version, harvest.CreatedAt, harvest.UpdatedAt);
 
     private static FieldUpdate<T> Absent<T>() => FieldUpdate<T>.Absent;
 

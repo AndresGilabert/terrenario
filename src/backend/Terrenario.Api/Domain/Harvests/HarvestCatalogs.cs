@@ -40,6 +40,17 @@ public static class HarvestDestinations
         new HashSet<string> { VentaAceituna, AceiteParaVenta, AceitePersonal, Desconocido };
 
     public static bool IsSupported(string? value) => value is not null && Supported.Contains(value);
+
+    /// <summary>
+    /// MVP-707 — Destinos que acaban en <b>venta</b>, y por tanto los que tienen precio por kilo de
+    /// forma natural. Es una pista para la UI (dónde ofrecer el campo sin que estorbe), no una
+    /// restricción: el precio se admite en cualquier destino, porque quien vende parte de una partida
+    /// destinada a consumo propio también quiere apuntarlo.
+    /// </summary>
+    public static readonly IReadOnlySet<string> Sale =
+        new HashSet<string> { VentaAceituna, AceiteParaVenta };
+
+    public static bool IsSale(string? value) => value is not null && Sale.Contains(value);
 }
 
 /// <summary>

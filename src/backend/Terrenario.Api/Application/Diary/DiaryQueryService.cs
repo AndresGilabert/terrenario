@@ -61,7 +61,8 @@ public sealed class DiaryQueryService(IDiaryRepository diaryRepository)
         HasPurchase: row.HasPurchase,
         Kgs: row.Kgs,
         Destination: row.Destination,
-        Yield: row.Yield);
+        Yield: row.Yield,
+        Amount: row.Amount);
 
     /// <summary>
     /// RN-023 — la fecha cae fuera del rango de su temporada. Es un <b>aviso</b>, nunca un bloqueo, y

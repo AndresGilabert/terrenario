@@ -48,7 +48,7 @@ public sealed class HarvestRepositoryPostgresTests : RepositoryTestBase
         Guid? plotId = null)
         => Harvest.Create(
             fixture.Workspace.Id, plotId ?? fixture.Plot.Id, fixture.Season.Id, date,
-            "aceituna_olivar", kgs, destination, 18.5m, null, _userId);
+            "aceituna_olivar", kgs, destination, 18.5m, null, null, _userId);
 
     [Fact]
     public async Task ListAsync_Deberia_ResolverNombresDeLosMaestros()

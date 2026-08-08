@@ -115,7 +115,12 @@ public sealed class DiaryController(
                 total_kg = result.Totals.TotalKg,
                 // RN-032 — cuántos consumos no tienen compra detrás: su coste consta como 0 porque se
                 // desconoce, y el diario lo dice en vez de dejar creer que fue gratis.
-                consumptions_without_purchase = result.Totals.ConsumptionsWithoutPurchase
+                consumptions_without_purchase = result.Totals.ConsumptionsWithoutPurchase,
+                // MVP-707 — Ingreso del conjunto filtrado: la suma de kilos × precio de las cosechas
+                // que lo tienen. `null` cuando ninguna lo tiene: la campaña no ha ingresado cero, es
+                // que no se sabe (CA-5). Va **aparte** de `total_cost`, que sigue siendo solo gasto.
+                total_income = result.Totals.TotalIncome,
+                harvests_with_price = result.Totals.HarvestsWithPrice
             }
         });
     }
@@ -160,6 +165,8 @@ public sealed class DiaryController(
         kgs = entry.Kgs,
         destination = entry.Destination,
         // MVP-402 — rendimiento efectivo en L/100kg (RN-013/RN-014).
-        yield = entry.Yield
+        yield = entry.Yield,
+        // MVP-707 — solo en cosechas: importe ingresado (kilos × precio). `null` = sin precio.
+        amount = entry.Amount
     };
 }

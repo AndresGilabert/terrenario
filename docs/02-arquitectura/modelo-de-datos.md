@@ -135,6 +135,7 @@ erDiagram
         decimal yield
         decimal liters
         string destination
+        decimal unit_price
         uuid created_by FK
         timestamp created_at
         uuid updated_by FK
@@ -431,6 +432,7 @@ de modo que una tarea del catalogo con historico no se puede borrar (solo inacti
 | `yield` | decimal(10,4) | No | Opcional, **siempre** en la unidad canonica L/100kg (RN-013). La unidad de entrada (RN-014: `l_100kg` o `kg_100kg`) **no se persiste**: se convierte con la densidad de RN-016 en el borde de aplicacion (MVP-402), de modo que ningun consumidor tenga que convertir antes de comparar. Si viene informado, `liters` no debe enviarse |
 | `liters` | decimal(10,2) | No | Opcional. Si viene informado, `yield` no debe enviarse |
 | `destination` | enum | Si | Catalogo fijo: `venta_aceituna`, `aceite_para_venta`, `aceite_personal`, `desconocido` |
+| `unit_price` | decimal(12,4) | No | **MVP-707** — Precio de venta por kilo (RN-029 matizada). `null` significa **no se sabe**, no cero. Migracion **aditiva**: ninguna cosecha existente cambia de significado, porque `null` es lo que ya tenian todas |
 | `version` | bigint | Si | Control de concurrencia optimista para `If-Match` (ADR-0005) |
 | `deleted_at` | timestamptz (nullable) | No | Marca de eliminacion logica (RN-037). Lo eliminado sale del listado, del diario y del dashboard, pero la fila permanece |
 
@@ -441,9 +443,13 @@ anadidos en MVP-402.
 
 La exclusividad `yield`/`liters` (RN-004) **la garantiza el agregado, no una restriccion de datos**,
 igual que el par `task_id`/`task_text` de `ACTIVITY`: la condicion es «como mucho uno» sobre valores ya
-normalizados. La cosecha **no tiene coste** (RN-029, que deja fuera precio, molturacion y balance), asi
-que no hay ninguna columna economica: es la unica entidad operativa del MVP que se mide en kilos y no
-en euros.
+normalizados.
+
+La cosecha **no tiene coste**: sigue sin aportar gasto (RN-003 lo registran compras y consumos). Lo que
+MVP-707 anade es lo contrario, un **ingreso**: `unit_price` y el **importe derivado** `kgs × unit_price`,
+que la proyeccion publica como `amount`. Igual que `effective_yield`, el importe es derivado en lectura
+y no columna: guardarlo permitiria que divergiera de sus dos factores al corregir los kilos, y entonces
+habria dos verdades sobre el mismo dinero.
 
 Restricciones: indice **parcial** `ix_harvests_live_by_date` sobre `(workspace_id, date)` filtrado por
 `deleted_at IS NULL` —igual que en `ACTIVITY` y `PURCHASE`— mas `(workspace_id, plot_id)`,

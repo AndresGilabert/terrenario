@@ -46,6 +46,11 @@ export interface DiaryEntry {
   /** Solo en consumos: `false` ⇒ el coste es desconocido, no cero (RN-032). */
   has_purchase: boolean | null;
   /**
+   * Solo en consumos con compra (MVP-708, RN-043): la fecha del consumo es anterior a la de la compra
+   * que lo paga. `null` donde la pregunta no aplica, que no es lo mismo que «no».
+   */
+  is_before_purchase_date: boolean | null;
+  /**
    * Solo en cosechas (MVP-401): kilos recolectados. Van aparte de `quantity` porque no son la misma
    * magnitud —allí es material comprado o consumido, sin unidad fija— y la tarjeta las rotula distinto.
    */

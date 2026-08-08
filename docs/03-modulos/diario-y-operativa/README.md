@@ -1,4 +1,4 @@
----
+﻿---
 modulo: diario-y-operativa
 owner: "@andres"
 estado: activo
@@ -32,8 +32,10 @@ el usuario pasa el tiempo: el panel se consulta, el diario se usa.
 
 - Registro, edición y borrado de actividades, con tarea, responsable, tiempo y coste manual
   (`RN-002`, `RN-003`, `RN-025`).
-- Registro de compras con material libre y sugerencias desde el histórico (`RN-031`).
-- Imputación de compras a terrenos y consumo sin compra previa, sin recálculo histórico (`RN-032`).
+- Registro de compras con material libre y sugerencias desde el histórico de compras **y** de
+  consumos (`RN-031`).
+- Imputación de compras a terrenos y consumo sin compra previa, sin recálculo histórico
+  (`RN-032`), con aviso no bloqueante si el consumo es anterior a su compra (`RN-043`).
 - Diario cronológico unificado, con paginación, filtros y borrado con confirmación explícita
   (`RN-033`, `RN-037`).
 
@@ -66,7 +68,7 @@ el usuario pasa el tiempo: el panel se consulta, el diario se usa.
 | Capa | Elementos |
 | ---- | --------- |
 | API | `/api/v1/activities`, `/api/v1/purchases`, `/api/v1/purchases/{id}/consumptions`, `/api/v1/consumptions`, `/api/v1/diary` |
-| Backend | `Application/{Activities,Purchases,Consumptions,Diary}`, `Domain/{Activities,Purchases,Consumptions,Diary}`, repositorios homónimos |
+| Backend | `Application/{Activities,Purchases,Consumptions,Materials,Diary}`, `Domain/{Activities,Purchases,Consumptions,Materials,Diary}`, repositorios homónimos |
 | Frontend | `components/{diary,purchases}`, `types/{activity,purchase,consumption,diary}.types.ts` |
 | Datos | `activities`, `purchases`, `purchase_consumptions` |
 
@@ -104,7 +106,7 @@ flowchart LR
 | [MVP-305](../../09-desarrollos/epicas/MVP-003--diario-y-operativa-diaria/MVP-305--diario-cronologico-unificado-y-borrado-con-confirmacion/tech-design.md) | Diario unificado y borrado con confirmación |
 | [MVP-506](../../09-desarrollos/epicas/MVP-005--endurecimiento-y-salida-a-mvp/MVP-506--navegacion-y-escala-del-diario/tech-design.md) | Navegación y escala del diario |
 | [MVP-703](../../09-desarrollos/epicas/MVP-007--ajustes-mvp-01/MVP-703--arranque-en-el-diario-y-definicion-de-sesion-activa/tech-design.md) | El diario como arranque de la aplicación |
-| [Reglas de negocio](../../01-producto/reglas-de-negocio.md) · [Contratos de API](../../02-arquitectura/contratos-api.md) | `RN-025`, `RN-031`–`RN-033`, `RN-037` y contrato, mantenidos de forma central |
+| [Reglas de negocio](../../01-producto/reglas-de-negocio.md) · [Contratos de API](../../02-arquitectura/contratos-api.md) | `RN-025`, `RN-031`–`RN-033`, `RN-037`, `RN-043` y contrato, mantenidos de forma central |
 
 ---
 

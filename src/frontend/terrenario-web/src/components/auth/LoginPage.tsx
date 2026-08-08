@@ -11,6 +11,11 @@ import {
   markLoginStarted,
   restartLoginFlow,
 } from '../../lib/login-telemetry';
+import {
+  ANY_EMAIL_WORKS_HINT,
+  GOOGLE_ACCOUNT_SIGNUP_LABEL,
+  GOOGLE_ACCOUNT_SIGNUP_URL,
+} from '../../lib/google-account';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
 const REDIRECT_URI = `${window.location.origin}/auth/callback`;
@@ -141,6 +146,22 @@ export const LoginPage: React.FC = () => {
           <GoogleLogoIcon />
           <span>{isLoading ? 'Redirigiendo…' : 'Continuar con Google'}</span>
         </button>
+
+        {/* MVP-712 (CA-1) — Debajo del botón y no encima: quien ya tiene Gmail no necesita leerlo, y
+            quien no lo tiene llega aquí justo cuando está a punto de descartarse. El enlace abre
+            pestaña nueva para no perder esta pantalla, y `noreferrer` evita contarle a Google desde
+            dónde se llega, que es coherente con lo que declara la Política de Privacidad. */}
+        <p className="text-xs text-[#76786b] leading-relaxed text-left border-t border-[#e5e2dd] pt-5">
+          {ANY_EMAIL_WORKS_HINT}{' '}
+          <a
+            href={GOOGLE_ACCOUNT_SIGNUP_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold text-[#33450d] hover:underline"
+          >
+            {GOOGLE_ACCOUNT_SIGNUP_LABEL}
+          </a>
+        </p>
       </div>
 
       {/* MVP-505 (CA-1) — Enlaces legales **vivos**. Hasta ahora eran botones deshabilitados con

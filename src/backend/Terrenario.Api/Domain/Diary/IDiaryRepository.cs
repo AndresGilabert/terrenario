@@ -39,6 +39,13 @@ public sealed class DiaryRow
     public Guid? TaskId { get; init; }
     public decimal? Quantity { get; init; }
     public bool? HasPurchase { get; init; }
+
+    /// <summary>
+    /// MVP-708 (RN-043) — Fecha de la compra imputada; solo en consumos que cuelgan de una. El aviso
+    /// se deriva de ella sobre la página ya traída, igual que el de RN-023 se deriva del rango de la
+    /// temporada: son datos de contexto, no columnas del recurso.
+    /// </summary>
+    public DateOnly? PurchaseDate { get; init; }
     public decimal? Kgs { get; init; }
     public string? Destination { get; init; }
     public decimal? Yield { get; init; }

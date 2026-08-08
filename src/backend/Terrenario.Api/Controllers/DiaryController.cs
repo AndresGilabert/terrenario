@@ -161,6 +161,9 @@ public sealed class DiaryController(
         task_id = entry.TaskId,
         quantity = entry.Quantity,
         has_purchase = entry.HasPurchase,
+        // MVP-708 (RN-043) — aviso no bloqueante: el consumo es anterior a su compra. `null` fuera de
+        // los consumos con compra, donde la pregunta no aplica.
+        is_before_purchase_date = entry.IsBeforePurchaseDate,
         // MVP-401 — solo en cosechas: kilos recolectados y destino (RN-012).
         kgs = entry.Kgs,
         destination = entry.Destination,

@@ -28,7 +28,12 @@ export function createPurchaseService(http: HttpClient) {
       });
     },
 
-    /** Vocabulario de materiales del histórico para sugerir mientras se escribe (RN-031). */
+    /**
+     * Vocabulario de materiales del histórico para sugerir mientras se escribe (RN-031).
+     *
+     * MVP-708 (`P-057`) — Combina los **dos** libros, compras y consumos sin compra previa. La ruta
+     * sigue colgando de `/purchases` porque es la contratada; lo que cambió es de dónde se aprende.
+     */
     async listProductSuggestions(search?: string): Promise<ProductSuggestion[]> {
       const body = await http.request<ProductSuggestionListResponse>('/api/v1/purchases/products', {
         query: { search },

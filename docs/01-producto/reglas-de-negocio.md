@@ -481,6 +481,10 @@ El flujo multiusuario del MVP debe soportar invitaciones a Workspace por email y
 
 El MVP sale con Google OIDC como único proveedor real de autenticación. Otros proveedores se consideran evolución posterior.
 
+**Cuenta de Google no es lo mismo que direccion de Gmail** (aclaracion de `MVP-712`, `P-089`; la regla no cambia). Una Cuenta de Google se da de alta con **una direccion de correo que ya se tiene** —Hotmail, Outlook, la de una cooperativa— sin crear ningun buzon nuevo. Lo que esta regla limita es el **proveedor de identidad**, no el dominio del correo, asi que ninguna direccion queda excluida del producto: queda excluida mientras no este dada de alta en Google, que es un paso que la persona puede dar.
+
+La consecuencia es de producto y obliga a los textos: login, landing, aviso de aptitud de invitacion y correo de invitacion deben decirlo, porque «accede con tu cuenta de Google» se lee como «necesitas un Gmail» y quien no lo tiene se descarta sin que nadie se entere.
+
 ---
 
 ### RN-037 — Borrado de registro operativo con confirmacion explicita
@@ -603,6 +607,31 @@ da por hecha— cada vez que la medicion crece, con el detalle en
 opcional: primera parte, identificadores aleatorios que mueren con la pestaña, **solo recuentos
 agregados conservados** y ausencia de perfilado. Cualquier medida que se salga de ahi exige
 consentimiento previo.
+
+---
+
+### RN-043 — Consumo anterior a su compra permitido con aviso
+
+**Estado**: activa
+**Fuente**: producto
+**Módulos afectados**: compras-consumo, diario
+
+Si la fecha de un consumo es **anterior** a la fecha de la compra a la que se imputa, el sistema
+permite guardarlo pero debe mostrar un aviso no bloqueante, tanto en el formulario mientras se
+teclea la fecha como en la fila del registro ya guardado.
+
+No se bloquea porque la captura retroactiva es legítima: `RN-032` ya asume que el papeleo va por
+detrás del campo, y apuntar hoy la compra de la semana pasada con sus consumos ya repartidos es un
+flujo real. Pero gastar algo **antes** de comprarlo casi siempre es un error de tecleo en la fecha
+—un año mal escrito—, y sin aviso nadie lo detecta. Es el mismo trato que `RN-023` da a la fecha
+fuera del rango de la temporada: avisar sin impedir.
+
+El aviso se **deriva en lectura** comparando las dos fechas vigentes, no se congela al guardar: si
+después se corrige la fecha de la compra, el aviso aparece o desaparece solo. Un consumo sin compra
+previa (`RN-032`) nunca lo activa, porque no hay fecha contra la que comparar. La igualdad tampoco:
+comprar y gastar el mismo día es lo normal.
+
+---
 
 ## Reglas obsoletas
 

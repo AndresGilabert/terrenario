@@ -101,14 +101,21 @@ public sealed class ConsumptionRepository(TerrenarioDbContext db) : IConsumption
         => db.PurchaseConsumptions.Where(c => c.WorkspaceId == workspaceId && c.DeletedAt == null);
 
     /// <summary>
-    /// Proyección de lectura: resuelve terreno y temporada en la misma consulta. La compra **no** se
-    /// une: el consumo guarda su propio producto y su propio precio unitario, así que la fila se
-    /// explica sola aunque la compra cambie o desaparezca (RN-032).
+    /// Proyección de lectura: resuelve terreno y temporada en la misma consulta.
+    ///
+    /// De la compra **solo** se trae la fecha, y con <c>LEFT JOIN</c> porque puede no haberla
+    /// (RN-032). El resto sigue sin unirse a propósito: el consumo guarda su propio producto y su
+    /// propio precio unitario, así que la fila se explica sola aunque la compra se edite después.
+    /// La fecha no es una excepción a eso —no entra en ningún cálculo— sino la referencia con la que
+    /// se deriva el aviso de RN-043 (MVP-708, <c>P-058</c>), que tiene que reflejar la compra tal y
+    /// como está **ahora**: si se corrige la fecha de la compra, el aviso debe aparecer o irse solo.
     /// </summary>
     private IQueryable<ConsumptionView> ProjectViews(IQueryable<PurchaseConsumption> consumptions)
         => from c in consumptions
            join p in db.Plots on c.PlotId equals p.Id
            join s in db.Seasons on c.SeasonId equals s.Id
+           join pu in db.Purchases on c.PurchaseId equals pu.Id into purchaseMatches
+           from pu in purchaseMatches.DefaultIfEmpty()
            select new ConsumptionView(
                c.Id,
                c.WorkspaceId,
@@ -126,7 +133,8 @@ public sealed class ConsumptionRepository(TerrenarioDbContext db) : IConsumption
                c.ProportionalCost,
                c.Version,
                c.CreatedAt,
-               c.UpdatedAt);
+               c.UpdatedAt,
+               pu != null ? pu.PurchaseDate : null);
 
     public async Task SaveChangesAsync(CancellationToken ct = default)
     {

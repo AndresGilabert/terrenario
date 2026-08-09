@@ -39,9 +39,24 @@ public sealed class DiaryRow
     public Guid? TaskId { get; init; }
     public decimal? Quantity { get; init; }
     public bool? HasPurchase { get; init; }
+
+    /// <summary>
+    /// MVP-708 (RN-043) — Fecha de la compra imputada; solo en consumos que cuelgan de una. El aviso
+    /// se deriva de ella sobre la página ya traída, igual que el de RN-023 se deriva del rango de la
+    /// temporada: son datos de contexto, no columnas del recurso.
+    /// </summary>
+    public DateOnly? PurchaseDate { get; init; }
     public decimal? Kgs { get; init; }
     public string? Destination { get; init; }
     public decimal? Yield { get; init; }
+
+    /// <summary>
+    /// MVP-707 — Importe <b>ingresado</b> por la partida (<c>kilos × precio</c>), solo en cosechas.
+    /// Va aparte de <see cref="Cost"/> a propósito: mezclar ingreso y gasto en la misma columna
+    /// obligaría a un signo, y un signo es una convención que cada consumidor puede leer al revés.
+    /// <c>null</c> es «sin precio», no cero.
+    /// </summary>
+    public decimal? Amount { get; init; }
 }
 
 /// <summary>
@@ -63,7 +78,14 @@ public sealed record DiaryFilter(
     /// </summary>
     Guid? WorkerId = null,
     /// <summary>Búsqueda por texto sobre titular, terreno, responsable y descripción.</summary>
-    string? Search = null);
+    string? Search = null,
+    /// <summary>
+    /// MVP-707 — Varios terrenos a la vez. Lo necesita la lectura económica del dashboard, cuyo filtro
+    /// de terrenos es múltiple (<c>plot_ids</c>, MVP-405) mientras que el del diario es de uno. Acota
+    /// igual que <see cref="PlotId"/>: donde hay terreno, restringe; donde no lo hay —la compra—, deja
+    /// la fuente fuera. Va al final del registro para no desplazar a los llamadores posicionales.
+    /// </summary>
+    IReadOnlyCollection<Guid>? PlotIds = null);
 
 /// <summary>Página solicitada, con el patrón de paginación de <c>contratos-api.md</c>.</summary>
 public sealed record DiaryPageRequest(int Page, int Limit)
@@ -93,7 +115,15 @@ public sealed record DiaryTotals(
     decimal TotalCost,
     /// <summary>Lo repartido por terrenos: desglose de <see cref="TotalCost"/>, no gasto añadido.</summary>
     decimal ImputedCost,
-    int ConsumptionsWithoutPurchase);
+    int ConsumptionsWithoutPurchase,
+    /// <summary>
+    /// MVP-707 — Ingreso de lo filtrado: la suma de <c>kilos × precio</c> de las cosechas que tienen
+    /// precio. <c>null</c> cuando **ninguna** lo tiene, que no es lo mismo que cero (CA-5): una
+    /// campaña sin precios registrados no ha ingresado 0 €, es que no se sabe.
+    /// </summary>
+    decimal? TotalIncome,
+    /// <summary>Cuántas cosechas de lo filtrado llevan precio, para poder decir sobre cuántas se suma.</summary>
+    int HarvestsWithPrice);
 
 /// <summary>
 /// MVP-506 — Puerto de lectura del diario unificado.

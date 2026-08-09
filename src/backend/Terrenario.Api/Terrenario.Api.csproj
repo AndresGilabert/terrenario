@@ -8,6 +8,22 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!--
+      MVP-715 — La identidad del responsable del tratamiento que va en el pie de todos los correos
+      sale del MISMO fichero que alimenta la Política de Privacidad y los Términos publicados. Se
+      incrusta al compilar en vez de copiarse a `appsettings`: un NIF escrito dos veces acaba
+      divergiendo, y el sitio donde se nota es la bandeja de alguien. Mismo criterio que la CSP, que
+      la API lee del build del cliente en vez de reescribirla en C#.
+
+      Vive dentro de `src/` del cliente y no en la raíz del repositorio porque el `server.fs.allow`
+      de Vite se calcula desde su `package-lock.json`: cualquier ruta por encima quedaría bloqueada
+      en el servidor de desarrollo.
+    -->
+    <EmbeddedResource Include="..\..\frontend\terrenario-web\src\config\legal-entity.json"
+                      LogicalName="Terrenario.Api.legal-entity.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Google.Apis.Auth" Version="1.68.0" />
     <PackageReference Include="MailKit" Version="4.17.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.*" />

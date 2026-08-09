@@ -17,8 +17,13 @@ public static class UsageEvents
     public const string DashboardViewed = "dashboard_viewed";
 
     /// <summary>
-    /// Pulsación de «Actualizar» (RN-006). Señal <b>separada</b> de la entrada, como pide CA-2: entrar
-    /// y recargar responden a preguntas distintas —si se consulta y si se vuelve a consultar—.
+    /// Pulsación de «Actualizar» (RN-006). <b>Discontinuada en MVP-706</b>: el PO retiró el botón, que
+    /// era su única fuente, así que ni el cliente la emite ni el informe operativo la publica.
+    ///
+    /// Se sigue <b>aceptando</b> a propósito: un cliente cacheado en un navegador puede seguir
+    /// enviándola durante un tiempo tras el despliegue, y responderle <c>400</c> convertiría un resto
+    /// inofensivo en un error de cliente contado. Su contador se sigue escribiendo, de modo que la
+    /// serie histórica de la tabla no se rompe; simplemente ya no se lee.
     /// </summary>
     public const string DashboardManualRefresh = "dashboard_manual_refresh";
 
@@ -47,6 +52,13 @@ public static class DashboardWidgets
     public const string KgByPlot = "kg_by_plot";
     public const string YieldEvolution = "yield_evolution";
 
+    /// <summary>
+    /// MVP-707 — Lectura económica de la campaña. RN-009 amplía los widgets obligatorios con gasto e
+    /// ingreso, así que la cobertura tiene que contarlo: si no, un panel con el widget económico roto
+    /// seguiría midiendo 100 %.
+    /// </summary>
+    public const string Economics = "economics";
+
     /// <summary>Se pintó con datos.</summary>
     public const string StatusOk = "ok";
 
@@ -61,7 +73,10 @@ public static class DashboardWidgets
     public const string StatusError = "error";
 
     public static readonly IReadOnlySet<string> Keys =
-        new HashSet<string>(StringComparer.Ordinal) { Summary, KgByDestination, KgByPlot, YieldEvolution };
+        new HashSet<string>(StringComparer.Ordinal)
+        {
+            Summary, KgByDestination, KgByPlot, YieldEvolution, Economics
+        };
 
     public static readonly IReadOnlySet<string> Statuses =
         new HashSet<string>(StringComparer.Ordinal) { StatusOk, StatusEmpty, StatusError };

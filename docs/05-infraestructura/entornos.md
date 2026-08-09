@@ -1,7 +1,7 @@
 ﻿---
 bloque: 05-infraestructura
 documento: entornos
-actualizado_en: "2026-07-24"
+actualizado_en: "2026-08-08"
 ---
 
 # Entornos
@@ -86,9 +86,12 @@ docker compose up --build
 | `Email__Password` | secreto | secreto | secreto | Contraseña o contraseña de aplicación |
 | `Email__FromAddress` | secreto | secreto | secreto | Remitente. Vacío = no se envían invitaciones |
 | `Email__FromName` | `Terrenario` | `Terrenario` | `Terrenario` | Nombre visible del remitente |
+| `Legal__PrivacyPolicyUrl` | URL del front dev | URL del front staging | `https://app.terrenario.com/legal/privacidad` | Política de Privacidad enlazada en el pie de todos los correos (MVP-715) |
+| `Legal__LegalName` y demás campos de identidad | versionado | versionado | versionado | Solo para sobreescribir la identidad del responsable en un despliegue concreto. Vacío = el valor de `legal-entity.json` |
 | `Ops__ApiKey` | secreto | secreto | secreto | Llave de servicio para `GET /api/v1/ops/signals` (MVP-603). **Vacía = el endpoint no existe (404)** |
 | `Ops__AlertEmail` | secreto | secreto | secreto | Destinatario de los avisos de alerta. Vacío = las alertas solo quedan en la traza |
 | `Ops__AlertsEnabled` | `true` | `true` | `true` | Apaga la vigilancia. Se pone a `false` en el arnés de tests |
+| `Feedback__Recipient` | secreto | secreto | secreto | Buzón del canal de sugerencias e incidencias (MVP-711). **Vacío = el canal responde «no disponible»** a quien intente usarlo |
 | `Telemetry__FlushIntervalSeconds` | `60` | `60` | `60` | Cadencia del volcado de contadores (MVP-601) |
 | `Telemetry__RetentionDays` | `400` | `400` | `400` | Histórico de contadores agregados. No es un plazo de `RN-041`: no hay datos personales |
 
@@ -107,6 +110,13 @@ docker compose up --build
 >
 > Mientras `Email__Host` o `Email__FromAddress` estén vacíos, el entorno arranca con un warning, las
 > invitaciones se emiten igual y la API responde `email_sent: false`: se comparten por enlace.
+>
+> **Identidad del responsable en el pie de los correos** (MVP-715): no es configuración de entorno
+> por defecto. Sale de `src/frontend/terrenario-web/src/config/legal-entity.json`, incrustado en el
+> ensamblado al compilar, que es el mismo fichero del que se alimentan la Política de Privacidad y
+> los Términos publicados. Las variables `Legal__*` solo existen para sobreescribirlo en un
+> despliegue concreto; un valor vacío cae al versionado. Inventario y criterios en
+> [correos-del-producto.md](../06-integraciones/correos-del-producto.md).
 
 ---
 

@@ -1,3 +1,5 @@
+import type { SeasonScope } from './season.types';
+
 /**
  * Tipo de entrada del diario (MVP-305). Catálogo cerrado `diary_entry_type`.
  *
@@ -44,6 +46,11 @@ export interface DiaryEntry {
   /** Solo en consumos: `false` ⇒ el coste es desconocido, no cero (RN-032). */
   has_purchase: boolean | null;
   /**
+   * Solo en consumos con compra (MVP-708, RN-043): la fecha del consumo es anterior a la de la compra
+   * que lo paga. `null` donde la pregunta no aplica, que no es lo mismo que «no».
+   */
+  is_before_purchase_date: boolean | null;
+  /**
    * Solo en cosechas (MVP-401): kilos recolectados. Van aparte de `quantity` porque no son la misma
    * magnitud —allí es material comprado o consumido, sin unidad fija— y la tarjeta las rotula distinto.
    */
@@ -55,11 +62,18 @@ export interface DiaryEntry {
    * derivado de los litros obtenidos (RN-014). `null` cuando la partida no tiene dato de aceite.
    */
   yield: number | null;
+  /**
+   * Solo en cosechas (MVP-707): importe ingresado (`kgs × unit_price`). `null` cuando la partida no
+   * tiene precio, que no es lo mismo que 0 €.
+   */
+  amount: number | null;
 }
 
 export interface DiaryListResponse {
   data: DiaryEntry[];
   meta: {
+    /** MVP-701 — Ámbito de temporada que ha aplicado el servidor (RN-008). */
+    scope: SeasonScope;
     /**
      * MVP-506 — Entradas del diario **filtrado completo**, no de la página: es lo que permite saber
      * cuántas páginas hay. El resto de contadores e importes también son del conjunto, porque son la
@@ -83,6 +97,14 @@ export interface DiaryListResponse {
     harvests: number;
     /** MVP-401 — kilos recolectados: la cosecha no aporta gasto (RN-029), así que se resume por kilos. */
     total_kg: number;
+    /**
+     * MVP-707 — Ingreso del conjunto filtrado: la suma de `kgs × unit_price` de las cosechas que
+     * tienen precio. `null` cuando ninguna lo tiene: no es que se haya ingresado cero, es que no se
+     * sabe. Va **aparte** de `total_cost`, que sigue siendo solo gasto.
+     */
+    total_income: number | null;
+    /** Sobre cuántas partidas se ha sumado el ingreso. */
+    harvests_with_price: number;
   };
 }
 

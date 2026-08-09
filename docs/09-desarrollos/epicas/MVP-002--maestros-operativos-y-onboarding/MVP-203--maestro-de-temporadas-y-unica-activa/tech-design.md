@@ -231,6 +231,6 @@ Resultado local: `dotnet test` en verde (173 tests); `npm run build` y `npm run 
 - [x] Tests escritos y pasando
 - [x] Documentación de API actualizada en este documento
 - [x] Modelo de datos actualizado (estado de implementación de `SEASON`)
-- [~] Módulo de Temporadas en `docs/03-modulos/`: diferido como tarea **transversal** (consolidación del catálogo de módulos junto a Terrenos), no por historia; documentado aquí y registrado en MVP-999 (P-020). El `tech-design` hace de documentación de módulo (mismo criterio que MVP-202/Terrenos)
+- [x] Módulo de Temporadas en `docs/03-modulos/`: **consolidado en `MVP-716`** dentro de `maestros-operativos`. Se difirió como tarea **transversal** (consolidación del catálogo de módulos junto a Terrenos), no por historia; documentado aquí y registrado en MVP-999 (P-020). El `tech-design` hace de documentación de módulo (mismo criterio que MVP-202/Terrenos)
 - [x] Puntos fuera de alcance registrados/cerrados en MVP-999 (P-017 resuelto; P-020/P-021 nuevos)
 - [x] Sin `TODO` sin resolver en este documento

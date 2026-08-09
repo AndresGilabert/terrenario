@@ -11,6 +11,9 @@ import { createPurchaseService } from '../../services/purchase.service';
 import { createTaskService } from '../../services/task.service';
 import { createWorkerService } from '../../services/worker.service';
 import { HttpError } from '../../services/http-client';
+import { useDiaryUrlState } from '../../lib/diary-url-state';
+import { useSeasonScope } from '../../lib/season-scope';
+import { ALL_SEASONS } from '../../types/season.types';
 import {
   CONFLICT_VERSION_MISMATCH,
   RESOURCE_NOT_FOUND,
@@ -23,7 +26,6 @@ import {
   DIARY_ENTRY_STYLES,
   DIARY_PAGE_SIZE,
   type DiaryEntry,
-  type DiaryEntryType,
   type DiaryListResponse,
 } from '../../types/diary.types';
 import {
@@ -36,11 +38,19 @@ import type { Plot } from '../../types/plot.types';
 import type { WorkTask } from '../../types/task.types';
 import type { Worker } from '../../types/worker.types';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { MobileDisclosure } from '../common/MobileDisclosure';
+import { SummaryStrip } from '../common/SummaryStrip';
 import { HarvestFormModal } from '../harvests/HarvestFormModal';
 import { ActivityFormModal } from './ActivityFormModal';
+import { fechaDeNegocio } from '../../lib/fechas';
 
 const EMPTY_SUMMARY: DiaryListResponse['meta'] = {
+  // MVP-701 — Ámbito todavía sin resolver: la primera respuesta lo sustituye.
+  scope: { season: null, all_seasons: false },
   total: 0,
+  // MVP-707 — `null` es «ninguna partida tiene precio», que no es lo mismo que 0 €.
+  total_income: null,
+  harvests_with_price: 0,
   page: 1,
   limit: DIARY_PAGE_SIZE,
   total_cost: 0,
@@ -54,15 +64,6 @@ const EMPTY_SUMMARY: DiaryListResponse['meta'] = {
 };
 
 /** Formato de fecha del muro: corto y legible, sin depender del locale del navegador. */
-function formatDate(iso: string): string {
-  const [year, month, day] = iso.split('-').map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString('es-ES', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
-
 const euros = (value: number) =>
   value.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -115,17 +116,41 @@ export const DiarioView: React.FC = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const [plotFilter, setPlotFilter] = useState('todos');
-  const [seasonFilter, setSeasonFilter] = useState('todas');
-  const [typeFilter, setTypeFilter] = useState<DiaryEntryType | 'todos'>('todos');
-  const [workerFilter, setWorkerFilter] = useState('todos');
-  const [searchTerm, setSearchTerm] = useState('');
   /**
-   * MVP-506 — El término que ya ha viajado al servidor. La búsqueda se resuelve allí (`P-052`),
-   * pero teclear no puede disparar una petición por letra: se espera a que la persona pare.
+   * MVP-705 (`P-072`) — Los seis filtros y la página viven en la **URL** (RN-007), no en el estado del
+   * componente. `RN-007` ya lo exigía y `MVP-405` lo materializó en el dashboard; el diario, que es
+   * donde más duele —cinco filtros y paginación—, se había quedado fuera.
    */
-  const [appliedSearch, setAppliedSearch] = useState('');
-  const [page, setPage] = useState(1);
+  const url = useDiaryUrlState();
+  const {
+    type: typeFilter,
+    plotId: plotFilter,
+    workerId: workerFilter,
+    search: appliedSearch,
+    page,
+    setFilter,
+    setPage,
+    setSearch,
+  } = url;
+
+  // MVP-701 (`P-082`) — El defecto de temporada lo resuelve el servidor (RN-008): el diario ya no
+  // arranca en «todas» mientras el dashboard arrancaba en la campaña de trabajo. Desde MVP-705 la
+  // elección vive en la URL, así que el hook va en modo controlado: si la guardara también él,
+  // habría dos copias de lo mismo y podrían divergir.
+  const seasonScope = useSeasonScope({
+    selection: url.seasonSelection,
+    onSelect: useCallback((value: string) => setFilter({ seasonSelection: value }), [setFilter]),
+  });
+  // Desestructurado para que las dependencias de `reload` sean identificadores estables y la regla de
+  // exhaustividad de los hooks pueda comprobarlas.
+  const { requested: seasonRequested, applyFromResponse: applySeasonScope } = seasonScope;
+
+  /**
+   * Lo que se está tecleando. Es lo **único** de la navegación que no vive en la URL: escribirlo allí
+   * en cada pulsación llenaría el historial y dispararía una petición por letra (`MVP-506`). El
+   * término ya rebotado sí viaja a la URL, y de ahí sale `appliedSearch`.
+   */
+  const [searchTerm, setSearchTerm] = useState(appliedSearch);
 
   const [isModalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Activity | null>(null);
@@ -161,7 +186,7 @@ export const DiarioView: React.FC = () => {
       const [diary, plotList, workerList, taskList] = await Promise.all([
         diaryService.listDiary({
           plotId: plotFilter === 'todos' ? undefined : plotFilter,
-          seasonId: seasonFilter === 'todas' ? undefined : seasonFilter,
+          seasonId: seasonRequested,
           types: typeFilter === 'todos' ? undefined : [typeFilter],
           workerId: workerFilter === 'todos' ? undefined : workerFilter,
           search: appliedSearch.trim() === '' ? undefined : appliedSearch.trim(),
@@ -181,6 +206,7 @@ export const DiarioView: React.FC = () => {
 
       setEntries(diary.data);
       setSummary(diary.meta);
+      applySeasonScope(diary.meta.scope);
       setPlots(plotList);
       setWorkers(workerList);
       setTasks(taskList);
@@ -196,7 +222,8 @@ export const DiarioView: React.FC = () => {
     workerService,
     taskService,
     plotFilter,
-    seasonFilter,
+    seasonRequested,
+    applySeasonScope,
     typeFilter,
     workerFilter,
     appliedSearch,
@@ -211,37 +238,37 @@ export const DiarioView: React.FC = () => {
    * MVP-506 — La búsqueda viaja al servidor, pero no en cada pulsación: se espera a que la persona
    * pare de teclear. Sin esta espera, escribir «sulfatado» serían nueve peticiones y nueve repintados
    * del muro; con ella, una.
+   *
+   * MVP-705 (CA-3/CA-4) — El rebote se conserva **tal cual** y lo que cambia es a dónde escribe: a la
+   * URL, y **sustituyendo** la entrada de historial. Escribir en la URL por pulsación dejaría una
+   * entrada por carácter y el botón «atrás» quedaría inservible.
    */
   useEffect(() => {
     if (searchTerm.trim() === appliedSearch) return;
 
-    const timer = setTimeout(() => {
-      setAppliedSearch(searchTerm.trim());
-      setPage(1);
-    }, 350);
+    const timer = setTimeout(() => setSearch(searchTerm.trim()), 350);
     return () => clearTimeout(timer);
-  }, [searchTerm, appliedSearch]);
+  }, [searchTerm, appliedSearch, setSearch]);
 
   /**
-   * Cualquier cambio de filtro devuelve a la primera página: seguir en la página 4 de un diario que
-   * acaba de reducirse a 12 entradas dejaría la pantalla vacía sin explicar por qué.
-   *
-   * Se hace **junto al cambio de filtro**, no en un efecto aparte: en un efecto, React llegaría a
-   * pintar un estado intermedio (filtro nuevo + página vieja) y saldría una petición de más, cuya
-   * respuesta puede además llegar la última. Aquí las dos actualizaciones van en el mismo lote.
+   * MVP-705 — Cuando la URL cambia **por fuera** —«atrás», «adelante», o un enlace pegado— el cuadro
+   * de búsqueda tiene que seguirla. La comparación con el término tecleado evita que este efecto pise
+   * lo que se está escribiendo: mientras se teclea, la URL todavía no ha cambiado.
    */
-  const changeFilter = (apply: () => void) => {
-    apply();
-    setPage(1);
-  };
+  useEffect(() => {
+    setSearchTerm((current) => (current.trim() === appliedSearch ? current : appliedSearch));
+  }, [appliedSearch]);
 
   const totalPages = Math.max(1, Math.ceil(summary.total / DIARY_PAGE_SIZE));
-  const hasFilters =
-    plotFilter !== 'todos' ||
-    seasonFilter !== 'todas' ||
-    typeFilter !== 'todos' ||
-    workerFilter !== 'todos' ||
-    appliedSearch !== '';
+  // MVP-705 — Lo decide la URL: si hay parámetro, hay filtro. Los defectos no llegan a escribirse.
+  const hasFilters = url.hasFilters;
+  // MVP-702 — Con los filtros plegados en móvil, el número es lo que evita no saber que hay puestos.
+  const activeFilterCount =
+    (typeFilter !== 'todos' ? 1 : 0) +
+    (plotFilter !== 'todos' ? 1 : 0) +
+    (seasonScope.isExplicit ? 1 : 0) +
+    (workerFilter !== 'todos' ? 1 : 0) +
+    (appliedSearch !== '' ? 1 : 0);
 
   const missingMasters = useMemo(() => {
     const missing: { label: string; to: string }[] = [];
@@ -489,7 +516,7 @@ export const DiarioView: React.FC = () => {
 
       {/* Resumen de lo que se está viendo */}
       {!isLoading && summary.total > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <SummaryStrip desktopClassName="grid-cols-3 lg:grid-cols-6 gap-3">
           <SummaryTile label="Registros" value={String(summary.total)} icon="event_note" />
           <SummaryTile label="Labores" value={String(summary.activities)} icon="content_cut" />
           {/* MVP-401 — la cosecha se resume por kilos: no aporta gasto (RN-029) */}
@@ -521,7 +548,23 @@ export const DiarioView: React.FC = () => {
                 : undefined
             }
           />
-        </div>
+          {/* MVP-707 — El ingreso va **al lado** del gasto y no dentro de él: son magnitudes distintas
+              y mezclarlas obligaría a un signo, que cada consumidor puede leer al revés. */}
+          <SummaryTile
+            label="Ingreso"
+            /* CA-5 — sin ninguna partida con precio, «sin dato»: no se ha ingresado cero, no se sabe. */
+            value={summary.total_income === null ? 'Sin dato' : `${euros(summary.total_income)} €`}
+            icon="sell"
+            highlight
+            hint={
+              summary.total_income === null
+                ? 'Ninguna cosecha tiene precio por kilo'
+                : summary.harvests_with_price < summary.harvests
+                  ? `Sobre ${summary.harvests_with_price} de ${summary.harvests} partidas con precio.`
+                  : undefined
+            }
+          />
+        </SummaryStrip>
       )}
 
       {/* CA-3 de la épica — el impacto en la calidad del dato queda visible */}
@@ -558,8 +601,11 @@ export const DiarioView: React.FC = () => {
         </div>
       )}
 
-      {/* Filtros. Todos viajan al servidor desde MVP-506, también la búsqueda por texto. */}
+      {/* Filtros. Todos viajan al servidor desde MVP-506, también la búsqueda por texto.
+          MVP-702 — plegados en móvil: cinco controles a ancho completo empujaban los datos por
+          debajo del pliegue. */}
       {(entries.length > 0 || hasFilters) && (
+        <MobileDisclosure label="Filtros" icon="tune" activeCount={activeFilterCount}>
         <div className="bg-white p-4 rounded-2xl border border-[#e5e2dd] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <div className="relative">
             <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#76786b] text-lg" aria-hidden="true">search</span>
@@ -579,7 +625,7 @@ export const DiarioView: React.FC = () => {
             <select
               id="diary-type"
               value={typeFilter}
-              onChange={(e) => changeFilter(() => setTypeFilter(e.target.value as DiaryEntryType | 'todos'))}
+              onChange={(e) => setFilter({ type: e.target.value })}
               className="w-full px-3 py-2 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-xs font-medium text-[#1c1c19] focus:outline-none focus:border-[#33450d]"
             >
               <option value="todos">Todos los tipos</option>
@@ -595,7 +641,7 @@ export const DiarioView: React.FC = () => {
             <select
               id="diary-plot"
               value={plotFilter}
-              onChange={(e) => changeFilter(() => setPlotFilter(e.target.value))}
+              onChange={(e) => setFilter({ plotId: e.target.value })}
               className="w-full px-3 py-2 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-xs font-medium text-[#1c1c19] focus:outline-none focus:border-[#33450d]"
             >
               <option value="todos">Todos los terrenos</option>
@@ -609,11 +655,13 @@ export const DiarioView: React.FC = () => {
             <label htmlFor="diary-season" className="sr-only">Filtrar por temporada</label>
             <select
               id="diary-season"
-              value={seasonFilter}
-              onChange={(e) => changeFilter(() => setSeasonFilter(e.target.value))}
+              value={seasonScope.value}
+              onChange={(e) => seasonScope.select(e.target.value)}
               className="w-full px-3 py-2 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-xs font-medium text-[#1c1c19] focus:outline-none focus:border-[#33450d]"
             >
-              <option value="todas">Todas las temporadas</option>
+              {/* Hasta la primera respuesta no se sabe qué campaña aplica el servidor. */}
+              {seasonScope.value === '' && <option value="">Campaña de trabajo…</option>}
+              <option value={ALL_SEASONS}>Todas las temporadas</option>
               {seasons.map((season) => (
                 <option key={season.id} value={season.id}>{season.name}</option>
               ))}
@@ -627,7 +675,7 @@ export const DiarioView: React.FC = () => {
             <select
               id="diary-worker"
               value={workerFilter}
-              onChange={(e) => changeFilter(() => setWorkerFilter(e.target.value))}
+              onChange={(e) => setFilter({ workerId: e.target.value })}
               className="w-full px-3 py-2 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-xs font-medium text-[#1c1c19] focus:outline-none focus:border-[#33450d]"
             >
               <option value="todos">Todos los responsables</option>
@@ -637,6 +685,7 @@ export const DiarioView: React.FC = () => {
             </select>
           </div>
         </div>
+        </MobileDisclosure>
       )}
 
       {/* Filtrar por terreno deja fuera las compras por definición, no por error */}
@@ -730,7 +779,7 @@ export const DiarioView: React.FC = () => {
         >
           <button
             type="button"
-            onClick={() => setPage((current) => Math.max(1, current - 1))}
+            onClick={() => setPage(Math.max(1, page - 1))}
             disabled={page <= 1}
             className="px-3 py-1.5 rounded-lg text-xs font-semibold text-[#33450d] hover:bg-[#f0ede8] disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
           >
@@ -748,7 +797,7 @@ export const DiarioView: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+            onClick={() => setPage(Math.min(totalPages, page + 1))}
             disabled={page >= totalPages}
             className="px-3 py-1.5 rounded-lg text-xs font-semibold text-[#33450d] hover:bg-[#f0ede8] disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
           >
@@ -800,7 +849,7 @@ export const DiarioView: React.FC = () => {
             <>
               <p>
                 Vas a eliminar <strong>«{entryTitle(pendingDelete)}»</strong> del{' '}
-                {formatDate(pendingDelete.date)}
+                {fechaDeNegocio(pendingDelete.date)}
                 {pendingDelete.plot_name ? ` en ${pendingDelete.plot_name}` : ''}.
               </p>
               <p className="text-xs text-[#76786b]">
@@ -882,7 +931,7 @@ const DiaryCard: React.FC<DiaryCardProps> = ({
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${style.badgeClass} text-white uppercase tracking-wider`}>
                 {style.label}
               </span>
-              <span className="text-xs font-bold text-[#33450d]">{formatDate(entry.date)}</span>
+              <span className="text-xs font-bold text-[#33450d]">{fechaDeNegocio(entry.date)}</span>
               <span className="text-[11px] text-[#76786b]">· {entry.season_name}</span>
               {entry.is_out_of_season_range && (
                 <span
@@ -898,6 +947,16 @@ const DiaryCard: React.FC<DiaryCardProps> = ({
                   className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#fff6e5] text-[#8a5a00] border border-[#f0d9a8]"
                 >
                   SIN COMPRA
+                </span>
+              )}
+              {/* RN-043 (MVP-708) — la vista principal (RN-033) señala el consumo anterior a su
+                  compra igual que señala la fecha fuera de temporada: avisa, no impide */}
+              {entry.is_before_purchase_date === true && (
+                <span
+                  title="El consumo es anterior a la compra que lo paga: revisa la fecha"
+                  className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#fff6e5] text-[#8a5a00] border border-[#f0d9a8]"
+                >
+                  ANTES DE LA COMPRA
                 </span>
               )}
               {/* RN-012 — el destino sin clasificar se rotula «Sin destino», sin bloquear nada */}
@@ -1017,6 +1076,14 @@ const DiaryCard: React.FC<DiaryCardProps> = ({
                 <span className="flex items-center gap-1 text-[#45483c]">
                   <span className="material-symbols-outlined text-base" aria-hidden="true">local_shipping</span>
                   {harvestDestinationLabel(entry.destination)}
+                </span>
+              )}
+              {/* MVP-707 — Importe ingresado (kilos × precio). Solo aparece cuando hay precio: sin él
+                  no se sabe, y un «0,00 €» afirmaría algo falso. */}
+              {entry.amount !== null && (
+                <span className="flex items-center gap-1 font-bold text-[#33450d]">
+                  <span className="material-symbols-outlined text-base" aria-hidden="true">sell</span>
+                  {euros(entry.amount)} €
                 </span>
               )}
             </>

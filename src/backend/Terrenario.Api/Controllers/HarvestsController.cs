@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Terrenario.Api.Application.Harvests;
 using Terrenario.Api.Application.Harvests.Commands;
+using Terrenario.Api.Application.Seasons;
 using Terrenario.Api.Common;
 using Terrenario.Api.Common.Auth;
 using Terrenario.Api.Common.Errors;
@@ -36,18 +37,23 @@ public sealed class HarvestsController(
     DeleteHarvestHandler deleteHarvestHandler,
     ListHarvestsHandler listHarvestsHandler,
     GetHarvestHandler getHarvestHandler,
+    SeasonScopeResolver seasonScopeResolver,
     IWorkspaceContext workspaceContext) : ControllerBase
 {
     /// <summary>
     /// Cosechas del Workspace por fecha de negocio descendente (RN-033). Filtros opcionales:
     /// <c>from</c>, <c>to</c>, <c>plot_id</c>, <c>season_id</c>, <c>destination</c>.
+    ///
+    /// MVP-701 — <c>season_id</c> ausente aplica el defecto de RN-008 (la temporada de trabajo), no
+    /// «todas». Era la causa de que esta pantalla y la Visión General dieran totales distintos de la
+    /// misma campaña (<c>P-082</c>). El histórico completo se pide con <c>season_id=all</c>.
     /// </summary>
     [HttpGet]
     public async Task<IActionResult> List(
         [FromQuery] string? from,
         [FromQuery] string? to,
         [FromQuery(Name = "plot_id")] Guid? plotId,
-        [FromQuery(Name = "season_id")] Guid? seasonId,
+        [FromQuery(Name = "season_id")] string? seasonId,
         [FromQuery] string? destination,
         CancellationToken ct)
     {
@@ -55,9 +61,12 @@ public sealed class HarvestsController(
             return BadRequest(new ApiErrorResponse(ApiError.Validation(
                 ErrorCodes.ValidationRequired, "Las fechas de filtro deben tener el formato YYYY-MM-DD.")));
 
+        var seasonScope = await seasonScopeResolver.ResolveAsync(
+            User.GetUserId()!.Value, workspaceContext.WorkspaceId, seasonId, ct);
+
         var harvests = await listHarvestsHandler.HandleAsync(
             workspaceContext.WorkspaceId,
-            new HarvestFilter(fromDate, toDate, plotId, seasonId, destination),
+            new HarvestFilter(fromDate, toDate, plotId, seasonScope.FilterId, destination),
             ct);
 
         return Ok(new
@@ -65,6 +74,8 @@ public sealed class HarvestsController(
             data = harvests.Select(ToResponse),
             meta = new
             {
+                // MVP-701 — Ámbito de temporada realmente aplicado (RN-008).
+                scope = seasonScope.ToResponse(),
                 total = harvests.Count,
                 // Lo que la cabecera del listado necesita sin recalcularlo en cliente ni pedir el
                 // dashboard: kilos acumulados de lo filtrado. El mismo criterio que `total_cost` en el
@@ -110,7 +121,8 @@ public sealed class HarvestsController(
                     request.Destination,
                     request.Yield,
                     request.Liters,
-                    request.YieldUnit),
+                    request.YieldUnit,
+                    request.UnitPrice),
                 ct);
 
             return CreatedAtAction(nameof(GetById), new { harvestId = harvest.Id }, ToResponse(harvest));
@@ -152,7 +164,9 @@ public sealed class HarvestsController(
                 ReadString(body, "destination"),
                 ReadNullableDecimal(body, "yield"),
                 ReadNullableDecimal(body, "liters"),
-                ReadPlainString(body, "yield_unit"));
+                ReadPlainString(body, "yield_unit"),
+                // MVP-707 — anulable a propósito: `null` explícito **retira** el precio.
+                ReadNullableDecimal(body, "unit_price"));
         }
         catch (HarvestValidationException ex)
         {
@@ -322,6 +336,11 @@ public sealed class HarvestsController(
         effective_yield = harvest.EffectiveYield,
         yield_source = harvest.YieldSource,
         destination = harvest.Destination,
+        // MVP-707 — Precio por kilo e importe. `null` en los dos significa **no se sabe**, no cero: una
+        // partida sin precio no ha ingresado 0 € (CA-2).
+        unit_price = harvest.UnitPrice,
+        // Derivado, nunca columna: guardarlo permitiría que divergiera de kilos × precio (CA-3).
+        amount = harvest.Amount,
         // RN-023 — aviso no bloqueante de fecha fuera del rango de la temporada (CA-3).
         is_out_of_season_range = harvest.IsOutOfSeasonRange,
         version = harvest.Version,
@@ -351,4 +370,9 @@ public sealed record CreateHarvestRequest(
     /// <c>kg_100kg</c>, que es como dan el rendimiento graso muchas almazaras. Se convierte con la
     /// densidad de RN-016 antes de persistir.
     /// </summary>
-    [property: JsonPropertyName("yield_unit")] string? YieldUnit);
+    [property: JsonPropertyName("yield_unit")] string? YieldUnit,
+    /// <summary>
+    /// MVP-707 — Precio de venta por kilo, <b>opcional</b> (RN-029 matizada). Ausente o <c>null</c>
+    /// significa que no se sabe; el importe se deriva y no se envía.
+    /// </summary>
+    [property: JsonPropertyName("unit_price")] decimal? UnitPrice = null);

@@ -6,8 +6,10 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Terrenario.Api.Application.Consumptions;
 using Terrenario.Api.Application.Consumptions.Commands;
+using Terrenario.Api.Application.Materials;
 using Terrenario.Api.Application.Purchases;
 using Terrenario.Api.Application.Purchases.Commands;
+using Terrenario.Api.Application.Seasons;
 using Terrenario.Api.Common;
 using Terrenario.Api.Common.Auth;
 using Terrenario.Api.Common.Errors;
@@ -36,16 +38,23 @@ public sealed class PurchasesController(
     UpdatePurchaseHandler updatePurchaseHandler,
     DeletePurchaseHandler deletePurchaseHandler,
     ListPurchasesHandler listPurchasesHandler,
-    ListPurchaseProductsHandler listPurchaseProductsHandler,
+    ListMaterialSuggestionsHandler listMaterialSuggestionsHandler,
     ImputePurchaseHandler imputePurchaseHandler,
     IConsumptionRepository consumptionRepository,
+    SeasonScopeResolver seasonScopeResolver,
     IWorkspaceContext workspaceContext) : ControllerBase
 {
-    /// <summary>Libro de compras del Workspace, por fecha de compra descendente.</summary>
+    /// <summary>
+    /// Libro de compras del Workspace, por fecha de compra descendente.
+    ///
+    /// MVP-701 — <c>season_id</c> ausente aplica el defecto de RN-008 (la temporada de trabajo); el
+    /// histórico completo se pide con <c>season_id=all</c> y el ámbito aplicado viaja en
+    /// <c>meta.scope</c>.
+    /// </summary>
     [HttpGet]
     public async Task<IActionResult> List(
         [FromQuery] string? product,
-        [FromQuery(Name = "season_id")] Guid? seasonId,
+        [FromQuery(Name = "season_id")] string? seasonId,
         [FromQuery] string? from,
         [FromQuery] string? to,
         CancellationToken ct)
@@ -54,9 +63,12 @@ public sealed class PurchasesController(
             return BadRequest(new ApiErrorResponse(ApiError.Validation(
                 ErrorCodes.ValidationRequired, "Las fechas de filtro deben tener el formato YYYY-MM-DD.")));
 
+        var seasonScope = await seasonScopeResolver.ResolveAsync(
+            User.GetUserId()!.Value, workspaceContext.WorkspaceId, seasonId, ct);
+
         var purchases = await listPurchasesHandler.HandleAsync(
             workspaceContext.WorkspaceId,
-            new PurchaseFilter(product, seasonId, fromDate, toDate),
+            new PurchaseFilter(product, seasonScope.FilterId, fromDate, toDate),
             ct);
 
         // MVP-304 — Cuánto se ha repartido ya de cada compra, en una sola consulta agrupada: el libro
@@ -69,6 +81,8 @@ public sealed class PurchasesController(
             data = purchases.Select(p => ToResponse(p, imputed.GetValueOrDefault(p.Id))),
             meta = new
             {
+                // MVP-701 — Ámbito de temporada realmente aplicado (RN-008).
+                scope = seasonScope.ToResponse(),
                 total = purchases.Count,
                 // El gasto acumulado de lo filtrado: el libro de compras lo muestra en cabecera y
                 // calcularlo en cliente obligaría a rehacerlo en cada consumidor.
@@ -80,11 +94,16 @@ public sealed class PurchasesController(
     /// <summary>
     /// Vocabulario de materiales del histórico (RN-031, HU-2). <b>No es un catálogo</b>: no se
     /// administra y el usuario siempre puede escribir algo que no esté en la lista.
+    ///
+    /// MVP-708 (<c>P-057</c>) — Desde esta historia devuelve el vocabulario de los <b>dos</b> libros,
+    /// compras y consumos sin compra previa. La ruta sigue colgando de <c>/purchases</c> porque es la
+    /// contratada en <c>contratos-api.md</c> §7 y moverla sería romper el contrato sin ganar nada
+    /// para quien lo usa; lo que cambia es de dónde se aprende, no qué se pide.
     /// </summary>
     [HttpGet("products")]
     public async Task<IActionResult> ListProducts([FromQuery] string? search, CancellationToken ct)
     {
-        var products = await listPurchaseProductsHandler.HandleAsync(
+        var products = await listMaterialSuggestionsHandler.HandleAsync(
             workspaceContext.WorkspaceId, search, ct);
 
         return Ok(new

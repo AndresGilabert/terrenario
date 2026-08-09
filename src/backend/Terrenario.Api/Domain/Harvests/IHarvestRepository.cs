@@ -122,6 +122,7 @@ public sealed record HarvestView(
     decimal? Yield,
     decimal? Liters,
     string Destination,
+    decimal? UnitPrice,
     long Version,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt)
@@ -151,4 +152,14 @@ public sealed record HarvestView(
     /// </summary>
     public string? YieldSource =>
         Yield is not null ? "informado" : EffectiveYield is not null ? "calculado" : null;
+
+    /// <summary>
+    /// MVP-707 — Importe de la partida: <c>kilos × precio</c>, o <c>null</c> si no hay precio. Se
+    /// deriva aquí igual que en el agregado: guardarlo permitiría que divergiera de sus dos factores
+    /// tras una corrección, y entonces habría dos verdades sobre lo mismo (CA-3).
+    ///
+    /// <c>null</c> es «no se sabe», no cero: una partida sin precio no ha ingresado 0 €.
+    /// </summary>
+    public decimal? Amount =>
+        UnitPrice is null ? null : decimal.Round(Kgs * UnitPrice.Value, 2, MidpointRounding.AwayFromZero);
 }

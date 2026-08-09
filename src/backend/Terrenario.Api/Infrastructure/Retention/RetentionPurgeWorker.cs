@@ -11,8 +11,8 @@ namespace Terrenario.Api.Infrastructure.Retention;
 /// esas dos alternativas exigen infraestructura que todavía no existe —es lo que bloquea <c>B-2</c>—
 /// y habrían dejado el expurgo esperando a que la hubiera. Un <see cref="BackgroundService"/> viaja
 /// con la aplicación, funciona igual en local y en el alojamiento, y no añade nada que desplegar.
-/// El precio es que solo corre si la aplicación está viva; con un plazo de 24 meses, perder algún
-/// día no tiene consecuencia.
+/// El precio es que solo corre si la aplicación está viva; con plazos de 24 meses —y de 30 días en
+/// el más corto, el de los tokens de refresco (MVP-714)— perder algún día no tiene consecuencia.
 ///
 /// <b>Varias instancias</b>: si el día de mañana la API escala, dos réplicas intentarían purgar a la
 /// vez. Se evita con un <i>advisory lock</i> de PostgreSQL de ámbito de transacción: la primera lo

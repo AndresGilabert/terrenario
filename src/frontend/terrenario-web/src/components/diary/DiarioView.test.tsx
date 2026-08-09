@@ -42,14 +42,30 @@ describe('DiarioView', () => {
     task_id: 't-1',
     quantity: null,
     has_purchase: null,
+    is_before_purchase_date: null,
     kgs: null,
     destination: null,
     yield: null,
+    amount: null,
     ...overrides,
   });
 
   const meta = (overrides: Partial<DiaryListResponse['meta']> = {}): DiaryListResponse['meta'] => ({
+    // MVP-701 — El ámbito de temporada que el servidor dice haber aplicado (RN-008).
+    scope: {
+      season: {
+        id: 's-1',
+        name: 'Campaña 2025/26',
+        status: 'abierta',
+        start_date: '2025-10-01',
+        end_date: '2026-03-31',
+      },
+      all_seasons: false,
+    },
     total: 1,
+    // MVP-707 — `null` = ninguna cosecha con precio; no es lo mismo que 0 €.
+    total_income: null,
+    harvests_with_price: 0,
     page: 1,
     limit: 20,
     total_cost: 120,

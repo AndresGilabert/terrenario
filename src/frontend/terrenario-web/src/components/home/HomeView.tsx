@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { Navigate, useNavigate } from 'react-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useSeason } from '../../contexts/SeasonContext';
@@ -7,19 +7,25 @@ import { useApiClient } from '../../contexts/ApiContext';
 import { createPlotService } from '../../services/plot.service';
 import { createWorkerService } from '../../services/worker.service';
 import { createTaskService } from '../../services/task.service';
-import { VisionGeneralView } from '../dashboard/VisionGeneralView';
 
 /**
- * Home del área operativa (MVP-201 · MVP-207 · MVP-499).
+ * Home del área operativa (MVP-201 · MVP-207 · MVP-499 · MVP-703).
  *
- * Tiene dos caras según la preparación del Workspace (P-040, decisión del PO en MVP-499):
+ * Sigue teniendo dos caras según la preparación del Workspace, pero **MVP-703 cambia la segunda**:
  *
  * - **Mientras falten maestros por poblar**, es la pantalla de arranque: bienvenida + checklist de lo
  *   que queda para empezar a registrar (temporada, terrenos, trabajadores, tareas). Es lo que pedía
- *   HU-2 de MVP-201.
- * - **Cuando la explotación está preparada**, el Home **pasa a ser la Visión General**: quien ya lo
- *   tiene todo listo entra directo a sus métricas, no a un checklist completado. Así no hay dos
- *   pantallas de inicio compitiendo (cierra P-040).
+ *   HU-2 de MVP-201 y no cambia (CA-2).
+ * - **Cuando la explotación está preparada**, el Home lleva al **Diario de campo** (CA-1).
+ *
+ * `MVP-499` había decidido que fuese la Visión General (`P-040`). La decisión no era mala: lo que
+ * faltaba era el dato de que **la cosecha se concentra al final de campaña**, así que durante la mayor
+ * parte del año lo primero que se veía al entrar era «Sin cosechas en {temporada}». Además contradecía
+ * a `RN-033`, que declara el diario cronológico unificado vista principal del MVP: el producto decía
+ * que su vista principal era una y arrancaba en otra (`P-087`).
+ *
+ * El Home sigue siendo **el punto de decisión** y no se sustituye por una redirección en el router:
+ * quién arranca dónde depende de si quedan maestros por poblar, y eso solo se sabe tras consultarlos.
  */
 
 interface SetupStep {
@@ -136,10 +142,11 @@ export const HomeView: React.FC = () => {
     );
   }
 
-  // P-040 — con la explotación preparada, el Home ES la Visión General (MVP-499): se reutiliza la misma
-  // vista, no se duplica. El checklist ya no aporta nada porque no queda nada que preparar.
+  // MVP-703 (CA-1) — Con la explotación preparada se entra a trabajar, que es el diario (RN-033). El
+  // checklist ya no aporta nada porque no queda nada que preparar, y el panel está a un clic en la
+  // navegación lateral (CA-3). `replace` para que «atrás» no devuelva a un Home que solo redirige.
   if (isReady) {
-    return <VisionGeneralView />;
+    return <Navigate to="/app/diario" replace />;
   }
 
   return (

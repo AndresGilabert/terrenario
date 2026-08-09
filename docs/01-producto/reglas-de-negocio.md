@@ -1,7 +1,7 @@
 ﻿---
 bloque: 01-producto
 documento: reglas-de-negocio
-actualizado_en: "2026-07-28"
+actualizado_en: "2026-08-08"
 ---
 
 # Reglas de Negocio Globales
@@ -82,9 +82,20 @@ El dashboard MVP se presenta en una sola pantalla con scroll vertical, sin naveg
 **Fuente**: producto
 **Módulos afectados**: dashboard
 
-En MVP no existe actualizacion continua en segundo plano. Los datos se actualizan al entrar al dashboard o mediante recarga manual.
+En MVP no existe actualizacion continua en segundo plano. Los datos se recalculan **al entrar en la
+pantalla**, así que para verlos al día se recarga la página o se vuelve a entrar.
 
-**Excepción**: Ninguna en MVP.
+El refresco **dejó de ser un acto explícito con control propio** en MVP-706: el botón «Actualizar» se
+retiró por decisión del Product Owner. El motivo es el perfil de uso: el objetivo son explotaciones
+pequeñas, donde no va a ser habitual que unos usuarios introduzcan datos mientras otros esperan a que
+el panel se actualice. Un control que casi nadie necesita ocupa sitio y hace creer que sin pulsarlo los
+datos están viejos.
+
+Consecuencia medible: `dashboard.manual_refresh` queda **discontinuada** (era su única fuente) y el
+informe operativo deja de publicarla. Ver `MVP-602` y `docs/05-infraestructura/observabilidad.md`.
+
+**Excepción**: Ninguna en MVP. El refresco automático o al recuperar el foco de la ventana queda
+descartado, no diferido.
 
 ---
 
@@ -92,11 +103,24 @@ En MVP no existe actualizacion continua en segundo plano. Los datos se actualiza
 
 **Estado**: activa
 **Fuente**: producto
-**Módulos afectados**: dashboard
+**Módulos afectados**: dashboard, diario
 
-La recarga manual del dashboard mantiene los filtros activos del usuario. Se materializa (MVP-405) con
-los filtros en la **URL** (`?season_id=…&plot_ids=…`): la recarga los conserva y el enlace es
-compartible.
+La recarga mantiene los filtros activos del usuario. Se materializa con los filtros en la **URL**: la
+recarga los conserva y el enlace es compartible.
+
+- **Dashboard** (MVP-405): `?season_id=…&plot_ids=…`.
+- **Diario** (MVP-705): `?type=…&plot_id=…&season_id=…&worker_id=…&search=…&page=…`. Es donde más
+  duele no tenerlo —cinco filtros y paginación— y se había quedado fuera (`P-072`).
+
+Dos condiciones para que la URL sea usable y no un vertedero:
+
+- **Los valores por defecto no se escriben.** «Todos», la página 1 y la búsqueda vacía se omiten, y la
+  temporada por defecto tampoco aparece: desde MVP-701 la resuelve el servidor (RN-008), así que
+  fijarla congelaría la campaña de trabajo del día en que se compartió el enlace.
+- **Escribir en el buscador no genera una entrada de historial por carácter.** El término ya rebotado
+  **sustituye** la entrada; los filtros y la página sí la añaden, para que «atrás» siga sirviendo.
+
+Desde MVP-706 «recarga» es la del navegador o la reentrada en la pantalla, no un botón.
 
 ---
 
@@ -104,12 +128,26 @@ compartible.
 
 **Estado**: activa
 **Fuente**: producto
-**Módulos afectados**: dashboard
+**Módulos afectados**: dashboard, diario, cosechas, compras
 
-Al primer acceso (sin filtros en la URL) se aplican por defecto todos los terrenos activos y la
-**temporada de trabajo del usuario** (MVP-209; su `active_season_id` o, en su defecto, la
-`WorkingSeasonPolicy`). El servidor resuelve el defecto y lo devuelve en el `scope` para posicionar los
-filtros sin duplicar la regla en el cliente.
+Sin filtro explícito se aplica por defecto la **temporada de trabajo del usuario** (MVP-209; su
+`active_season_id` o, en su defecto, la `WorkingSeasonPolicy`). En el dashboard se aplican además
+todos los terrenos activos.
+
+El defecto rige en **todas las vistas operativas**: dashboard, diario, cosechas y compras (con sus
+consumos). Hasta MVP-701 solo lo aplicaba el dashboard y las otras tres arrancaban en «todas las
+temporadas», de modo que dos pantallas del producto respondían con cifras distintas a «cuánto llevo
+esta campaña» (`P-082`).
+
+El servidor resuelve el defecto y devuelve el ámbito aplicado —en el `scope` del dashboard y en
+`meta.scope` de las listas— para posicionar los filtros sin duplicar la regla en el cliente. Si el
+cliente resolviera el defecto, la regla viviría en dos sitios y volvería a divergir.
+
+El histórico completo sigue siendo elegible, pero como **acto explícito**: `season_id=all`. La
+ausencia del parámetro ya significa «aplica el defecto», así que «todas» necesita valor propio.
+
+Un `season_id` que no exista en el Workspace **cae al defecto** en vez de dar error o ampliar el
+ámbito: desde MVP-705 el filtro viaja en la URL y al cambiar de Workspace puede quedar el de otro.
 
 ---
 
@@ -119,12 +157,20 @@ filtros sin duplicar la regla en el cliente.
 **Fuente**: producto
 **Módulos afectados**: dashboard
 
-El dashboard MVP debe mostrar estos cuatro widgets:
+El dashboard MVP debe mostrar estos widgets:
 
 1. Resumen de temporada
 2. Kg por destino
 3. Kg por terreno
 4. Evolucion de rendimiento
+5. **Lectura económica de la campaña** (MVP-707): gasto e ingreso
+
+El quinto lo añade MVP-707. El gasto **ya existía y ya se calculaba** —el diario lo rotula en su
+cabecera—, pero se veía en la vista de registro cronológico y no en la de resumen, que es donde se
+busca (`P-092`). El ingreso llega con el `unit_price` de la cosecha (RN-029 matizada).
+
+Alcance deliberadamente mínimo: **dos cifras, no un módulo de contabilidad**. Quedan fuera margen,
+rentabilidad y desglose de gasto por tipo.
 
 ---
 
@@ -350,7 +396,20 @@ El alta mínima de terreno exige `nombre` y `tipo_propiedad`. El resto de campos
 **Fuente**: producto
 **Módulos afectados**: produccion
 
-La producción MVP se limita a `producto`, `kgs`, `destino` y uno entre `rendimiento` o `litros`. Quedan fuera de alcance precio, molturación y balance.
+La producción MVP se limita a `producto`, `kgs`, `destino` y uno entre `rendimiento` o `litros`.
+
+**Matiz de MVP-707**: la cosecha admite además un `unit_price` **opcional** —precio de venta por
+kilo— y su **importe derivado** (`kgs × unit_price`). Sigue sin haber molturación ni capa comercial:
+ni maestro de almazaras y compradoras, ni precio pactado, ni facturas, cobros o pagos.
+
+El importe **no es columna**: se deriva de sus dos factores. Guardarlo permitiría que divergiera de
+ellos tras una corrección, y entonces habría dos verdades sobre lo mismo.
+
+`unit_price` a `null` significa **no se sabe**, no cero: una partida sin precio no ha ingresado 0 €, y
+afirmarlo sería afirmar algo falso sobre la campaña.
+
+Motivo del matiz: sin ningún campo económico, el MVP solo registraba gasto (`RN-003`) y la pregunta
+«¿me ha salido a cuenta la campaña?» no tenía respuesta en el producto (`P-084`).
 
 ---
 
@@ -421,6 +480,10 @@ El flujo multiusuario del MVP debe soportar invitaciones a Workspace por email y
 **Módulos afectados**: autenticacion
 
 El MVP sale con Google OIDC como único proveedor real de autenticación. Otros proveedores se consideran evolución posterior.
+
+**Cuenta de Google no es lo mismo que direccion de Gmail** (aclaracion de `MVP-712`, `P-089`; la regla no cambia). Una Cuenta de Google se da de alta con **una direccion de correo que ya se tiene** —Hotmail, Outlook, la de una cooperativa— sin crear ningun buzon nuevo. Lo que esta regla limita es el **proveedor de identidad**, no el dominio del correo, asi que ninguna direccion queda excluida del producto: queda excluida mientras no este dada de alta en Google, que es un paso que la persona puede dar.
+
+La consecuencia es de producto y obliga a los textos: login, landing, aviso de aptitud de invitacion y correo de invitacion deben decirlo, porque «accede con tu cuenta de Google» se lee como «necesitas un Gmail» y quien no lo tiene se descarta sin que nadie se entere.
 
 ---
 
@@ -493,15 +556,31 @@ Los **datos personales no esperan a ese plazo**: la baja de cuenta los borra o a
 sus Workspaces y en las invitaciones que la nombraban—. Lo que se conserva es la fila anonimizada, que
 ya no identifica a nadie.
 
-El plazo vive tambien en codigo, no solo en la documentacion, para que sea verificable
-(`AccountRetentionPolicy`), y desde `MVP-504` **hay una rutina que lo ejecuta**: una pasada diaria
-purga lo que cumplio los 24 meses (`RetentionPurgeService`). Antes el plazo estaba declarado y no lo
+Los **tokens de refresco muertos** —revocados o caducados— son la excepcion al plazo comun: se
+conservan **30 dias** desde que mueren y despues se purgan. Lo que hay en `refresh_tokens` es un dato
+de sesion (hash del token, cuenta y fechas), no historico operativo que nadie mas pueda reconstruir,
+asi que los 24 meses serian conservadores de mas justo en la categoria que mas filas genera: la
+rotacion crea una fila por cada refresco, de modo que un usuario activo deja miles al año. Los 30 dias
+son el mismo orden que la vida del propio token, asi que **un token muerto no dura mas de lo que
+habria durado vivo**, y dejan cuatro ciclos de la revision operativa semanal para investigar una
+sesion sospechosa antes de que el rastro desaparezca, que es lo unico que justifica conservarlo un
+solo dia. Se cuenta desde la revocacion o desde la caducidad, **lo que ocurra primero**.
+
+El plazo concreto es **decision del Product Owner**, confirmada el 2026-08-08 sobre la propuesta de
+`MVP-714`. La decision de anadir la categoria con «plazo corto» ya se habia tomado el 2026-08-06 en la
+clasificacion de `P-071`; lo que se fija aqui es el numero.
+
+Los plazos viven tambien en codigo, no solo en la documentacion, para que sean verificables
+(`AccountRetentionPolicy`), y desde `MVP-504` **hay una rutina que los ejecuta**: una pasada diaria
+purga lo que cumplio su plazo (`RetentionPurgeService`). Antes el plazo estaba declarado y no lo
 aplicaba nadie, que es peor que no declararlo.
 
 Una **cuenta anonimizada puede sobrevivir al plazo** si todavia la referencia algo vivo: las FK hacia
 `users` son `Restrict` para no borrar por accidente el rastro de quien hizo que. No es una excepcion a
 la regla ni una fuga —la fila dejo de identificar a nadie en el momento de la baja—, es limpieza
-pendiente, y la rutina la cuenta en su informe.
+pendiente, y la rutina la cuenta en su informe. Los tokens de refresco **no** son ese caso: no tienen
+FK hacia `users`, asi que purgar la cuenta nunca se los llevo por cascada y quedaban huerfanos para
+siempre. Su plazo propio es tambien lo que cierra ese hueco.
 
 ### RN-042 — Ninguna tecnologia no esencial se activa sin consentimiento
 
@@ -515,7 +594,8 @@ sostienen el servicio que la persona ha pedido— no requieren consentimiento. C
 consentimiento **previo**, con la opcion mas protectora por defecto y revocable en cualquier momento.
 
 El MVP no usa ninguna tecnologia no esencial: no hay **analitica de terceros**, publicidad ni
-perfilado, y las tipografias se autoalojan para no transferir la IP de cada visitante a un tercero.
+perfilado, y las tipografias, la fotografia de la landing y los recursos de marca —iconos, manifest e
+imagen social (`MVP-710`)— se autoalojan para no transferir la IP de cada visitante a un tercero.
 Por eso **no se muestra banner de cookies**: la guia de la AEPD reserva el banner para las tecnologias
 no exentas, y mostrarlo cuando solo se usan las tecnicas normaliza el clic automatico sin proteger
 nada. Lo que si hay es un panel donde consultar el inventario.
@@ -527,6 +607,31 @@ da por hecha— cada vez que la medicion crece, con el detalle en
 opcional: primera parte, identificadores aleatorios que mueren con la pestaña, **solo recuentos
 agregados conservados** y ausencia de perfilado. Cualquier medida que se salga de ahi exige
 consentimiento previo.
+
+---
+
+### RN-043 — Consumo anterior a su compra permitido con aviso
+
+**Estado**: activa
+**Fuente**: producto
+**Módulos afectados**: compras-consumo, diario
+
+Si la fecha de un consumo es **anterior** a la fecha de la compra a la que se imputa, el sistema
+permite guardarlo pero debe mostrar un aviso no bloqueante, tanto en el formulario mientras se
+teclea la fecha como en la fila del registro ya guardado.
+
+No se bloquea porque la captura retroactiva es legítima: `RN-032` ya asume que el papeleo va por
+detrás del campo, y apuntar hoy la compra de la semana pasada con sus consumos ya repartidos es un
+flujo real. Pero gastar algo **antes** de comprarlo casi siempre es un error de tecleo en la fecha
+—un año mal escrito—, y sin aviso nadie lo detecta. Es el mismo trato que `RN-023` da a la fecha
+fuera del rango de la temporada: avisar sin impedir.
+
+El aviso se **deriva en lectura** comparando las dos fechas vigentes, no se congela al guardar: si
+después se corrige la fecha de la compra, el aviso aparece o desaparece solo. Un consumo sin compra
+previa (`RN-032`) nunca lo activa, porque no hay fecha contra la que comparar. La igualdad tampoco:
+comprar y gastar el mismo día es lo normal.
+
+---
 
 ## Reglas obsoletas
 

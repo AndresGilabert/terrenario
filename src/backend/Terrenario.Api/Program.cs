@@ -9,9 +9,11 @@ using Terrenario.Api.Application.Activities;
 using Terrenario.Api.Application.Auth;
 using Terrenario.Api.Application.Consumptions;
 using Terrenario.Api.Application.Dashboard;
+using Terrenario.Api.Application.Feedback;
 using Terrenario.Api.Application.Diary;
 using Terrenario.Api.Application.Harvests;
 using Terrenario.Api.Application.Invitations;
+using Terrenario.Api.Application.Materials;
 using Terrenario.Api.Application.Plots;
 using Terrenario.Api.Application.Purchases;
 using Terrenario.Api.Application.Seasons;
@@ -25,6 +27,7 @@ using Terrenario.Api.Domain.Activities;
 using Terrenario.Api.Domain.Consumptions;
 using Terrenario.Api.Domain.Diary;
 using Terrenario.Api.Domain.Harvests;
+using Terrenario.Api.Domain.Materials;
 using Terrenario.Api.Domain.Plots;
 using Terrenario.Api.Domain.Purchases;
 using Terrenario.Api.Domain.Seasons;
@@ -36,6 +39,7 @@ using Terrenario.Api.Infrastructure.Auth;
 using Terrenario.Api.Infrastructure.Data;
 using Terrenario.Api.Infrastructure.Data.Repositories;
 using Terrenario.Api.Infrastructure.Email;
+using Terrenario.Api.Infrastructure.Feedback;
 using Terrenario.Api.Infrastructure.Invitations;
 using Terrenario.Api.Infrastructure.Telemetry;
 using Terrenario.Api.Infrastructure.Telemetry.Alerts;
@@ -84,6 +88,14 @@ builder.Services.Configure<TelemetryOptions>(
     builder.Configuration.GetSection(TelemetryOptions.SectionName));
 builder.Services.Configure<OpsOptions>(
     builder.Configuration.GetSection(OpsOptions.SectionName));
+builder.Services.Configure<FeedbackOptions>(
+    builder.Configuration.GetSection(FeedbackOptions.SectionName));
+// MVP-715 — La identidad del responsable del tratamiento se puede ajustar por despliegue, pero lo
+// que no se configura sale del fichero versionado que comparte con las páginas legales: un campo en
+// blanco dejaría un hueco en un texto que la normativa obliga a publicar.
+builder.Services.AddOptions<LegalEntityOptions>()
+    .Bind(builder.Configuration.GetSection(LegalEntityOptions.SectionName))
+    .PostConfigure(legal => legal.FillBlanksFrom(VersionedLegalEntity.Value));
 
 // ── Database ─────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<TerrenarioDbContext>(options =>
@@ -199,7 +211,10 @@ builder.Services.AddScoped<CreatePurchaseHandler>();
 builder.Services.AddScoped<UpdatePurchaseHandler>();
 builder.Services.AddScoped<DeletePurchaseHandler>();
 builder.Services.AddScoped<ListPurchasesHandler>();
-builder.Services.AddScoped<ListPurchaseProductsHandler>();
+// Vocabulario de materiales (RN-031). MVP-708 (`P-057`) lo saca del puerto de compras: se aprende de
+// los dos libros, así que un método en `IPurchaseRepository` sería una firma que miente.
+builder.Services.AddScoped<IMaterialRepository, MaterialRepository>();
+builder.Services.AddScoped<ListMaterialSuggestionsHandler>();
 // Imputación por terrenos y consumo sin compra previa (MVP-304)
 builder.Services.AddScoped<IConsumptionRepository, ConsumptionRepository>();
 builder.Services.AddScoped<ConsumptionLinkResolver>();
@@ -217,9 +232,16 @@ builder.Services.AddScoped<UpdateHarvestHandler>();
 builder.Services.AddScoped<DeleteHarvestHandler>();
 builder.Services.AddScoped<ListHarvestsHandler>();
 builder.Services.AddScoped<GetHarvestHandler>();
+// MVP-701 — Defecto de temporada de RN-008 en un único punto, compartido por diario, cosechas y
+// compras. Antes cada vista arrancaba en «todas» por su cuenta y el dashboard resolvía el defecto en
+// servidor: dos pantallas respondían distinto a «cuánto llevo esta campaña» (`P-082`).
+builder.Services.AddScoped<SeasonScopeResolver>();
 // Dashboard (MVP-403): agrega la producción capturada; solo lectura y sin refresco continuo (RN-006)
 builder.Services.AddScoped<DashboardScopeResolver>();
 builder.Services.AddScoped<DashboardQueryService>();
+// MVP-707 — Lectura económica de la campaña (RN-009 ampliada). Le pregunta el gasto al diario en vez
+// de recalcularlo: es donde vive la decisión de qué cuenta como gasto (`R-01` de MVP-399).
+builder.Services.AddScoped<DashboardEconomicsService>();
 // Diario cronológico unificado (MVP-305): agrega las cuatro entidades operativas, de solo lectura.
 // MVP-401 enciende la cosecha, que es lo que completa RN-033 (hallazgo `G-4`).
 // MVP-506 mueve la mezcla a SQL con su propio repositorio: paginar sobre cuatro listas ya
@@ -258,6 +280,14 @@ builder.Services.AddScoped<IInvitationTokenService>(sp => sp.GetRequiredService<
 // Mismo esquema de token para los dos enlaces de un solo uso del producto: invitación y reactivación.
 builder.Services.AddScoped<IOneTimeTokenService>(sp => sp.GetRequiredService<InvitationTokenService>());
 builder.Services.AddScoped<SmtpMailer>();
+// MVP-715 — La única forma de componer un correo del producto. Singleton: no tiene estado, solo
+// opciones, y así ningún emisor puede acabar con una plantilla distinta.
+builder.Services.AddSingleton<ProductEmailTemplate>();
+// MVP-711 — Canal de feedback. El limitador es **singleton**: su cuenta es por usuario y tiene que
+// sobrevivir a la petición, igual que el estado de las alertas (`AlertStateStore`).
+builder.Services.AddSingleton<FeedbackRateLimiter>();
+builder.Services.AddScoped<IFeedbackEmailSender, SmtpFeedbackEmailSender>();
+builder.Services.AddScoped<SubmitFeedbackHandler>();
 builder.Services.AddScoped<IInvitationEmailSender, SmtpInvitationEmailSender>();
 builder.Services.AddScoped<IWorkspaceLifecycleEmailSender, SmtpWorkspaceLifecycleEmailSender>();
 builder.Services.AddScoped<CreateInvitationHandler>();
@@ -286,6 +316,11 @@ builder.Services.AddCors(options =>
             .WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod()
+            // MVP-711 — `AllowAnyHeader` es de **petición**: las de respuesta hay que exponerlas una
+            // a una o el navegador no deja leerlas. El canal de feedback adjunta el `X-Request-Id`
+            // de la última petición fallida, y sin esto ese dato sería `null` en cualquier despliegue
+            // con front y API en orígenes distintos (que es el de desarrollo: 5173 contra 5127).
+            .WithExposedHeaders(RequestIdMiddleware.HeaderName)
             .AllowCredentials();
     });
 });
@@ -313,12 +348,25 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 
 var app = builder.Build();
 
+var emailOptions = builder.Configuration.GetSection(EmailOptions.SectionName).Get<EmailOptions>() ?? new();
+
 // Sin cuenta de envío las invitaciones por email no salen: la API lo dice con email_sent=false,
 // pero conviene verlo también al arrancar el entorno.
-if (!(builder.Configuration.GetSection(EmailOptions.SectionName).Get<EmailOptions>() ?? new()).IsConfigured)
+if (!emailOptions.IsConfigured)
     app.Logger.LogWarning(
         "Sin cuenta de envío de email configurada ('Email:Host' y 'Email:FromAddress'). "
         + "Las invitaciones se emiten pero deben compartirse por enlace.");
+
+// P-100 — Mismo criterio que el aviso de arriba, y por un motivo peor: un modo de seguridad mal
+// escrito no deja el envío sin hacer, lo hace por un transporte distinto del que se pidió. Falla del
+// lado seguro (StartTLS), pero en silencio, y el síntoma llega el día de la primera entrega fallida.
+if (!emailOptions.IsSecurityModeKnown)
+    app.Logger.LogWarning(
+        "Modo de seguridad de email no reconocido ('Email:SecurityMode' = «{SecurityMode}»): se "
+        + "conectará con «{AppliedMode}». Valores admitidos: {KnownModes}.",
+        emailOptions.SecurityMode,
+        EmailSecurityModes.StartTls,
+        string.Join(", ", EmailSecurityModes.All));
 
 // MVP-603 — Una vigilancia encendida sin destinatario es el peor estado posible: parece que hay
 // alertas, y lo que hay es una anotación en un log que nadie lee. Igual que el aviso de arriba, se
@@ -329,6 +377,15 @@ if (opsConfigurados.AlertsEnabled && string.IsNullOrWhiteSpace(opsConfigurados.A
     app.Logger.LogWarning(
         "Vigilancia de alertas activa sin destinatario ('Ops:AlertEmail'). "
         + "Las alertas solo quedarán en la traza: nadie recibirá aviso.");
+
+// MVP-711 — Mismo criterio que los dos avisos de arriba: el destinatario del canal de feedback es un
+// secreto de despliegue (el repositorio es público), así que lo normal en una máquina de trabajo es
+// que falte. Lo que no puede pasar es que falte en producción sin que nadie se entere: sin buzón, la
+// aplicación ofrece un canal que responde «no disponible» a quien intenta usarlo.
+if (!(builder.Configuration.GetSection(FeedbackOptions.SectionName).Get<FeedbackOptions>() ?? new()).IsConfigured)
+    app.Logger.LogWarning(
+        "Sin buzón del canal de feedback ('Feedback:Recipient'). "
+        + "«Sugerencias e incidencias» responderá que el canal no está disponible.");
 
 if (!opsConfigurados.IsSignalsEndpointEnabled)
     app.Logger.LogWarning(

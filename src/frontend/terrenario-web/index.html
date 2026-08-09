@@ -2,9 +2,57 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Terrenario — Tu tierra, bajo control</title>
+    <meta
+      name="description"
+      content="La herramienta sencilla para el agricultor: gestiona terrenos, cosechas, compras y el diario de campo de tu explotación en un solo sitio."
+    />
+
+    <!-- MVP-710 — Iconos de marca. Todos autoalojados: la CSP de MVP-502 es `default-src 'self'`,
+         así que un recurso de un tercero no se cargaría, y además reabriría la evaluación de RN-042
+         que MVP-505 cerró autoalojando las tipografías.
+
+         El SVG es el que usan los navegadores actuales y escala sin pérdida; el `.ico` está solo por
+         el consumidor viejo que no lo entiende y por la petición automática a `/favicon.ico`. -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- Tiñe la barra del navegador en Android del verde de la marca, para que la aplicación no
+         termine en un borde gris que no es de nadie. -->
+    <meta name="theme-color" content="#33450d" />
+
+    <!-- MVP-710 — Tarjeta social. La landing es pública y se comparte por WhatsApp, que es el canal
+         natural entre agricultores: sin esto el enlace llega como una tarjeta vacía.
+
+         Las URL son absolutas porque ningún raspador resuelve rutas relativas de forma fiable, y el
+         origen va literal —igual que ya lo está en `appsettings.json` para invitaciones y CORS—
+         porque el producto se publica en un único origen conocido. Un marcador de posición sin
+         sustituir sería peor: rompería la tarjeta en silencio. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Terrenario" />
+    <meta property="og:locale" content="es_ES" />
+    <meta property="og:url" content="https://app.terrenario.com/" />
+    <meta property="og:title" content="Terrenario — Tu tierra, bajo control" />
+    <meta
+      property="og:description"
+      content="La herramienta sencilla para el agricultor: gestiona terrenos, cosechas, compras y el diario de campo de tu explotación en un solo sitio."
+    />
+    <meta property="og:image" content="https://app.terrenario.com/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Terrenario — Tu tierra, bajo control" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Terrenario — Tu tierra, bajo control" />
+    <meta
+      name="twitter:description"
+      content="La herramienta sencilla para el agricultor: gestiona terrenos, cosechas, compras y el diario de campo de tu explotación en un solo sitio."
+    />
+    <meta name="twitter:image" content="https://app.terrenario.com/og-image.png" />
+    <meta name="twitter:image:alt" content="Terrenario — Tu tierra, bajo control" />
+
     <!-- Sistema de diseño (prototipo): Inter + Plus Jakarta Sans e iconos Material Symbols.
          MVP-505 (RN-042): se sirven **autoalojados** desde `index.css`, no desde el CDN de Google.
          Cargarlos de un tercero transfiere la IP de cada visitante sin base jurídica clara. -->

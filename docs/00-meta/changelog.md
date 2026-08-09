@@ -23,6 +23,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/).
 - Historias iniciales de las épicas `MVP-005` y `MVP-006` para cerrar la salida controlada y la operación medible del MVP
 - Historias de cierre `Revision epica` (`MVP-x99`) en todas las épicas MVP activas (`MVP-001` a `MVP-006`)
 - Nueva épica `MVP-999` para pendientes transversales y diferidos fuera de encaje en épicas activas
+- Catálogo real de `docs/03-modulos/` con seis módulos (`MVP-716`): `identidad-y-workspaces`, `maestros-operativos`, `diario-y-operativa`, `produccion-y-dashboard`, `plataforma-de-aplicacion` y `observabilidad`. Cada ficha enlaza los `tech-design.md` de las historias que la construyeron en vez de duplicarlos
 
 ### Cambiado
 
@@ -35,6 +36,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/).
 - Definido marco de cumplimiento obligatorio de proteccion de datos (RGPD + LOPDGDD), con clasificacion de obligatorio vs condicionado vs recomendado y criterios de enforcement en DoR/DoD.
 - Definida estrategia de autenticacion para MVP (Google Login), Passkeys en fase futura y trazabilidad obligatoria del embudo de login para detectar abandono.
 - Marcado `docs/03-modulos/modulo-ejemplo/` como módulo de ejemplo no vinculante y excluido del contexto funcional real del proyecto.
+- Retirado `docs/03-modulos/modulo-ejemplo/` al consolidarse los módulos reales en `MVP-716`, junto con las referencias que lo trataban como plantilla vigente en `docs/00-meta/README.md`, `AGENTS.md` y `.github/copilot-instructions.md`.
 - Eliminado un runbook de ejemplo de servicio concreto, dejando como referencia la plantilla oficial de runbooks.
 - Eliminada una integracion de ejemplo de proveedor concreto, sustituyendola por plantillas para integraciones reales.
 - Eliminada `docs/09-desarrollos/epicas/PROJ-100--checkout-refactor/` por ser una épica de ejemplo, manteniendo `docs/09-desarrollos/_plantilla/` como base para desarrollos reales.

@@ -1,7 +1,7 @@
 ﻿---
 bloque: 05-infraestructura
 documento: observabilidad
-actualizado_en: "2026-07-18"
+actualizado_en: "2026-08-08"
 ---
 
 # Observabilidad — Monitoring, Alertas y SLOs
@@ -66,6 +66,43 @@ mandaria ciento veinte avisos identicos y el canal dejaria de leerse justo cuand
 **Volumen minimo antes de juzgar**: 20 peticiones para la tasa de error y la latencia, 10 pantallas de
 acceso para el embudo. Sin esto, una madrugada con tres peticiones y un 500 daria un 33 % de error, y
 una alerta que salta sin motivo se acaba ignorando tambien cuando el motivo es real.
+
+### Que cuenta como fallo del servicio (MVP-713)
+
+El numerador de la tasa de error son las respuestas **5xx**, asi que **clasificar bien un error es
+decidir si mueve el SLO**. No es un detalle de contrato: es la definicion de la medida.
+
+`MVP-713` (`P-079`) corrige el caso que lo puso en evidencia. `POST /auth/google/callback` traducia
+**cualquier** respuesta no exitosa del endpoint de token de Google a `AUTH_GOOGLE_EXCHANGE_FAILED` →
+500, incluido `invalid_grant`, que es lo que Google devuelve ante un codigo ya usado o caducado:
+recargar la pantalla de vuelta bastaba para provocarlo. Medido en la revision de `MVP-699` (`R-04`):
+un solo 500 de este tipo sobre 70 peticiones dio **1,43 %** y disparo `HighErrorRate` —critica— con
+envio de correo real.
+
+Desde `MVP-713` la respuesta depende de **de quien es el error**, siguiendo el vocabulario cerrado de
+OAuth 2.0 (la tabla completa esta en `../02-arquitectura/contratos-api.md`, §0.c bis):
+
+| Caso | HTTP | ¿Cuenta en la tasa de error? |
+|---|---|---|
+| Codigo ya usado o caducado (`invalid_grant`) | 401 | No. Sigue en el **divisor**: la peticion se sirvio |
+| Peticion incompleta (`invalid_request`) | 400 | No |
+| Configuracion nuestra (`invalid_client`, `unauthorized_client`) | 500 | **Si** |
+| Caida de Google o respuesta ilegible | 500 | **Si** |
+
+El defecto va hacia el 500: lo que no se puede atribuir con certeza a quien llama se sigue contando
+como fallo propio. Es la misma direccion que `R-03` —donde se saco del SLO lo que no era trafico de
+nadie, pero **contandolo aparte** en `api.internal.*`— y la contraria de la que parece comoda: un
+fallo propio contado como error de cliente desaparece de las alertas, y una alerta ciega es peor que
+una ruidosa.
+
+El **nivel de log** se clasifica igual. Un codigo caducado se registra como `Information` y solo el
+fallo propio como `Warning`/`Error`: el canal por el que se diagnostican las averias no puede estar
+lleno de gente recargando una pantalla.
+
+Lo que **no** cambia es la traza del embudo: el intento sigue emitiendo `login_google_error` con su
+`error_code`, asi que la conversion de login sigue viendo el fallo. Son dos preguntas distintas —«¿ha
+podido entrar la gente?» y «¿esta roto el servicio?»— y solo la segunda es la que gobierna
+`HighErrorRate`.
 
 **Punto ciego, declarado**: un proceso muerto no se vigila a si mismo. Dentro de la aplicacion,
 `ServiceDown` cubre la degradacion observable —la base de datos inalcanzable, que deja el producto
@@ -179,7 +216,7 @@ Contadores del embudo:
 | `login.screen_viewed` | Entradas a la pantalla de login |
 | `login.google_clicked` | Clics en «Continuar con Google» |
 | `login.success` | Accesos completados |
-| `login.error` y `login.error.{codigo}` | Fallos del intercambio, en total y por codigo |
+| `login.error` y `login.error.{codigo}` | Fallos del intercambio, en total y por codigo. Desde `MVP-713` el desglose distingue `auth_google_code_invalid` (codigo caducado o reusado) de `auth_google_exchange_failed` (fallo propio o de Google), que antes se mezclaban bajo el segundo |
 | `login.abandonment` | Abandonos (por inactividad o por salida sin exito) |
 | `login.success.duration_ms.sum` · `login.success.timed` | Suma de duraciones y su divisor, para el «tiempo medio de login exitoso» |
 
@@ -203,17 +240,18 @@ Mismo mecanismo —log estructurado (`product.usage`) mas contador diario— par
 
 | Contador | Que cuenta |
 |---|---|
-| `app.session_started` | Sesiones que llegan al area autenticada. **Es el divisor** del uso del dashboard |
+| `app.session_started` | **Sesiones activas**: las que llegan al **area operativa** (el shell, tras la guarda de Workspace). **Es el divisor** del uso del dashboard. Una sesion que se queda en el onboarding **no** cuenta: es la definicion, no un olvido (MVP-703) |
 | `dashboard.viewed` | Entradas al dashboard, todas |
 | `dashboard.session_with_view` | Sesiones que abren el dashboard **al menos una vez** |
-| `dashboard.manual_refresh` | Pulsaciones de «Actualizar» (RN-006) |
+| `dashboard.manual_refresh` | **Discontinuada (MVP-706)**: contaba las pulsaciones de «Actualizar», botón retirado al reescribir RN-006. El contador conserva su histórico en la tabla, pero el informe de `GET /api/v1/ops/signals` ya no lo publica. El endpoint sigue aceptando el evento para no responder `400` a un cliente cacheado |
 | `dashboard.widget.rendered` · `dashboard.widget.blocked` | Widgets que se pudieron mostrar y los que no |
 | `dashboard.widget.{widget}.{ok\|empty\|error}` | Desglose, para saber **cual** falla y no solo que algo falla |
 
 KPI de producto de `../01-producto/kpis.md`:
 
 - Uso del dashboard en sesiones activas = `dashboard.session_with_view` / `app.session_started`
-- Recargas manuales por sesion = `dashboard.manual_refresh` / `dashboard.session_with_view`
+  — **de las sesiones que entran al area operativa, cuantas abren el panel** (MVP-703)
+- ~~Recargas manuales por sesion~~ — retirada en MVP-706 junto con el boton que la alimentaba
 - Cobertura de widgets MVP = `dashboard.widget.rendered` / (`rendered` + `blocked`)
 
 Tres matices que cambian lo que significan estas cifras:
@@ -221,8 +259,22 @@ Tres matices que cambian lo que significan estas cifras:
 1. **Sesiones, no visitas.** `dashboard.session_with_view` existe porque el KPI pregunta por sesiones:
    quien entra ocho veces en una sesion sigue siendo una sesion, y contar visitas daria porcentajes por
    encima del 100 %.
-2. **La sesion activa se cuenta al entrar a la aplicacion**, no al abrir el dashboard. Contarla en el
+2. **La sesion activa se cuenta al entrar al area operativa**, no al abrir el dashboard. Contarla en el
    propio dashboard haria que el porcentaje fuese siempre 100 %.
+
+   Hasta `MVP-703` el codigo y esta pagina describian cosas distintas: el endpoint de ingesta decia
+   admitir la senal sin Workspace porque «una sesion en onboarding tambien es una sesion activa», pero
+   el cliente la emite desde el shell —que cuelga de la guarda de Workspace— y por tanto no la manda
+   nunca en onboarding (`P-078`). Se fija la definicion **que se cumple**: la sesion activa es la que
+   llega al area operativa. Emitirla tambien en onboarding se descarto a proposito: meteria en el
+   divisor sesiones en las que el panel todavia no existe.
+
+   > **Ruptura de serie declarada (MVP-703).** Hasta esa historia, con los maestros poblados el Home
+   > **era** la Vision General, asi que casi toda sesion activa abria el panel por el mero hecho de
+   > entrar y el KPI rondaba el 100 % por construccion. Desde MVP-703 el arranque es el diario
+   > (RN-033), asi que abrir el panel pasa a ser una **eleccion**: el porcentaje bajara, y esa bajada
+   > **no es una perdida de uso**. Las dos series no son comparables entre si; el corte esta en la
+   > fecha de despliegue de MVP-703.
 3. **`empty` no es `error`.** El KPI admite expresamente los estados vacio/incompleto: un Workspace que
    aun no ha cosechado no tiene el dashboard roto. Solo `error` resta cobertura.
 

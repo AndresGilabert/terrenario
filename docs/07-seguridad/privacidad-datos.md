@@ -1,7 +1,7 @@
 ﻿---
 bloque: 07-seguridad
 documento: privacidad-datos
-actualizado_en: "2026-08-04"
+actualizado_en: "2026-08-08"
 ---
 
 # Privacidad de Datos y GDPR
@@ -82,6 +82,69 @@ Consecuencias, y por qué importan:
    se va. Se van con el Workspace cuando este se da de baja (RN-039 + RN-041).
 4. **Minimización**: `owner_name` y `description` son opcionales y de texto libre. La política pide no
    introducir más datos de terceros de los necesarios; el producto no lo puede impedir.
+
+---
+
+## Canal de sugerencias e incidencias (MVP-711)
+
+La aplicación tiene desde `MVP-711` un canal por el que una persona con cuenta puede contar un fallo
+o pedir algo. Se implementa como **formulario propio que envía un correo**, sin herramienta de
+tickets ni widget de terceros; esa decisión es de producto, pero tiene aquí su motivo: cualquier
+proveedor externo sería un **encargado del tratamiento** nuevo (art. 28) y, si carga scripts, activaría
+`RN-042` y obligaría a recabar consentimiento previo.
+
+### Qué se recoge
+
+| Dato | Origen | Por qué está |
+|---|---|---|
+| Tipo (`incidencia` / `sugerencia`) y texto libre | Lo escribe la persona | Es el reporte |
+| Nombre y correo de la cuenta | Ya los tiene el producto (RN-036) | Poder responder: un canal de soporte del que no se puede contestar deja de serlo |
+| Versión desplegada | La resuelve el servidor | Saber sobre qué versión ocurrió |
+| Pantalla desde la que se reporta | Ruta del cliente (`/app/diario`), **sin query ni fragmento** | Reproducir el problema |
+| `X-Request-Id` de la última petición fallida | Cabecera de respuesta de la API (`P-006`) | Saltar del reporte a la traza del servidor |
+| Navegador | Cabecera `User-Agent` de la propia petición | Descartar que sea cosa de un navegador concreto |
+
+**Qué no se recoge, y es deliberado**: nada de la explotación. Ni Workspace, ni temporada, ni
+filtros, ni identificadores de registros. La query de la URL se **recorta en el servidor** porque los
+filtros del panel llevan identificadores de terreno desde `MVP-403`: un canal de soporte no puede ser
+una vía lateral por la que datos operativos acaben en un buzón de correo. Tampoco se adjuntan
+capturas ni ficheros (fuera de alcance del spec).
+
+El texto libre es de la persona y **puede contener lo que ella decida escribir**, incluidos datos de
+terceros. El producto no lo puede impedir —es el mismo límite que en `activities.description`—, y por
+eso el formulario pide «qué estabas haciendo y qué pasó», no datos.
+
+### Con qué base
+
+**Interés legítimo** (art. 6.1.f) en mantener y corregir el servicio, ponderado así: el tratamiento lo
+inicia la propia persona, los datos son los mínimos para atender lo que pide, no hay perfilado ni
+cesión a nadie, y la expectativa razonable de quien escribe a un canal de soporte es exactamente que
+se le lea y se le pueda contestar. La alternativa —consentimiento— sería artificiosa para un
+tratamiento que la persona provoca al pulsar «Enviar».
+
+**Transparencia (art. 13) en el momento**: la pantalla enumera, **antes** de enviar, qué acompaña al
+mensaje —incluidos el nombre y el correo de la cuenta— y dice expresamente que no se envía nada de la
+explotación. No se deja para un documento aparte.
+
+### Cuánto se conserva
+
+El producto **no almacena el reporte**: no hay tabla de reportes, ni estados, ni seguimiento dentro de
+la aplicación. Lo que existe es el correo en el buzón de operación (`Feedback:Recipient`), y ahí es
+donde aplica el plazo.
+
+| Qué | Desde cuándo cuenta | Retención | Acción al expirar |
+|---|---|---|---|
+| Reporte del canal en el buzón de operación | Recepción | **24 meses** (máximo) | Borrado del buzón |
+
+Los 24 meses son el mismo criterio de `RN-041`, no un plazo nuevo: es el techo, y lo normal es
+borrarlo al cerrar el asunto. Es el único plazo del producto que **no ejecuta ninguna rutina**, porque
+lo conservado no está en la base de datos sino en una bandeja de correo; se anota aquí precisamente
+para que sea una obligación escrita y no una costumbre.
+
+**No añade nada al inventario de almacenamiento en el navegador.** El contexto del reporte —dónde
+estaba y qué petición falló— vive en **memoria** de la pestaña, no en `sessionStorage` ni en
+`localStorage`, para no ampliar lo que `RN-042` obliga a inventariar. El precio es que se pierde al
+recargar la página, y se acepta.
 
 ---
 
@@ -206,6 +269,7 @@ Si no existe base juridica valida, el tratamiento queda prohibido.
 |-------------|-----------|------------------|
 | Datos de cuenta activa | Duración de la cuenta | — |
 | Datos de cuenta cancelada | 24 meses tras cancelación | Anonimización / borrado |
+| Sesión (token de refresco) | Hasta caducidad o revocación, **más 30 días** (RN-041) | Borrado físico |
 | Logs de transacciones de pago | 5 años (si existe obligacion legal aplicable al caso) | Archivado seguro |
 | Logs de acceso / auditoría | 12 meses | Borrado |
 | Datos de comportamiento | 6 meses | Anonimización |
@@ -228,18 +292,40 @@ criterio de 24 meses que ya regía para la cuenta cancelada:
 | Registro operativo eliminado lógicamente (RN-037) | `deleted_at` del registro | 24 meses | Borrado físico |
 | Solicitud de reactivación cerrada o caducada (RN-040) | Cierre o caducidad | 24 meses | Borrado físico |
 | Invitación en estado terminal (aceptada, rechazada, anulada o caducada) | Última transición | 24 meses | Borrado físico |
+| Token de refresco revocado o caducado (MVP-714) | `revoked_at` o `expires_at`, lo primero que ocurra | **30 días** | Borrado físico |
+| Reporte del canal de sugerencias e incidencias (MVP-711) | Recepción en el buzón de operación | 24 meses (máximo) | Borrado del buzón, **a mano**: no está en la base de datos |
+
+#### Por qué la sesión tiene un plazo distinto (MVP-714, `P-071`)
+
+La fila de `refresh_tokens` es un **dato de sesión** —hash del token, cuenta y fechas—, no histórico
+operativo que nadie más pueda reconstruir. Aplicarle los 24 meses del resto sería conservador de más
+justo en la categoría que más filas genera: la rotación crea una fila por cada refresco, así que un
+usuario activo deja miles al año.
+
+Los 30 días son el mismo orden que la vida del propio token (`Auth:RefreshToken:LifetimeSeconds`, 30
+días), de modo que la regla se lee como «un token muerto no dura más de lo que habría durado vivo».
+Y dejan cuatro ciclos de la revisión operativa semanal de `observabilidad.md` para investigar una
+sesión sospechosa antes de que el rastro desaparezca, que es lo único que justifica conservarlo un
+solo día.
+
+Corrige además una suposición equivocada de `P-071`: se creía que purgar la cuenta arrastraba sus
+tokens por cascada y que el único problema era el plazo. **No hay tal cascada** —`refresh_tokens` no
+tiene FK hacia `users`—, así que las filas quedaban huérfanas indefinidamente. Con el plazo propio
+desaparecen 30 días después de morir, mucho antes de que la cuenta llegue a purgarse.
 
 **Los datos personales no esperan a ese plazo.** La baja de cuenta los borra o anonimiza en el acto
 —nombre, correo e identificador del proveedor de identidad, tanto en la cuenta como en los maestros de
 sus Workspaces y en las invitaciones que la nombraban—. Lo que se conserva 24 meses es la **fila
 anonimizada**, que ya no identifica a nadie y solo sostiene la autoría del histórico operativo.
 
-El plazo vive también en código (`AccountRetentionPolicy`) para que sea verificable y no solo
-declarado: la respuesta de la baja devuelve la fecha de purga concreta.
+Los plazos viven también en código (`AccountRetentionPolicy`) para que sean verificables y no solo
+declarados: la respuesta de la baja devuelve la fecha de purga concreta.
 
-> **Pendiente de despliegue**: la rutina que ejecuta el expurgo al vencer el plazo necesita una
-> programación periódica, que es una decisión de infraestructura. Queda anotado en el gate de
-> `MVP-504`. La política, el plazo y el cálculo de la fecha de purga sí están.
+Y **hay quien los ejecuta** desde `MVP-504` (`B-3`): `RetentionPurgeWorker` hace una pasada diaria
+dentro de la propia API —con cerrojo para que dos réplicas no purguen a la vez— y
+`RetentionPurgeService` aplica las seis categorías. Se retira aquí la nota que decía que la rutina
+seguía esperando una programación periódica de infraestructura: eso dejó de ser cierto al entregar
+`B-3`.
 
 ---
 
@@ -266,6 +352,12 @@ entra en esta tabla antes de activarse**.
 | `sessionStorage` `terrenario_usage_marks` (MVP-602) | Navegador | Recordar qué hitos ya se han contado en esta sesión, para no contar una sesión como si fueran varias | **Medición propia** — ver más abajo |
 | Google Identity (OIDC) | Servidor | Autenticación de acceso (RN-036) | **Estrictamente necesaria**: es el método de acceso que la persona elige |
 | Tipografías e iconos | **Autoalojados** | Sistema de diseño | Sin transferencia a terceros |
+
+> **`MVP-711` no añade ninguna fila a esta tabla**, y no por casualidad. El canal de sugerencias e
+> incidencias necesita recordar dónde estaba quien reporta y qué petición le falló; ese contexto se
+> guarda **en memoria de la pestaña** en vez de en `sessionStorage`, de modo que no hay nada nuevo que
+> inventariar ni clasificar. Tampoco hay widget, script, iframe ni recurso de terceros: la CSP no se
+> toca y `RN-042` sigue sin activarse.
 
 ### El matiz de la telemetría del embudo de login (RN-020)
 
@@ -350,6 +442,13 @@ más protectora por defecto y revocable.
 > dirección IP de cada visitante a ese tercero sin base jurídica clara, que es justo el supuesto que
 > obligaría a pedir consentimiento. Autoalojarlas **elimina el problema** en vez de gestionarlo, y de
 > paso permite cerrar la CSP a `'self'`.
+>
+> **Extensión (MVP-710)**: el mismo criterio se aplica a los recursos de marca —favicon, iconos de
+> aplicación, `manifest.webmanifest` e imagen de la tarjeta social—. Se generan y se sirven desde el
+> propio origen; ni el documento ni el manifest apuntan a ningún dominio ajeno. Importa señalarlo
+> porque la imagen social es un caso fácil de pasar por alto: **la piden los servidores de WhatsApp o
+> de Facebook, no el navegador del visitante**, así que alojarla en un tercero no aparecería en
+> ninguna herramienta de red de la propia página.
 
 ---
 

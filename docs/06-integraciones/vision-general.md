@@ -1,7 +1,7 @@
 ﻿---
 bloque: 06-integraciones
 documento: vision-general
-actualizado_en: "2026-07-24"
+actualizado_en: "2026-08-08"
 ---
 
 # Integraciones Externas — Visión General
@@ -19,7 +19,7 @@ actualizado_en: "2026-07-24"
 ```mermaid
 flowchart LR
     sistema["Terrenario MVP"] -->|"OIDC login"| google["Google OIDC"]
-    sistema -->|"invitaciones"| email["Email service (proveedor pendiente)"]
+    sistema -->|"correo transaccional"| email["Email service (proveedor pendiente)"]
 ```
 
 ---
@@ -29,13 +29,16 @@ flowchart LR
 | Sistema | Propósito | Módulo owner | Estado | Ruta |
 |---------|-----------|-------------|--------|------|
 | `google-oidc` | Autenticación social de acceso | seguridad | activo | `../07-seguridad/autenticacion-autorizacion.md` |
-| `email-service` | Envío de invitaciones a Workspace | workspaces | implementado (SMTP), cuenta pendiente de provisionar | `../02-arquitectura/decisiones/ADR-0010--envio-de-email-transaccional-por-smtp.md` |
+| `email-service` | Envío del correo transaccional del producto | workspaces | implementado (SMTP), cuenta pendiente de provisionar | `./correos-del-producto.md` |
 
 > `email-service`: el envío es **SMTP genérico** ([ADR-0010](../02-arquitectura/decisiones/ADR-0010--envio-de-email-transaccional-por-smtp.md)),
 > así que la misma configuración vale para Google Workspace, Brevo, Amazon SES, SendGrid o un
 > servidor corporativo. Lo que falta es **provisionar la cuenta** (`Email:*` en
 > `../05-infraestructura/entornos.md`) y decidir el dominio remitente. Mientras no exista cuenta, el
 > entorno arranca con un warning y las invitaciones se comparten por enlace.
+>
+> El inventario de los correos que salen, con su disparador y su destinatario, y la plantilla común
+> que los maqueta están en [correos-del-producto.md](./correos-del-producto.md) (`MVP-715`).
 
 ---
 

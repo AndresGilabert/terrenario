@@ -42,6 +42,12 @@ public sealed class DiaryIntegrationTests : IAsyncLifetime
             end_date = "2025-03-31"
         })).GetProperty("id").GetGuid();
 
+        // MVP-701 — Desde esta historia, `GET /diary` sin `season_id` aplica el defecto de RN-008: la
+        // temporada de **trabajo** del usuario. Crear una temporada la convierte en la de trabajo del
+        // creador (P-017), así que tras las dos altas la de trabajo sería la 2024/25 y el muro saldría
+        // vacío. Se fija la campaña sobre la que va todo el escenario, que es lo que haría un usuario.
+        await _session.PostJsonAsync($"/api/v1/seasons/{_seasonId}/activate", new { });
+
         _hoyaId = (await _session.PostJsonAsync("/api/v1/plots", new { name = "La Hoya", ownership_type = "propia" }))
             .GetProperty("id").GetGuid();
         _cerroId = (await _session.PostJsonAsync("/api/v1/plots", new { name = "El Cerro", ownership_type = "propia" }))

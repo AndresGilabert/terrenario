@@ -55,13 +55,14 @@ public class OperationalSignalsServiceTests
         {
             [TelemetryMetrics.AppSessionStarted] = 50,
             [TelemetryMetrics.DashboardSessionWithView] = 45,
+            // MVP-706 — `dashboard.manual_refresh` sigue sembrado a proposito: el informe ya no debe
+            // publicarlo aunque la tabla conserve su historico.
             [TelemetryMetrics.DashboardManualRefresh] = 90,
             [TelemetryMetrics.DashboardWidgetRendered] = 196,
             [TelemetryMetrics.DashboardWidgetBlocked] = 4,
         }).BuildAsync(null, CancellationToken.None);
 
         report.ProductUsage7d.DashboardUsage.Should().Be(0.9);
-        report.ProductUsage7d.ManualRefreshPerSession.Should().Be(2);
         report.ProductUsage7d.WidgetCoverage.Should().Be(0.98);
     }
 

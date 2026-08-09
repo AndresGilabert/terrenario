@@ -57,6 +57,10 @@ Disponer de señales básicas de uso del dashboard y recarga manual que permitan
 
 - [x] **CA-1**: El sistema registra el acceso al dashboard de forma suficiente para medir sesiones con uso del panel.
 - [x] **CA-2**: El sistema registra la recarga manual del dashboard como señal separada.
+  **Superado por `MVP-706` (2026-08-07)**: el Product Owner retiró el botón «Actualizar», que era la
+  única fuente de `dashboard.manual_refresh`. La señal queda **discontinuada** y el informe operativo
+  deja de publicarla; su histórico se conserva en la tabla de contadores. Este criterio se cumplió en
+  su día y deja de aplicar: no hay recarga manual que registrar. Ver `RN-006` reescrita.
 - [x] **CA-3**: Las métricas permiten revisar los KPIs mínimos de uso definidos en la KB.
 
 ## Maquetas y referencias visuales
@@ -71,7 +75,7 @@ Disponer de señales básicas de uso del dashboard y recarga manual que permitan
 
 | Pantalla prototipo | Regla KB asociada | Estado (cubierto/parcial/falta) | Evidencia de prueba |
 |---|---|---|---|
-| DashboardView | RN-006, RN-007 | cubierto | Entrada, recarga manual y cobertura de los cuatro widgets, verificadas en navegador: el clic en «Actualizar» emite `dashboard_manual_refresh` y el cambio de temporada no |
+| DashboardView | RN-006, RN-007 | cubierto | Entrada y cobertura de los cuatro widgets, verificadas en navegador. La recarga manual se midió aquí y quedó **discontinuada en `MVP-706`** al retirarse el botón |
 | TopNavbar | RN-006 | cubierto | La sesión activa se cuenta en el shell (`AppLayout`), que es el divisor del KPI |
 
 ## Notas y decisiones

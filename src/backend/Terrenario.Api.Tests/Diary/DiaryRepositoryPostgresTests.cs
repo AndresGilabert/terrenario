@@ -104,7 +104,7 @@ public sealed class DiaryRepositoryPostgresTests : RepositoryTestBase
         => Harvest.Create(
             _workspaceId, plotId ?? _hoyaId, _seasonId, date,
             HarvestProducts.AceitunaOlivar, kgs, HarvestDestinations.AceiteParaVenta,
-            yield: null, liters: null, userId: _userId);
+            yield: null, liters: null, unitPrice: null, userId: _userId);
 
     private Purchase NewPurchase(DateOnly date, string product = "Abono foliar", decimal cost = 400m)
         => Purchase.Create(_workspaceId, _seasonId, date, product, totalQuantity: 200m, totalCost: cost, userId: _userId);
@@ -197,7 +197,7 @@ public sealed class DiaryRepositoryPostgresTests : RepositoryTestBase
         Db.Harvests.Add(Harvest.Create(
             _workspaceId, _hoyaId, _seasonId, new DateOnly(2025, 12, 5),
             HarvestProducts.AceitunaOlivar, 4200m, HarvestDestinations.AceiteParaVenta,
-            yield: null, liters: 840m, userId: _userId));
+            yield: null, liters: 840m, unitPrice: null, userId: _userId));
         await Db.SaveChangesAsync();
 
         // RN-014 — 840 L sobre 4.200 kg ⇒ 20 L/100kg. Para quien lee es el mismo dato que si se

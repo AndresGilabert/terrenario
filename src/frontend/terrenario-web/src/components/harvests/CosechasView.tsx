@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useApiClient } from '../../contexts/ApiContext';
 import { useSeason } from '../../contexts/SeasonContext';
+import { useSeasonScope } from '../../lib/season-scope';
+import { ALL_SEASONS } from '../../types/season.types';
 import { createHarvestService } from '../../services/harvest.service';
 import { createPlotService } from '../../services/plot.service';
 import { HttpError } from '../../services/http-client';
@@ -15,18 +17,12 @@ import {
 } from '../../types/harvest.types';
 import type { Plot } from '../../types/plot.types';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { MobileDisclosure } from '../common/MobileDisclosure';
+import { SummaryStrip } from '../common/SummaryStrip';
 import { HarvestFormModal } from './HarvestFormModal';
+import { fechaDeNegocio } from '../../lib/fechas';
 
 /** Formato de fecha corto y legible, sin depender del locale del navegador. */
-function formatDate(iso: string): string {
-  const [year, month, day] = iso.split('-').map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString('es-ES', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
-
 const number = (value: number, decimals = 0) =>
   value.toLocaleString('es-ES', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
@@ -57,7 +53,13 @@ export const CosechasView: React.FC = () => {
   const [notice, setNotice] = useState<string | null>(null);
 
   const [plotFilter, setPlotFilter] = useState('todos');
-  const [seasonFilter, setSeasonFilter] = useState('todas');
+  // MVP-701 (`P-082`) — El ámbito de temporada ya no arranca en «todas»: lo resuelve el servidor con
+  // el defecto de RN-008. Era la causa de que esta pantalla y la Visión General dieran totales
+  // distintos de la misma campaña.
+  const seasonScope = useSeasonScope();
+  // Desestructurado para que las dependencias de `reload` sean identificadores estables y la regla de
+  // exhaustividad de los hooks pueda comprobarlas.
+  const { requested: seasonRequested, applyFromResponse: applySeasonScope } = seasonScope;
   const [destinationFilter, setDestinationFilter] = useState('todos');
 
   const [isModalOpen, setModalOpen] = useState(false);
@@ -76,7 +78,7 @@ export const CosechasView: React.FC = () => {
       const [list, plotList] = await Promise.all([
         harvestService.listHarvests({
           plotId: plotFilter === 'todos' ? undefined : plotFilter,
-          seasonId: seasonFilter === 'todas' ? undefined : seasonFilter,
+          seasonId: seasonRequested,
           destination: destinationFilter === 'todos' ? undefined : destinationFilter,
         }),
         // Los terrenos se piden activos: es lo que se ofrece para registros nuevos (MVP-202, CA-3).
@@ -84,13 +86,21 @@ export const CosechasView: React.FC = () => {
       ]);
       setHarvests(list.data);
       setTotalKg(list.meta.total_kg);
+      applySeasonScope(list.meta.scope);
       setPlots(plotList);
     } catch (error) {
       setLoadError(error instanceof HttpError ? error.message : 'No se pudieron cargar las cosechas.');
     } finally {
       setIsLoading(false);
     }
-  }, [harvestService, plotService, plotFilter, seasonFilter, destinationFilter]);
+  }, [
+    harvestService,
+    plotService,
+    plotFilter,
+    seasonRequested,
+    applySeasonScope,
+    destinationFilter,
+  ]);
 
   useEffect(() => {
     void reload();
@@ -197,7 +207,12 @@ export const CosechasView: React.FC = () => {
   };
 
   const hasFilters =
-    plotFilter !== 'todos' || seasonFilter !== 'todas' || destinationFilter !== 'todos';
+    plotFilter !== 'todos' || seasonScope.isExplicit || destinationFilter !== 'todos';
+  // MVP-702 — Con los filtros plegados en móvil, el número es lo que evita no saber que hay puestos.
+  const activeFilterCount =
+    (plotFilter !== 'todos' ? 1 : 0) +
+    (seasonScope.isExplicit ? 1 : 0) +
+    (destinationFilter !== 'todos' ? 1 : 0);
 
   return (
     <div className="space-y-6 pb-12">
@@ -246,7 +261,7 @@ export const CosechasView: React.FC = () => {
 
       {/* Resumen de lo que se está viendo */}
       {!isLoading && harvests.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <SummaryStrip desktopClassName="grid-cols-3 gap-3">
           <SummaryTile label="Total recolectado" value={`${number(totalKg)} kg`} icon="scale" />
           <SummaryTile
             label="Rendimiento medio"
@@ -263,11 +278,12 @@ export const CosechasView: React.FC = () => {
             }
           />
           <SummaryTile label="Partidas" value={String(harvests.length)} icon="inventory_2" />
-        </div>
+        </SummaryStrip>
       )}
 
-      {/* Filtros */}
+      {/* Filtros. MVP-702 — plegados en móvil para que los datos no queden bajo el pliegue. */}
       {(harvests.length > 0 || hasFilters) && (
+        <MobileDisclosure label="Filtros" icon="tune" activeCount={activeFilterCount}>
         <div className="bg-white p-4 rounded-2xl border border-[#e5e2dd] grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label htmlFor="harvest-filter-plot" className="sr-only">Filtrar por terreno</label>
@@ -288,11 +304,14 @@ export const CosechasView: React.FC = () => {
             <label htmlFor="harvest-filter-season" className="sr-only">Filtrar por temporada</label>
             <select
               id="harvest-filter-season"
-              value={seasonFilter}
-              onChange={(e) => setSeasonFilter(e.target.value)}
+              value={seasonScope.value}
+              onChange={(e) => seasonScope.select(e.target.value)}
               className="w-full px-3 py-2 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-xs font-medium text-[#1c1c19] focus:outline-none focus:border-[#33450d]"
             >
-              <option value="todas">Todas las temporadas</option>
+              {/* Mientras no haya llegado la primera respuesta no se sabe qué campaña aplica el
+                  servidor: se deja el hueco en vez de rotular una que quizá no sea. */}
+              {seasonScope.value === '' && <option value="">Campaña de trabajo…</option>}
+              <option value={ALL_SEASONS}>Todas las temporadas</option>
               {seasons.map((season) => (
                 <option key={season.id} value={season.id}>{season.name}</option>
               ))}
@@ -314,6 +333,7 @@ export const CosechasView: React.FC = () => {
             </select>
           </div>
         </div>
+        </MobileDisclosure>
       )}
 
       {loadError && (
@@ -366,6 +386,8 @@ export const CosechasView: React.FC = () => {
                   <th scope="col" className="px-5 py-3.5">Producto</th>
                   <th scope="col" className="px-5 py-3.5 text-right">Kilos</th>
                   <th scope="col" className="px-5 py-3.5 text-right">Aceite</th>
+                  {/* MVP-707 — Importe de la partida: kilos × precio, derivado en servidor. */}
+                  <th scope="col" className="px-5 py-3.5 text-right">Importe</th>
                   <th scope="col" className="px-5 py-3.5">Destino</th>
                   <th scope="col" className="px-5 py-3.5 text-right">Acciones</th>
                 </tr>
@@ -374,7 +396,7 @@ export const CosechasView: React.FC = () => {
                 {harvests.map((harvest) => (
                   <tr key={harvest.id} className="hover:bg-[#fcf9f4] transition-colors">
                     <td className="px-5 py-4 font-medium text-[#76786b] whitespace-nowrap">
-                      {formatDate(harvest.date)}
+                      {fechaDeNegocio(harvest.date)}
                       <span className="block text-[11px] text-[#a2a496]">{harvest.season_name}</span>
                       {/* RN-023 — aviso no bloqueante */}
                       {harvest.is_out_of_season_range && (
@@ -420,6 +442,20 @@ export const CosechasView: React.FC = () => {
                         <span className="text-[#a2a496] italic">Sin dato</span>
                       )}
                     </td>
+                    {/* MVP-707 — Importe: kilos × precio. «Sin dato» y no «0,00 €» cuando no hay
+                        precio: la partida no ha ingresado cero, es que no se sabe (CA-2). */}
+                    <td className="px-5 py-4 text-right whitespace-nowrap">
+                      {harvest.amount !== null ? (
+                        <>
+                          <span className="font-extrabold text-[#33450d]">{number(harvest.amount, 2)} €</span>
+                          <span className="block text-[10px] text-[#76786b] mt-0.5">
+                            {number(harvest.unit_price ?? 0, 2)} €/kg
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-[#a2a496] italic">Sin dato</span>
+                      )}
+                    </td>
                     <td className="px-5 py-4 whitespace-nowrap">
                       <span
                         className={`font-semibold ${
@@ -434,7 +470,7 @@ export const CosechasView: React.FC = () => {
                         type="button"
                         onClick={() => openEdit(harvest)}
                         title="Corregir cosecha"
-                        aria-label={`Corregir la cosecha de ${harvest.plot_name} del ${formatDate(harvest.date)}`}
+                        aria-label={`Corregir la cosecha de ${harvest.plot_name} del ${fechaDeNegocio(harvest.date)}`}
                         className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#f0ede8] hover:text-[#33450d] transition-colors"
                       >
                         <span className="material-symbols-outlined text-base" aria-hidden="true">edit</span>
@@ -446,7 +482,7 @@ export const CosechasView: React.FC = () => {
                           setPendingDelete(harvest);
                         }}
                         title="Eliminar cosecha"
-                        aria-label={`Eliminar la cosecha de ${harvest.plot_name} del ${formatDate(harvest.date)}`}
+                        aria-label={`Eliminar la cosecha de ${harvest.plot_name} del ${fechaDeNegocio(harvest.date)}`}
                         className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#ffdad6]/60 hover:text-[#ba1a1a] transition-colors"
                       >
                         <span className="material-symbols-outlined text-base" aria-hidden="true">delete</span>
@@ -484,7 +520,7 @@ export const CosechasView: React.FC = () => {
             <>
               <p>
                 Vas a eliminar la partida de <strong>{number(pendingDelete.kgs)} kg</strong> registrada
-                el {formatDate(pendingDelete.date)} en {pendingDelete.plot_name}.
+                el {fechaDeNegocio(pendingDelete.date)} en {pendingDelete.plot_name}.
               </p>
               <p className="text-xs text-[#76786b]">
                 Desaparecerá del listado, del diario y del dashboard. No hay papelera: si te equivocas,

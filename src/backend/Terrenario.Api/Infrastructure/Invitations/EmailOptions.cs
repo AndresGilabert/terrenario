@@ -16,6 +16,18 @@ public sealed class EmailOptions
     /// <summary>`starttls` (587), `ssl` (465), `none` (solo servidores de prueba locales) o `auto`.</summary>
     public string SecurityMode { get; set; } = EmailSecurityModes.StartTls;
 
+    /// <summary>
+    /// P-100 — Lo que llega de configuración es texto tecleado a mano en una variable de entorno de
+    /// App Service: `None` con mayúscula o con un espacio de más es el mismo modo, no otro distinto.
+    /// </summary>
+    public string NormalizedSecurityMode => SecurityMode.Trim().ToLowerInvariant();
+
+    /// <summary>
+    /// P-100 — Un modo desconocido no rompe: cae al defecto (StartTLS) y el síntoma aparece en la
+    /// primera entrega fallida, no al arrancar. Por eso el arranque lo comprueba y lo dice.
+    /// </summary>
+    public bool IsSecurityModeKnown => EmailSecurityModes.All.Contains(NormalizedSecurityMode);
+
     /// <summary>Vacío en servidores que no exigen autenticación (relay local de desarrollo).</summary>
     public string Username { get; set; } = string.Empty;
 
@@ -40,4 +52,7 @@ public static class EmailSecurityModes
     public const string Ssl = "ssl";
     public const string None = "none";
     public const string Auto = "auto";
+
+    /// <summary>El catálogo completo, para que la comprobación del arranque no repita la lista.</summary>
+    public static readonly string[] All = [StartTls, Ssl, None, Auto];
 }

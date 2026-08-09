@@ -1,5 +1,10 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router';
+import {
+  ANY_EMAIL_WORKS_HINT,
+  GOOGLE_ACCOUNT_SIGNUP_LABEL,
+  GOOGLE_ACCOUNT_SIGNUP_URL,
+} from '../../lib/google-account';
 
 /**
  * Landing pública. Recupera el lenguaje visual del prototipo (marca `eco`, tipografía display y
@@ -84,6 +89,22 @@ export const LandingPage: React.FC = () => {
               Acceder a la plataforma
             </button>
           </div>
+
+          {/* MVP-712 (CA-2) — Antes de pedir nada. Esta es la pantalla donde se decide si probar el
+              producto, y hasta ahora no decía con qué se entra: quien no tiene Gmail se enteraba en
+              el login, o no llegaba. El enlace al alta es **enlace**, no recurso: la landing es
+              pública y su CSP no admite terceros (`RN-042`). */}
+          <p className="text-sm text-[#76786b] leading-relaxed max-w-xl">
+            Se entra con una Cuenta de Google. {ANY_EMAIL_WORKS_HINT}{' '}
+            <a
+              href={GOOGLE_ACCOUNT_SIGNUP_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-[#33450d] hover:underline"
+            >
+              {GOOGLE_ACCOUNT_SIGNUP_LABEL}
+            </a>
+          </p>
         </div>
 
         {/* Hero image (decorativa; sin métricas inventadas, coherente con MVP-106) */}

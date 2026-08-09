@@ -67,6 +67,12 @@ public sealed record DiaryEntry(
     /// <summary>Solo en consumos: <c>false</c> ⇒ el coste es desconocido, no cero (RN-032).</summary>
     bool? HasPurchase = null,
     /// <summary>
+    /// Solo en consumos con compra (MVP-708, RN-043): la fecha del consumo es <b>anterior</b> a la de
+    /// la compra que lo paga. Aviso, nunca bloqueo, con la misma filosofía que
+    /// <see cref="IsOutOfSeasonRange"/>.
+    /// </summary>
+    bool? IsBeforePurchaseDate = null,
+    /// <summary>
     /// Solo en cosechas (MVP-401): kilos recolectados. No se reutiliza <see cref="Quantity"/> porque
     /// no es la misma magnitud —allí es cantidad de material comprado o consumido, sin unidad fija— y
     /// mezclarlas obligaría a la tarjeta a adivinar cómo rotularla.
@@ -78,4 +84,9 @@ public sealed record DiaryEntry(
     /// Solo en cosechas (MVP-402): rendimiento en la unidad canónica L/100kg (RN-013), sea informado o
     /// derivado de los litros obtenidos (RN-014). <c>null</c> cuando la partida todavía no lo declara.
     /// </summary>
-    decimal? Yield = null);
+    decimal? Yield = null,
+    /// <summary>
+    /// Solo en cosechas (MVP-707): importe ingresado, <c>kilos × precio</c>. <c>null</c> cuando la
+    /// partida no tiene precio, que no es lo mismo que 0 €.
+    /// </summary>
+    decimal? Amount = null);

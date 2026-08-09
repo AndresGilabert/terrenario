@@ -368,6 +368,6 @@ TypeScript y `npm run lint` sin advertencias nuevas.
 - [x] Migraciones de base de datos preparadas (`AddWorkspaceInvitations`)
 - [x] Tests escritos y pasando
 - [x] Documentación de API actualizada en este documento y en `docs/02-arquitectura/contratos-api.md`
-- [ ] Módulo de Workspaces documentado en `docs/03-modulos/` (se creará al consolidar el módulo con
+- [x] Módulo de Workspaces documentado en `docs/03-modulos/` — consolidado en `MVP-716` como `identidad-y-workspaces` (se creará al consolidar el módulo con
   MVP-104, que cierra membresías y selector de contexto)
 - [x] Sin `TODO` sin resolver en este documento

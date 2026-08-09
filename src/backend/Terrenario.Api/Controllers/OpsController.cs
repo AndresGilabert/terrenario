@@ -59,7 +59,6 @@ public sealed class OpsController(
                 sessions = day.Sessions,
                 sessions_with_dashboard = day.SessionsWithDashboard,
                 dashboard_usage = day.DashboardUsage,
-                manual_refresh = day.ManualRefresh,
                 widget_coverage = day.WidgetCoverage,
                 requests = day.Requests,
                 error_rate = day.ErrorRate,
@@ -100,7 +99,6 @@ public sealed class OpsController(
                 sessions = report.ProductUsage7d.Sessions,
                 sessions_with_dashboard = report.ProductUsage7d.SessionsWithDashboard,
                 dashboard_usage = report.ProductUsage7d.DashboardUsage,
-                manual_refresh_per_session = report.ProductUsage7d.ManualRefreshPerSession,
                 widget_coverage = report.ProductUsage7d.WidgetCoverage
             },
             business_7d = new

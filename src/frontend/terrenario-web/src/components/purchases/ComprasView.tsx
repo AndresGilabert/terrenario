@@ -4,6 +4,8 @@ import { useApiClient } from '../../contexts/ApiContext';
 import { useSeason } from '../../contexts/SeasonContext';
 import { createPurchaseService } from '../../services/purchase.service';
 import { HttpError } from '../../services/http-client';
+import { useSeasonScope } from '../../lib/season-scope';
+import { ALL_SEASONS } from '../../types/season.types';
 import { CONFLICT_VERSION_MISMATCH } from '../../types/activity.types';
 import {
   PURCHASE_PRODUCT_MAX_LENGTH,
@@ -16,8 +18,10 @@ import { createConsumptionService } from '../../services/consumption.service';
 import type { Plot } from '../../types/plot.types';
 import type { Consumption } from '../../types/consumption.types';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { MobileDisclosure } from '../common/MobileDisclosure';
 import { PurchaseFormModal } from './PurchaseFormModal';
 import { ConsumptionFormModal, type ConsumptionFormValues } from './ConsumptionFormModal';
+import { fechaDeNegocio } from '../../lib/fechas';
 
 /** Registro pendiente de confirmación de borrado (MVP-305, RN-037). */
 type PendingDelete =
@@ -27,15 +31,6 @@ type PendingDelete =
 function todayIso(): string {
   const now = new Date();
   return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
-}
-
-function formatDate(iso: string): string {
-  const [year, month, day] = iso.split('-').map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString('es-ES', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
 }
 
 const euros = (value: number) =>
@@ -73,7 +68,12 @@ export const ComprasView: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [seasonFilter, setSeasonFilter] = useState('todas');
+  // MVP-701 (`P-082`) — El defecto de temporada lo resuelve el servidor (RN-008), igual que en el
+  // dashboard: el libro de compras ya no arranca en «todas».
+  const seasonScope = useSeasonScope();
+  // Desestructurado para que las dependencias de `reload` sean identificadores estables y la regla de
+  // exhaustividad de los hooks pueda comprobarlas.
+  const { requested: seasonRequested, applyFromResponse: applySeasonScope } = seasonScope;
   const [productFilter, setProductFilter] = useState('');
 
   // Alta en línea (prototipo)
@@ -114,12 +114,14 @@ export const ComprasView: React.FC = () => {
     try {
       const [list, productList, consumptionList, plotList] = await Promise.all([
         purchaseService.listPurchases({
-          seasonId: seasonFilter === 'todas' ? undefined : seasonFilter,
+          seasonId: seasonRequested,
           product: productFilter.trim() || undefined,
         }),
         purchaseService.listProductSuggestions(),
         consumptionService.listConsumptions({
-          seasonId: seasonFilter === 'todas' ? undefined : seasonFilter,
+          // El mismo ámbito que el libro: las dos listas conviven en esta pantalla y hablar de
+          // campañas distintas sería el propio `P-082` dentro de una sola vista.
+          seasonId: seasonRequested,
           // R-06 (MVP-399) — el buscador de material filtraba las compras pero no los consumos.
           product: productFilter.trim() || undefined,
         }),
@@ -128,6 +130,7 @@ export const ComprasView: React.FC = () => {
       ]);
       setPurchases(list.data);
       setTotalCost(list.meta.total_cost);
+      applySeasonScope(list.meta.scope);
       setSuggestions(productList);
       setConsumptions(consumptionList.data);
       setConsumptionsWithoutPurchase(consumptionList.meta.without_purchase);
@@ -139,7 +142,14 @@ export const ComprasView: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [purchaseService, consumptionService, plotService, seasonFilter, productFilter]);
+  }, [
+    purchaseService,
+    consumptionService,
+    plotService,
+    seasonRequested,
+    applySeasonScope,
+    productFilter,
+  ]);
 
   useEffect(() => {
     void reload();
@@ -341,8 +351,14 @@ export const ComprasView: React.FC = () => {
         </div>
       )}
 
-      {/* Alta en línea (prototipo) */}
+      {/* Alta en línea (prototipo).
+
+          MVP-702 — Plegada en móvil. Es el único formulario del producto que vive en línea en vez de
+          en un modal —Diario y Cosechas abren el suyo desde un botón—, y sus ~335 px dejaban la
+          primera fila del libro en el borde inferior de la pantalla: técnicamente visible, en la
+          práctica no. Plegado se comporta como los otros dos, y en escritorio no cambia nada. */}
       {hasSeason && (
+        <MobileDisclosure label="Registrar compra" icon="add">
         <form
           onSubmit={(e) => void handleCreate(e)}
           className="bg-white p-4 rounded-2xl border border-[#e5e2dd] space-y-3"
@@ -442,10 +458,17 @@ export const ComprasView: React.FC = () => {
             </div>
           )}
         </form>
+        </MobileDisclosure>
       )}
 
       {/* Filtros */}
-      {(purchases.length > 0 || productFilter || seasonFilter !== 'todas') && (
+      {/* MVP-702 — Filtros plegados en móvil para que el libro se vea al entrar. */}
+      {(purchases.length > 0 || productFilter || seasonScope.isExplicit) && (
+        <MobileDisclosure
+          label="Filtros"
+          icon="tune"
+          activeCount={(productFilter.trim() !== '' ? 1 : 0) + (seasonScope.isExplicit ? 1 : 0)}
+        >
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1 bg-white p-3 rounded-2xl border border-[#e5e2dd] flex items-center gap-3">
             <span className="material-symbols-outlined text-[#76786b] pl-2" aria-hidden="true">search</span>
@@ -469,17 +492,20 @@ export const ComprasView: React.FC = () => {
             <label htmlFor="purchase-season-filter" className="sr-only">Filtrar por temporada</label>
             <select
               id="purchase-season-filter"
-              value={seasonFilter}
-              onChange={(e) => setSeasonFilter(e.target.value)}
+              value={seasonScope.value}
+              onChange={(e) => seasonScope.select(e.target.value)}
               className="w-full px-3 py-2.5 bg-white border border-[#e5e2dd] rounded-2xl text-xs font-medium text-[#1c1c19] focus:outline-none focus:border-[#33450d]"
             >
-              <option value="todas">Todas las temporadas</option>
+              {/* Hasta la primera respuesta no se sabe qué campaña aplica el servidor. */}
+              {seasonScope.value === '' && <option value="">Campaña de trabajo…</option>}
+              <option value={ALL_SEASONS}>Todas las temporadas</option>
               {seasons.map((season) => (
                 <option key={season.id} value={season.id}>{season.name}</option>
               ))}
             </select>
           </div>
         </div>
+        </MobileDisclosure>
       )}
 
       {loadError && (
@@ -499,12 +525,14 @@ export const ComprasView: React.FC = () => {
             <span className="material-symbols-outlined text-3xl" aria-hidden="true">receipt_long</span>
           </div>
           <h3 className="font-headline font-bold text-lg text-[#1c1c19]">
-            {productFilter || seasonFilter !== 'todas'
+            {productFilter || seasonScope.isExplicit
               ? 'No hay compras que coincidan'
-              : 'Todavía no has registrado compras'}
+              : seasonScope.label
+                ? `Sin compras en ${seasonScope.label}`
+                : 'Todavía no has registrado compras'}
           </h3>
           <p className="text-sm text-[#45483c] max-w-md mx-auto">
-            {productFilter || seasonFilter !== 'todas'
+            {productFilter || seasonScope.isExplicit
               ? 'Prueba a cambiar el material buscado o la campaña.'
               : 'Apunta arriba lo que compras para la explotación: abonos, fitosanitarios, combustible o material.'}
           </p>
@@ -530,7 +558,7 @@ export const ComprasView: React.FC = () => {
                 {purchases.map((purchase) => (
                   <tr key={purchase.id} className="hover:bg-[#fcf9f4]">
                     <td className="px-5 py-3.5 font-medium text-[#76786b] whitespace-nowrap">
-                      {formatDate(purchase.purchase_date)}
+                      {fechaDeNegocio(purchase.purchase_date)}
                     </td>
                     <td className="px-5 py-3.5 font-bold text-[#1c1c19]">{purchase.product}</td>
                     <td className="px-5 py-3.5">
@@ -683,7 +711,7 @@ export const ComprasView: React.FC = () => {
                   {consumptions.map((consumption) => (
                     <tr key={consumption.id} className="hover:bg-[#fcf9f4]">
                       <td className="px-5 py-3.5 font-medium text-[#76786b] whitespace-nowrap">
-                        {formatDate(consumption.date)}
+                        {fechaDeNegocio(consumption.date)}
                       </td>
                       <td className="px-5 py-3.5 font-bold text-[#1c1c19]">
                         {consumption.product}
@@ -693,6 +721,20 @@ export const ComprasView: React.FC = () => {
                             className="ml-1.5 px-2 py-0.5 rounded-full bg-[#fff6e5] text-[#8a5a00] border border-[#f0d9a8] font-semibold text-[10px] whitespace-nowrap"
                           >
                             sin compra
+                          </span>
+                        )}
+                        {/* RN-043 (MVP-708) — misma etiqueta discreta que «fuera de rango» en el
+                            libro: señala sin impedir, y la fila se corrige con el lápiz de al lado */}
+                        {consumption.is_before_purchase_date && (
+                          <span
+                            title={
+                              consumption.purchase_date
+                                ? `El consumo es anterior a su compra, del ${fechaDeNegocio(consumption.purchase_date)}`
+                                : 'El consumo es anterior a su compra'
+                            }
+                            className="ml-1.5 px-2 py-0.5 rounded-full bg-[#fff6e5] text-[#8a5a00] border border-[#f0d9a8] font-semibold text-[10px] whitespace-nowrap"
+                          >
+                            antes de la compra
                           </span>
                         )}
                       </td>
@@ -751,6 +793,9 @@ export const ComprasView: React.FC = () => {
         plots={plots}
         seasons={seasons}
         activeSeason={activeSeason}
+        /* MVP-708 (`P-057`) — el mismo vocabulario que el alta en línea: es el mismo campo de texto
+           libre (RN-031) y tener dos listas distintas en la misma pantalla era el origen del punto. */
+        suggestions={suggestions}
         pendingQuantity={consumptionForm?.purchase?.pending_quantity ?? null}
         isSubmitting={isSubmittingConsumption}
         errorMessage={consumptionError}
@@ -773,7 +818,7 @@ export const ComprasView: React.FC = () => {
                     : pendingDelete.consumption.product}»
                 </strong>{' '}
                 del{' '}
-                {formatDate(
+                {fechaDeNegocio(
                   pendingDelete.kind === 'purchase'
                     ? pendingDelete.purchase.purchase_date
                     : pendingDelete.consumption.date

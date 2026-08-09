@@ -477,6 +477,120 @@ def validar_adrs():
         validar_adr(adr_file)
 
 
+# ─── Registro de puntos de MVP-999 ────────────────────────────────────────────
+
+REGISTRO_PUNTOS = DESARROLLOS_PATH / "MVP-999--pendientes-transversales-y-diferidos" / "spec.md"
+
+#  | P-xxx | fecha | origen | categoria | descripcion | riesgo | bloquea | destino | estado | historia |
+#
+#  Se indexa **desde el final** a proposito: las descripciones son largas y pueden contener `|`
+#  escapados, asi que contar desde el principio se rompe al primer punto que lo haga.
+COL_ESTADO = -3
+COL_DESTINO = -4
+
+# Los cuatro estados que usa el registro hoy son `resuelto`, `backlog-post-mvp`, `pendiente` y
+# `descartado`. Solo los dos ultimos —y el historico `aprobado-crear-historia`— dejan algo abierto.
+ESTADOS_PUNTO_CERRADOS = {"resuelto", "descartado", "backlog-post-mvp"}
+
+RE_ID_HISTORIA = re.compile(r"\bMVP-\d{3}\b")
+
+# Prefijos de rama que usa el repositorio. Un destino que empiece por uno de ellos describe donde se
+# hizo el trabajo, no a donde va: no vale para una fila todavia abierta.
+RE_RAMA = re.compile(r"^(chore|feature|fix|hotfix|release)/")
+
+
+def buscar_spec_por_id(ticket_id: str) -> Path | None:
+    """Localiza el `spec.md` de una historia o epica por su identificador."""
+    for spec in DESARROLLOS_PATH.rglob("spec.md"):
+        if extraer_ticket_id(spec.parent.name) == ticket_id:
+            return spec
+    return None
+
+
+def validar_registro_de_puntos():
+    """
+    MVP-799 (`P-096`) — Un punto cuya historia de destino ya esta `completado` tiene que estar
+    `resuelto` en el registro.
+
+    <b>Por que existe esta comprobacion.</b> Al cerrar `MVP-007` habia **quince** filas diciendo
+    «pendiente de crear historia» sobre puntos que ya estaban construidos, `P-055` entre ellas — que es
+    justo el punto que se perdio por esto: se anota el destino, la historia de destino se cierra sin
+    recogerlo y nadie vuelve a mirar. Ninguna era funcionalidad perdida, pero el registro llevaba
+    semanas mintiendo, y mientras dependa de que alguien se acuerde volvera a pasar.
+
+    <b>El error se imputa al `spec.md` de la historia, no al registro.</b> No es un detalle: en modo
+    `--solo-cambios` un hallazgo sobre un fichero que el PR no toca se degrada a aviso, y el PR que
+    cierra una historia toca su spec pero normalmente no el registro. Atribuyendolo al registro, esto
+    no bloquearia nunca y seria otra regla que nadie comprueba.
+    """
+    if not REGISTRO_PUNTOS.exists():
+        return
+
+    contenido = read_markdown_content(REGISTRO_PUNTOS)
+    estados_por_historia: dict[str, str | None] = {}
+
+    for linea in contenido.splitlines():
+        if not linea.startswith("| P-"):
+            continue
+
+        celdas = linea.split("|")
+        if len(celdas) < 6:
+            continue
+
+        punto = celdas[1].strip()
+        estado_punto = celdas[COL_ESTADO].strip()
+        destino = celdas[COL_DESTINO].strip()
+
+        # Estados **decididos**: la fila no espera nada de nadie. `backlog-post-mvp` entra aqui
+        # aunque su columna de destino a veces nombre la historia que lo detecto —«Backlog post-MVP
+        # (solo la parte de ER)», por ejemplo—: eso es procedencia, no un encargo pendiente.
+        if estado_punto in ESTADOS_PUNTO_CERRADOS:
+            continue
+
+        # <b>Punto ciego que costo tres filas.</b> La comprobacion de abajo se apoya en el `estado` del
+        # `spec.md` de la historia de destino, asi que solo alcanza a los destinos que nombran una. Los
+        # once derivados de `MVP-799` fueron a ramas `chore/`, que no tienen spec, y tres se quedaron
+        # en `pendiente` con el trabajo ya en `develop` **sin que nada lo dijera** — el mismo patron de
+        # `P-096`, repetido dias despues de construir la guarda contra el.
+        #
+        # Se cierra por vocabulario en vez de preguntandole a git: una rama es **donde se hace** el
+        # trabajo, no un plan. Si esta hecho, la fila va `resuelto` y la rama se anota en la columna de
+        # historia, que es su sitio; si no lo esta, el destino es `por decidir`. Un nombre de rama en el
+        # destino de una fila abierta describe un estado que no existe.
+        if RE_RAMA.search(destino):
+            error(
+                f"{REGISTRO_PUNTOS}: {punto} esta en '{estado_punto}' y su destino es la rama "
+                f"'{destino}'. Una rama no es un destino de una fila abierta: si el trabajo esta "
+                f"hecho marca el punto 'resuelto' y deja la rama en la columna de historia; si no, "
+                f"pon 'por decidir'."
+            )
+            continue
+
+        # «por decidir», «Hito H» y demas no nombran una historia: no hay nada que comprobar.
+        historias = RE_ID_HISTORIA.findall(destino)
+        if not historias:
+            continue
+
+        for ticket in historias:
+            if ticket not in estados_por_historia:
+                spec = buscar_spec_por_id(ticket)
+                fm = parse_frontmatter(spec) if spec else None
+                estados_por_historia[ticket] = fm.get("estado") if fm else None
+                # Se guarda tambien la ruta para poder imputarle el error.
+                estados_por_historia[f"{ticket}:path"] = str(spec) if spec else None
+
+            if estados_por_historia[ticket] != "completado":
+                continue
+
+            ruta = estados_por_historia.get(f"{ticket}:path")
+            destino_error = Path(ruta) if ruta else REGISTRO_PUNTOS
+            error(
+                f"{destino_error}: {ticket} esta 'completado' pero {punto} sigue en "
+                f"'{estado_punto}' en el registro de MVP-999. Cierra la fila con la evidencia "
+                f"de lo que se construyo, o cambia su destino si {ticket} no lo recogio."
+            )
+
+
 # ─── Generación de índices ────────────────────────────────────────────────────
 
 ESTADO_EMOJI = {
@@ -605,6 +719,7 @@ def main():
         validar_template_state()
         validar_desarrollos()
         validar_adrs()
+        validar_registro_de_puntos()
 
         if warnings:
             print(f"\n⚠️  {len(warnings)} advertencia(s):")

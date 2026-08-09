@@ -22,6 +22,12 @@ obj/
 .vs/
 TestResults/
 
+### Salida reproducible de la suite
+# MVP-715 — `artifacts/correos/` lo regenera `ProductEmailPreviewTests` en cada ejecucion para poder
+# revisar cada correo en un cliente real (CA-5). Es salida, no contenido: versionarla obligaria a
+# revisar un diff de HTML generado en cada cambio de plantilla.
+artifacts/
+
 ### Node / Frontend
 node_modules/
 dist/
@@ -47,3 +53,6 @@ dist-ssr/
 # conflictos en un fichero que no describe el proyecto. La configuracion compartida (launch.json) si
 # se versiona, para que el arranque del servidor de desarrollo sea reproducible.
 .claude/settings.local.json
+# Worktrees efimeros del desarrollo en paralelo: son copias de trabajo del propio repositorio, no
+# contenido del proyecto. Sin esto, un `git add -A` las mete como repositorios embebidos.
+.claude/worktrees/

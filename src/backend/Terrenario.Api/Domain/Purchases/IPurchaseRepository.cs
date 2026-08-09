@@ -27,16 +27,8 @@ public interface IPurchaseRepository
     /// <summary>Misma proyección que el listado, para un único registro (respuestas de alta y edición).</summary>
     Task<PurchaseView?> GetViewAsync(Guid workspaceId, Guid purchaseId, CancellationToken ct = default);
 
-    /// <summary>
-    /// Productos ya usados en el Workspace, para las sugerencias de captura (RN-031, HU-2). Devuelve
-    /// los más frecuentes primero, filtrando opcionalmente por un fragmento de texto. No es un
-    /// catálogo: es vocabulario aprendido del histórico y el usuario puede ignorarlo.
-    /// </summary>
-    Task<IReadOnlyList<ProductSuggestion>> ListProductSuggestionsAsync(
-        Guid workspaceId,
-        string? search,
-        int limit,
-        CancellationToken ct = default);
+    // MVP-708 (`P-057`) — Las sugerencias de material ya no cuelgan de este puerto: se aprenden de
+    // compras **y** de consumos sin compra previa, así que viven en `IMaterialRepository`.
 
     Task SaveChangesAsync(CancellationToken ct = default);
 }
@@ -47,9 +39,6 @@ public sealed record PurchaseFilter(
     Guid? SeasonId = null,
     DateOnly? From = null,
     DateOnly? To = null);
-
-/// <summary>Producto del histórico con cuántas veces se ha comprado (RN-031).</summary>
-public sealed record ProductSuggestion(string Product, int TimesUsed);
 
 /// <summary>
 /// Vista de lectura de una compra con el nombre de su temporada y el aviso de fecha fuera de rango

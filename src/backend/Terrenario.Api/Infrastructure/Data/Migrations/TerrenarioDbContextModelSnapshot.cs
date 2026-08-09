@@ -264,6 +264,11 @@ namespace Terrenario.Api.Infrastructure.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("season_id");
 
+                    b.Property<decimal?>("UnitPrice")
+                        .HasPrecision(12, 4)
+                        .HasColumnType("numeric(12,4)")
+                        .HasColumnName("unit_price");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");

@@ -366,5 +366,5 @@ Correcciones incluidas:
 - [x] Tests de backend escritos y pasando
 - [x] Documentación de API actualizada en este documento y en `docs/02-arquitectura/contratos-api.md`
 - [x] Puntos de coherencia registrados en `MVP-999`
-- [ ] Módulo de Workspaces documentado en `docs/03-modulos/` (se consolidará con MVP-104/204)
+- [x] Módulo de Workspaces documentado en `docs/03-modulos/` — consolidado en `MVP-716` como `identidad-y-workspaces`
 - [x] Sin `TODO` sin resolver en este documento

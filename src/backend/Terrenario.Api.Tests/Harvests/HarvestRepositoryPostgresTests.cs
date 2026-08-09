@@ -18,7 +18,7 @@ namespace Terrenario.Api.Tests.Harvests;
 /// </summary>
 public sealed class HarvestRepositoryPostgresTests : RepositoryTestBase
 {
-    private readonly Guid _userId;
+    private readonly Guid _userId = Guid.NewGuid();
 
     private sealed record Fixture(Workspace Workspace, Plot Plot, Season Season);
 
@@ -48,7 +48,7 @@ public sealed class HarvestRepositoryPostgresTests : RepositoryTestBase
         Guid? plotId = null)
         => Harvest.Create(
             fixture.Workspace.Id, plotId ?? fixture.Plot.Id, fixture.Season.Id, date,
-            "aceituna_olivar", kgs, destination, 18.5m, null, _userId);
+            "aceituna_olivar", kgs, destination, 18.5m, null, null, _userId);
 
     [Fact]
     public async Task ListAsync_Deberia_ResolverNombresDeLosMaestros()

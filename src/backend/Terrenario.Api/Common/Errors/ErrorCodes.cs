@@ -5,6 +5,29 @@ public static class ErrorCodes
     // Auth errors
     public const string AuthUnauthenticated = "AUTH_UNAUTHENTICATED";
     public const string AuthGoogleTokenInvalid = "AUTH_GOOGLE_TOKEN_INVALID";
+
+    /// <summary>
+    /// MVP-713 (`P-079`) — Google respondió <c>invalid_grant</c>: el código de autorización ya se usó o
+    /// caducó. Recargar la pantalla de vuelta de Google basta para provocarlo, así que es un error de
+    /// <b>quien llama</b> y se responde <c>401</c>. Hasta esta historia caía en
+    /// <see cref="AuthGoogleExchangeFailed"/> → <c>500</c>, contaba en el SLO de tasa de error y llegó a
+    /// disparar <c>HighErrorRate</c>, que es crítica.
+    /// </summary>
+    public const string AuthGoogleCodeInvalid = "AUTH_GOOGLE_CODE_INVALID";
+
+    /// <summary>
+    /// MVP-713 (`P-079`) — Google respondió <c>invalid_request</c>: falta un parámetro del intercambio o
+    /// viene mal formado. Los tres que aporta el cliente (<c>code</c>, <c>redirect_uri</c>,
+    /// <c>code_verifier</c>) son suyos, así que es <c>400</c> y no <c>500</c>.
+    /// </summary>
+    public const string AuthGoogleRequestInvalid = "AUTH_GOOGLE_REQUEST_INVALID";
+
+    /// <summary>
+    /// Fallo del servidor en el intercambio con Google: configuración incorrecta
+    /// (<c>invalid_client</c>, <c>unauthorized_client</c>), caída del proveedor o respuesta que no se
+    /// entiende. Es el <b>caso por defecto</b> desde MVP-713: lo que no se puede atribuir con certeza a
+    /// quien llama se sigue tratando como fallo propio.
+    /// </summary>
     public const string AuthGoogleExchangeFailed = "AUTH_GOOGLE_EXCHANGE_FAILED";
     public const string AuthLoginCancelled = "AUTH_LOGIN_CANCELLED";
     public const string AuthRefreshTokenInvalid = "AUTH_REFRESH_TOKEN_INVALID";
@@ -98,10 +121,19 @@ public static class ErrorCodes
     /// <summary>MVP-402 — La unidad de rendimiento no está en el catálogo `l_100kg` / `kg_100kg` (RN-014).</summary>
     public const string ValidationHarvestYieldUnitInvalid = "VALIDATION_HARVEST_YIELD_UNIT_INVALID";
     public const string ValidationHarvestLitersRange = "VALIDATION_HARVEST_LITERS_RANGE";
+
+    /// <summary>MVP-707 — Precio por kilo fuera de rango (o cero explícito, que no es «sin dato»).</summary>
+    public const string ValidationHarvestUnitPriceRange = "VALIDATION_HARVEST_UNIT_PRICE_RANGE";
     /// <summary>RN-030 — producto de cosecha obligatorio; el catálogo cerrado lo aplica MVP-402.</summary>
     public const string ValidationProductInvalid = "VALIDATION_PRODUCT_INVALID";
     /// <summary>RN-012 — destino de cosecha obligatorio; el catálogo cerrado lo aplica MVP-402.</summary>
     public const string ValidationDestinationInvalid = "VALIDATION_DESTINATION_INVALID";
+    // Canal de feedback (MVP-711)
+    /// <summary>El tipo del reporte no está en el catálogo `feedback_kind`.</summary>
+    public const string ValidationFeedbackKindInvalid = "VALIDATION_FEEDBACK_KIND_INVALID";
+    public const string ValidationRequiredFeedbackMessage = "VALIDATION_REQUIRED_FEEDBACK_MESSAGE";
+    public const string ValidationFeedbackMessageLength = "VALIDATION_FEEDBACK_MESSAGE_LENGTH";
+
     /// <summary>
     /// Registros operativos (ADR-0005): <c>PATCH</c>/<c>DELETE</c> exigen <c>If-Match</c> con la
     /// versión vigente. Sin cabecera no hay control de concurrencia posible, así que la petición se
@@ -166,6 +198,21 @@ public static class ErrorCodes
     public const string InvitationNotFound = "INVITATION_NOT_FOUND";
     public const string SeasonNotFound = "SEASON_NOT_FOUND";
     public const string ReactivationRequestNotFound = "REACTIVATION_REQUEST_NOT_FOUND";
+
+    // Límites de uso (MVP-711)
+    /// <summary>
+    /// Se agotó el cupo de reportes del canal de feedback (CA-6). Es <c>429</c> y no <c>422</c>: no
+    /// hay ninguna regla de negocio incumplida, solo hay que esperar, y la respuesta lleva
+    /// <c>Retry-After</c> para decir cuánto.
+    /// </summary>
+    public const string RateLimitFeedback = "RATE_LIMIT_FEEDBACK";
+
+    // Canal de feedback: estados del canal, no de la petición (MVP-711)
+    /// <summary>No hay buzón configurado (`Feedback:Recipient`) o no hay cuenta de envío.</summary>
+    public const string FeedbackChannelUnavailable = "FEEDBACK_CHANNEL_UNAVAILABLE";
+
+    /// <summary>El proveedor de correo rechazó o no aceptó el envío. Reintentar tiene sentido.</summary>
+    public const string FeedbackDeliveryFailed = "FEEDBACK_DELIVERY_FAILED";
 
     // Generic
     public const string InternalError = "INTERNAL_ERROR";

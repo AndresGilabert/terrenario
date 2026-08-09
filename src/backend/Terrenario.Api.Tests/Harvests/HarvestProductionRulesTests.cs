@@ -45,13 +45,13 @@ public class HarvestProductionRulesTests
         decimal kgs = 1000m,
         decimal? yield = null,
         decimal? liters = null)
-        => Harvest.Create(WorkspaceId, PlotId, SeasonId, Date, product, kgs, destination, yield, liters, UserId);
+        => Harvest.Create(WorkspaceId, PlotId, SeasonId, Date, product, kgs, destination, yield, liters, null, UserId);
 
     private static HarvestView ViewOf(Harvest harvest) => new(
         harvest.Id, WorkspaceId, PlotId, "Olivar Alto", SeasonId, "2026/2027",
         new DateOnly(2026, 9, 1), new DateOnly(2027, 2, 28), harvest.Date, harvest.Product,
-        harvest.Kgs, harvest.Yield, harvest.Liters, harvest.Destination, harvest.Version,
-        harvest.CreatedAt, harvest.UpdatedAt);
+        harvest.Kgs, harvest.Yield, harvest.Liters, harvest.Destination, harvest.UnitPrice,
+        harvest.Version, harvest.CreatedAt, harvest.UpdatedAt);
 
     // ── Catálogo de producto (RN-030, CA-1) ─────────────────────────────────
 

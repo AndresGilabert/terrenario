@@ -1,0 +1,33 @@
+{
+  "name": "Terrenario",
+  "short_name": "Terrenario",
+  "description": "La herramienta sencilla para el agricultor: gestiona terrenos, cosechas, compras y el diario de campo de tu explotación en un solo sitio.",
+  "lang": "es",
+  "dir": "ltr",
+  "id": "/",
+  "scope": "/",
+  "start_url": "/app",
+  "display": "standalone",
+  "theme_color": "#33450d",
+  "background_color": "#fcf9f4",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

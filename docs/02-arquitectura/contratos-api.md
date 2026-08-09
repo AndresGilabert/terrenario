@@ -1,7 +1,7 @@
 ﻿---
 bloque: 02-arquitectura
 documento: contratos-api
-actualizado_en: "2026-07-29"
+actualizado_en: "2026-08-08"
 ---
 
 # Contratos de API
@@ -75,6 +75,7 @@ y se mantienen en español.
 | `invitation_status` | `pendiente`, `aceptada`, `rechazada`, `anulada` |
 | `reactivation_request_status` | `pendiente`, `solicitada`, `autorizada`, `denegada`, `cerrada` |
 | `diary_entry_type` (MVP-305) | `actividad`, `compra`, `consumo`, `cosecha` (los cuatro vivos desde `MVP-401`) |
+| `feedback_kind` (MVP-711) | `incidencia`, `sugerencia` — solo dos: quien está atascado no debería tener que clasificar su problema |
 
 ---
 
@@ -273,6 +274,30 @@ cliente decidir qué se cuenta con solo mandar un valor inválido.
 > `../07-seguridad/autenticacion-autorizacion.md`; cómo se explotan (contadores agregados y ventanas
 > de los SLO) en `../05-infraestructura/observabilidad.md`.
 
+### 0.c bis) Errores del intercambio de código con Google (MVP-713)
+
+Cuando `POST /api/v1/auth/google/callback` no puede completar el intercambio, el código de respuesta
+depende de **de quién es el error**, según el vocabulario cerrado del endpoint de token de OAuth 2.0
+(RFC 6749 §5.2).
+
+| `error` de Google | HTTP | Código de la API | Qué ha pasado |
+|---|---|---|---|
+| `invalid_grant` | 401 | `AUTH_GOOGLE_CODE_INVALID` | El código de autorización ya se usó o caducó. **Recargar la pantalla de vuelta de Google basta para provocarlo**: el código es de un solo uso |
+| `invalid_request` | 400 | `AUTH_GOOGLE_REQUEST_INVALID` | Falta un parámetro del intercambio o viene mal formado. Los tres que aporta el cliente (`code`, `redirect_uri`, `code_verifier`) son suyos |
+| `invalid_client`, `unauthorized_client` | 500 | `AUTH_GOOGLE_EXCHANGE_FAILED` | Credenciales o registro de la aplicación mal configurados: es nuestro |
+| cualquier otro, o sin `error` legible | 500 | `AUTH_GOOGLE_EXCHANGE_FAILED` | Caída de Google o respuesta que no se entiende |
+| — (el intercambio va bien y falla la validación del `id_token`) | 401 | `AUTH_GOOGLE_TOKEN_INVALID` | Sin cambios desde MVP-101 |
+
+Por qué importa el código de estado y no solo el mensaje: **el SLO de tasa de error y la alerta
+`HighErrorRate` se calculan sobre las respuestas 5xx**. Hasta `MVP-713`, cualquier respuesta no
+exitosa de Google se traducía a `AUTH_GOOGLE_EXCHANGE_FAILED` → 500, así que recargar la pantalla de
+callback contaba como fallo del servicio; un solo caso sobre 70 peticiones dio 1,43 % y disparó una
+alerta **crítica** con correo real (`MVP-699`, `R-04` · `MVP-999`, `P-079`).
+
+Lo que **no** está clasificado como error de quien llama responde 500 **por defecto**. La dirección
+del defecto es deliberada: un fallo propio contado como error de cliente desaparece de las alertas, y
+eso es peor que una alerta de más.
+
 ### 0.d) Señales de uso del producto (MVP-602)
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
@@ -288,13 +313,46 @@ Validaciones y reglas:
 
 | Regla | Código error / comportamiento |
 |---|---|
-| `event` dentro de `{ app_session_started, dashboard_viewed, dashboard_manual_refresh, dashboard_widgets }` | `VALIDATION_REQUIRED` (400) si no |
+| `event` dentro de `{ app_session_started, dashboard_viewed, dashboard_manual_refresh, dashboard_widgets }` | `VALIDATION_REQUIRED` (400) si no. `dashboard_manual_refresh` esta **discontinuado desde MVP-706** —el cliente ya no lo emite— pero se sigue aceptando para no responder `400` a un cliente cacheado |
 | `session_id` / `device_type` | Se degradan a `unknown`; **no** rechazan la señal |
 | `first_in_session` (solo en `dashboard_viewed`) | Ausente equivale a `false`: ante la duda no se infla el numerador del KPI |
-| `widgets[].widget` ∈ `{ summary, kg_by_destination, kg_by_plot, yield_evolution }` y `status` ∈ `{ ok, empty, error }` | Los no reconocidos **se descartan uno a uno**, no el lote: un cliente más nuevo debe seguir aportando lo que el servidor sí conoce |
+| `widgets[].widget` ∈ `{ summary, kg_by_destination, kg_by_plot, yield_evolution, economics }` (`economics` desde MVP-707) y `status` ∈ `{ ok, empty, error }` | Los no reconocidos **se descartan uno a uno**, no el lote: un cliente más nuevo debe seguir aportando lo que el servidor sí conoce |
 | `widgets` repetidos | Solo cuenta el primero de cada widget, para que no se pueda inflar la cobertura repitiendo |
 | Ningún widget reconocible en `dashboard_widgets` | `VALIDATION_REQUIRED` (400) |
 | La señal no contiene PII | Solo `event`, `timestamp`, `session_id`, `channel` y `device_type`. **No lleva usuario ni Workspace**, aunque el endpoint sea autenticado y el servidor los conozca (RN-042) |
+
+### 0.d bis) Canal de sugerencias e incidencias (MVP-711)
+
+| Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
+|---|---|---|---|
+| Enviar un reporte | `POST /api/v1/feedback` | `kind*`, `message*`, `path`, `last_failed_request_id` | `202` (sin cuerpo) |
+
+**Autenticada, sin ámbito de Workspace.** Autenticada porque el reporte lleva quién lo manda y porque
+el límite anti-abuso es por cuenta; sin ámbito de Workspace por el mismo motivo que la baja de cuenta
+(`MVP-505`): quien no tiene Workspace activo —o acaba de perderlo— es quien más motivos puede tener
+para escribir.
+
+El `202` confirma que **el correo ha salido**, no que alguien lo haya leído: el producto no tiene
+estados de reporte y no los finge.
+
+Validaciones y reglas:
+
+| Regla | Código error / comportamiento |
+|---|---|
+| `kind` dentro del catálogo `feedback_kind` | `VALIDATION_FEEDBACK_KIND_INVALID` (400) |
+| `message` no vacío tras recortar espacios | `VALIDATION_REQUIRED_FEEDBACK_MESSAGE` (400) |
+| `message` de 2000 caracteres como mucho | `VALIDATION_FEEDBACK_MESSAGE_LENGTH` (400) |
+| `path` con forma de ruta del cliente | Se **recorta la query y el fragmento** y se descarta lo que no tenga esa forma; nunca rechaza la petición |
+| `last_failed_request_id` con la forma que emite `RequestIdMiddleware` | Se descarta si no la tiene; nunca rechaza la petición |
+| Como mucho **3 reportes por hora y cuenta** | `RATE_LIMIT_FEEDBACK` (429) con cabecera `Retry-After`. El cupo se consume **al entregar**, no al intentar |
+| Sin `Feedback:Recipient` o sin cuenta de envío | `FEEDBACK_CHANNEL_UNAVAILABLE` (503) |
+| El proveedor de correo no acepta el envío | `FEEDBACK_DELIVERY_FAILED` (503). **No se confirma nada**: decir «enviado» sin haber enviado es peor que el fallo |
+
+El contexto técnico que acompaña al reporte **no lo compone el cliente**: la versión desplegada y el
+navegador los pone el servidor (ensamblado y cabecera `User-Agent`), y de lo que sí aporta el cliente
+solo se acepta lo que tiene forma de serlo. No viaja **nada de la explotación**: ni Workspace, ni
+temporada, ni identificadores de registros. Detalle del tratamiento en
+[privacidad-datos.md](../07-seguridad/privacidad-datos.md).
 
 ### 0.e) Salud y señales operativas (MVP-603)
 
@@ -628,7 +686,15 @@ Reglas de contexto (MVP-301):
 
 | Operación | Método y ruta | Request (query) | Respuesta 2xx |
 |---|---|---|---|
-| Diario del Workspace | `GET /api/v1/diary` | `from?`, `to?`, `plot_id?`, `season_id?`, `type?` (repetible), `worker_id?`, `search?`, `page?`, `limit?` | `200 { data, meta }` |
+| Diario del Workspace | `GET /api/v1/diary` | `from?`, `to?`, `plot_id?`, `season_id?` (id \| `all`), `type?` (repetible), `worker_id?`, `search?`, `page?`, `limit?` | `200 { data, meta }` |
+
+> **MVP-701 — Ámbito de temporada (RN-008).** Sin `season_id` se aplica la **temporada de trabajo del
+> usuario**, no «todas»: hasta esta historia solo el dashboard resolvía el defecto y estas listas
+> arrancaban sin acotar, de modo que dos pantallas daban totales distintos de la misma campaña
+> (`P-082`). El histórico completo se pide con **`season_id=all`**, y el ámbito aplicado viaja en
+> `meta.scope` = `{ season: { id, name, status, start_date, end_date } | null, all_seasons }`. Un
+> `season_id` inexistente o de otro Workspace **cae al defecto**, con el mismo criterio de tolerancia
+> que el dashboard aplica a `plot_ids`.
 
 Es **la vista principal del MVP** (RN-033) y es de **solo lectura**: cada registro se crea, corrige y
 elimina por el recurso al que pertenece (`/activities`, `/purchases`, `/consumptions`), que es donde
@@ -646,9 +712,10 @@ destination, yield }`. Los campos específicos de un tipo llegan a `null` en los
 | `has_purchase` | Solo en consumos: `false` ⇒ el coste es desconocido, no cero (RN-032) |
 | `kgs` / `destination` | Solo en cosechas (MVP-401). Van aparte de `quantity` porque no son la misma magnitud: una cosecha se lee en kilos y la tarjeta la rotula distinto |
 | `yield` | Solo en cosechas (MVP-402): el rendimiento **efectivo** en L/100kg, declarado o derivado de los litros (RN-013/RN-014) |
+| `amount` | Solo en cosechas (MVP-707): importe ingresado (`kgs × unit_price`). `null` cuando la partida no tiene precio |
 
 `meta` es
-`{ total, page, limit, total_cost, imputed_cost, activities, purchases, consumptions, consumptions_without_purchase, harvests, total_kg }`:
+`{ scope, total, page, limit, total_cost, imputed_cost, activities, purchases, consumptions, consumptions_without_purchase, harvests, total_kg, total_income, harvests_with_price }`:
 
 | Campo de `meta` | Qué mide |
 |---|---|
@@ -657,6 +724,7 @@ destination, yield }`. Los campos específicos de un tipo llegan a `null` en los
 | `imputed_cost` | Lo repartido por terrenos: **desglose** de `total_cost`, no gasto añadido |
 | `consumptions_without_purchase` | Consumos sin compra previa. Su coste consta como `0` porque se desconoce (RN-032), así que el gasto real fue algo mayor; la UI lo advierte (CA-3 de `MVP-003`) |
 | `harvests` / `total_kg` | Cosechas y kilos recolectados de lo filtrado (MVP-401). La cosecha **no aporta gasto** (RN-029), así que se resume por kilos: es su magnitud |
+| `total_income` / `harvests_with_price` | **MVP-707** — Ingreso de lo filtrado (`kgs × unit_price` de las cosechas que lo tienen) y sobre cuántas partidas se ha sumado. Va **aparte** de `total_cost`: son magnitudes distintas y mezclarlas obligaría a un signo, que cada consumidor puede leer al revés. `total_income` a `null` significa que ninguna partida tiene precio, que no es lo mismo que 0 € |
 
 | Catálogo | Valores permitidos |
 |---|---|
@@ -681,10 +749,18 @@ Reglas de contexto:
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
-| Alta cosecha | `POST /api/v1/harvests` | `date*`, `plot_id*`, `season_id*`, `product*`, `kgs*`, `destination*`, `yield?`, `liters?`, `yield_unit?` | `201 { id, version, ...harvest }` |
+| Alta cosecha | `POST /api/v1/harvests` | `date*`, `plot_id*`, `season_id*`, `product*`, `kgs*`, `destination*`, `yield?`, `liters?`, `yield_unit?`, `unit_price?` | `201 { id, version, ...harvest }` |
 | Editar cosecha | `PATCH /api/v1/harvests/{harvestId}` | campos parciales · `If-Match: <version>` | `200 { ...harvest }` |
 | Eliminar cosecha | `DELETE /api/v1/harvests/{harvestId}` | `If-Match: <version>` | `204` |
-| Listado cosechas | `GET /api/v1/harvests` | `from?`, `to?`, `plot_id?`, `season_id?`, `destination?` | `200 { data, meta: { total, total_kg } }` |
+| Listado cosechas | `GET /api/v1/harvests` | `from?`, `to?`, `plot_id?`, `season_id?` (id \| `all`), `destination?` | `200 { data, meta: { scope, total, total_kg } }` |
+
+> **MVP-707 — `unit_price` y `amount` (RN-029 matizada).** `unit_price` es el precio de venta por kilo,
+> **opcional**; `amount` es su importe (`kgs × unit_price`) y es **derivado, no columna**: no se envía
+> nunca y no se persiste, porque guardarlo permitiría que divergiera de sus factores al corregir los
+> kilos. Los dos llegan a `null` cuando no hay precio, y `null` significa **no se sabe**, no cero: una
+> partida sin precio no ha ingresado 0 €. En `PATCH`, un `unit_price: null` explícito **retira** el
+> precio de una partida que lo tenía. Un `unit_price` de `0` o negativo se rechaza con
+> `VALIDATION_HARVEST_UNIT_PRICE_RANGE` (400): quien no lo sepa deja el campo vacío.
 | Una cosecha (MVP-401) | `GET /api/v1/harvests/{harvestId}` | — | `200 { ...harvest }` |
 
 La representación de una cosecha es
@@ -753,20 +829,26 @@ cumplida entera (hallazgo `G-4`).
 | Alta compra | `POST /api/v1/purchases` | `purchase_date*`, `product*`, `total_quantity*`, `total_cost*`, `season_id*` | `201 { id, version, unit_price, ... }` |
 | Editar compra | `PATCH /api/v1/purchases/{purchaseId}` | campos parciales · `If-Match: <version>` | `200 { ...purchase }` |
 | Eliminar compra | `DELETE /api/v1/purchases/{purchaseId}` | `If-Match: <version>` | `204` |
-| Listado compras | `GET /api/v1/purchases` | `product?`, `season_id?`, `from?`, `to?` | `200 { data, meta: { total, total_cost } }` |
-| Materiales del histórico (MVP-303) | `GET /api/v1/purchases/products` | `search?` | `200 { data:[{ product, times_used }], meta:{ total } }` |
+| Listado compras | `GET /api/v1/purchases` | `product?`, `season_id?` (id \| `all`), `from?`, `to?` | `200 { data, meta: { scope, total, total_cost } }` |
+| Materiales del histórico (MVP-303 · MVP-708) | `GET /api/v1/purchases/products` | `search?` | `200 { data:[{ product, times_used }], meta:{ total } }` |
 | Imputar compra a terreno | `POST /api/v1/purchases/{purchaseId}/consumptions` | `date*`, `plot_id*`, `quantity*` | `201 { id, purchase_id, plot_id, date, quantity, proportional_cost }` |
 | Registrar consumo **sin compra previa** (RN-032) | `POST /api/v1/consumptions` | `date*`, `plot_id*`, `season_id*`, `product*`, `quantity*` | `201 { id, purchase_id: null, proportional_cost: 0, ... }` |
-| Listado de consumos | `GET /api/v1/consumptions` | `from?`, `to?`, `plot_id?`, `season_id?`, `purchase_id?`, `product?` | `200 { data, meta: { total, total_cost, without_purchase } }` |
+| Listado de consumos | `GET /api/v1/consumptions` | `from?`, `to?`, `plot_id?`, `season_id?` (id \| `all`), `purchase_id?`, `product?` | `200 { data, meta: { scope, total, total_cost, without_purchase } }` |
 | Editar consumo (MVP-304) | `PATCH /api/v1/consumptions/{consumptionId}` | campos parciales · `If-Match: <version>` | `200 { ...consumption }` |
 | Eliminar consumo (MVP-304) | `DELETE /api/v1/consumptions/{consumptionId}` | `If-Match: <version>` | `204` |
 
 La representación de un consumo es
-`{ id, workspace_id, purchase_id, has_purchase, plot_id, plot_name, season_id, season_name, date,
-product, quantity, unit_price, proportional_cost, is_out_of_season_range, version, created_at,
-updated_at }` (MVP-304). `has_purchase` es **derivado** y desambigua el coste: `proportional_cost: 0`
-con `has_purchase: false` significa «se desconoce», no «fue gratis». `meta.without_purchase` cuenta
-esos registros: es la medida del impacto en la calidad del dato que pide el CA-3 de `MVP-003`.
+`{ id, workspace_id, purchase_id, has_purchase, purchase_date, plot_id, plot_name, season_id,
+season_name, date, product, quantity, unit_price, proportional_cost, is_out_of_season_range,
+is_before_purchase_date, version, created_at, updated_at }` (MVP-304 · MVP-708). `has_purchase` es
+**derivado** y desambigua el coste: `proportional_cost: 0` con `has_purchase: false` significa «se
+desconoce», no «fue gratis». `meta.without_purchase` cuenta esos registros: es la medida del impacto
+en la calidad del dato que pide el CA-3 de `MVP-003`.
+
+`purchase_date` e `is_before_purchase_date` los añade `MVP-708` (RN-043) y son **derivados** de la
+compra tal y como está ahora, no columnas del consumo: `null` y `false` respectivamente cuando no hay
+compra previa. La fecha viaja para que el formulario pueda avisar mientras se teclea sin tener que
+pedir la compra aparte.
 
 La representación de una compra es
 `{ id, workspace_id, purchase_date, season_id, season_name, product, total_quantity, total_cost,
@@ -805,12 +887,14 @@ Reglas de contexto de consumos (MVP-304):
 | `imputed_quantity` / `pending_quantity` | El listado de compras los incluye para poder mostrar «imputado / total» sin una consulta por fila |
 | Orden del listado de consumos | Fecha de **negocio** descendente (RN-033, CA-4): un consumo capturado hoy sobre trabajo de la semana pasada se lee donde ocurrió |
 | Filtro `product` (MVP-399) | Búsqueda **parcial** e insensible a mayúsculas, igual que en compras. Añadido en la revisión de cierre (`R-06`): el buscador de material del libro filtraba las compras y dejaba los consumos intactos |
+| Consumo anterior a su compra (MVP-708, RN-043) | Se admite y responde `201`: la captura retroactiva es legítima y `RN-032` ya asume que el papeleo va por detrás del campo. Se **avisa** —señal en el formulario y etiqueta en la fila— con la misma filosofía que `RN-023` usa para la temporada (`P-058`). La igualdad de fechas no avisa: comprar y gastar el mismo día es lo normal |
 
 Reglas de contexto (MVP-303):
 
 | Regla | Comportamiento |
 |---|---|
 | Producto en texto libre (RN-031) | No hay catálogo cerrado ni normalización: «Abono NPK» y «abono npk» conviven. `GET /purchases/products` devuelve el vocabulario **aprendido del histórico vivo**, los más usados primero y con tope de 20; es una ayuda de escritura, no un maestro |
+| Alcance del vocabulario (MVP-708) | Desde `MVP-708` (`P-057`) el vocabulario sale de los **dos** libros: compras y consumos **sin compra previa**. Las imputaciones no cuentan —copian el material de su compra, así que no pueden aportar un nombre nuevo y solo inflarían `times_used`—. La ruta sigue bajo `/purchases` porque es la contratada; lo que cambió es de dónde se aprende, no qué se pide |
 | Filtro `product` | Búsqueda **parcial** e insensible a mayúsculas: el texto libre obligaría, si no, a recordar cómo se escribió |
 | `unit_price` | Derivado de `total_cost / total_quantity` con 4 decimales y **persistido**. Es la base del coste proporcional de las imputaciones (`MVP-304`) y permite explicar una imputación antigua aunque la compra se edite después (RN-032). Se recalcula en cada `PATCH` que toque cantidad o coste |
 | Temporadas cerradas | Siguen admitiendo compras: cerrar es informativo (RN-024) |
@@ -842,6 +926,15 @@ Reglas de contexto (MVP-303):
 | Kg por temporada (MVP-403) | `GET /api/v1/dashboard/kg-by-season` | — | `200 { data:[{ season_id, season_name, total_kg, harvests }], meta:{ total } }` |
 | Kg por terreno (MVP-404) | `GET /api/v1/dashboard/kg-by-plot` | `season_id?`, `plot_ids?[]` | `200 { scope, data:[{ plot_id, plot_name, kg }], meta:{ total_kg } }` |
 | Evolución rendimiento (MVP-404) | `GET /api/v1/dashboard/yield-evolution` | `season_id?`, `plot_ids?[]`, `granularity?=month\|week` | `200 { scope, granularity, data:[{ period, yield_l_per_100kg, kg }], history:{ average, average_5_years, average_10_years, prior_years_with_data, window } }` |
+| Lectura económica (MVP-707) | `GET /api/v1/dashboard/economics` | `season_id?`, `plot_ids?[]` | `200 { scope, expense, income, harvests, harvests_with_price }` |
+
+> **MVP-707 — Lectura económica (RN-009 ampliada).** `expense` son labores + compras + consumos sin
+> compra; las imputaciones quedan fuera porque reparten dinero que la compra ya aportó (`R-01` de
+> MVP-399). El servidor **no lo recalcula**: se lo pregunta al diario, que es donde vive esa decisión,
+> de modo que panel y diario no pueden discrepar. `income` a `null` significa que **ninguna** partida
+> del ámbito tiene precio, y la pantalla debe decir «sin dato», no «0 €». Acotar por `plot_ids` deja
+> las compras fuera **por definición** —una compra es del Workspace, no de un terreno—, exactamente
+> igual que en el diario.
 
 El dashboard es de **solo lectura** y no se refresca en segundo plano (RN-006): se recalcula al entrar
 en la pantalla o a petición explícita. `plot_ids` es un parámetro **repetible**
@@ -851,7 +944,7 @@ Reglas de filtro por defecto:
 
 | Regla | Comportamiento |
 |---|---|
-| Sin `season_id` | backend resuelve la **temporada de trabajo del usuario** que consulta (MVP-209): su `active_season_id` o, en su defecto, `WorkingSeasonPolicy` |
+| Sin `season_id` | backend resuelve la **temporada de trabajo del usuario** que consulta (MVP-209): su `active_season_id` o, en su defecto, `WorkingSeasonPolicy`. Desde MVP-701 el mismo defecto rige en diario, cosechas, compras y consumos (RN-008); el dashboard no admite `all` porque un resumen de campaña sin campaña no significa nada |
 | Sin `plot_ids` | backend usa todos los terrenos activos del workspace |
 | `scope` en la respuesta (MVP-403) | El ámbito **ya resuelto**: `{ season: { id, name, status, start_date, end_date } \| null, plot_ids[], plots }` (MVP-209: `is_active` → `status` derivado). Los defectos los pone el servidor, así que sin devolverlos la pantalla mostraría cifras sin poder decir de qué son; es también lo que permite posicionar los filtros sin duplicar la regla del defecto en el cliente |
 | `season: null` (MVP-403) | El Workspace no tiene temporada que mirar. RN-021 asocia toda la producción a una campaña, así que no es «resumen vacío» sino ámbito imposible: se responden ceros y `null`, y el cliente pide la temporada en vez de presentarlos como datos |
@@ -923,7 +1016,10 @@ unidad canónica L/100kg (RN-013).
 | HTTP | Código | Uso |
 |---|---|---|
 | 400 | `VALIDATION_*` | Error de campos o formato |
+| 400 | `AUTH_GOOGLE_REQUEST_INVALID` | Falta un dato del intercambio con Google (MVP-713) |
 | 401 | `AUTH_UNAUTHENTICATED` | Token ausente/inválido |
+| 401 | `AUTH_GOOGLE_CODE_INVALID` | El código de autorización de Google ya se usó o caducó (MVP-713) |
+| 401 | `AUTH_GOOGLE_TOKEN_INVALID` | El `id_token` de Google no valida |
 | 403 | `AUTH_WORKSPACE_FORBIDDEN` | Acceso fuera de workspace |
 | 403 | `AUTH_WORKSPACE_SCOPE_REQUIRED` | Operación que exige Workspace activo en la sesión |
 | 403 | `AUTH_WORKSPACE_OWNER_REQUIRED` | Operación reservada al propietario del Workspace (baja y traspaso, RN-038) |
@@ -932,6 +1028,10 @@ unidad canónica L/100kg (RN-013).
 | 400 | `FOREIGN_KEY_WORKSPACE_MISMATCH` | Un vínculo del registro operativo no existe en el Workspace activo |
 | 409 | `CONFLICT_VERSION_MISMATCH` | Colisión de versión por edición concurrente |
 | 422 | `BUSINESS_RULE_*` | Regla de negocio incumplida |
+| 429 | `RATE_LIMIT_FEEDBACK` | Cupo del canal de sugerencias e incidencias agotado (MVP-711). Lleva `Retry-After` |
+| 503 | `FEEDBACK_CHANNEL_UNAVAILABLE` | El canal no tiene buzón o cuenta de envío configurados (MVP-711) |
+| 503 | `FEEDBACK_DELIVERY_FAILED` | El proveedor de correo no aceptó el reporte; reintentar tiene sentido (MVP-711) |
+| 500 | `AUTH_GOOGLE_EXCHANGE_FAILED` | Fallo propio o del proveedor al intercambiar el código (MVP-713) |
 | 500 | `INTERNAL_ERROR` | Error inesperado trazable por `X-Request-Id` |
 
 ---

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { expiresLabel, viewerReasonMessage } from './invitation-ui';
+import { expiresLabel, shouldOfferGoogleSignup, viewerReasonMessage } from './invitation-ui';
 import type { InvitationViewerReason } from '../types/invitation.types';
 
 /**
@@ -35,6 +35,41 @@ describe('invitation-ui', () => {
 
     it('Deberia_ExplicarQueEsOtraCuenta_Cuando_ElMotivoEsEmailMismatch', () => {
       expect(viewerReasonMessage('email_mismatch')).toContain('otra cuenta de correo');
+    });
+
+    it('Deberia_ExplicarLaSalida_Cuando_LaDireccionInvitadaPuedeNoSerCuentaDeGoogle', () => {
+      // MVP-712 (CA-3) — El aviso decía solo el problema. Quien fue invitado en una dirección sin
+      // Cuenta de Google leía «entra con esa cuenta» y no tenía ninguna con la que entrar: callejón
+      // sin salida (`P-089`, caso (b)).
+      const message = viewerReasonMessage('email_mismatch');
+
+      expect(message).toContain('dada de alta como Cuenta de Google');
+      expect(message).toContain('vuelve a abrir este enlace');
+    });
+  });
+
+  describe('shouldOfferGoogleSignup', () => {
+    it('Deberia_OfrecerElAlta_Cuando_ElMotivoEsEmailMismatch', () => {
+      // No se puede saber si la dirección invitada tiene Cuenta de Google —el preview no la revela—,
+      // así que el enlace acompaña siempre a este motivo: sobra para quien se equivocó de cuenta y es
+      // la única salida para quien no tiene ninguna.
+      expect(shouldOfferGoogleSignup('email_mismatch')).toBe(true);
+    });
+
+    it.each<InvitationViewerReason>([
+      'expired',
+      'already_used',
+      'already_rejected',
+      'cancelled',
+      'already_member',
+    ])('Deberia_NoOfrecerElAlta_Cuando_ElMotivoEs_%s', (reason) => {
+      // Darse de alta en Google no arregla una invitación caducada, anulada o ya usada: ofrecerlo
+      // solo distraería de lo que sí toca hacer.
+      expect(shouldOfferGoogleSignup(reason)).toBe(false);
+    });
+
+    it('Deberia_NoOfrecerElAlta_Cuando_NoHayMotivoDeInaptitud', () => {
+      expect(shouldOfferGoogleSignup(null)).toBe(false);
     });
   });
 

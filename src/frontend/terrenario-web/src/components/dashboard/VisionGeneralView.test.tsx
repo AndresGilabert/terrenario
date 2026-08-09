@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -7,6 +7,7 @@ import { createFakeHttpClient, type FakeHttpClient } from '../../test/http';
 import { UsageEvent } from '../../lib/usage-telemetry';
 import type { UsageEventPayload } from '../../services/telemetry.service';
 import type {
+  DashboardEconomics,
   DashboardKgByDestination,
   DashboardKgByPlot,
   DashboardScope,
@@ -64,6 +65,15 @@ const kgByPlot = (empty: boolean): DashboardKgByPlot => ({
   meta: { total_kg: empty ? 0 : 1200 },
 });
 
+/** MVP-707 — Lectura económica de la campaña. `income: null` = ninguna partida con precio. */
+const economics = (income: number | null = 800, expense = 400): DashboardEconomics => ({
+  scope,
+  expense,
+  income,
+  harvests: 3,
+  harvests_with_price: income === null ? 0 : 2,
+});
+
 const evolution = (empty: boolean, history: number | null = null): DashboardYieldEvolution => ({
   scope,
   granularity: 'month',
@@ -104,18 +114,25 @@ describe('VisionGeneralView — señales de uso', () => {
       destinations?: DashboardKgByDestination;
       plots?: DashboardKgByPlot;
       evolution?: DashboardYieldEvolution;
+      economics?: DashboardEconomics;
     } = {},
-    { falla = false }: { falla?: boolean } = {}
+    { falla = false, fallan = [] }: { falla?: boolean; fallan?: string[] } = {}
   ) => {
     const fail = () => {
       throw new Error('la API no responde');
     };
 
+    // MVP-706 — `fallan` permite tumbar **una** de las cuatro peticiones: es el escenario de `P-075`,
+    // donde el fallo de una descartaba el resultado de las otras tres.
+    const ep = (nombre: string, valor: unknown) =>
+      falla || fallan.includes(nombre) ? fail : valor;
+
     http = createFakeHttpClient({
-      '/api/v1/dashboard/summary': falla ? fail : (data.summary ?? summary(3)),
-      '/api/v1/dashboard/kg-by-destination': falla ? fail : (data.destinations ?? destinations(false)),
-      '/api/v1/dashboard/kg-by-plot': falla ? fail : (data.plots ?? kgByPlot(false)),
-      '/api/v1/dashboard/yield-evolution': falla ? fail : (data.evolution ?? evolution(false)),
+      '/api/v1/dashboard/summary': ep('summary', data.summary ?? summary(3)),
+      '/api/v1/dashboard/kg-by-destination': ep('kg-by-destination', data.destinations ?? destinations(false)),
+      '/api/v1/dashboard/kg-by-plot': ep('kg-by-plot', data.plots ?? kgByPlot(false)),
+      '/api/v1/dashboard/yield-evolution': ep('yield-evolution', data.evolution ?? evolution(false)),
+      '/api/v1/dashboard/economics': ep('economics', data.economics ?? economics()),
       '/api/v1/plots': { data: [], meta: { total: 0 } },
     });
 
@@ -149,25 +166,27 @@ describe('VisionGeneralView — señales de uso', () => {
     expect(firstInSession()).toBe(false);
   });
 
-  it('cuenta la recarga manual solo al pulsar «Actualizar»', async () => {
+  it('ya no ofrece «Actualizar»', async () => {
+    // MVP-706 (CA-3) — Decisión del PO sobre `P-085`: en explotaciones pequeñas no es habitual que
+    // unos introduzcan datos mientras otros esperan a que el panel se actualice. El refresco pasa a
+    // ser recargar la página o volver a entrar (RN-006 reescrita).
     renderWith();
     await waitFor(() => expect(eventos()).toContain(UsageEvent.DashboardWidgets));
-    expect(eventos()).not.toContain(UsageEvent.DashboardManualRefresh);
 
-    await userEvent.click(screen.getByRole('button', { name: /Actualizar/ }));
-
-    expect(eventos().filter((e) => e === UsageEvent.DashboardManualRefresh)).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: /Actualizar/ })).not.toBeInTheDocument();
   });
 
-  it('no cuenta como recarga manual el cambio de temporada', async () => {
-    // Cambiar el filtro también relanza la carga, pero es otra pregunta: «qué quiero ver», no «dame lo
-    // último». Mezclarlas inflaría el KPI de recargas con cada uso normal de los filtros.
+  it('sigue relanzando la carga al cambiar de temporada', async () => {
     renderWith();
     await waitFor(() => expect(eventos()).toContain(UsageEvent.DashboardWidgets));
+    const antes = eventos().filter((e) => e === UsageEvent.DashboardWidgets).length;
 
     await userEvent.selectOptions(screen.getByLabelText('Temporada'), 's-1');
 
-    expect(eventos()).not.toContain(UsageEvent.DashboardManualRefresh);
+    // Cambiar el filtro es otra pregunta («qué quiero ver»), y sigue recargando sin botón de por medio.
+    await waitFor(() =>
+      expect(eventos().filter((e) => e === UsageEvent.DashboardWidgets).length).toBeGreaterThanOrEqual(antes)
+    );
   });
 
   it('informa de los cuatro widgets con datos como «ok»', async () => {
@@ -179,6 +198,7 @@ describe('VisionGeneralView — señales de uso', () => {
         kg_by_destination: 'ok',
         kg_by_plot: 'ok',
         yield_evolution: 'ok',
+        economics: 'ok',
       })
     );
   });
@@ -191,6 +211,7 @@ describe('VisionGeneralView — señales de uso', () => {
       destinations: destinations(true),
       plots: kgByPlot(true),
       evolution: evolution(true),
+      economics: economics(null, 0),
     });
 
     await waitFor(() =>
@@ -199,6 +220,7 @@ describe('VisionGeneralView — señales de uso', () => {
         kg_by_destination: 'empty',
         kg_by_plot: 'empty',
         yield_evolution: 'empty',
+        economics: 'empty',
       })
     );
   });
@@ -211,7 +233,7 @@ describe('VisionGeneralView — señales de uso', () => {
     await waitFor(() => expect(lastWidgets().yield_evolution).toBe('ok'));
   });
 
-  it('informa de los cuatro widgets como error cuando la carga falla', async () => {
+  it('informa de los cuatro widgets como error cuando falla la carga entera', async () => {
     renderWith({}, { falla: true });
 
     await waitFor(() =>
@@ -220,7 +242,76 @@ describe('VisionGeneralView — señales de uso', () => {
         kg_by_destination: 'error',
         kg_by_plot: 'error',
         yield_evolution: 'error',
+        economics: 'error',
       })
     );
+  });
+
+  it('atribuye el fallo al widget que lo causó, no a los cuatro', async () => {
+    // `P-075` — Las cuatro peticiones iban en un `Promise.all`: cualquier fallo se informaba como los
+    // cuatro en error, así que la medida no permitía saber cuál había fallado, que es justo lo que
+    // pregunta el KPI de cobertura (CA-2).
+    renderWith({}, { fallan: ['kg-by-plot'] });
+
+    await waitFor(() =>
+      expect(lastWidgets()).toEqual({
+        summary: 'ok',
+        kg_by_destination: 'ok',
+        kg_by_plot: 'error',
+        yield_evolution: 'ok',
+        economics: 'ok',
+      })
+    );
+  });
+
+  it('pinta el resto del panel cuando falla un solo widget', async () => {
+    renderWith({}, { fallan: ['kg-by-plot'] });
+
+    // El widget caído dice lo suyo…
+    expect(await screen.findByText(/Kg por terreno/)).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /No se pudo cargar este dato.*El resto del panel sí se ha podido calcular/
+    );
+    // …y los que sí se calcularon siguen en pantalla, que es lo que antes se perdía.
+    expect(screen.getByText(/Kg recolectados/)).toBeInTheDocument();
+    expect(screen.getByText(/Kg por destino/)).toBeInTheDocument();
+  });
+
+  it('publica gasto e ingreso de la campaña', async () => {
+    // MVP-707 (CA-4, `P-092`) — El gasto ya existía y se calculaba, pero se veía en el diario y no en
+    // la vista de resumen, que es donde se busca.
+    renderWith();
+
+    expect(await screen.findByText('Gasto de la campaña')).toBeInTheDocument();
+    expect(screen.getByText('400,00 €')).toBeInTheDocument();
+    expect(screen.getByText('Ingreso de la campaña')).toBeInTheDocument();
+    expect(screen.getByText('800,00 €')).toBeInTheDocument();
+  });
+
+  it('dice «sin dato» y no «0 €» cuando ninguna partida tiene precio', async () => {
+    // CA-5 — «0 €» afirmaría que la campaña no ha ingresado nada; lo cierto es que no se sabe.
+    renderWith({ economics: economics(null) });
+
+    // La tarjeta de ingreso, no cualquier «Sin dato» de la pantalla: el resumen también los tiene.
+    const tarjeta = (await screen.findByText('Ingreso de la campaña')).closest('div')!.parentElement!;
+    expect(within(tarjeta).getByText('Sin dato')).toBeInTheDocument();
+    expect(
+      within(tarjeta).getByText(/Ninguna partida tiene precio por kilo todav[ií]a/)
+    ).toBeInTheDocument();
+  });
+
+  it('dice sobre cuántas partidas suma el ingreso', async () => {
+    // Sin esto, 800 € parecería el ingreso de las tres partidas y no de las dos que tienen precio.
+    renderWith();
+
+    expect(await screen.findByText(/Sobre 2 de 3 partidas con precio/)).toBeInTheDocument();
+  });
+
+  it('sigue sabiendo de qué campaña habla aunque falle el resumen', async () => {
+    // El ámbito lo publican las cuatro respuestas: leerlo solo del resumen dejaba la pantalla sin
+    // saber ni la campaña cuando esa petición era justo la que fallaba.
+    renderWith({}, { fallan: ['summary'] });
+
+    expect(await screen.findByText(/Producción de Campaña 2025\/26/)).toBeInTheDocument();
   });
 });

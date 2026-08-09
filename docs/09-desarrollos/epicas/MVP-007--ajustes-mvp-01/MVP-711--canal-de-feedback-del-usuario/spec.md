@@ -96,7 +96,8 @@ para reproducirlo.
   `docs/06-integraciones/correos-del-producto.md`. Contexto tecnico comprobado por
   `FeedbackEmailComposerTests` (version, ruta, `X-Request-Id` y navegador en HTML y en texto plano) y
   el recorrido completo por `FeedbackControllerTests`. **No verificado**: la recepcion real en una
-  bandeja, que exige levantar el receptor SMTP local.
+  bandeja. Se comprobo en `MVP-799` contra la bandeja de pruebas de Mailtrap que el proyecto ya tenia
+  configurada (`docs/05-infraestructura/desarrollo-local.md`).
 - [x] **CA-3**: El usuario recibe confirmacion en pantalla de que se ha enviado, y un mensaje util si
   falla.
   **Evidencia**: `FeedbackView.tsx` muestra un `role="status"` al recibir el `202` y vacia el

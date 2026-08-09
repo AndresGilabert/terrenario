@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Terrenario.Api.Infrastructure.Feedback;
 using Terrenario.Api.Tests.Emails;
 
@@ -28,7 +28,12 @@ public class FeedbackEmailComposerTests
     private static (string Html, string Text) Compose(FeedbackEmail report)
     {
         var message = FeedbackEmailComposer.Compose(ProductEmailCatalog.Template(), report);
-        return (message.HtmlBody, message.TextBody);
+
+        // Mismo criterio que en el inventario: los cuerpos son anulables en MimeKit y aqui su ausencia
+        // es un fallo del compositor, asi que se dice cual falta en vez de silenciarlo con `!`.
+        return (
+            message.HtmlBody ?? throw new InvalidOperationException("El reporte compuesto no tiene cuerpo HTML."),
+            message.TextBody ?? throw new InvalidOperationException("El reporte compuesto no tiene cuerpo en texto."));
     }
 
     [Fact]
@@ -78,11 +83,16 @@ public class FeedbackEmailComposerTests
 
         var message = FeedbackEmailComposer.Compose(ProductEmailCatalog.Template(), Report(message: largo));
 
+        // Un asunto vacío es un fallo del compositor tan real como uno mal formado, y el `Subject` de
+        // MimeKit es anulable: se comprueba antes de mirarlo, para que el caso salga como lo que es y
+        // no como una referencia nula en la primera aserción.
+        var asunto = message.Subject ?? throw new InvalidOperationException("El reporte no tiene asunto.");
+
         // Un salto de línea dentro de una cabecera es la forma clásica de inyectar otras. MimeKit ya
         // codifica el valor, pero el asunto no debería salir sin normalizar de un campo de texto libre.
-        message.Subject.Should().NotContain("\n").And.NotContain("\r");
-        message.Subject.Length.Should().BeLessThan(120);
-        message.Subject.Should().EndWith("…");
+        asunto.Should().NotContain("\n").And.NotContain("\r");
+        asunto.Length.Should().BeLessThan(120);
+        asunto.Should().EndWith("…");
     }
 
     [Fact]

@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using System.Text.RegularExpressions;
 using Terrenario.Api.Infrastructure.Email;
 
@@ -24,7 +24,14 @@ public class ProductEmailInventoryTests
     private static (string Html, string Text) BodiesOf(string slug)
     {
         var message = ProductEmailCatalog.All().Single(email => email.Slug == slug).Message;
-        return (message.HtmlBody, message.TextBody);
+
+        // `HtmlBody` y `TextBody` son anulables en MimeKit, y un correo del producto sin cuerpo es un
+        // defecto, no un caso a tolerar. Se comprueba aqui en vez de callar la nulabilidad con `!`:
+        // asi el fallo dice cual es el correo y que le falta, en lugar de salir como una referencia
+        // nula tres lineas mas abajo, en la asercion que solo queria mirar el contenido.
+        return (
+            message.HtmlBody ?? throw new InvalidOperationException($"El correo '{slug}' no tiene cuerpo HTML."),
+            message.TextBody ?? throw new InvalidOperationException($"El correo '{slug}' no tiene cuerpo en texto."));
     }
 
     [Fact]

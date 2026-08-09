@@ -21,7 +21,7 @@ ai_context:
 creado_en: "2026-07-24"
 actualizado_en: "2026-08-08"
 ---
-<!-- actualizado_en refleja la ultima anotacion en el registro de puntos (cierre de los nueve derivados de MVP-799 mas P-094, decididos uno a uno por el PO el 2026-08-09). -->
+<!-- actualizado_en refleja la ultima anotacion en el registro de puntos (alta y cierre de P-105: la solucion queda sin avisos del compilador, sobre el cierre de los nueve derivados de MVP-799 y P-094). -->
 
 # EPICA MVP-999 — Pendientes transversales y diferidos
 
@@ -179,6 +179,7 @@ Cuando una epica cierre su `MVP-x99`, estos puntos deben revisarse, priorizarse 
 | P-102 | 2026-08-08 | MVP-007 / MVP-799 | deuda/tests | **Dos clases de test declaran `_userId` y nunca lo asignan** (`CS0649` en `HarvestRepositoryPostgresTests` y `ActivityRepositoryPostgresTests`). El campo vale siempre `Guid.Empty`, asi que los registros que crean esas pruebas no tienen autor real. Inofensivo hoy —ninguna asercion depende de ese valor—, pero es un campo muerto que **aparenta** identificar al autor, y su aviso sale en cada compilacion, sumando al ruido que hace que se dejen de leer los avisos. | bajo | no | chore/deuda-menor-del-backend | pendiente | chore/deuda-menor-del-backend |
 | P-103 | 2026-08-08 | MVP-007 / MVP-799 | deuda/build | **Conflicto de versiones de EF Core en el proyecto de tests, en cada compilacion** (`MSB3277`): `Microsoft.EntityFrameworkCore.Relational` 9.0.1 frente a 9.0.18, y gana la 9.0.1 por ser la principal. Verificado en el log de `dotnet build`. Que gane la **mas antigua** es lo que lo hace algo mas que ruido: la suite se ejecuta contra una version distinta de la que llevaria el runtime si alguien alineara las referencias, asi que un fallo dependiente de version podria no verse en los tests. Se arregla alineando la referencia transitiva. | bajo | no | chore/deuda-menor-del-backend | pendiente | chore/deuda-menor-del-backend |
 | P-104 | 2026-08-08 | MVP-007 / MVP-799 | ux/accesibilidad | **El drawer de navegacion de movil es el ultimo overlay sin trampa de foco.** `AppLayout` lo pinta como `fixed inset-0 z-50 md:hidden` con un velo que cierra al pulsar, pero sin `role`, sin `aria-modal`, sin `Escape` y sin apagar el fondo: con el abierto, el tabulador sigue recorriendo la pagina de detras. Es el mismo defecto que `P-055` en los once modales, en el unico sitio que quedo fuera. **No se migro en `MVP-704` a proposito**: su forma es otra —panel lateral a sangre, sin titulo ni cabecera— y meterlo en el `Modal` comun obligaria a un modo «lateral» que condicionaria el componente por un solo uso. Alcance menor que el de `P-055`: solo aparece por debajo de 768 px, donde el teclado es minoritario, pero afecta a quien navega con teclado en una ventana estrecha o con teclado bluetooth en tableta. **Resuelto (2026-08-09)**: `lib/use-capa-modal.ts` extrae de `Modal` las tres piezas que **no dependen de su maqueta** —`inert` sobre el fondo con su contador, trampa de foco en los extremos y restauracion al disparador— y el drawer pasa a `MobileNavDrawer`, con portal a `body`. El portal no es opcional: `inert` se aplica sobre `#root`, asi que un drawer pintado dentro se apagaria a si mismo. Se descarto darle a `Modal` un modo «lateral»: seria una segunda personalidad por un solo uso. Los 13 tests de `Modal` siguen pasando tras la extraccion y el drawer suma 8 propios. | bajo | no | chore/deuda-menor-del-cliente | resuelto | chore/deuda-menor-del-cliente |
+| P-105 | 2026-08-09 | MVP-007 / MVP-799 | deuda/tests | **Tres avisos de nulabilidad en los tests de correos** (`CS8619` en `ProductEmailInventoryTests.cs:27` y `FeedbackEmailComposerTests.cs:31`, `CS8602` en `FeedbackEmailComposerTests.cs:84`). Los detecto el agente que cerro `P-100`/`P-102`/`P-103` al dejar el resto de la solucion sin avisos: eran los tres unicos que quedaban. No eran ruido. `HtmlBody`, `TextBody` y `Subject` son anulables en MimeKit, y los helpers los devolvian como no anulables: un correo del producto sin cuerpo o sin asunto **es un defecto** que estas pruebas existen para cazar, y tal como estaban habria salido como una referencia nula en la asercion siguiente en vez de decir que faltaba el cuerpo. **Resuelto (2026-08-09)**: se comprueba con `?? throw` en vez de callar la nulabilidad con `!`, asi el fallo nombra el correo y lo que le falta. `dotnet build -t:Rebuild` sobre `src/backend/Terrenario.sln` pasa a **0 avisos y 0 errores** y la suite sigue en 954. Da pie ademas al criterio general del PO: los avisos del compilador se corrigen siempre, salvo que el arreglo tenga consecuencias peores. | bajo | no | chore/avisos-del-compilador | resuelto | chore/avisos-del-compilador |
 
 ### Retriage de la 3a pasada de MVP-299 (2026-07-28)
 
@@ -260,6 +261,10 @@ Resultado: **25 aprobados**, **24 a backlog post-MVP** y **1 descartado**.
 | `MVP-715` — Correos del producto: inventario y maquetacion | `P-001`, `P-030` |
 | `MVP-716` — Consolidacion del catalogo de modulos | `P-020` |
 | `MVP-799` — Revision de cierre de la epica MVP-007 | Cierre de las quince filas que seguian abiertas; alta de `P-096` a `P-104` |
+| `chore/reglas-que-nadie-comprueba` | `P-094`, `P-096`, `P-097`, `P-098` |
+| `chore/deuda-menor-del-backend` | `P-100`, `P-102`, `P-103` |
+| `chore/deuda-menor-del-cliente` | `P-099`, `P-101`, `P-104` |
+| `chore/avisos-del-compilador` | `P-105` |
 
 **Los 24 diferidos** quedan como `backlog-post-mvp`, agrupados por la evolucion a la que pertenecen:
 centro de notificaciones (`P-011`, `P-029`), ciclo de vida de la membresia (`P-048`, `P-049`), borrado

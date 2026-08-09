@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router';
 import { AppSidebar } from './AppSidebar';
 import { AppTopbar } from './AppTopbar';
+import { MobileNavDrawer } from './MobileNavDrawer';
 import { OfflineBanner } from './OfflineBanner';
 import { InvitationModal } from '../notifications/InvitationModal';
 import { useUsageTelemetry } from '../../lib/use-usage-telemetry';
@@ -98,19 +99,9 @@ export const AppLayout: React.FC = () => {
         <AppSidebar />
       </div>
 
-      {/* Drawer en móvil */}
-      {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-50 md:hidden flex">
-          <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-xs"
-            onClick={() => setIsMobileMenuOpen(false)}
-            aria-hidden="true"
-          />
-          <div className="relative z-10 h-full max-w-xs w-full shadow-2xl">
-            <AppSidebar onNavigate={() => setIsMobileMenuOpen(false)} />
-          </div>
-        </div>
-      )}
+      {/* Drawer en móvil. Vive en su propio componente desde `P-104`: necesita portal a `body` para
+          que el `inert` que apaga el fondo no lo apague también a él. */}
+      <MobileNavDrawer isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
 
       {/* Contenido */}
       <div className="flex-1 flex flex-col min-w-0 min-h-screen">

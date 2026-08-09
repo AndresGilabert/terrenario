@@ -20,17 +20,9 @@ import { ConfirmDialog } from '../common/ConfirmDialog';
 import { MobileDisclosure } from '../common/MobileDisclosure';
 import { SummaryStrip } from '../common/SummaryStrip';
 import { HarvestFormModal } from './HarvestFormModal';
+import { fechaDeNegocio } from '../../lib/fechas';
 
 /** Formato de fecha corto y legible, sin depender del locale del navegador. */
-function formatDate(iso: string): string {
-  const [year, month, day] = iso.split('-').map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString('es-ES', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
-
 const number = (value: number, decimals = 0) =>
   value.toLocaleString('es-ES', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
@@ -404,7 +396,7 @@ export const CosechasView: React.FC = () => {
                 {harvests.map((harvest) => (
                   <tr key={harvest.id} className="hover:bg-[#fcf9f4] transition-colors">
                     <td className="px-5 py-4 font-medium text-[#76786b] whitespace-nowrap">
-                      {formatDate(harvest.date)}
+                      {fechaDeNegocio(harvest.date)}
                       <span className="block text-[11px] text-[#a2a496]">{harvest.season_name}</span>
                       {/* RN-023 — aviso no bloqueante */}
                       {harvest.is_out_of_season_range && (
@@ -478,7 +470,7 @@ export const CosechasView: React.FC = () => {
                         type="button"
                         onClick={() => openEdit(harvest)}
                         title="Corregir cosecha"
-                        aria-label={`Corregir la cosecha de ${harvest.plot_name} del ${formatDate(harvest.date)}`}
+                        aria-label={`Corregir la cosecha de ${harvest.plot_name} del ${fechaDeNegocio(harvest.date)}`}
                         className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#f0ede8] hover:text-[#33450d] transition-colors"
                       >
                         <span className="material-symbols-outlined text-base" aria-hidden="true">edit</span>
@@ -490,7 +482,7 @@ export const CosechasView: React.FC = () => {
                           setPendingDelete(harvest);
                         }}
                         title="Eliminar cosecha"
-                        aria-label={`Eliminar la cosecha de ${harvest.plot_name} del ${formatDate(harvest.date)}`}
+                        aria-label={`Eliminar la cosecha de ${harvest.plot_name} del ${fechaDeNegocio(harvest.date)}`}
                         className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#ffdad6]/60 hover:text-[#ba1a1a] transition-colors"
                       >
                         <span className="material-symbols-outlined text-base" aria-hidden="true">delete</span>
@@ -528,7 +520,7 @@ export const CosechasView: React.FC = () => {
             <>
               <p>
                 Vas a eliminar la partida de <strong>{number(pendingDelete.kgs)} kg</strong> registrada
-                el {formatDate(pendingDelete.date)} en {pendingDelete.plot_name}.
+                el {fechaDeNegocio(pendingDelete.date)} en {pendingDelete.plot_name}.
               </p>
               <p className="text-xs text-[#76786b]">
                 Desaparecerá del listado, del diario y del dashboard. No hay papelera: si te equivocas,

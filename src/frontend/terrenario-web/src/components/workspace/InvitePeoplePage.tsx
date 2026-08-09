@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { invitationService, InvitationServiceError } from '../../services/invitation.service';
 import type { CreatedInvitation, InvitationChannel } from '../../types/invitation.types';
+import { fechaDelInstante } from '../../lib/fechas';
 
 const EMAIL_MAX_LENGTH = 320;
 
@@ -230,7 +231,7 @@ export const InvitePeoplePage: React.FC = () => {
             </div>
 
             <p className="text-xs text-[#76786b]">
-              Caduca el {formatDate(createdInvitation.expires_at)}.
+              Caduca el {fechaDelInstante(createdInvitation.expires_at, { mes: 'long' })}.
             </p>
           </div>
         )}
@@ -265,10 +266,3 @@ export const InvitePeoplePage: React.FC = () => {
   );
 };
 
-function formatDate(isoDate: string): string {
-  return new Date(isoDate).toLocaleDateString('es-ES', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-}

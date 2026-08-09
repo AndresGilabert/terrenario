@@ -4,6 +4,7 @@ import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useSeason } from '../../contexts/SeasonContext';
 import { HttpError } from '../../services/http-client';
 import { SEASON_STATUS_LABELS, type Season } from '../../types/season.types';
+import { fechaDeNegocio } from '../../lib/fechas';
 
 const NAME_MAX_LENGTH = 120;
 
@@ -213,8 +214,8 @@ const SeasonSetup: React.FC<{ seasons: Season[] }> = ({ seasons }) => {
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-[#1c1c19] truncate">{season.name}</p>
                       <p className="text-xs text-[#76786b]">
-                        {SEASON_STATUS_LABELS[season.status]} · desde {formatDate(season.start_date)}
-                        {season.end_date ? ` hasta ${formatDate(season.end_date)}` : ''}
+                        {SEASON_STATUS_LABELS[season.status]} · desde {fechaDeNegocio(season.start_date)}
+                        {season.end_date ? ` hasta ${fechaDeNegocio(season.end_date)}` : ''}
                       </p>
                     </div>
                     <button
@@ -348,10 +349,3 @@ const SeasonSetup: React.FC<{ seasons: Season[] }> = ({ seasons }) => {
   );
 };
 
-function formatDate(isoDate: string): string {
-  return new Date(isoDate).toLocaleDateString('es-ES', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}

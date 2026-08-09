@@ -114,9 +114,11 @@ describe('AuthContext — pérdida de conexión', () => {
 });
 
 /**
- * Establece sesión como lo hace el retorno de Google, que es el único camino que **programa** el
- * refresco. Arrancar con un token guardado no lo programa, así que montar el escenario por ahí no
- * llegaría a disparar el temporizador y la prueba no probaría nada.
+ * Establece sesión como lo hace el retorno de Google.
+ *
+ * Hasta `P-099` era el **único** camino que programaba el refresco, y por eso los escenarios de
+ * temporizador se montan por aquí: arrancar con un token guardado no lo programaba y la prueba no
+ * habría llegado a disparar nada. Ese defecto está corregido y tiene su propia cobertura abajo.
  */
 function IniciaSesion({ expiraEn }: { expiraEn: number }) {
   const { login } = useAuth();
@@ -128,3 +130,86 @@ function IniciaSesion({ expiraEn }: { expiraEn: number }) {
   }, [login, expiraEn]);
   return <Sonda />;
 }
+
+/** Construye un JWT sin firmar cuyo `exp` está dentro de `segundos`. Solo se lee la carga. */
+function tokenQueCaducaEn(segundos: number): string {
+  const carga = { exp: Math.floor(Date.now() / 1000) + segundos };
+  const b64 = btoa(JSON.stringify(carga)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return `cabecera.${b64}.firma`;
+}
+
+/**
+ * MVP-999 (`P-099`) — **Arrancar con un token guardado tiene que programar el refresco.**
+ *
+ * No lo hacía: solo lo programaba `login()`, el retorno de Google. Una pestaña recuperada se quedaba
+ * con el token que tuviera y no lo renovaba; al caducar, la primera petición se iba en 401. Quedaba
+ * tapado porque `getAccessToken` refresca cuando falta el token en memoria, pero eso es un camino de
+ * rescate y no el ciclo previsto, y lo tapado no se ve cuando se rompe.
+ */
+describe('AuthContext — refresco al arrancar con token guardado', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    sessionStorage.clear();
+  });
+
+  const arrancarCon = async (token: string) => {
+    sessionStorage.setItem(ACCESS_TOKEN_KEY, token);
+    vi.spyOn(authService, 'getMe').mockResolvedValue({ id: 'u1', display_name: 'Andrés' });
+    const refresh = vi
+      .spyOn(authService, 'refreshToken')
+      .mockResolvedValue({ access_token: 'token-renovado', expires_in: 900 });
+
+    render(
+      <AuthProvider>
+        <Sonda />
+      </AuthProvider>
+    );
+    await waitFor(() => expect(screen.getByTestId('autenticado')).toHaveTextContent('true'));
+    return refresh;
+  };
+
+  it('programa el refresco según lo que le quede al token', async () => {
+    // Caduca en 300 s y el refresco salta 60 s antes: a los 240 s.
+    const refresh = await arrancarCon(tokenQueCaducaEn(300));
+
+    await vi.advanceTimersByTimeAsync(239_000);
+    expect(refresh).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('refresca de inmediato si el token guardado ya caducó', async () => {
+    const refresh = await arrancarCon(tokenQueCaducaEn(-60));
+
+    await vi.advanceTimersByTimeAsync(100);
+
+    // Sin esperar a que una petición del usuario se vaya en 401, que es lo que pasaba antes.
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('refresca de inmediato si el token no es un JWT legible', async () => {
+    // Nunca debería pasar, pero quedarse sin programar nada es el fallo que se está corrigiendo.
+    const refresh = await arrancarCon('esto-no-es-un-jwt');
+
+    await vi.advanceTimersByTimeAsync(100);
+
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('encadena el siguiente refresco con la caducidad que devuelve el servidor', async () => {
+    const refresh = await arrancarCon(tokenQueCaducaEn(-1));
+    await vi.advanceTimersByTimeAsync(100);
+    expect(refresh).toHaveBeenCalledTimes(1);
+
+    // 900 s de vida => el siguiente a los 840. Si no encadenara, la sesión volvería a quedar suelta.
+    await vi.advanceTimersByTimeAsync(841_000);
+    expect(refresh).toHaveBeenCalledTimes(2);
+  });
+});

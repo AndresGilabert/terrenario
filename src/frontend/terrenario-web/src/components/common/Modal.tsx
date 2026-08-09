@@ -1,30 +1,11 @@
-import React, { useCallback, useEffect, useId, useRef } from 'react';
+import React, { useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useCapaModal } from '../../lib/use-capa-modal';
 
-/**
- * Selector de lo que puede recibir foco con el tabulador. `[hidden]` y `disabled` quedan fuera; el
- * `tabindex="-1"` también, porque es enfocable por código pero no por tabulación.
- */
-const FOCUSABLE =
+/** Mismo selector que usa {@link useCapaModal}; aquí solo sirve para elegir el foco inicial. */
+const FOCUSABLE_DEL_CUERPO =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), ' +
   'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
-/**
- * Cuántos modales hay abiertos. El fondo solo vuelve a ser interactivo cuando se cierra el **último**:
- * un `ConfirmDialog` sobre un formulario es un caso real —confirmar el borrado desde el modal de
- * corrección— y con un simple booleano el primero en cerrarse reactivaría el fondo con el otro abierto.
- */
-let abiertos = 0;
-
-/** Marca el resto de la aplicación como inerte, o lo devuelve a la vida. */
-function fondoInerte(inerte: boolean) {
-  const raiz = document.getElementById('root');
-  if (!raiz) return;
-  if (inerte) raiz.setAttribute('inert', '');
-  else raiz.removeAttribute('inert');
-  // Sin esto, el fondo se desplaza detrás del diálogo al rodar la rueda.
-  document.body.style.overflow = inerte ? 'hidden' : '';
-}
 
 export interface ModalProps {
   isOpen: boolean;
@@ -91,83 +72,25 @@ export const Modal: React.FC<ModalProps> = ({
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
   const cuerpoRef = useRef<HTMLDivElement>(null);
-  const devolverFocoA = useRef<HTMLElement | null>(null);
   const titleId = useId();
 
-  // El cierre puede cambiar de identidad entre renders; la ref evita rearmar los escuchadores.
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-  const bloqueadoRef = useRef(closeDisabled);
-  bloqueadoRef.current = closeDisabled;
-
-  const enfocables = useCallback(
-    () => Array.from(panelRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []),
-    []
-  );
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    // Quién tenía el foco antes de abrir. Se guarda **antes** de moverlo.
-    devolverFocoA.current = document.activeElement as HTMLElement | null;
-
-    abiertos += 1;
-    if (abiertos === 1) fondoInerte(true);
-
+  useCapaModal({
+    activa: isOpen,
+    contenedor: panelRef,
+    onEscape: onClose,
+    bloqueada: closeDisabled,
     // Se enfoca el primer control del **cuerpo**, no el primero del panel: el primero del panel es
     // siempre el aspa de cerrar de la cabecera, y dejar ahí el foco al abrir un formulario convierte
-    // el primer Intro en un cierre. Si el cuerpo no tiene controles —un aviso solo de texto— se cae al
-    // primero del panel, y si tampoco lo hay, al panel.
-    // Varios formularios ya declaran `autoFocus` en el campo que quieren primero, y no siempre es el
-    // primero del DOM. Se respeta esa intención antes de caer en el orden.
-    const cuerpo = cuerpoRef.current;
-    const primero =
-      cuerpo?.querySelector<HTMLElement>('[autofocus]') ??
-      Array.from(cuerpo?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])[0] ??
-      enfocables()[0] ??
-      panelRef.current;
-    primero?.focus();
-
-    const alPulsarTecla = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.stopPropagation();
-        if (!bloqueadoRef.current) onCloseRef.current();
-        return;
-      }
-
-      if (event.key !== 'Tab') return;
-
-      const lista = enfocables();
-      if (lista.length === 0) {
-        event.preventDefault();
-        return;
-      }
-
-      const primeroDeLaLista = lista[0];
-      const ultimo = lista[lista.length - 1];
-      const activo = document.activeElement;
-
-      // Solo se interviene en los extremos: en medio, el tabulador del navegador ya hace lo correcto.
-      if (!event.shiftKey && activo === ultimo) {
-        event.preventDefault();
-        primeroDeLaLista.focus();
-      } else if (event.shiftKey && activo === primeroDeLaLista) {
-        event.preventDefault();
-        ultimo.focus();
-      }
-    };
-
-    document.addEventListener('keydown', alPulsarTecla);
-
-    return () => {
-      document.removeEventListener('keydown', alPulsarTecla);
-      abiertos -= 1;
-      if (abiertos === 0) fondoInerte(false);
-      // `focus()` sobre un nodo que ya no está en el documento no hace nada, así que se comprueba.
-      const destino = devolverFocoA.current;
-      if (destino && document.contains(destino)) destino.focus();
-    };
-  }, [isOpen, enfocables]);
+    // el primer Intro en un cierre. Varios formularios declaran además `autoFocus` en el campo que
+    // quieren primero, y no siempre es el primero del DOM: esa intención manda sobre el orden.
+    elegirFocoInicial: () => {
+      const cuerpo = cuerpoRef.current;
+      return (
+        cuerpo?.querySelector<HTMLElement>('[autofocus]') ??
+        cuerpo?.querySelector<HTMLElement>(FOCUSABLE_DEL_CUERPO)
+      );
+    },
+  });
 
   if (!isOpen) return null;
 

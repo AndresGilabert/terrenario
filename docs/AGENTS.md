@@ -9,30 +9,22 @@
 
 Estas reglas aplican a **TODOS** los archivos `.md` sin excepción.
 
-### Encoding — UTF-8 BOM obligatorio
+### Encoding — UTF-8
 
-- **TODOS** los archivos `.md` deben crearse y guardarse con codificación **UTF-8 BOM**.
-- Nunca crear un `.md` sin BOM. Tras cualquier `create_file`, aplicar inmediatamente:
+- **TODOS** los archivos `.md` se guardan en **UTF-8**. El BOM es indiferente: da igual escribirlos con
+  él o sin él, y **no hay que añadirlo ni quitarlo**.
 
-```powershell
-$path = "ruta/al/archivo.md"
-$content = [System.IO.File]::ReadAllText($path)
-$utf8BOM = [System.Text.UTF8Encoding]::new($true)
-[System.IO.File]::WriteAllText($path, $content, $utf8BOM)
-```
-
-- Verificar el BOM tras crear o modificar cualquier `.md`:
-
-```powershell
-$bytes = [System.IO.File]::ReadAllBytes("ruta/al/archivo.md")
-if ($bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
-    Write-Host "UTF-8 BOM OK"
-} else {
-    Write-Error "FALTA UTF-8 BOM — aplícalo ahora"
-}
-```
-
-- Antes de dar por completada cualquier tarea que involucre `.md`, verificar el BOM en **todos** los archivos afectados.
+> **Por qué ya no se exige el BOM** (`P-097`, retirado en la revisión de `MVP-007`). La regla anterior
+> lo hacía obligatorio, pero nada lo comprobaba: al medirlo, **74 de los 210 `.md` de `docs/` no lo
+> llevaban** y siete épicas habían pasado sin que se rompiera nada. Los scripts de la KB leen con
+> `utf-8-sig`, que acepta las dos formas, y ninguna otra herramienta del flujo depende de él.
+>
+> Mantenerla tenía además un coste visible: al editar uno de los 74 se le aplicaba el BOM y su diff
+> incluía un cambio en el byte 1 que no era de contenido y confundía en la revisión. Pasó en `MVP-712`.
+>
+> No se normalizaron los 74 ficheros: habría sido un commit tocando un tercio del árbol sin cambiar
+> una sola palabra. Si alguna vez aparece una herramienta que sí necesite el BOM, la decisión se
+> reabre — pero entonces con una comprobación que la respalde, no con una nota que nadie lee.
 
 ---
 

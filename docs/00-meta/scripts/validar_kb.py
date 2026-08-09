@@ -494,6 +494,10 @@ ESTADOS_PUNTO_CERRADOS = {"resuelto", "descartado", "backlog-post-mvp"}
 
 RE_ID_HISTORIA = re.compile(r"\bMVP-\d{3}\b")
 
+# Prefijos de rama que usa el repositorio. Un destino que empiece por uno de ellos describe donde se
+# hizo el trabajo, no a donde va: no vale para una fila todavia abierta.
+RE_RAMA = re.compile(r"^(chore|feature|fix|hotfix|release)/")
+
 
 def buscar_spec_por_id(ticket_id: str) -> Path | None:
     """Localiza el `spec.md` de una historia o epica por su identificador."""
@@ -541,6 +545,25 @@ def validar_registro_de_puntos():
         # aunque su columna de destino a veces nombre la historia que lo detecto —«Backlog post-MVP
         # (solo la parte de ER)», por ejemplo—: eso es procedencia, no un encargo pendiente.
         if estado_punto in ESTADOS_PUNTO_CERRADOS:
+            continue
+
+        # <b>Punto ciego que costo tres filas.</b> La comprobacion de abajo se apoya en el `estado` del
+        # `spec.md` de la historia de destino, asi que solo alcanza a los destinos que nombran una. Los
+        # once derivados de `MVP-799` fueron a ramas `chore/`, que no tienen spec, y tres se quedaron
+        # en `pendiente` con el trabajo ya en `develop` **sin que nada lo dijera** — el mismo patron de
+        # `P-096`, repetido dias despues de construir la guarda contra el.
+        #
+        # Se cierra por vocabulario en vez de preguntandole a git: una rama es **donde se hace** el
+        # trabajo, no un plan. Si esta hecho, la fila va `resuelto` y la rama se anota en la columna de
+        # historia, que es su sitio; si no lo esta, el destino es `por decidir`. Un nombre de rama en el
+        # destino de una fila abierta describe un estado que no existe.
+        if RE_RAMA.search(destino):
+            error(
+                f"{REGISTRO_PUNTOS}: {punto} esta en '{estado_punto}' y su destino es la rama "
+                f"'{destino}'. Una rama no es un destino de una fila abierta: si el trabajo esta "
+                f"hecho marca el punto 'resuelto' y deja la rama en la columna de historia; si no, "
+                f"pon 'por decidir'."
+            )
             continue
 
         # «por decidir», «Hito H» y demas no nombran una historia: no hay nada que comprobar.

@@ -166,10 +166,9 @@ actualizado_en: "YYYY-MM-DD"
 
 ## Lista de verificación antes de completar una tarea
 
-1. UTF-8 BOM verificado en todos los `.md` creados o modificados.
-2. Frontmatter correcto aplicado según el tipo de documento.
-3. Campo `actualizado_en` (o `fecha`) actualizado a la fecha de hoy.
-4. Ningún `.md` creado sin frontmatter.
+1. Frontmatter correcto aplicado según el tipo de documento.
+2. Campo `actualizado_en` (o `fecha`) actualizado a la fecha de hoy.
+3. Ningún `.md` creado sin frontmatter.
 
 ---
 

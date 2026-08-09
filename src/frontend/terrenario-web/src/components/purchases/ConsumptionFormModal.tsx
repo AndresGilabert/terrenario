@@ -7,6 +7,7 @@ import {
   type Consumption,
 } from '../../types/consumption.types';
 import { Modal } from '../common/Modal';
+import { fechaDeNegocio } from '../../lib/fechas';
 
 /** Lo que el formulario devuelve; quien lo abre decide a qué endpoint va (MVP-304). */
 export interface ConsumptionFormValues {
@@ -49,15 +50,6 @@ function todayIso(): string {
 }
 
 /** Fecha `YYYY-MM-DD` en formato corto, para poder nombrar la de la compra dentro del aviso. */
-function formatDate(iso: string): string {
-  const [year, month, day] = iso.split('-').map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString('es-ES', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
-
 /**
  * Imputación de una compra a un terreno y consumo sin compra previa (MVP-304).
  *
@@ -313,7 +305,7 @@ export const ConsumptionFormModal: React.FC<ConsumptionFormModalProps> = ({
           <p role="status" className="text-[11px] text-[#8a5a00] bg-[#fff6e5] border border-[#f0d9a8] rounded-lg px-2.5 py-1.5 flex items-start gap-1.5">
             <span className="material-symbols-outlined text-sm shrink-0" aria-hidden="true">warning</span>
             <span>
-              Este consumo es anterior a su compra, del {formatDate(purchaseDate)}. Puedes
+              Este consumo es anterior a su compra, del {fechaDeNegocio(purchaseDate)}. Puedes
               guardarlo igual; revisa la fecha por si se te ha colado un año.
             </span>
           </p>

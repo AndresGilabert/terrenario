@@ -21,6 +21,7 @@ import { ConfirmDialog } from '../common/ConfirmDialog';
 import { MobileDisclosure } from '../common/MobileDisclosure';
 import { PurchaseFormModal } from './PurchaseFormModal';
 import { ConsumptionFormModal, type ConsumptionFormValues } from './ConsumptionFormModal';
+import { fechaDeNegocio } from '../../lib/fechas';
 
 /** Registro pendiente de confirmación de borrado (MVP-305, RN-037). */
 type PendingDelete =
@@ -30,15 +31,6 @@ type PendingDelete =
 function todayIso(): string {
   const now = new Date();
   return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
-}
-
-function formatDate(iso: string): string {
-  const [year, month, day] = iso.split('-').map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString('es-ES', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
 }
 
 const euros = (value: number) =>
@@ -566,7 +558,7 @@ export const ComprasView: React.FC = () => {
                 {purchases.map((purchase) => (
                   <tr key={purchase.id} className="hover:bg-[#fcf9f4]">
                     <td className="px-5 py-3.5 font-medium text-[#76786b] whitespace-nowrap">
-                      {formatDate(purchase.purchase_date)}
+                      {fechaDeNegocio(purchase.purchase_date)}
                     </td>
                     <td className="px-5 py-3.5 font-bold text-[#1c1c19]">{purchase.product}</td>
                     <td className="px-5 py-3.5">
@@ -719,7 +711,7 @@ export const ComprasView: React.FC = () => {
                   {consumptions.map((consumption) => (
                     <tr key={consumption.id} className="hover:bg-[#fcf9f4]">
                       <td className="px-5 py-3.5 font-medium text-[#76786b] whitespace-nowrap">
-                        {formatDate(consumption.date)}
+                        {fechaDeNegocio(consumption.date)}
                       </td>
                       <td className="px-5 py-3.5 font-bold text-[#1c1c19]">
                         {consumption.product}
@@ -737,7 +729,7 @@ export const ComprasView: React.FC = () => {
                           <span
                             title={
                               consumption.purchase_date
-                                ? `El consumo es anterior a su compra, del ${formatDate(consumption.purchase_date)}`
+                                ? `El consumo es anterior a su compra, del ${fechaDeNegocio(consumption.purchase_date)}`
                                 : 'El consumo es anterior a su compra'
                             }
                             className="ml-1.5 px-2 py-0.5 rounded-full bg-[#fff6e5] text-[#8a5a00] border border-[#f0d9a8] font-semibold text-[10px] whitespace-nowrap"
@@ -826,7 +818,7 @@ export const ComprasView: React.FC = () => {
                     : pendingDelete.consumption.product}»
                 </strong>{' '}
                 del{' '}
-                {formatDate(
+                {fechaDeNegocio(
                   pendingDelete.kind === 'purchase'
                     ? pendingDelete.purchase.purchase_date
                     : pendingDelete.consumption.date

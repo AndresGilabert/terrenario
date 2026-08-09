@@ -42,6 +42,7 @@ import { MobileDisclosure } from '../common/MobileDisclosure';
 import { SummaryStrip } from '../common/SummaryStrip';
 import { HarvestFormModal } from '../harvests/HarvestFormModal';
 import { ActivityFormModal } from './ActivityFormModal';
+import { fechaDeNegocio } from '../../lib/fechas';
 
 const EMPTY_SUMMARY: DiaryListResponse['meta'] = {
   // MVP-701 — Ámbito todavía sin resolver: la primera respuesta lo sustituye.
@@ -63,15 +64,6 @@ const EMPTY_SUMMARY: DiaryListResponse['meta'] = {
 };
 
 /** Formato de fecha del muro: corto y legible, sin depender del locale del navegador. */
-function formatDate(iso: string): string {
-  const [year, month, day] = iso.split('-').map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString('es-ES', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
-
 const euros = (value: number) =>
   value.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -857,7 +849,7 @@ export const DiarioView: React.FC = () => {
             <>
               <p>
                 Vas a eliminar <strong>«{entryTitle(pendingDelete)}»</strong> del{' '}
-                {formatDate(pendingDelete.date)}
+                {fechaDeNegocio(pendingDelete.date)}
                 {pendingDelete.plot_name ? ` en ${pendingDelete.plot_name}` : ''}.
               </p>
               <p className="text-xs text-[#76786b]">
@@ -939,7 +931,7 @@ const DiaryCard: React.FC<DiaryCardProps> = ({
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${style.badgeClass} text-white uppercase tracking-wider`}>
                 {style.label}
               </span>
-              <span className="text-xs font-bold text-[#33450d]">{formatDate(entry.date)}</span>
+              <span className="text-xs font-bold text-[#33450d]">{fechaDeNegocio(entry.date)}</span>
               <span className="text-[11px] text-[#76786b]">· {entry.season_name}</span>
               {entry.is_out_of_season_range && (
                 <span

@@ -6,6 +6,7 @@ import { createSeasonService } from '../../services/season.service';
 import { HttpError } from '../../services/http-client';
 import { SEASON_STATUS_LABELS, type Season } from '../../types/season.types';
 import { SeasonFormModal, type SeasonFormValues } from './SeasonFormModal';
+import { fechaDeNegocio } from '../../lib/fechas';
 
 /**
  * Maestro de temporadas del Workspace (MVP-203). Lista las campañas, permite crear (la nueva pasa a
@@ -231,12 +232,6 @@ const STATUS_BADGE: Record<Season['status'], string> = {
   cerrada: 'bg-[#e5e2dd] text-[#76786b]',
 };
 
-function formatDate(iso: string): string {
-  const parsed = new Date(`${iso}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) return iso;
-  return parsed.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
 const SeasonCard: React.FC<SeasonCardProps> = ({
   season,
   production,
@@ -247,8 +242,8 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
   onReopen,
 }) => {
   const range = season.end_date
-    ? `${formatDate(season.start_date)} — ${formatDate(season.end_date)}`
-    : `Desde ${formatDate(season.start_date)}`;
+    ? `${fechaDeNegocio(season.start_date, { dia: '2-digit' })} — ${fechaDeNegocio(season.end_date, { dia: '2-digit' })}`
+    : `Desde ${fechaDeNegocio(season.start_date, { dia: '2-digit' })}`;
 
   return (
     <div

@@ -18,7 +18,7 @@ namespace Terrenario.Api.Tests.Harvests;
 /// </summary>
 public sealed class HarvestRepositoryPostgresTests : RepositoryTestBase
 {
-    private readonly Guid _userId;
+    private readonly Guid _userId = Guid.NewGuid();
 
     private sealed record Fixture(Workspace Workspace, Plot Plot, Season Season);
 

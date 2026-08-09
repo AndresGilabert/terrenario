@@ -31,7 +31,8 @@ public sealed class SmtpMailer(IOptions<EmailOptions> options, ILogger<SmtpMaile
 
         using var client = new SmtpClient { Timeout = _options.TimeoutSeconds * 1000 };
 
-        await client.ConnectAsync(_options.Host, _options.Port, ResolveSecurity(_options.SecurityMode), ct);
+        await client.ConnectAsync(
+            _options.Host, _options.Port, ResolveSecurity(_options.NormalizedSecurityMode), ct);
 
         // Un relay local de desarrollo puede no pedir credenciales.
         if (!string.IsNullOrWhiteSpace(_options.Username))
@@ -47,6 +48,9 @@ public sealed class SmtpMailer(IOptions<EmailOptions> options, ILogger<SmtpMaile
             EmailMasking.Mask(message.To.Mailboxes.FirstOrDefault()?.Address ?? string.Empty));
     }
 
+    // P-100 — Espera el modo ya normalizado (`EmailOptions.NormalizedSecurityMode`): compara contra
+    // constantes en minúscula y la rama por defecto es un modo válido, así que un valor mal escrito
+    // cambiaría el transporte sin que aquí se note. Quien avisa de eso es la guarda del arranque.
     private static SecureSocketOptions ResolveSecurity(string securityMode) => securityMode switch
     {
         EmailSecurityModes.Ssl => SecureSocketOptions.SslOnConnect,

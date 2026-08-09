@@ -34,6 +34,16 @@ describe('createHttpClient', () => {
       // lo lee para el canal de feedback. El doble tiene que traerlo o estaría probando otra cosa.
       headers: new Headers(init.requestId ? { 'X-Request-Id': init.requestId } : {}),
       json: init.json === false ? () => Promise.reject(new Error('sin cuerpo')) : () => Promise.resolve(body),
+      // Un `Response` de verdad **siempre** tiene `text()`, y este doble no lo tenía. No es un detalle
+      // de fontanería: por eso la suite no vio que el cliente reventaba con una respuesta correcta sin
+      // cuerpo (`202` del canal de feedback). Un doble que ofrece menos que el original no prueba el
+      // original, prueba otra cosa.
+      // `JSON.stringify(undefined)` devuelve `undefined`, no una cadena: un cuerpo ausente se
+      // representa como cadena vacía, que es lo que da un `Response` real sin contenido.
+      text:
+        init.json === false
+          ? () => Promise.resolve('')
+          : () => Promise.resolve(JSON.stringify(body) ?? ''),
     }) as unknown as Response;
 
   const clientWith = (opts: {
@@ -300,6 +310,40 @@ describe('createHttpClient', () => {
       expect(esFalloDeRed(error)).toBe(false);
       expect((error as DOMException).name).toBe('AbortError');
       expect(estadoDeConexion()).toBe('en-linea');
+    });
+  });
+
+  describe('respuestas correctas sin cuerpo', () => {
+    /** Una respuesta real sin cuerpo: `json()` falla igual que en el navegador. */
+    const sinCuerpo = (status: number): Response =>
+      ({
+        ok: true,
+        status,
+        headers: new Headers(),
+        text: () => Promise.resolve(''),
+        json: () => Promise.reject(new SyntaxError('Unexpected end of JSON input')),
+      }) as unknown as Response;
+
+    it('Deberia_ResolverSinError_Cuando_LaRespuestaEs202SinCuerpo', async () => {
+      // El canal de feedback (MVP-711) responde `202 Accepted` sin cuerpo. El cliente solo trataba el
+      // `204`, asi que el `json()` de un cuerpo vacio lanzaba un `SyntaxError` —que **no** es un
+      // `HttpError`— y la pantalla decia «no hemos podido enviar tu mensaje» **con el correo ya
+      // entregado**. Es el peor fallo posible en un canal de incidencias: el usuario lo reintenta.
+      fetchMock.mockResolvedValue(sinCuerpo(202));
+
+      await expect(clientWith({}).request('/api/v1/feedback', { method: 'POST' })).resolves.toBeUndefined();
+    });
+
+    it('Deberia_ResolverSinError_Cuando_LaRespuestaEs204', async () => {
+      fetchMock.mockResolvedValue(sinCuerpo(204));
+
+      await expect(clientWith({}).request('/api/v1/plots', { method: 'DELETE' })).resolves.toBeUndefined();
+    });
+
+    it('Deberia_SeguirLeyendoElCuerpo_Cuando_LaRespuestaLoTrae', async () => {
+      fetchMock.mockResolvedValue(respondWith(200, { data: [1, 2] }));
+
+      await expect(clientWith({}).request('/api/v1/plots')).resolves.toEqual({ data: [1, 2] });
     });
   });
 });

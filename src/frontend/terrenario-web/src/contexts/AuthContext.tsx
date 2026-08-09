@@ -61,6 +61,36 @@ const REFRESH_BEFORE_EXPIRY_MS = 60_000;
  */
 const REINTENTO_SIN_CONEXION_MS = 30_000;
 
+/**
+ * MVP-999 (`P-099`) — Segundos de vida que le quedan al token guardado, leídos de su propio `exp`.
+ *
+ * <b>Por qué se lee el token en vez de preguntar.</b> Al recuperar una pestaña no sabemos cuánto le
+ * queda: `GET /auth/me` confirma que vale, pero no dice hasta cuándo. La alternativa era refrescar en
+ * cada arranque para obtener un `expires_in` fresco, y eso añade una fila a `refresh_tokens` por cada
+ * carga de página —la rotación ya genera miles al año por usuario activo (`RN-041`)—.
+ *
+ * <b>No se valida nada aquí, y no hace falta.</b> El `exp` solo se usa para decidir *cuándo*
+ * programar el refresco; quien decide si el token vale es el servidor en cada petición. Un `exp`
+ * manipulado adelanta o atrasa un temporizador propio, nada más.
+ *
+ * Devuelve `null` si el token no es un JWT legible o si ya caducó: en ambos casos quien llama debe
+ * refrescar de inmediato en vez de programar nada.
+ */
+function segundosDeVidaRestante(token: string): number | null {
+  try {
+    const carga = token.split('.')[1];
+    if (!carga) return null;
+    // base64url → base64, y `atob` no admite el relleno implícito.
+    const base64 = carga.replace(/-/g, '+').replace(/_/g, '/');
+    const { exp } = JSON.parse(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')));
+    if (typeof exp !== 'number') return null;
+    const restante = exp - Math.floor(Date.now() / 1000);
+    return restante > 0 ? restante : null;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(authReducer, initialState);
   const expiresAtRef = useRef<number | null>(null);
@@ -109,6 +139,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               user: { id: userData.id, displayName: userData.display_name },
             },
           });
+          // MVP-999 (`P-099`) — **Este camino no programaba el refresco.** Solo lo hacía `login()`,
+          // el retorno de Google, así que una pestaña recuperada se quedaba con el token que tuviera
+          // y no lo renovaba: al caducar, la primera petición se iba en 401. Quedaba tapado porque
+          // `getAccessToken` refresca cuando falta el token en memoria, pero eso es un camino de
+          // rescate y no el ciclo previsto.
+          //
+          // Sin `exp` legible o ya caducado se refresca de inmediato (`0`), que es lo que hacía el
+          // rescate pero de forma explícita y sin esperar a que falle una petición del usuario.
+          scheduleRefresh(segundosDeVidaRestante(storedToken) ?? 0);
         })
         .catch((error: unknown) => {
           // MVP-709 — Arrancar sin cobertura no debe borrar el token guardado: no se ha podido
@@ -125,7 +164,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
     };
-  }, []);
+    // `scheduleRefresh` es estable (`useCallback` sin dependencias), así que declararla no reejecuta
+    // el arranque; se declara igual para que el aviso de dependencias siga sirviendo de algo.
+  }, [scheduleRefresh]);
 
   const login = useCallback(
     (accessToken: string, user: AuthUser, expiresIn: number) => {

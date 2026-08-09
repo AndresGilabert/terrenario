@@ -98,7 +98,7 @@ legalmente tienen que decir, con una sola forma de componerlos.
   del mismo contenido, asi que no pueden decir cosas distintas.
 - [x] **CA-5**: Verificado **enviando cada tipo de correo de verdad** —los cinco, por SMTP, con el
   `SmtpMailer` de produccion— contra un receptor local que captura lo que MailKit pone en el cable
-  (`scripts/smtp-sink.py`). No es un doble del emisor: habla SMTP por el socket.
+  (receptor casero, **retirado despues**: el proyecto ya tenia Mailtrap configurado y documentado, y construirlo fue un error de quien no leyo `docs/05-infraestructura/desarrollo-local.md`). No era un doble del emisor: hablaba SMTP por el socket, y lo que capturo sigue siendo valido.
 
   El HTML renderizado **no bastaba**, y esa fue la correccion del PO. El cuerpo es justo lo unico que
   no puede romperse en el envio; lo que solo aparece al poner el mensaje en el cable es el sobre. Medido
@@ -119,7 +119,7 @@ legalmente tienen que decir, con una sola forma de componerlos.
   `email_sent: true` y el mensaje llego con la plantilla nueva.
 
   Reproducible: `ProductEmailDeliveryTests` reenvia los cinco cuando se define
-  `TERRENARIO_SMTP_SINK_PORT`. Los `.eml` capturados se abren en Outlook, Thunderbird o Apple Mail como
+  una variable de entorno. Los `.eml` capturados se abrian en Outlook, Thunderbird o Apple Mail como
   un mensaje recibido, que es la parte de «cliente real» que queda en manos de quien revisa.
 
   **Lo que sigue fuera de esto**: como se ve en Outlook clasico, Gmail y Apple Mail de verdad. El `<hr>`

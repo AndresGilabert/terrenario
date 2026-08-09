@@ -256,14 +256,14 @@ que el fallo: la persona se queda esperando una respuesta que nadie va a dar.
 **Lo que no se ha verificado**:
 
 - **La recepción del correo en una bandeja.** No se ha enviado ninguno: hacerlo exige levantar el
-  receptor SMTP local (`scripts/smtp-sink.py` + `ProductEmailDeliveryTests`, de `MVP-715`) y no era el
+  receptor SMTP casero de `MVP-715` —retirado despues: el proyecto ya tenia Mailtrap configurado— y no era el
   encargo. El correo queda dado de alta en el catálogo, así que la comprobación es
-  `TERRENARIO_SMTP_SINK_PORT=1025 dotnet test --filter FullyQualifiedName~ProductEmailDelivery`.
+  arrancar la API con los `Email:*` de user-secrets, que apuntan a la bandeja de Mailtrap, y enviar desde la pantalla.
 - **El recorrido en la aplicación en marcha.** No se han levantado los servidores (puertos ocupados),
   así que la entrada en la barra lateral, el título de la cabecera y el envío real están cubiertos por
   pruebas pero no vistos en pantalla.
   **Cerrado en `MVP-799` (2026-08-08)**: el envío se comprobó con el transporte de producción contra un
-  receptor SMTP local. Llegó un `multipart/alternative` de 4.501 bytes con la versión desplegada, la
+  receptor SMTP de entonces. Llegó un `multipart/alternative` de 4.501 bytes con la versión desplegada, la
   ruta, el `X-Request-Id` y el navegador, y **sin nada de la explotación**: se envió a propósito una
   ruta con identificadores de temporada y de terreno en la query y no viaja ninguno, ni el nombre del
   Workspace.

@@ -136,6 +136,22 @@ lo comprueba `ProductEmailInventoryTests` sobre el inventario entero, no correo 
 nuevo que no entre en `ProductEmailCatalog` se queda sin esas garantías comprobadas, que es la forma
 de que el olvido se note.
 
+### Y para ver el envío, no solo el cuerpo
+
+El HTML no cubre lo único que no puede romperse en el envío: el sobre. Que salga
+`multipart/alternative` y no solo HTML, el juego de caracteres, la codificación de los acentos y el
+`From`/`Subject` tal y como los ve la bandeja.
+
+Para eso está la **bandeja de pruebas de Mailtrap**, que el proyecto usa en local y que está
+configurada en `Email:*` de user-secrets: los correos se capturan sin entregarse a nadie y se ven en
+su web, con previsualización por cliente. El montaje está en
+[desarrollo-local.md](../05-infraestructura/desarrollo-local.md#opción-recomendada-en-local-bandeja-de-pruebas-mailtrap).
+
+> Este enlace existe porque faltaba. En `MVP-715` se construyó un receptor SMTP casero para hacer
+> exactamente lo que Mailtrap ya hacía, por no haber leído la guía de desarrollo local; el receptor se
+> retiró en el arreglo de `P-106`. Si estás aquí buscando cómo probar un envío, la respuesta es
+> Mailtrap y no hace falta escribir nada.
+
 ---
 
 ## Lo que no hay, y por qué

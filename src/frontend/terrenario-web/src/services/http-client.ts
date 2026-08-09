@@ -179,8 +179,18 @@ export function createHttpClient(opts: {
       });
 
       if (response.ok) {
-        if (response.status === 204) return undefined as T;
-        return (await response.json()) as T;
+        // Se decide por **el cuerpo que hay**, no por una lista de códigos que se queda corta.
+        //
+        // Antes solo se contemplaba el `204`, y el canal de feedback (`MVP-711`) responde `202
+        // Accepted` sin cuerpo: `json()` sobre vacío lanza un `SyntaxError`, que **no** es un
+        // `HttpError`, así que la pantalla caía en su mensaje genérico —«no hemos podido enviar tu
+        // mensaje»— **con el correo ya entregado**. En un canal de incidencias es el peor fallo
+        // posible: el usuario reintenta y manda el reporte dos veces.
+        //
+        // Añadir el `202` a la lista habría tapado este caso y dejado vivo el siguiente: cualquier
+        // respuesta correcta sin cuerpo. Por eso se mira el cuerpo.
+        const cuerpo = await response.text();
+        return (cuerpo === '' ? undefined : JSON.parse(cuerpo)) as T;
       }
 
       // MVP-711 — Se anota aquí, en el único punto por el que pasa toda la operativa, y no en cada

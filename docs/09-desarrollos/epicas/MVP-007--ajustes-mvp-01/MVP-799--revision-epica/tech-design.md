@@ -1,4 +1,4 @@
----
+﻿---
 id: "MVP-799"
 tipo: feature
 titulo: "TDD: Revision de cierre de la epica MVP-007"
@@ -87,7 +87,7 @@ lleva al diario.
 
 ## CA-4 — El canal de feedback, entregado de verdad
 
-`MVP-711` dejó el envío real sin comprobar. Se levantó el receptor SMTP local y se envió un reporte con
+`MVP-711` dejó el envío real sin comprobar. Se envió un reporte con
 el transporte de producción. Llegó: `multipart/alternative`, 4.501 bytes.
 
 Lo que importa del contenido es lo que **no** lleva. Se envió a propósito una ruta con identificadores

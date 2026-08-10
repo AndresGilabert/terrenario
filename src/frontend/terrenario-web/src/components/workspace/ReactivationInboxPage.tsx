@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useApiClient } from '../../contexts/ApiContext';
+import { useNotifications } from '../../contexts/NotificationsContext';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { createReactivationService } from '../../services/workspace-lifecycle.service';
 import { HttpError } from '../../services/http-client';
@@ -19,6 +20,10 @@ export const ReactivationInboxPage: React.FC = () => {
   const navigate = useNavigate();
   const reactivations = useMemo(() => createReactivationService(http), [http]);
   const { refreshContext } = useWorkspace();
+  // MVP-808 (CA-4) — Resuelta la solicitud, el aviso de la campanita tiene que irse con ella. La
+  // bandeja no se entera sola: sin esto seguiría anunciando una decisión que ya está tomada hasta el
+  // siguiente refresco por foco.
+  const { refresh: refreshNotifications } = useNotifications();
 
   const [requests, setRequests] = useState<ReactivationRequest[]>([]);
   const [closed, setClosed] = useState<ClosedWorkspace[]>([]);
@@ -54,7 +59,7 @@ export const ReactivationInboxPage: React.FC = () => {
     try {
       await action();
       await refreshContext();
-      await load();
+      await Promise.all([load(), refreshNotifications()]);
     } catch (error) {
       setErrorMessage(
         error instanceof HttpError ? error.message : 'No se pudo completar la operación. Inténtalo de nuevo.'

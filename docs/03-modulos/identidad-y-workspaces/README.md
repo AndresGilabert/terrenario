@@ -4,7 +4,7 @@ owner: "@andres"
 estado: activo
 version: "v0.6.0-hito-f"
 sla: "el del servicio (99.9%) — ver ../../05-infraestructura/observabilidad.md"
-actualizado_en: "2026-08-08"
+actualizado_en: "2026-08-10"
 ---
 
 # Módulo: Identidad y Workspaces
@@ -111,6 +111,7 @@ flowchart LR
 | [MVP-206](../../09-desarrollos/epicas/MVP-002--maestros-operativos-y-onboarding/MVP-206--ciclo-de-vida-del-workspace/tech-design.md) | Ciclo de vida del Workspace y no-orfandad |
 | [MVP-502](../../09-desarrollos/epicas/MVP-005--endurecimiento-y-salida-a-mvp/MVP-502--hardening-de-seguridad-y-validacion-de-pii/tech-design.md) | Hardening y validación de PII |
 | [MVP-701](../../09-desarrollos/epicas/MVP-007--ajustes-mvp-01/MVP-701--coherencia-de-contexto-workspace-y-temporada/tech-design.md) | Coherencia del contexto activo |
+| [MVP-808](../../09-desarrollos/epicas/MVP-008--ajustes-mvp-02/MVP-808--avisos-in-app-que-no-dependan-del-correo/tech-design.md) | Avisos in-app: refresco por foco y solicitudes de reactivación en la bandeja |
 | [Contratos de API](../../02-arquitectura/contratos-api.md) · [Modelo de datos](../../02-arquitectura/modelo-de-datos.md) | Contrato y esquema, mantenidos de forma central |
 | [Autenticación y autorización](../../07-seguridad/autenticacion-autorizacion.md) · [Privacidad](../../07-seguridad/privacidad-datos.md) | Perímetro de seguridad y tratamiento de PII |
 

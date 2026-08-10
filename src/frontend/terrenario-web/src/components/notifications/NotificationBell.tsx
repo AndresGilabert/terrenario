@@ -1,14 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNotifications } from '../../contexts/NotificationsContext';
+import { PendingReactivationCard } from './PendingReactivationCard';
 import { ReceivedInvitationCard } from './ReceivedInvitationCard';
 import { useInvitationActions } from './useInvitationActions';
 
 /**
- * MVP-107 (HU-3, CA-3) — Campanita en la cabecera con el número de invitaciones pendientes y una
- * bandeja para gestionarlas (aceptar/rechazar) sin salir de la operativa.
+ * MVP-107 (HU-3, CA-3) — Campanita en la cabecera con el número de avisos pendientes y una bandeja
+ * para atenderlos sin salir de la operativa.
+ *
+ * MVP-808 (CA-3) — La bandeja deja de ser solo de invitaciones: también lista las solicitudes de
+ * reactivación de Workspace que esperan la decisión de esta cuenta, que hasta ahora únicamente se
+ * avisaban por correo.
  */
 export const NotificationBell: React.FC = () => {
-  const { receivedInvitations, pendingCount } = useNotifications();
+  const { receivedInvitations, pendingReactivations, pendingCount } = useNotifications();
   const { busyFor, error, acceptInvitation, rejectInvitation } = useInvitationActions();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -35,6 +40,8 @@ export const NotificationBell: React.FC = () => {
   }, [isOpen]);
 
   const hasPending = pendingCount > 0;
+  const hasInvitations = receivedInvitations.length > 0;
+  const hasReactivations = pendingReactivations.length > 0;
 
   return (
     <div ref={containerRef} className="relative">
@@ -43,9 +50,7 @@ export const NotificationBell: React.FC = () => {
         onClick={() => setIsOpen((open) => !open)}
         className="relative p-2 rounded-lg text-[#45483c] hover:bg-[#f0ede8] transition-colors"
         aria-label={
-          hasPending
-            ? `Notificaciones: ${pendingCount} invitación(es) pendiente(s)`
-            : 'Notificaciones'
+          hasPending ? `Notificaciones: ${pendingCount} aviso(s) pendiente(s)` : 'Notificaciones'
         }
         aria-haspopup="true"
         aria-expanded={isOpen}
@@ -64,11 +69,11 @@ export const NotificationBell: React.FC = () => {
       {isOpen && (
         <div
           role="dialog"
-          aria-label="Invitaciones recibidas"
+          aria-label="Avisos pendientes"
           className="absolute right-0 mt-2 w-[min(22rem,calc(100vw-2rem))] max-h-[70vh] overflow-y-auto rounded-2xl border border-[#e5e2dd] bg-[#fcf9f4] shadow-xl p-3 z-30 space-y-3"
         >
           <div className="flex items-center justify-between px-1">
-            <h3 className="text-sm font-bold text-[#1c1c19]">Invitaciones</h3>
+            <h3 className="text-sm font-bold text-[#1c1c19]">Avisos</h3>
             {hasPending && (
               <span className="text-xs font-semibold text-[#33450d]">{pendingCount} pendiente(s)</span>
             )}
@@ -80,12 +85,21 @@ export const NotificationBell: React.FC = () => {
             </p>
           )}
 
-          {!hasPending ? (
+          {!hasPending && (
             <p className="px-1 py-6 text-center text-sm text-[#76786b]">
-              No tienes invitaciones pendientes.
+              No tienes avisos pendientes.
             </p>
-          ) : (
+          )}
+
+          {/* Los dos tipos van con su encabezado solo cuando conviven: con uno solo, un título de
+              sección sobre una única tarjeta es ruido. */}
+          {hasInvitations && (
             <div className="space-y-2">
+              {hasReactivations && (
+                <h4 className="px-1 text-xs font-semibold uppercase tracking-wide text-[#76786b]">
+                  Invitaciones
+                </h4>
+              )}
               {receivedInvitations.map((invitation) => (
                 <ReceivedInvitationCard
                   key={invitation.id}
@@ -93,6 +107,23 @@ export const NotificationBell: React.FC = () => {
                   busy={busyFor(invitation.id)}
                   onAccept={() => void acceptInvitation(invitation.id)}
                   onReject={() => void rejectInvitation(invitation.id)}
+                />
+              ))}
+            </div>
+          )}
+
+          {hasReactivations && (
+            <div className="space-y-2">
+              {hasInvitations && (
+                <h4 className="px-1 text-xs font-semibold uppercase tracking-wide text-[#76786b]">
+                  Reactivaciones
+                </h4>
+              )}
+              {pendingReactivations.map((request) => (
+                <PendingReactivationCard
+                  key={request.id}
+                  request={request}
+                  onNavigate={() => setIsOpen(false)}
                 />
               ))}
             </div>

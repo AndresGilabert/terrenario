@@ -1,6 +1,6 @@
 ﻿# Índice — MVP-008--ajustes-mvp-02: Ajustes MVP 02
 
-> **Progreso**: 2/12 completadas · **Hito**: Hito H — Ajustes de la segunda revision
+> **Progreso**: 3/12 completadas · **Hito**: Hito H — Ajustes de la segunda revision
 > _Generado automáticamente por `validar_kb.py`. No editar manualmente._
 
 | Historia | Título | Estado | Responsable | Prioridad |
@@ -12,7 +12,7 @@
 | [MVP-805](./MVP-805--aviso-de-cosecha-duplicada/spec.md) | Aviso de cosecha duplicada | ✅ aprobado | @andres | media |
 | [MVP-806](./MVP-806--depuracion-de-maestros-borrado-y-fusion/spec.md) | Depuracion de maestros: borrado y fusion | ✅ aprobado | @andres | media |
 | [MVP-807](./MVP-807--ciclo-de-vida-de-la-membresia/spec.md) | Ciclo de vida de la membresia | ✅ aprobado | @andres | alta |
-| [MVP-808](./MVP-808--avisos-in-app-que-no-dependan-del-correo/spec.md) | Avisos in-app que no dependan del correo | ✅ aprobado | @andres | media |
+| [MVP-808](./MVP-808--avisos-in-app-que-no-dependan-del-correo/spec.md) | Avisos in-app que no dependan del correo | ✔️ completado | @andres | media |
 | [MVP-809](./MVP-809--trazabilidad-de-los-requisitos-de-usuario/spec.md) | Trazabilidad de los requisitos de usuario | ✅ aprobado | @andres | alta |
 | [MVP-810](./MVP-810--peso-de-la-primera-carga/spec.md) | Peso de la primera carga | ✅ aprobado | @andres | media |
 | [MVP-811](./MVP-811--deuda-menor-de-la-revision/spec.md) | Deuda menor de la revision | ✅ aprobado | @andres | media |

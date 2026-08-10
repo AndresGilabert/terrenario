@@ -69,6 +69,12 @@ public class ReactivationHandlersTests
         return new ResolveReactivationHandler(_reactivationRepository, _workspaceRepository);
     }
 
+    /// <summary>
+    /// MVP-808 (CA-5) — También es la guarda de que el aviso in-app **se suma y no sustituye**: el
+    /// correo de <c>RN-040</c> sigue saliendo. Es lo que impide que la siguiente pasada por aquí
+    /// "simplifique" el envío ahora que la campanita cubre el mismo hueco; quien dio de baja su único
+    /// Workspace puede no tener ni siquiera la campanita a la vista.
+    /// </summary>
     [Fact]
     public async Task Solicitar_Deberia_ConsumirElEnlaceYAvisarAQuienDioDeBaja()
     {

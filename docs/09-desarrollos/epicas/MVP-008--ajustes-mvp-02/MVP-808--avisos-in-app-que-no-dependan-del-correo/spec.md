@@ -2,7 +2,7 @@
 id: "MVP-808"
 tipo: feature
 titulo: "Avisos in-app que no dependan del correo"
-estado: aprobado
+estado: completado
 prioridad: media
 sprint: ""
 hito: "Hito H — Ajustes de la segunda revision"
@@ -95,14 +95,69 @@ bandeja se entere de lo que llega mientras la sesion esta abierta.
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Una invitacion emitida mientras la sesion esta abierta aparece en la bandeja al volver
+- [x] **CA-1**: Una invitacion emitida mientras la sesion esta abierta aparece en la bandeja al volver
   a la ventana, sin recargar.
-- [ ] **CA-2**: Cambiar de pestana repetidamente **no** genera una peticion por cada cambio: se
+  **Evidencia**: `NotificationsContext.test.tsx` →
+  `Deberia_TraerLaInvitacionNueva_Cuando_SeVuelveALaVentanaPasadoElIntervalo`. La bandeja arranca con
+  0 avisos; tras avanzar el reloj falso 30 s y emitir `visibilitychange` + `focus`, la invitacion `a`
+  aparece sin remontar el arbol. Se escuchan los dos eventos porque `visibilitychange` no salta al
+  volver desde otra ventana y `focus` no salta en movil.
+- [x] **CA-2**: Cambiar de pestana repetidamente **no** genera una peticion por cada cambio: se
   comprueba contando las peticiones en un intervalo corto.
-- [ ] **CA-3**: Con una solicitud de reactivacion pendiente, la bandeja la muestra con enlace a la
+  **Evidencia**: `Deberia_NoLanzarUnaPeticionPorCadaCambioDePestana_Cuando_SeVuelveVeinteVecesSeguidas`
+  simula **20 idas y vueltas = 40 eventos** en 10 s de reloj falso. Cuenta de peticiones: **1 a
+  `/invitations/received` y 1 a `/workspaces/reactivations`** —las de la carga inicial—, ninguna mas.
+  Pasados los 30 s del intervalo minimo, la siguiente vuelta si refresca: pasa a 2 y 2, de modo que la
+  salvaguarda espacia y no anula. **Falla sin el cambio**: con `MIN_REFRESH_INTERVAL_MS = 0` el test
+  cae con `expected "vi.fn()" to be called 1 times, but got 41 times`. Un tercer caso fija que una
+  sola vuelta —que emite los dos eventos— cuesta **una** peticion, no dos.
+- [x] **CA-3**: Con una solicitud de reactivacion pendiente, la bandeja la muestra con enlace a la
   pantalla de decision, sin necesidad de haber recibido el correo.
-- [ ] **CA-4**: Resuelta la solicitud —autorizada o denegada—, el aviso desaparece de la bandeja.
-- [ ] **CA-5**: El correo de `RN-040` **se sigue enviando**: el aviso in-app se suma, no sustituye.
+  **Evidencia**: `NotificationBell.test.tsx` →
+  `Deberia_AnunciarLaSolicitudConEnlaceADecidir_Cuando_HayUnaReactivacionPendiente`: la campanita
+  pinta el nombre del Workspace, «Marta pide que le traspases esta explotacion y se reactive» y un
+  enlace `Ver y decidir` con `href="/reactivations"`. El contador suma los dos tipos
+  (`Deberia_ContarLosDosTiposEnLaChapa_Cuando_ConvivenAvisos`: 1 invitacion + 1 solicitud ⇒
+  `aria-label` «Notificaciones: 2 aviso(s) pendiente(s)»). En el contexto,
+  `Deberia_PublicarlasEnLaBandeja_Cuando_HayAlgunaEsperandoDecision` y
+  `Deberia_SumarLosDosTiposEnElContador_Cuando_ConvivenEnLaBandeja` (2 invitaciones + 1 solicitud ⇒
+  `pendingCount` 3). Contra PostgreSQL real,
+  `ListPendingAuthorizationsAsync_Deberia_VerLaSolicitudDeUnWorkspaceDadoDeBaja` comprueba que la
+  consulta ve la solicitud **con el Workspace dado de baja** —el `join` a `Workspaces` no la filtra— y
+  que quien no decide no la ve.
+  **Limitacion conocida**: la campanita vive en el shell, que exige Workspace activo. Quien dio de
+  baja su **unico** Workspace no la tiene delante y sigue dependiendo del correo y del enlace de
+  Ajustes. Registrado como candidato a punto nuevo en `MVP-999`, no resuelto aqui.
+- [x] **CA-4**: Resuelta la solicitud —autorizada o denegada—, el aviso desaparece de la bandeja.
+  **Evidencia**: `ReactivationInboxPage` refresca la bandeja tras resolver
+  (`Promise.all([load(), refreshNotifications()])`), y
+  `Deberia_DesaparecerDeLaBandeja_Cuando_LaSolicitudSeResuelve` comprueba que ese refresco deja
+  `pendingReactivations` vacio y `pendingCount` en 0. En el origen del dato, la `[Theory]`
+  `ListPendingAuthorizationsAsync_Deberia_DejarDeVerla_CuandoSeResuelvePorCualquieraDeLasDosVias`
+  corre contra PostgreSQL con los dos valores —`autorizada` y `denegada`— y en los dos la consulta
+  deja de devolverla. Ademas, el refresco por foco la retira aunque la decision se tome desde otro
+  dispositivo.
+- [x] **CA-5**: El correo de `RN-040` **se sigue enviando**: el aviso in-app se suma, no sustituye.
+  **Evidencia**: `RequestReactivationHandler` no se ha tocado —el diff de esta historia no incluye
+  ningun fichero de `src/backend/Terrenario.Api/`— y su test
+  `Solicitar_Deberia_ConsumirElEnlaceYAvisarAQuienDioDeBaja` sigue exigiendo
+  `_emailSender.Received(1).SendReactivationRequestedAsync(...)`. Se le ha añadido el comentario que
+  lo declara guarda de este `CA-5`, para que la proxima pasada no «simplifique» el envio ahora que la
+  campanita cubre el mismo hueco. `RN-040` recoge la regla por escrito.
+
+## Verificación
+
+| Gate | Resultado |
+|---|---|
+| `dotnet build src/backend/Terrenario.sln -warnaserror` | Correcto, **0 advertencias**, 0 errores |
+| `dotnet test src/backend/Terrenario.sln` | **961 pruebas**, 0 fallos (3 nuevas contra PostgreSQL) |
+| `npx tsc --noEmit` | Sin salida |
+| `npm run lint` (oxlint) | 7 avisos, **todos preexistentes** (`only-export-components` de los contextos y un `exhaustive-deps` de `OAuthCallback`); ninguno en el codigo de esta historia |
+| `npm run build` | Correcto en 1,25 s |
+| `npx vitest run` | **33 ficheros, 282 pruebas**, 0 fallos (16 nuevas: 11 de contexto + 5 de campanita) |
+
+Comprobacion visual pendiente del PO: el aspecto de la tarjeta de reactivacion dentro de la campanita
+y la convivencia de los dos tipos de aviso en la misma bandeja.
 
 ## Notas y decisiones
 

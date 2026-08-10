@@ -1,7 +1,7 @@
 ﻿---
 bloque: 01-producto
 documento: reglas-de-negocio
-actualizado_en: "2026-08-08"
+actualizado_en: "2026-08-10"
 ---
 
 # Reglas de Negocio Globales
@@ -96,6 +96,13 @@ informe operativo deja de publicarla. Ver `MVP-602` y `docs/05-infraestructura/o
 
 **Excepción**: Ninguna en MVP. El refresco automático o al recuperar el foco de la ventana queda
 descartado, no diferido.
+
+**Alcance de la regla — precisión de `MVP-808` (2026-08-10)**: esta regla habla de **recalcular
+cifras**, y solo de eso. No rige sobre los **avisos** de la bandeja de notificaciones, que desde
+`MVP-808` **sí** se refrescan al recuperar el foco de la ventana, con un intervalo mínimo entre
+refrescos. La diferencia no es de criterio, es de naturaleza: ante un panel, el usuario decide cuándo
+mirar y un número que cambia solo desorienta; un aviso es algo que **otra persona te ha mandado**, y
+enterarse de él no puede depender de cuándo mires. Ver `RN-040`.
 
 ---
 
@@ -573,6 +580,14 @@ para solicitar su traspaso y reactivacion. La solicitud solo la puede autorizar 
 baja el Workspace; al autorizarla, el Workspace vuelve a estar activo y su propiedad pasa a quien lo
 solicito. Quien dio de baja el Workspace puede ademas volver a levantarlo por su cuenta en cualquier
 momento.
+
+**Precisión de `MVP-808` (2026-08-10)**: la solicitud pendiente de decidir se avisa **por dos vías a
+la vez**, no por una. Ademas del correo, aparece en la bandeja de notificaciones de quien tiene que
+decidir, con enlace a la pantalla de decision. El correo **se sigue enviando**: el aviso in-app se
+suma, no sustituye. El motivo es que la decision es irreversible —el Workspace vuelve y cambia de
+propietario— y hacerla depender de que un correo llegue la dejaba esperando indefinidamente si se
+perdia (`P-029`). No se notifica al solicitante el resultado: sigue descubriendolo porque el
+Workspace reaparece —o no— en su selector.
 
 ### RN-041 — Todo lo que se conserva tiene plazo
 

@@ -180,4 +180,72 @@ public sealed class WorkspaceLifecycleRepositoryPostgresTests : RepositoryTestBa
         obligations.Should().NotContain(o => o.WorkspaceId == ajeno.Id);
     }
 
+    /// <summary>
+    /// MVP-808 (CA-3/CA-4) — La consulta que alimenta el nuevo aviso in-app de la campanita.
+    ///
+    /// Solo se puede comprobar contra el motor real. El Workspace de una solicitud está **dado de
+    /// baja** por definición, y la consulta lo une con <c>db.Workspaces</c>: si alguien añadiera el
+    /// filtro de baja lógica a esa entrada —el mismo <c>WHERE deleted_at IS NULL</c> que llevan casi
+    /// todas las demás— el aviso se quedaría permanentemente vacío y ningún test de handler se
+    /// enteraría, porque los repositorios van mockeados (lección de <c>P-014</c>).
+    /// </summary>
+    [Fact]
+    public async Task ListPendingAuthorizationsAsync_Deberia_VerLaSolicitudDeUnWorkspaceDadoDeBaja()
+    {
+        var owner = await SeedUserAsync("-react-owner", "Antonio");
+        var solicitante = await SeedUserAsync("-react-pide", "Marta");
+        var workspace = await SeedWorkspaceAsync(owner, "Finca El Olivar");
+        Db.WorkspaceMembers.Add(WorkspaceMember.CreateMember(workspace.Id, solicitante.Id));
+
+        workspace.SoftDelete(owner.Id, DateTimeOffset.UtcNow);
+        var request = WorkspaceReactivationRequest.Issue(
+            workspace.Id, solicitante.Id, owner.Id, "hash-react-1", TimeSpan.FromDays(7));
+        request.Submit(solicitante.Id, DateTimeOffset.UtcNow);
+        Db.WorkspaceReactivationRequests.Add(request);
+        await Db.SaveChangesAsync();
+
+        var repository = new WorkspaceReactivationRequestRepository(NewDb());
+        var pending = await repository.ListPendingAuthorizationsAsync(owner.Id);
+
+        pending.Should().ContainSingle();
+        pending[0].Id.Should().Be(request.Id);
+        pending[0].WorkspaceName.Should().Be("Finca El Olivar");
+        pending[0].RequesterDisplayName.Should().Be("Marta");
+        pending[0].RequesterEmail.Should().Be(solicitante.Email);
+
+        // Y solo la ve quien tiene que decidir: para el solicitante no existe.
+        (await repository.ListPendingAuthorizationsAsync(solicitante.Id)).Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData("autorizada")]
+    [InlineData("denegada")]
+    public async Task ListPendingAuthorizationsAsync_Deberia_DejarDeVerla_CuandoSeResuelvePorCualquieraDeLasDosVias(
+        string via)
+    {
+        // CA-4 — El aviso desaparece porque la solicitud deja de estar `solicitada`, no porque la
+        // pantalla la esconda: la fuente de verdad es la misma para la campanita y para la bandeja.
+        var owner = await SeedUserAsync($"-res-owner-{via}", "Antonio");
+        var solicitante = await SeedUserAsync($"-res-pide-{via}", "Marta");
+        var workspace = await SeedWorkspaceAsync(owner, $"Finca {via}");
+        Db.WorkspaceMembers.Add(WorkspaceMember.CreateMember(workspace.Id, solicitante.Id));
+
+        workspace.SoftDelete(owner.Id, DateTimeOffset.UtcNow);
+        var request = WorkspaceReactivationRequest.Issue(
+            workspace.Id, solicitante.Id, owner.Id, $"hash-{via}", TimeSpan.FromDays(7));
+        request.Submit(solicitante.Id, DateTimeOffset.UtcNow);
+        Db.WorkspaceReactivationRequests.Add(request);
+        await Db.SaveChangesAsync();
+
+        var repository = new WorkspaceReactivationRequestRepository(Db);
+        (await repository.ListPendingAuthorizationsAsync(owner.Id)).Should().ContainSingle();
+
+        var now = DateTimeOffset.UtcNow;
+        if (via == "autorizada") request.Authorize(owner.Id, now);
+        else request.Deny(owner.Id, now);
+        await Db.SaveChangesAsync();
+
+        (await new WorkspaceReactivationRequestRepository(NewDb())
+            .ListPendingAuthorizationsAsync(owner.Id)).Should().BeEmpty();
+    }
 }

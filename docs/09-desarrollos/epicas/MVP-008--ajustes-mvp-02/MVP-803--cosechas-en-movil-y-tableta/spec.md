@@ -2,7 +2,7 @@
 id: "MVP-803"
 tipo: mejora
 titulo: "Cosechas en movil y tableta"
-estado: aprobado
+estado: completado
 prioridad: media
 sprint: ""
 hito: "Hito H — Ajustes de la segunda revision"
@@ -65,6 +65,12 @@ desplazamiento horizontal y sin perder informacion util.
   de compras: fecha y campana, terreno, kilos, aceite, importe, destino y las acciones.
 - **Punto de corte del lateral a `lg:`** (decision del PO, 2026-08-10): en 768–1023 px se usa el menu
   desplegable que ya existe para movil, y el contenido recupera los 256 px enteros.
+- **La misma maqueta en Compras y en su bloque de consumos** (ampliacion decidida por el PO el
+  2026-08-10, al medirlo). El fuera de alcance original excluia «las demas listas, que ya tienen
+  maqueta adaptada»; **medido a 375 px, eso no era cierto para Compras**: su tabla mide 881 px dentro
+  de un contenedor de 341 y se arrastra igual que la de Cosechas. Los maestros si estan bien —cero
+  desbordes en Terrenos y en Miembros—. Se amplia con la medida delante, igual que el propio `P-095` se
+  replanteo al medirlo.
 - Comprobacion de los cuatro anchos que `MVP-702` uso como referencia, con la medida antes y despues.
 
 ## Fuera de alcance (out-of-scope)
@@ -73,19 +79,38 @@ desplazamiento horizontal y sin perder informacion util.
   iconos** en el tramo de tableta: conservaria la navegacion visible y daria ~192 px, pero obliga a
   resolver los rotulos al pasar el raton y las diez entradas agrupadas en tres secciones sin texto, y
   anade un tercer estado del shell que mantener.
-- Cambiar las columnas, los calculos o los filtros de Cosechas: los filtros son `MVP-802`.
-- Tocar las demas listas, que ya tienen maqueta adaptada.
+- Cambiar las columnas, los calculos o los filtros de Cosechas ni de Compras: los filtros son `MVP-802`.
+- Tocar el diario y los maestros, que si tienen maqueta adaptada: comprobado, no supuesto.
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: A 375 px, Cosechas no produce desplazamiento horizontal en ningun contenedor, y toda la
+- [x] **CA-1**: A 375 px, Cosechas no produce desplazamiento horizontal en ningun contenedor, y toda la
   informacion de cada partida es legible sin desplazar.
-- [ ] **CA-2**: A 768 px el lateral ya no ocupa espacio fijo y el ancho util del contenido recupera los
+  **Evidencia** (navegador conducido): la tabla de 897 px en un contenedor de 341 desaparece; se pintan
+  4 tarjetas y el documento **no** se desplaza en horizontal. El unico contenedor con desplazamiento
+  propio es la tira de resumen (`SummaryStrip`), que es el carrusel deliberado de `MVP-702` y se
+  comporta igual en el diario: medido en las dos pantallas. La tarjeta conserva terreno, fecha,
+  campana, kilos, producto, rendimiento **con su origen**, importe y destino; fijado con test.
+- [x] **CA-2**: A 768 px el lateral ya no ocupa espacio fijo y el ancho util del contenido recupera los
   **256 px** que se llevaba, partiendo de los **448 px** medidos hoy. Se aporta la cifra medida antes y
   despues, no la estimada. El menu de navegacion sigue siendo alcanzable en ese ancho.
-- [ ] **CA-3**: A 1024 px y a 1440 px la vista no cambia respecto a lo que entrego `MVP-702`.
-- [ ] **CA-4**: Las acciones de corregir y eliminar una partida siguen siendo alcanzables y siguen
+  **Evidencia**: ancho util **448 → 689 px**, es decir **+241**. No son los +256 teoricos: los 15 px de
+  diferencia son la barra de desplazamiento vertical que aparece al alargarse la pagina con las
+  tarjetas. El lateral deja de ocupar (`display: none`) y el boton «Abrir menu» si se ve.
+- [x] **CA-3**: A 1024 px y a 1440 px la vista no cambia respecto a lo que entrego `MVP-702`.
+  **Evidencia**: a 1024, ancho util 689 px, lateral visible y la tabla presente con su desplazamiento
+  —igual que antes—; a 1440, ancho util 1120 px y la tabla de 1118 px cabe sin desplazarse. Las dos
+  medidas coinciden con las de antes del cambio.
+- [x] **CA-4**: Las acciones de corregir y eliminar una partida siguen siendo alcanzables y siguen
   nombrando la partida a la que apuntan en su etiqueta accesible.
+  **Evidencia**: a 375 px las ocho acciones de las cuatro partidas se leen como «Corregir la cosecha de
+  La Via del 8 dic 2026» y equivalentes. La tabla y la tarjeta usan **el mismo** componente de
+  acciones, asi que la etiqueta no puede divergir entre maquetas; hay test en las dos vistas.
+- [x] **CA-5** (anadido con la ampliacion): Compras y su bloque de consumos se leen igual por debajo
+  del punto de corte.
+  **Evidencia**: a 375 px las dos tablas desaparecen y se pintan dos listas de tarjetas; la tarjeta de
+  compra conserva el reparto por terrenos de `MVP-304` (`50 / 200`) y los tres botones de la compra y
+  los dos del consumo conservan su etiqueta accesible. Fijado con cuatro tests.
 
 ## Maquetas y referencias visuales
 

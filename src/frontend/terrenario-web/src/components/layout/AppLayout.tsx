@@ -93,9 +93,18 @@ export const AppLayout: React.FC = () => {
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen bg-[#fcf9f4] text-[#1c1c19] flex flex-col md:flex-row">
-      {/* Barra lateral fija en escritorio */}
-      <div className="hidden md:block h-screen sticky top-0 z-30">
+    <div className="min-h-screen bg-[#fcf9f4] text-[#1c1c19] flex flex-col lg:flex-row">
+      {/* Barra lateral fija en escritorio.
+
+          MVP-803 (`P-095`) — El corte pasa de `md:` a `lg:` (decisión del PO, 2026-08-10). A 768 px
+          exactos el lateral aparecía **justo en ese ancho** y se llevaba sus 256 px, de modo que al
+          contenido le quedaban 448: menos que en móvil más un poco. En el tramo de tableta se usa el
+          menú desplegable que ya existe para móvil y el contenido recupera la pantalla entera.
+
+          Se descartó plegar el lateral a iconos en ese tramo: conservaría la navegación visible y
+          daría ~192 px, pero obliga a resolver los rótulos al pasar el ratón y las diez entradas
+          agrupadas en tres secciones sin texto, y añade un tercer estado del shell que mantener. */}
+      <div className="hidden lg:block h-screen sticky top-0 z-30">
         <AppSidebar />
       </div>
 

@@ -27,7 +27,7 @@ export const AppTopbar: React.FC<AppTopbarProps> = ({ title, onOpenMobileMenu })
         <button
           type="button"
           onClick={onOpenMobileMenu}
-          className="md:hidden p-2 rounded-lg text-[#45483c] hover:bg-[#f0ede8] transition-colors"
+          className="lg:hidden p-2 rounded-lg text-[#45483c] hover:bg-[#f0ede8] transition-colors"
           aria-label="Abrir menú"
         >
           <span className="material-symbols-outlined" aria-hidden="true">menu</span>

@@ -162,3 +162,75 @@ describe('CosechasView — filtros en la URL', () => {
     await waitFor(() => expect(location.search).toBe(''));
   });
 });
+
+/**
+ * MVP-803 (`P-095`) — Cosechas por debajo del punto de corte.
+ *
+ * La tabla mide ~897 px y el contenido tiene 341 px a 375 y 704 a 768: en los dos anchos se leía
+ * arrastrando de lado a lado. Lo que se comprueba aquí es que la lista **cambia de maqueta**, no que
+ * quepa: el ancho real se mide en el navegador y va en la evidencia del `spec`.
+ */
+describe('CosechasView — maqueta adaptada', () => {
+  const renderStrecho = () => {
+    // El doble común declara escritorio (1280 px); esta pantalla es la de un móvil.
+    vi.stubGlobal('matchMedia', (query: string) => {
+      const min = /\(min-width:\s*(\d+)px\)/.exec(query);
+      return {
+        matches: min ? 375 >= Number(min[1]) : false,
+        media: query,
+        onchange: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => false,
+      };
+    });
+
+    http = createFakeHttpClient({
+      '/api/v1/harvests': { data: [harvest()], meta: { scope: scope(), total: 1, total_kg: 1000 } },
+      '/api/v1/plots': { data: [{ id: 'p-1', name: 'Matorral', is_active: true }], meta: { total: 1 } },
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/app/cosechas']}>
+        <CosechasView />
+      </MemoryRouter>
+    );
+  };
+
+  it('no pinta la tabla de ocho columnas', async () => {
+    renderStrecho();
+
+    await screen.findByRole('list', { name: 'Partidas recolectadas' });
+    expect(document.querySelector('table')).toBeNull();
+  });
+
+  it('conserva toda la información de la partida', async () => {
+    // CA-1 — «toda la información de cada partida es legible sin desplazar»: la tarjeta no puede ser
+    // la tabla con columnas quitadas.
+    renderStrecho();
+
+    const tarjeta = (await screen.findByRole('list', { name: 'Partidas recolectadas' }))
+      .firstElementChild as HTMLElement;
+
+    for (const dato of ['Matorral', '20 oct 2025', 'Campana 2025', '1000 kg', 'Aceituna de olivar']) {
+      expect(tarjeta.textContent).toContain(dato);
+    }
+    // El rendimiento derivado sigue marcándose como tal (RN-013/RN-014).
+    expect(tarjeta.textContent).toContain('16,0 L/100kg');
+    expect(tarjeta.textContent).toContain('de 160,0 L');
+  });
+
+  it('mantiene las acciones y su etiqueta accesible', async () => {
+    // CA-4 — la etiqueta tiene que seguir nombrando **a qué partida** apunta.
+    renderStrecho();
+
+    expect(
+      await screen.findByRole('button', { name: 'Corregir la cosecha de Matorral del 20 oct 2025' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Eliminar la cosecha de Matorral del 20 oct 2025' })
+    ).toBeInTheDocument();
+  });
+});

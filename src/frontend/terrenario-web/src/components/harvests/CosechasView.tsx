@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { useApiClient } from '../../contexts/ApiContext';
 import { useSeason } from '../../contexts/SeasonContext';
 import { useSeasonScope } from '../../lib/season-scope';
+import { FILTER_ALL, useListUrlState } from '../../lib/list-url-state';
 import { ALL_SEASONS } from '../../types/season.types';
 import { createHarvestService } from '../../services/harvest.service';
 import { createPlotService } from '../../services/plot.service';
@@ -21,6 +22,19 @@ import { MobileDisclosure } from '../common/MobileDisclosure';
 import { SummaryStrip } from '../common/SummaryStrip';
 import { HarvestFormModal } from './HarvestFormModal';
 import { fechaDeNegocio } from '../../lib/fechas';
+
+/**
+ * MVP-802 — Los filtros de Cosechas en la URL (RN-007). Los nombres coinciden con los de la API para
+ * que la dirección se lea sola. La temporada tiene `''` por defecto y no `todos`: desde `MVP-701` el
+ * defecto lo resuelve el servidor (RN-008), y `all` es una elección explícita con valor propio.
+ */
+const HARVEST_URL_SPEC = {
+  filters: {
+    plotId: { param: 'plot_id', fallback: FILTER_ALL },
+    seasonSelection: { param: 'season_id', fallback: '' },
+    destination: { param: 'destination', fallback: FILTER_ALL },
+  },
+} as const;
 
 /** Formato de fecha corto y legible, sin depender del locale del navegador. */
 const number = (value: number, decimals = 0) =>
@@ -52,15 +66,37 @@ export const CosechasView: React.FC = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const [plotFilter, setPlotFilter] = useState('todos');
+  /**
+   * MVP-802 (`P-109`) — Los tres filtros viven en la **URL** (RN-007), con la misma pieza que el
+   * diario. Hasta aquí su estado vivía en memoria: filtrar por «Campaña 2026» pasaba la tabla de 1 a 4
+   * filas sin que la dirección cambiara, así que recargar deshacía el trabajo y no había forma de
+   * mandarle a nadie «mira estas partidas».
+   */
+  const url = useListUrlState(HARVEST_URL_SPEC);
+  const { setFilter } = url;
+  const plotFilter = url.values.plotId;
+  const destinationFilter = url.values.destination;
+
   // MVP-701 (`P-082`) — El ámbito de temporada ya no arranca en «todas»: lo resuelve el servidor con
   // el defecto de RN-008. Era la causa de que esta pantalla y la Visión General dieran totales
   // distintos de la misma campaña.
-  const seasonScope = useSeasonScope();
+  //
+  // MVP-802 — Y desde que la elección vive en la URL, el hook va en **modo controlado**: si la guardara
+  // también él, habría dos copias de lo mismo y podrían divergir.
+  const seasonScope = useSeasonScope({
+    selection: url.values.seasonSelection,
+    onSelect: useCallback((value: string) => setFilter({ seasonSelection: value }), [setFilter]),
+    // MVP-801 (`P-108`) — Un `season_id` que el servidor no ha podido aplicar se borra **sustituyendo**
+    // la entrada: corregirlo no es navegar. Sin esto, llevar el filtro a la URL propagaría a esta vista
+    // el defecto que `MVP-801` acaba de cerrar (CA-5).
+    onCorrect: useCallback(
+      (value: string) => setFilter({ seasonSelection: value }, { replace: true }),
+      [setFilter]
+    ),
+  });
   // Desestructurado para que las dependencias de `reload` sean identificadores estables y la regla de
   // exhaustividad de los hooks pueda comprobarlas.
   const { requested: seasonRequested, applyFromResponse: applySeasonScope } = seasonScope;
-  const [destinationFilter, setDestinationFilter] = useState('todos');
 
   const [isModalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Harvest | null>(null);
@@ -206,13 +242,10 @@ export const CosechasView: React.FC = () => {
     }
   };
 
-  const hasFilters =
-    plotFilter !== 'todos' || seasonScope.isExplicit || destinationFilter !== 'todos';
+  // MVP-802 — Los cuenta la pieza común: son los mismos que hay escritos en la URL, así que contarlos
+  // aparte sería una segunda verdad sobre lo mismo.
   // MVP-702 — Con los filtros plegados en móvil, el número es lo que evita no saber que hay puestos.
-  const activeFilterCount =
-    (plotFilter !== 'todos' ? 1 : 0) +
-    (seasonScope.isExplicit ? 1 : 0) +
-    (destinationFilter !== 'todos' ? 1 : 0);
+  const { hasFilters, activeCount: activeFilterCount } = url;
 
   return (
     <div className="space-y-6 pb-12">
@@ -290,7 +323,7 @@ export const CosechasView: React.FC = () => {
             <select
               id="harvest-filter-plot"
               value={plotFilter}
-              onChange={(e) => setPlotFilter(e.target.value)}
+              onChange={(e) => setFilter({ plotId: e.target.value })}
               className="w-full px-3 py-2 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-xs font-medium text-[#1c1c19] focus:outline-none focus:border-[#33450d]"
             >
               <option value="todos">Todos los terrenos</option>
@@ -323,7 +356,7 @@ export const CosechasView: React.FC = () => {
             <select
               id="harvest-filter-destination"
               value={destinationFilter}
-              onChange={(e) => setDestinationFilter(e.target.value)}
+              onChange={(e) => setFilter({ destination: e.target.value })}
               className="w-full px-3 py-2 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-xs font-medium text-[#1c1c19] focus:outline-none focus:border-[#33450d]"
             >
               <option value="todos">Todos los destinos</option>

@@ -2,7 +2,7 @@
 id: "MVP-802"
 tipo: feature
 titulo: "Filtros de cosechas y compras en la URL"
-estado: aprobado
+estado: completado
 prioridad: media
 sprint: ""
 hito: "Hito H — Ajustes de la segunda revision"
@@ -83,16 +83,32 @@ pieza y las mismas dos condiciones de higiene que ya rigen en el diario.
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Filtrar Cosechas por terreno, temporada o destino escribe el filtro en la URL, y
+- [x] **CA-1**: Filtrar Cosechas por terreno, temporada o destino escribe el filtro en la URL, y
   recargar la pagina mantiene exactamente la misma lista.
-- [ ] **CA-2**: Lo mismo en Compras y en su bloque de consumos.
-- [ ] **CA-3**: Un enlace copiado de cualquiera de las dos vistas reproduce en otra sesion la misma
+  **Evidencia** (navegador conducido, Workspace «Rafa»): elegir «Campaña 2026» pasa la tabla de **1 a 4
+  filas** —el escenario exacto de `P-109`— y la direccion pasa a
+  `/app/cosechas?season_id=de851105…`. Recargar con `?season_id=…&destination=aceite_para_venta` deja
+  1 fila con los dos controles ya posicionados.
+- [x] **CA-2**: Lo mismo en Compras y en su bloque de consumos.
+  **Evidencia**: `/app/compras?season_id=all&product=Abono` recarga con el buscador relleno y el
+  selector en «Todas las temporadas»; el test de componente comprueba que **las dos** peticiones —libro
+  y consumos— reciben `season_id` y `product`.
+- [x] **CA-3**: Un enlace copiado de cualquiera de las dos vistas reproduce en otra sesion la misma
   seleccion de filtros.
-- [ ] **CA-4**: La URL **no** contiene los valores por defecto: sin filtros explicitos, la direccion
+  **Evidencia**: es el mismo mecanismo que `CA-1`, comprobado navegando a la direccion desde cero en
+  vez de recargando. Los tests piden al servidor exactamente lo que trae la direccion.
+- [x] **CA-4**: La URL **no** contiene los valores por defecto: sin filtros explicitos, la direccion
   queda limpia.
-- [ ] **CA-5**: Con un `season_id` de otro Workspace en la URL, las dos vistas siguen cayendo al
+  **Evidencia**: `/app/cosechas` sin parametros muestra la campana de trabajo y la direccion sigue
+  limpia; volver un filtro a «todos» borra su parametro. Fijado con test.
+- [x] **CA-5**: Con un `season_id` de otro Workspace en la URL, las dos vistas siguen cayendo al
   defecto y mostrando en el control la campana aplicada, sin reintroducir `P-108`.
-- [ ] **CA-6**: `RN-007` describe el comportamiento de las cuatro vistas operativas.
+  **Evidencia**: `/app/cosechas?season_id=<de otro Workspace>` deja el control en «Campana 2025» y la
+  direccion en `/app/cosechas`. Hay un test equivalente en cada una de las dos vistas, y el doble de
+  cliente HTTP aplica `RN-008` como el servidor para que la prueba no pase por casualidad.
+- [x] **CA-6**: `RN-007` describe el comportamiento de las cuatro vistas operativas.
+  **Evidencia**: `RN-007` lista los parametros de las cuatro, dice que los consumos comparten los del
+  libro, y recoge que la mecanica vive en **una sola pieza** y por que.
 
 ## Notas y decisiones
 

@@ -103,14 +103,30 @@ descartado, no diferido.
 
 **Estado**: activa
 **Fuente**: producto
-**Módulos afectados**: dashboard, diario
+**Módulos afectados**: dashboard, diario, cosechas, compras
 
 La recarga mantiene los filtros activos del usuario. Se materializa con los filtros en la **URL**: la
 recarga los conserva y el enlace es compartible.
 
+Rige en **las cuatro vistas operativas**:
+
 - **Dashboard** (MVP-405): `?season_id=…&plot_ids=…`.
 - **Diario** (MVP-705): `?type=…&plot_id=…&season_id=…&worker_id=…&search=…&page=…`. Es donde más
   duele no tenerlo —cinco filtros y paginación— y se había quedado fuera (`P-072`).
+- **Cosechas** (MVP-802): `?plot_id=…&season_id=…&destination=…`.
+- **Compras** (MVP-802): `?season_id=…&product=…`, aplicados por igual al libro y a su bloque de
+  consumos: las dos listas conviven en una sola pantalla y hablar de campañas distintas sería el propio
+  `P-082` dentro de una vista.
+
+Las dos últimas entran con `MVP-802`. Hasta entonces su estado vivía en memoria: filtrar Cosechas por
+una campaña pasaba la tabla de 1 a 4 filas sin que la dirección cambiara, así que recargar deshacía el
+trabajo y no había forma de mandarle a nadie «mira estas partidas» (`P-109`). Se descartó la
+alternativa de **acotar la regla** a dashboard y diario: el enunciado es general, y el usuario no tiene
+forma de saber que dos pantallas recuerdan y dos no.
+
+La materializa **una sola pieza** (`lib/list-url-state.ts`), no una copia por vista: la lección de
+`P-072` y `P-082` es que un comportamiento duplicado acaba divergiendo. Lo que cambia por vista es la
+declaración de sus parámetros, no la mecánica.
 
 Dos condiciones para que la URL sea usable y no un vertedero:
 

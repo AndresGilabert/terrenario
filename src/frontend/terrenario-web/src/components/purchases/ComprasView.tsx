@@ -5,6 +5,7 @@ import { useSeason } from '../../contexts/SeasonContext';
 import { createPurchaseService } from '../../services/purchase.service';
 import { HttpError } from '../../services/http-client';
 import { useSeasonScope } from '../../lib/season-scope';
+import { useListUrlState } from '../../lib/list-url-state';
 import { ALL_SEASONS } from '../../types/season.types';
 import { CONFLICT_VERSION_MISMATCH } from '../../types/activity.types';
 import {
@@ -35,6 +36,18 @@ function todayIso(): string {
 
 const euros = (value: number) =>
   value.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/**
+ * MVP-802 — Los filtros del libro de compras en la URL (RN-007). Son los mismos para las compras y
+ * para su bloque de consumos: las dos listas conviven en esta pantalla y hablar de campañas distintas
+ * sería el propio `P-082` dentro de una sola vista.
+ */
+const PURCHASE_URL_SPEC = {
+  filters: {
+    seasonSelection: { param: 'season_id', fallback: '' },
+  },
+  search: 'product',
+} as const;
 
 /**
  * Libro de compras del Workspace (MVP-303).
@@ -68,13 +81,42 @@ export const ComprasView: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  /**
+   * MVP-802 (`P-109`) — La campaña y el material buscado viven en la **URL** (RN-007), con la misma
+   * pieza que el diario y que Cosechas. Hasta aquí su estado vivía en memoria: recargar deshacía el
+   * filtro y no había forma de compartir «mira estas compras».
+   */
+  const url = useListUrlState(PURCHASE_URL_SPEC);
+  const { setFilter, setSearch, search: appliedProduct } = url;
+
   // MVP-701 (`P-082`) — El defecto de temporada lo resuelve el servidor (RN-008), igual que en el
   // dashboard: el libro de compras ya no arranca en «todas».
-  const seasonScope = useSeasonScope();
+  //
+  // MVP-802 — En modo controlado desde que la elección vive en la URL, con la corrección de `MVP-801`
+  // conectada: llevar el filtro a la URL es justo lo que expone `P-108`, y sin `onCorrect` esta vista
+  // lo estrenaría (CA-5).
+  const seasonScope = useSeasonScope({
+    selection: url.values.seasonSelection,
+    onSelect: useCallback((value: string) => setFilter({ seasonSelection: value }), [setFilter]),
+    onCorrect: useCallback(
+      (value: string) => setFilter({ seasonSelection: value }, { replace: true }),
+      [setFilter]
+    ),
+  });
   // Desestructurado para que las dependencias de `reload` sean identificadores estables y la regla de
   // exhaustividad de los hooks pueda comprobarlas.
   const { requested: seasonRequested, applyFromResponse: applySeasonScope } = seasonScope;
-  const [productFilter, setProductFilter] = useState('');
+
+  /**
+   * Lo que se está tecleando. Es lo **único** de la navegación que no vive en la URL: escribirlo allí
+   * en cada pulsación llenaría el historial. El término ya rebotado sí viaja, y de ahí sale
+   * `appliedProduct`.
+   *
+   * MVP-802 — El rebote es nuevo aquí: hasta ahora cada pulsación disparaba una petición de compras,
+   * otra de consumos y un repintado del libro. Es la condición de higiene de `RN-007` que el diario ya
+   * cumplía, y la que impide que llevar la búsqueda a la URL deje una entrada de historial por letra.
+   */
+  const [productFilter, setProductFilter] = useState(appliedProduct);
 
   // Alta en línea (prototipo)
   const [newDate, setNewDate] = useState(todayIso());
@@ -115,7 +157,7 @@ export const ComprasView: React.FC = () => {
       const [list, productList, consumptionList, plotList] = await Promise.all([
         purchaseService.listPurchases({
           seasonId: seasonRequested,
-          product: productFilter.trim() || undefined,
+          product: appliedProduct || undefined,
         }),
         purchaseService.listProductSuggestions(),
         consumptionService.listConsumptions({
@@ -123,7 +165,7 @@ export const ComprasView: React.FC = () => {
           // campañas distintas sería el propio `P-082` dentro de una sola vista.
           seasonId: seasonRequested,
           // R-06 (MVP-399) — el buscador de material filtraba las compras pero no los consumos.
-          product: productFilter.trim() || undefined,
+          product: appliedProduct || undefined,
         }),
         // Solo los activos: es lo que se ofrece para registros nuevos (MVP-202, CA-3).
         plotService.listPlots({ isActive: true }),
@@ -148,12 +190,33 @@ export const ComprasView: React.FC = () => {
     plotService,
     seasonRequested,
     applySeasonScope,
-    productFilter,
+    appliedProduct,
   ]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  /**
+   * MVP-802 — La búsqueda viaja al servidor y a la URL cuando la persona para de teclear, no en cada
+   * pulsación, y **sustituyendo** la entrada de historial (RN-007). Mismo rebote y mismo criterio que
+   * el diario desde `MVP-506`/`MVP-705`.
+   */
+  useEffect(() => {
+    if (productFilter.trim() === appliedProduct) return;
+
+    const timer = setTimeout(() => setSearch(productFilter.trim()), 350);
+    return () => clearTimeout(timer);
+  }, [productFilter, appliedProduct, setSearch]);
+
+  /**
+   * Cuando la URL cambia **por fuera** —«atrás», «adelante», o un enlace pegado— el cuadro de búsqueda
+   * tiene que seguirla. La comparación con lo tecleado evita que este efecto pise lo que se escribe:
+   * mientras se teclea, la URL todavía no ha cambiado.
+   */
+  useEffect(() => {
+    setProductFilter((current) => (current.trim() === appliedProduct ? current : appliedProduct));
+  }, [appliedProduct]);
 
   useEffect(() => {
     if (createdCount > 0) newProductInput.current?.focus();
@@ -463,12 +526,9 @@ export const ComprasView: React.FC = () => {
 
       {/* Filtros */}
       {/* MVP-702 — Filtros plegados en móvil para que el libro se vea al entrar. */}
-      {(purchases.length > 0 || productFilter || seasonScope.isExplicit) && (
-        <MobileDisclosure
-          label="Filtros"
-          icon="tune"
-          activeCount={(productFilter.trim() !== '' ? 1 : 0) + (seasonScope.isExplicit ? 1 : 0)}
-        >
+      {/* MVP-802 — Lo decide la URL: si hay parámetro, hay filtro. Los defectos no llegan a escribirse. */}
+      {(purchases.length > 0 || url.hasFilters) && (
+        <MobileDisclosure label="Filtros" icon="tune" activeCount={url.activeCount}>
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1 bg-white p-3 rounded-2xl border border-[#e5e2dd] flex items-center gap-3">
             <span className="material-symbols-outlined text-[#76786b] pl-2" aria-hidden="true">search</span>
@@ -525,14 +585,14 @@ export const ComprasView: React.FC = () => {
             <span className="material-symbols-outlined text-3xl" aria-hidden="true">receipt_long</span>
           </div>
           <h3 className="font-headline font-bold text-lg text-[#1c1c19]">
-            {productFilter || seasonScope.isExplicit
+            {url.hasFilters
               ? 'No hay compras que coincidan'
               : seasonScope.label
                 ? `Sin compras en ${seasonScope.label}`
                 : 'Todavía no has registrado compras'}
           </h3>
           <p className="text-sm text-[#45483c] max-w-md mx-auto">
-            {productFilter || seasonScope.isExplicit
+            {url.hasFilters
               ? 'Prueba a cambiar el material buscado o la campaña.'
               : 'Apunta arriba lo que compras para la explotación: abonos, fitosanitarios, combustible o material.'}
           </p>

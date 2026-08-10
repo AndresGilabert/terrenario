@@ -1,11 +1,11 @@
 ﻿# Índice — MVP-008--ajustes-mvp-02: Ajustes MVP 02
 
-> **Progreso**: 0/12 completadas · **Hito**: Hito H — Ajustes de la segunda revision
+> **Progreso**: 1/12 completadas · **Hito**: Hito H — Ajustes de la segunda revision
 > _Generado automáticamente por `validar_kb.py`. No editar manualmente._
 
 | Historia | Título | Estado | Responsable | Prioridad |
 |----------|--------|--------|-------------|-----------|
-| [MVP-801](./MVP-801--coherencia-del-ambito-de-temporada/spec.md) | Coherencia del ambito de temporada | ✅ aprobado | @andres | alta |
+| [MVP-801](./MVP-801--coherencia-del-ambito-de-temporada/spec.md) | Coherencia del ambito de temporada | ✔️ completado | @andres | alta |
 | [MVP-802](./MVP-802--filtros-de-cosechas-y-compras-en-la-url/spec.md) | Filtros de cosechas y compras en la URL | ✅ aprobado | @andres | media |
 | [MVP-803](./MVP-803--cosechas-en-movil-y-tableta/spec.md) | Cosechas en movil y tableta | ✅ aprobado | @andres | media |
 | [MVP-804](./MVP-804--autoria-visible-de-los-registros/spec.md) | Autoria visible de los registros operativos | ✅ aprobado | @andres | media |

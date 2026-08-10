@@ -2,7 +2,7 @@
 id: "MVP-801"
 tipo: bugfix
 titulo: "Coherencia del ambito de temporada"
-estado: aprobado
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito H — Ajustes de la segunda revision"
@@ -98,18 +98,33 @@ Workspace deje de vaciar la pantalla insignia del producto.
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: `GET /api/v1/dashboard/*` con un `season_id` que no pertenezca al Workspace activo
+- [x] **CA-1**: `GET /api/v1/dashboard/*` con un `season_id` que no pertenezca al Workspace activo
   devuelve el **mismo** `scope.season` que `GET /api/v1/diary` con ese mismo identificador, en vez de
   `null`. Verificado con los dos endpoints en la misma llamada de prueba.
-- [ ] **CA-2**: Con terrenos de otro Workspace en `plot_ids`, el ambito cae en todos los terrenos
+  **Evidencia** (API real, Workspace «Rafa», `season_id` de la campana de «Test 02»): los dos
+  responden `scope.season.id = 5ff659f0…` («Campana 2025»), y `total_kg` pasa de `0` a `1000`. Fijado
+  ademas con la prueba de integracion que compara los dos endpoints en la misma llamada, comprobada
+  **en rojo** sin el arreglo.
+- [x] **CA-2**: Con terrenos de otro Workspace en `plot_ids`, el ambito cae en todos los terrenos
   activos del Workspace activo y el resumen deja de salir a cero.
-- [ ] **CA-3**: Cambiar de Workspace estando en la Vision General con filtros en la URL deja la
+  **Evidencia**: `GET /dashboard/summary?plot_ids=<de Test 01>` devuelve `plots: 2` con los dos
+  terrenos de «Rafa» y `total_kg: 1000`, en vez de `plots: 0` y ceros.
+- [x] **CA-3**: Cambiar de Workspace estando en la Vision General con filtros en la URL deja la
   pantalla mostrando datos del Workspace elegido, sin estado vacio y sin recarga manual.
-- [ ] **CA-4**: En el diario, con un `season_id` desconocido en la URL, el `<select>` de temporada
+  **Evidencia** (navegador conducido): en `/app/vision-general?season_id=<Campana 2026 de Rafa>`, al
+  cambiar a «Test 02» la URL queda en `/app/vision-general`, el filtro se posiciona en «Campaña 2026»
+  —la de Test 02— y el estado vacio «Todavia no hay temporada que mirar» no aparece.
+- [x] **CA-4**: En el diario, con un `season_id` desconocido en la URL, el `<select>` de temporada
   muestra **la campana que el servidor ha aplicado**, no «Todas las temporadas», y la URL queda
   corregida.
-- [ ] **CA-5**: `RN-008` recoge las dos precisiones y no queda ninguna vista operativa exenta de la
+  **Evidencia**: `/app/diario?season_id=<de otro Workspace>` deja el `<select>` en «Campana 2025» y la
+  direccion en `/app/diario`. La correccion **sustituye** la entrada de historial, comprobado con
+  `history.length`.
+- [x] **CA-5**: `RN-008` recoge las dos precisiones y no queda ninguna vista operativa exenta de la
   regla.
+  **Evidencia**: `RN-008` recoge la caida al defecto en el dashboard —temporada y terrenos—, la
+  precedencia del ambito del servidor sobre la seleccion de la URL con correccion de la direccion, y la
+  limpieza del ambito al cambiar de Workspace.
 
 ## Maquetas y referencias visuales
 

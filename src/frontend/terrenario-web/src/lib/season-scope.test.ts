@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { useSeasonScope } from './season-scope';
 import { ALL_SEASONS, type SeasonScope } from '../types/season.types';
 
@@ -49,13 +49,15 @@ describe('useSeasonScope', () => {
     expect(result.current.isExplicit).toBe(true);
   });
 
-  it('la elección del usuario manda sobre lo que diga la respuesta', () => {
+  it('mantiene la elección del usuario mientras el servidor no ha contestado a ella', () => {
     const { result } = renderHook(() => useSeasonScope());
 
-    act(() => result.current.select('s-9'));
+    // La respuesta que hay registrada es la de la selección **anterior**: no dice nada sobre `s-9`.
     act(() => result.current.applyFromResponse(scope()));
+    act(() => result.current.select('s-9'));
 
     expect(result.current.value).toBe('s-9');
+    expect(result.current.requested).toBe('s-9');
   });
 
   it('vuelve al defecto del servidor al quitar filtros', () => {
@@ -76,5 +78,71 @@ describe('useSeasonScope', () => {
 
     expect(result.current.value).toBe(ALL_SEASONS);
     expect(result.current.isExplicit).toBe(false);
+  });
+
+  /**
+   * MVP-801 (`P-108`) — El caso que la pantalla afirmaba en falso: un `season_id` heredado de otro
+   * Workspace. El servidor cae al defecto de RN-008, pero el control daba por buena la selección
+   * explícita; como ese identificador no está entre las opciones, el `<select>` caía en la primera y
+   * rotulaba «Todas las temporadas» mientras se veía **una** campaña.
+   */
+  describe('cuando el servidor aplica un ámbito distinto del pedido', () => {
+    it('muestra la campaña aplicada y no la pedida', () => {
+      const { result } = renderHook(() => useSeasonScope());
+
+      act(() => result.current.select('de-otro-workspace'));
+      act(() => result.current.applyFromResponse(scope()));
+
+      expect(result.current.value).toBe('s-1');
+      expect(result.current.label).toBe('Campaña 2025/26');
+    });
+
+    it('devuelve el control al defecto para que deje de pedirse', () => {
+      const { result } = renderHook(() => useSeasonScope());
+
+      act(() => result.current.select('de-otro-workspace'));
+      act(() => result.current.applyFromResponse(scope()));
+
+      // Corregir la selección es lo que limpia la URL en las vistas que la usan de almacén (CA-4).
+      expect(result.current.requested).toBeUndefined();
+      expect(result.current.isExplicit).toBe(false);
+    });
+
+    it('corrige por la vía de `onCorrect`, que no deja entrada de historial', () => {
+      const onSelect = vi.fn();
+      const onCorrect = vi.fn();
+
+      const { result } = renderHook(
+        ({ selection }: { selection: string }) => useSeasonScope({ selection, onSelect, onCorrect }),
+        { initialProps: { selection: 'de-otro-workspace' } }
+      );
+
+      act(() => result.current.applyFromResponse(scope()));
+
+      // La corrección **sustituye** la entrada: con `onSelect` se añadiría una, y «atrás» devolvería a
+      // la dirección con el ámbito ajeno para volver a corregirla en bucle.
+      expect(onCorrect).toHaveBeenCalledWith('');
+      expect(onSelect).not.toHaveBeenCalled();
+    });
+
+    it('no corrige lo que el servidor sí ha aplicado', () => {
+      const { result } = renderHook(() => useSeasonScope());
+
+      act(() => result.current.select('s-1'));
+      act(() => result.current.applyFromResponse(scope()));
+
+      expect(result.current.requested).toBe('s-1');
+      expect(result.current.value).toBe('s-1');
+    });
+
+    it('no corrige la elección explícita de «todas»', () => {
+      const { result } = renderHook(() => useSeasonScope());
+
+      act(() => result.current.select(ALL_SEASONS));
+      act(() => result.current.applyFromResponse(scope({ season: null, all_seasons: true })));
+
+      expect(result.current.requested).toBe(ALL_SEASONS);
+      expect(result.current.value).toBe(ALL_SEASONS);
+    });
   });
 });

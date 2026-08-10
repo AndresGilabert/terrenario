@@ -16,6 +16,7 @@ import type {
 import type { Plot } from '../../types/plot.types';
 import { harvestDestinationLabel } from '../../types/harvest.types';
 import { useUsageTelemetry } from '../../lib/use-usage-telemetry';
+import { SEASON_SCOPE_DEFAULT, useSeasonScope } from '../../lib/season-scope';
 import {
   DashboardWidget,
   UsageEvent,
@@ -164,6 +165,41 @@ export const VisionGeneralView: React.FC = () => {
     [seasonParam, plotKey]
   );
 
+  /** Escribe los parámetros de ámbito. `replace` para las correcciones, que no son navegación. */
+  const writeScopeParams = useCallback(
+    (mutate: (params: URLSearchParams) => void, options?: { replace?: boolean }) => {
+      const next = new URLSearchParams(searchParams);
+      mutate(next);
+      setSearchParams(next, { replace: options?.replace ?? false });
+    },
+    [searchParams, setSearchParams]
+  );
+
+  /**
+   * MVP-801 (`P-108`) — La Visión General usa **la misma pieza** que el diario para posicionar su
+   * filtro de temporada. Hasta aquí lo resolvía por su cuenta con `seasonParam ?? scope.season.id`, y
+   * esa expresión da por buena la selección de la URL aunque el servidor haya aplicado otra: con un
+   * identificador de otro Workspace, el `<select>` caía en la primera opción y rotulaba una campaña que
+   * no era la de las cifras. La lección de `P-082` es que un defecto resuelto en dos sitios diverge.
+   */
+  const seasonScope = useSeasonScope({
+    selection: seasonParam ?? SEASON_SCOPE_DEFAULT,
+    onSelect: useCallback(
+      (value: string) =>
+        writeScopeParams((next) => (value ? next.set('season_id', value) : next.delete('season_id'))),
+      [writeScopeParams]
+    ),
+    onCorrect: useCallback(
+      (value: string) =>
+        writeScopeParams(
+          (next) => (value ? next.set('season_id', value) : next.delete('season_id')),
+          { replace: true }
+        ),
+      [writeScopeParams]
+    ),
+  });
+  const { applyFromResponse: applySeasonScope } = seasonScope;
+
   const [data, setData] = useState<DashboardData | null>(null);
   const [plotOptions, setPlotOptions] = useState<Plot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -195,13 +231,27 @@ export const VisionGeneralView: React.FC = () => {
       };
       setData(next);
 
+      // MVP-801 — El ámbito que el servidor dice haber aplicado se registra en el control, que es
+      // quien decide si la selección de la URL sigue siendo cierta. Se toma de la primera respuesta
+      // que haya llegado bien, por el mismo motivo que el `scope` de la pantalla (MVP-706).
+      const applied =
+        next.summary.data?.scope ??
+        next.destinations.data?.scope ??
+        next.plots.data?.scope ??
+        next.evolution.data?.scope ??
+        next.economics.data?.scope ??
+        null;
+      // El dashboard no admite el histórico completo (`season_id=all` es un `400`, RU-38): su ámbito
+      // es siempre una campaña concreta, o ninguna cuando el Workspace todavía no tiene.
+      if (applied) applySeasonScope({ season: applied.season, all_seasons: false });
+
       // MVP-602 — Cobertura de widgets: se emite tras cada carga, con y sin datos. Desde MVP-706 el
       // fallo se atribuye al widget que lo causó, que es lo que el KPI de cobertura pregunta (CA-2).
       logUsage(UsageEvent.DashboardWidgets, { widgets: widgetOutcomes(next) });
     } finally {
       setIsLoading(false);
     }
-  }, [dashboardService, filters, logUsage]);
+  }, [dashboardService, filters, logUsage, applySeasonScope]);
 
   useEffect(() => {
     void reload();
@@ -259,19 +309,41 @@ export const VisionGeneralView: React.FC = () => {
   /** Ningún widget pudo cargarse: es el único caso que sigue siendo un error de pantalla completa. */
   const allFailed = data !== null && scope === null;
 
-  // La temporada aplicada: la de la URL o, en su defecto, la que el servidor resolvió (viaja en `scope`).
-  const appliedSeasonId = seasonParam ?? scope?.season?.id ?? '';
+  /**
+   * MVP-801 (CA-2/CA-3) — Mismo criterio de reconciliación para los terrenos. El servidor descarta los
+   * que no son del Workspace activo y, si no queda ninguno, cae en todos los activos (RN-008): la URL
+   * se queda entonces pidiendo unos terrenos que no se están aplicando, y el rótulo del filtro dice
+   * «3 terrenos» mientras las casillas están todas sin marcar.
+   *
+   * Se conserva lo que el servidor **sí** honró y se borra el resto; si no honró ninguno, el parámetro
+   * desaparece y el filtro vuelve a decir «Todos los terrenos», que es lo que se está viendo.
+   */
+  const appliedPlotKey = (scope?.plot_ids ?? []).join(',');
+  useEffect(() => {
+    if (plotParams.length === 0 || scope === null) return;
+
+    const applied = new Set(scope.plot_ids);
+    const honoured = plotParams.filter((id) => applied.has(id));
+    if (honoured.length === plotParams.length) return;
+
+    writeScopeParams(
+      (next) => {
+        next.delete('plot_ids');
+        honoured.forEach((id) => next.append('plot_ids', id));
+      },
+      { replace: true }
+    );
+    // `scope` es un objeto nuevo en cada respuesta: se depende de su contenido, no de su identidad.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plotKey, appliedPlotKey, writeScopeParams]);
 
   const onSeasonChange = useCallback(
     (value: string) => {
-      const next = new URLSearchParams(searchParams);
       // Elegir la temporada de trabajo (el defecto) limpia la URL: «sin filtro» = lo que el servidor
       // considere por defecto hoy, que es lo que se quiere al cambiar de temporada de trabajo.
-      if (!value || value === activeSeason?.id) next.delete('season_id');
-      else next.set('season_id', value);
-      setSearchParams(next);
+      seasonScope.select(value === activeSeason?.id ? SEASON_SCOPE_DEFAULT : value);
     },
-    [searchParams, setSearchParams, activeSeason]
+    [seasonScope, activeSeason]
   );
 
   const togglePlot = useCallback(
@@ -279,19 +351,18 @@ export const VisionGeneralView: React.FC = () => {
       const selected = new Set(searchParams.getAll('plot_ids'));
       if (selected.has(plotId)) selected.delete(plotId);
       else selected.add(plotId);
-      const next = new URLSearchParams(searchParams);
-      next.delete('plot_ids');
-      selected.forEach((id) => next.append('plot_ids', id));
-      setSearchParams(next);
+      writeScopeParams((next) => {
+        next.delete('plot_ids');
+        selected.forEach((id) => next.append('plot_ids', id));
+      });
     },
-    [searchParams, setSearchParams]
+    [searchParams, writeScopeParams]
   );
 
-  const clearPlots = useCallback(() => {
-    const next = new URLSearchParams(searchParams);
-    next.delete('plot_ids');
-    setSearchParams(next);
-  }, [searchParams, setSearchParams]);
+  const clearPlots = useCallback(
+    () => writeScopeParams((next) => next.delete('plot_ids')),
+    [writeScopeParams]
+  );
 
   const plotFilterLabel =
     selectedPlotIds.size === 0
@@ -338,7 +409,7 @@ export const VisionGeneralView: React.FC = () => {
               </label>
               <select
                 id="dashboard-season-filter"
-                value={appliedSeasonId}
+                value={seasonScope.value}
                 onChange={(event) => onSeasonChange(event.target.value)}
                 className="px-3 py-2.5 rounded-xl bg-white border border-[#c6c8b8] hover:bg-[#f0ede8] text-[#33450d] text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#33450d]/30 cursor-pointer"
               >

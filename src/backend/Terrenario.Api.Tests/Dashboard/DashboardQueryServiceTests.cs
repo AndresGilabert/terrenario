@@ -110,6 +110,36 @@ public class DashboardQueryServiceTests
         summary.Scope.Plots.Select(p => p.Id).Should().BeEquivalentTo([_alto.Id]);
     }
 
+    // ── MVP-801 · `P-107` — el ámbito heredado de otro Workspace cae al defecto ──────────────
+
+    [Fact]
+    public async Task Deberia_CaerALaTemporadaDeTrabajo_Cuando_LaPedidaNoEsDeEsteWorkspace()
+    {
+        // `P-107` — el escenario es cambiar de Workspace desde la Visión General: la sesión se reemite
+        // pero la URL conserva el `season_id` del anterior. Devolver `season: null` hacía que la
+        // pantalla pidiera crear una campaña a quien acababa de entrar en un Workspace con tres.
+        Seed();
+
+        var summary = await CreateSut().GetSummaryAsync(
+            UserId, WorkspaceId, new DashboardRequest(SeasonId: Guid.NewGuid()));
+
+        summary.Scope.Season!.Id.Should().Be(_active.Id);
+        summary.Scope.IsResolvable.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Deberia_CaerATodosLosTerrenosActivos_Cuando_NingunTerrenoPedidoEsDeEsteWorkspace()
+    {
+        // El mismo camino afecta a `plot_ids`: con terrenos de otro Workspace el ámbito quedaba en
+        // `plots: 0` y todos los agregados a cero.
+        Seed();
+
+        var summary = await CreateSut().GetSummaryAsync(
+            UserId, WorkspaceId, new DashboardRequest(PlotIds: [Guid.NewGuid(), Guid.NewGuid()]));
+
+        summary.Scope.Plots.Select(p => p.Id).Should().BeEquivalentTo([_alto.Id, _bajo.Id]);
+    }
+
     [Fact]
     public async Task NoDeberia_ConsultarCosechas_SinTemporadaResoluble()
     {

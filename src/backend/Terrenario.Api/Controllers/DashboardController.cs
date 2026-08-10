@@ -197,6 +197,10 @@ public sealed class DashboardController(
     /// <summary>
     /// Ámbito resuelto (RN-008). <c>season</c> a <c>null</c> significa que el Workspace no tiene
     /// temporada que mirar: la pantalla debe pedirla, no mostrar ceros.
+    ///
+    /// MVP-801 (<c>P-107</c>) — Desde esta historia ese <c>null</c> tiene <b>un solo</b> significado.
+    /// Antes también salía cuando la temporada pedida era de otro Workspace, y la pantalla pedía crear
+    /// una campaña a quien ya tenía tres.
     /// </summary>
     private static object ToScope(DashboardScope scope) => new
     {

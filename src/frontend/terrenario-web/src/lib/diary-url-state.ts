@@ -18,8 +18,14 @@ export interface DiaryUrlState {
   /** ¿Hay algo puesto a mano? Lo usa el rótulo de vacío y el botón de quitar filtros. */
   hasFilters: boolean;
 
-  /** Cambia un filtro: vuelve a la página 1 y **deja entrada de historial**. */
-  setFilter: (patch: Partial<DiaryFilterPatch>) => void;
+  /**
+   * Cambia un filtro: vuelve a la página 1 y **deja entrada de historial**.
+   *
+   * MVP-801 — Con `{ replace: true }` la **sustituye**. Lo usa la corrección de un ámbito que el
+   * servidor no ha podido aplicar (`P-108`): no es una navegación del usuario, y dejar entrada haría
+   * que «atrás» devolviera a la URL con el ámbito ajeno y volviera a corregirse en bucle.
+   */
+  setFilter: (patch: Partial<DiaryFilterPatch>, options?: { replace?: boolean }) => void;
   /** Cambia de página, con entrada de historial: «atrás» devuelve a la anterior. */
   setPage: (page: number) => void;
   /**
@@ -96,7 +102,7 @@ export function useDiaryUrlState(): DiaryUrlState {
   );
 
   const setFilter = useCallback(
-    (patch: Partial<DiaryFilterPatch>) => {
+    (patch: Partial<DiaryFilterPatch>, options?: { replace?: boolean }) => {
       const next: Record<string, string | null> = {};
       if ('type' in patch) next[PARAM.type] = patch.type === DIARY_FILTER_ALL ? null : (patch.type ?? null);
       if ('plotId' in patch)
@@ -111,7 +117,7 @@ export function useDiaryUrlState(): DiaryUrlState {
       // con el filtro nuevo y la página vieja.
       next[PARAM.page] = null;
 
-      write(next, { replace: false });
+      write(next, { replace: options?.replace ?? false });
     },
     [write]
   );

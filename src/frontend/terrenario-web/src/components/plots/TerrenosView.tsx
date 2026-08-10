@@ -5,6 +5,9 @@ import { HttpError } from '../../services/http-client';
 import { PLOT_OWNERSHIP_LABELS, type CreatePlotPayload, type Plot } from '../../types/plot.types';
 import { PlotFormModal } from './PlotFormModal';
 import { TerrenoDetailModal } from './TerrenoDetailModal';
+import { isDeletable } from '../../types/master.types';
+import { useMasterDepuration } from '../../lib/use-master-depuration';
+import { MasterDepurationLayer } from '../common/MasterDepurationLayer';
 
 /**
  * Maestro de terrenos del Workspace (MVP-202). Lista, alta, edición e inactivación con la mínima
@@ -12,6 +15,10 @@ import { TerrenoDetailModal } from './TerrenoDetailModal';
  * del prototipo (`TerrenosView`), pero los campos son los de la KB, no los inventados por el
  * prototipo (olivos/riego/poda). La ausencia de nº de árboles se muestra como aviso informativo, sin
  * bloquear (RN-010), anticipando el "dato incompleto" del dashboard.
+ *
+ * MVP-806 añade la depuración: eliminar el terreno que nunca se usó y fusionar dos que son el mismo.
+ * El «nunca se usó» lo dice `usage_count`, que el servidor calcula contra actividades, cosechas
+ * **y consumos**: el botón no aparece si hay cualquiera de las tres.
  */
 export const TerrenosView: React.FC = () => {
   const http = useApiClient();
@@ -51,6 +58,8 @@ export const TerrenosView: React.FC = () => {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  const depuration = useMasterDepuration('plots', { onChanged: reload });
 
   const visiblePlots = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -190,6 +199,18 @@ export const TerrenosView: React.FC = () => {
         </div>
       )}
 
+      <MasterDepurationLayer
+        kindLabel="el terreno"
+        kindPlural="terrenos"
+        depuration={depuration}
+        candidates={plots.filter((p) => p.id !== depuration.merging?.id)}
+      />
+      {depuration.error && !depuration.deleting && !depuration.merging && (
+        <div role="alert" className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+          {depuration.error}
+        </div>
+      )}
+
       {/* Contenido */}
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
@@ -208,9 +229,12 @@ export const TerrenosView: React.FC = () => {
               key={plot.id}
               plot={plot}
               isBusy={busyPlotId === plot.id}
+              canMerge={plots.length > 1}
               onOpenDetail={() => setDetailPlot(plot)}
               onEdit={() => openEdit(plot)}
               onToggleActive={() => void toggleActive(plot)}
+              onMerge={() => depuration.askMerge(plot)}
+              onDelete={() => depuration.askDelete(plot)}
             />
           ))}
 
@@ -276,12 +300,25 @@ const EmptyState: React.FC<{ onAdd: () => void }> = ({ onAdd }) => (
 interface PlotCardProps {
   plot: Plot;
   isBusy: boolean;
+  /** Fusionar solo tiene sentido si hay otra ficha con la que hacerlo. */
+  canMerge: boolean;
   onOpenDetail: () => void;
   onEdit: () => void;
   onToggleActive: () => void;
+  onMerge: () => void;
+  onDelete: () => void;
 }
 
-const PlotCard: React.FC<PlotCardProps> = ({ plot, isBusy, onOpenDetail, onEdit, onToggleActive }) => {
+const PlotCard: React.FC<PlotCardProps> = ({
+  plot,
+  isBusy,
+  canMerge,
+  onOpenDetail,
+  onEdit,
+  onToggleActive,
+  onMerge,
+  onDelete,
+}) => {
   const incomplete = !plot.has_tree_count;
 
   return (
@@ -364,13 +401,39 @@ const PlotCard: React.FC<PlotCardProps> = ({ plot, isBusy, onOpenDetail, onEdit,
           {plot.is_active ? 'Inactivar' : 'Reactivar'}
         </button>
 
-        <button
-          onClick={onEdit}
-          className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#f0ede8] hover:bg-[#ebe8e3] text-[#33450d] flex items-center gap-1"
-        >
-          <span className="material-symbols-outlined text-sm" aria-hidden="true">edit</span>
-          Editar
-        </button>
+        <div className="flex items-center gap-1">
+          {/* MVP-806 — Fusionar dos fichas del mismo terreno (P-041). */}
+          {canMerge && (
+            <button
+              onClick={onMerge}
+              disabled={isBusy}
+              title="Fusionar con otro terreno"
+              aria-label={`Fusionar ${plot.name} con otro terreno`}
+              className="p-2 rounded-lg text-[#76786b] hover:bg-[#f0ede8] hover:text-[#33450d] disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-lg" aria-hidden="true">merge</span>
+            </button>
+          )}
+          {/* CA-2 — Solo con «sin uso» confirmado por el servidor (`usage_count === 0`). */}
+          {isDeletable(plot) && (
+            <button
+              onClick={onDelete}
+              disabled={isBusy}
+              title="Eliminar"
+              aria-label={`Eliminar ${plot.name}`}
+              className="p-2 rounded-lg text-[#76786b] hover:bg-red-50 hover:text-[#ba1a1a] disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-lg" aria-hidden="true">delete</span>
+            </button>
+          )}
+          <button
+            onClick={onEdit}
+            className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#f0ede8] hover:bg-[#ebe8e3] text-[#33450d] flex items-center gap-1"
+          >
+            <span className="material-symbols-outlined text-sm" aria-hidden="true">edit</span>
+            Editar
+          </button>
+        </div>
       </div>
     </div>
   );

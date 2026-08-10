@@ -3,12 +3,15 @@ using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Terrenario.Api.Application.Masters;
 using Terrenario.Api.Application.Plots;
 using Terrenario.Api.Application.Plots.Commands;
 using Terrenario.Api.Common;
+using Terrenario.Api.Common.Auth;
 using Terrenario.Api.Common.Errors;
 using Terrenario.Api.Common.Http;
 using Terrenario.Api.Common.Workspaces;
+using Terrenario.Api.Domain.Masters;
 using Terrenario.Api.Domain.Plots;
 
 namespace Terrenario.Api.Controllers;
@@ -19,8 +22,8 @@ namespace Terrenario.Api.Controllers;
 /// se resuelve en servidor y se lee de <see cref="IWorkspaceContext"/>, nunca del cliente (RN-034).
 ///
 /// Alcance: alta con datos mínimos (RN-028), edición e inactivación (CA-1/CA-2/CA-3) y listado con
-/// búsqueda y filtro por estado. El borrado físico queda fuera: los terrenos con histórico se
-/// inactivan, no se eliminan.
+/// búsqueda y filtro por estado. Un terreno con histórico se <b>inactiva</b>, nunca se elimina; desde
+/// MVP-806 sí se puede eliminar el que nunca se usó y fusionar dos que son el mismo (RN-037).
 /// </summary>
 [ApiController]
 [Authorize]
@@ -30,6 +33,9 @@ public sealed class PlotsController(
     CreatePlotHandler createPlotHandler,
     UpdatePlotHandler updatePlotHandler,
     ListPlotsHandler listPlotsHandler,
+    MasterUsageService masterUsageService,
+    DeleteMasterHandler deleteMasterHandler,
+    MergeMastersHandler mergeMastersHandler,
     IWorkspaceContext workspaceContext) : ControllerBase
 {
     /// <summary>Lista los terrenos del Workspace. Filtros opcionales: <c>search</c>, <c>is_active</c>.</summary>
@@ -40,10 +46,12 @@ public sealed class PlotsController(
         CancellationToken ct)
     {
         var plots = await listPlotsHandler.HandleAsync(workspaceContext.WorkspaceId, search, isActive, ct);
+        var usage = await masterUsageService.CountByWorkspaceAsync(
+            MasterKind.Plot, workspaceContext.WorkspaceId, ct);
 
         return Ok(new
         {
-            data = plots.Select(ToResponse),
+            data = plots.Select(plot => ToResponse(plot, usage.GetValueOrDefault(plot.Id))),
             meta = new { total = plots.Count }
         });
     }
@@ -132,7 +140,44 @@ public sealed class PlotsController(
         }
     }
 
-    private static object ToResponse(PlotSummary plot) => new
+    /// <summary>
+    /// MVP-806 (CA-1) — Borrado <b>físico</b> de un terreno que nunca se usó. Con histórico responde
+    /// <c>422 BUSINESS_RULE_MASTER_IN_USE</c> diciendo cuántos registros lo referencian (CA-2); la vía
+    /// para ese caso sigue siendo la inactivación.
+    /// </summary>
+    [HttpDelete("{plotId:guid}")]
+    public async Task<IActionResult> Delete(Guid plotId, CancellationToken ct)
+    {
+        var deleted = await deleteMasterHandler.HandleAsync(
+            MasterKind.Plot, workspaceContext.WorkspaceId, plotId, ct);
+
+        return deleted is null
+            ? NotFound(new ApiErrorResponse(ApiError.PlotNotFound()))
+            : NoContent();
+    }
+
+    /// <summary>
+    /// MVP-806 (CA-3) — Fusiona dos terrenos: el de la ruta sobrevive y el del cuerpo cede sus
+    /// registros y desaparece.
+    /// </summary>
+    [HttpPost("{plotId:guid}/merge")]
+    public async Task<IActionResult> Merge(
+        Guid plotId, [FromBody] MergeMasterRequest request, CancellationToken ct)
+    {
+        var result = await mergeMastersHandler.HandleAsync(
+            MasterKind.Plot,
+            workspaceContext.WorkspaceId,
+            User.GetUserId()!.Value,
+            plotId,
+            request.AbsorbedId,
+            ct);
+
+        return result is null
+            ? NotFound(new ApiErrorResponse(ApiError.PlotNotFound()))
+            : Ok(MasterMergeResponse.From(result));
+    }
+
+    private static object ToResponse(PlotSummary plot, int? usageCount = null) => new
     {
         id = plot.Id,
         workspace_id = plot.WorkspaceId,
@@ -145,7 +190,12 @@ public sealed class PlotsController(
         tree_count = plot.TreeCount,
         is_active = plot.IsActive,
         // Señal para que la UI marque el dato incompleto de nº de árboles sin bloquear (RN-010/RN-028).
-        has_tree_count = plot.HasTreeCount
+        has_tree_count = plot.HasTreeCount,
+        // MVP-806 (CA-2) — Cuántos registros lo referencian, para que la interfaz sepa a quién puede
+        // ofrecer «Eliminar». Solo lo trae el **listado**: en el alta y la edición viaja `null`, que
+        // significa «no consultado» y no «ninguno». Decir cero ahí sería mentir en el `PATCH` de un
+        // terreno con histórico, y una interfaz que se lo creyera ofrecería un borrado imposible.
+        usage_count = usageCount
     };
 }
 

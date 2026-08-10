@@ -2,7 +2,7 @@
 id: "MVP-806"
 tipo: feature
 titulo: "Depuracion de maestros: borrado y fusion"
-estado: aprobado
+estado: completado
 prioridad: media
 sprint: ""
 hito: "Hito H — Ajustes de la segunda revision"
@@ -95,19 +95,75 @@ he usado nunca,
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Un registro de maestro nunca referenciado se puede eliminar desde la interfaz, con
+- [x] **CA-1**: Un registro de maestro nunca referenciado se puede eliminar desde la interfaz, con
   confirmacion explicita, y desaparece de las listas de activos e inactivos.
-- [ ] **CA-2**: Un registro con **cualquier** uso historico no ofrece la accion de borrar, y el intento
+  **Evidencia**: `DELETE /api/v1/{plots|seasons|workers|tasks}/{id}` responde `204` y la ficha deja de
+  salir en el listado sin filtro, que trae activos e inactivos.
+  `MasterDepurationIntegrationTests.Borrar_Deberia_QuitarLaFichaDeLosListados_EnLosCuatroMaestros`
+  inactiva la ficha antes de borrarla —es justo la que hoy se queda para siempre en «inactivos»— y lo
+  comprueba en terrenos, tareas y responsables; `BorrarUnaTemporada_Deberia_QuitarlaDelListado` cubre
+  el cuarto. La confirmacion explicita es el `ConfirmDialog` de `RN-037`, con el foco inicial en
+  «Cancelar»: `TareasView.test.tsx` verifica que **no** hay ninguna llamada `DELETE` hasta que se
+  confirma.
+
+- [x] **CA-2**: Un registro con **cualquier** uso historico no ofrece la accion de borrar, y el intento
   directo contra la API responde con un error que dice cuantos registros lo referencian. Verificado con
   un caso de cada tipo de referencia, no solo con uno.
-- [ ] **CA-3**: Fusionar dos fichas reapunta todos los registros del absorbido al superviviente, sin
+  **Evidencia**: nueve tipos de referencia declarados en `MasterReferenceMap` y **nueve pruebas, una
+  por tipo**, en dos niveles. Contra PostgreSQL real (`MasterRepositoryPostgresTests`): terreno desde
+  actividades, cosechas y consumos; temporada desde actividades, cosechas, compras y consumos;
+  trabajador desde actividades; tarea desde las actividades que la eligieron del catalogo. Contra la
+  API (`MasterDepurationIntegrationTests`), los mismos nueve casos devolviendo
+  `422 BUSINESS_RULE_MASTER_IN_USE`; por ejemplo, un terreno con dos actividades responde «No se puede
+  eliminar el terreno «La Hoya»: 2 actividades lo referencian». El recuento cuenta tambien los
+  registros eliminados logicamente
+  (`ElUso_Deberia_ContarTambienLosRegistrosEliminadosLogicamente`), porque su clave ajena sigue
+  apuntando a la ficha. En la interfaz, el boton solo aparece con `usage_count === 0`: `TareasView`
+  no lo ofrece con `3` ni con `null` («no consultado»).
+  **Comprobado en rojo**: retirando `PurchaseConsumption.PlotId` del mapa fallan
+  `MasterReferenceCoverageTests(kind: Plot)`, `ElUsoDeUnTerreno_Deberia_ContarLosConsumos` y
+  `BorrarUnTerrenoConConsumos_Deberia_Responder422`.
+
+- [x] **CA-3**: Fusionar dos fichas reapunta todos los registros del absorbido al superviviente, sin
   perder ninguno: comprobado contando los registros de los dos antes y la suma en el superviviente
   despues.
-- [ ] **CA-4**: Al fusionar una fila de cuadrilla con un miembro del Workspace, sobrevive la del
+  **Evidencia**: `FusionarTerrenos_Deberia_ReapuntarLosTresTiposDeReferencia_Y_BorrarElAbsorbido`
+  cuenta **5** registros entre los dos terrenos antes (1 del superviviente + 2 actividades, 1 cosecha
+  y 1 consumo del absorbido), fusiona, y encuentra **5** en el superviviente despues, con
+  `reassigned_count = 4`. `FusionarTemporadas_...` hace lo mismo con los cuatro tipos de referencia de
+  temporada. La respuesta `200` trae la cifra, y la confirmacion de la interfaz la anuncia antes:
+  «Se reapuntaran 4 registros a la ficha que se conserva».
+
+- [x] **CA-4**: Al fusionar una fila de cuadrilla con un miembro del Workspace, sobrevive la del
   miembro y el indice unico parcial de `MVP-208` sigue cumpliendose.
-- [ ] **CA-5**: Ni el borrado ni la fusion dejan huerfano ningun registro operativo: las claves ajenas
+  **Evidencia**:
+  `FusionarCuadrillaEnMiembro_Deberia_ConservarLaFichaDelMiembro_Y_SuIndiceUnico` reproduce el
+  escenario real —el miembro «Andrés Gilabert» materializado por `MVP-208` y la cuadrilla homonima
+  «Andrés Gilabert (2)»—, fusiona, y comprueba en base de datos que sigue habiendo **exactamente una**
+  fila con `user_account_id` en el Workspace (`ux_workers_workspace_user_account`). El sentido
+  contrario responde `422 BUSINESS_RULE_MASTER_MERGE_MEMBER_SURVIVES`
+  (`FusionarMiembroEnCuadrilla_Deberia_Responder422`), y borrar la ficha de un miembro,
+  `422 BUSINESS_RULE_WORKER_MEMBERSHIP_MANAGED`. En la interfaz el usuario no llega a pedirlo: el
+  dialogo fija el sentido y lo explica (`MergeMasterDialog.test.tsx`, `TrabajadoresView.test.tsx`).
+
+- [x] **CA-5**: Ni el borrado ni la fusion dejan huerfano ningun registro operativo: las claves ajenas
   siguen resolviendo despues de la operacion.
-- [ ] **CA-6**: `RN-037` describe el criterio que aplica a los maestros.
+  **Evidencia**: tres capas, todas comprobadas. (1) Despues de fusionar terrenos, no queda **ninguna**
+  fila en `activities`, `harvests` ni `purchase_consumptions` apuntando al absorbido. (2) El diario
+  sigue resolviendo el nombre: `Fusionar_Deberia_ReapuntarLosRegistros_Y_DejarLasClavesAjenasResolviendo`
+  lee `GET /activities` y comprueba que **todas** las filas devuelven `plot_name: "Bancal de arriba"`.
+  (3) La fusion vuelve a contar el uso del absorbido dentro de la transaccion antes de borrarlo, y por
+  debajo estan las FK `RESTRICT`: `Borrar_Deberia_TraducirLaClaveAjenaA422_Cuando_AlguienRegistraEntreMedias`
+  fuerza esa carrera y obtiene el `422`, no un `500`. Una fusion que pise una edicion ajena se deshace
+  entera (`Fusionar_Deberia_FallarEntera_Cuando_OtraPersonaEditaUnRegistroQueSeReapunta`: el absorbido
+  sigue existiendo despues del `409`).
+
+- [x] **CA-6**: `RN-037` describe el criterio que aplica a los maestros.
+  **Evidencia**: `docs/01-producto/reglas-de-negocio.md`, `RN-037`, nuevo apartado «Los maestros
+  (extension de `MVP-806`)»: tabla que contrasta el criterio con el de los registros operativos
+  —logico y siempre frente a fisico y solo sin uso—, las tres condiciones del borrado, la fusion como
+  salida para lo que si tiene historico y la supervivencia de la ficha del miembro. El contrato de los
+  endpoints esta en `docs/02-arquitectura/contratos-api.md` §0.f.
 
 ## Notas y decisiones
 

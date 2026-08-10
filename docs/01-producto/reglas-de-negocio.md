@@ -532,13 +532,35 @@ La consecuencia es de producto y obliga a los textos: login, landing, aviso de a
 
 **Estado**: activa
 **Fuente**: producto
-**Módulos afectados**: actividades, produccion, compras-consumo
+**Módulos afectados**: actividades, produccion, compras-consumo, maestros
 
 El MVP permite eliminar registros operativos, pero la UI debe exigir **confirmación explícita** antes de ejecutar la acción, y el registro eliminado deja de aparecer en el diario, en los listados y en el dashboard.
 
 La eliminación es **lógica** (`deleted_at`), no física: el mismo criterio que la baja de Workspace (RN-039). Un borrado accidental sobre operativa ya capturada es recuperable, y el MVP no expone ninguna vía de restauración —papelera o deshacer— porque no la necesita para cumplir la regla: basta con que el dato no se pierda. La purga real de lo eliminado se decide junto a la política de retención (`MVP-999`, P-033).
 
 Enunciado anterior («el MVP permite borrado **físico**») corregido en la revisión de cierre de MVP-002 (`MVP-299`, 3ª pasada, hallazgo `G-1`): contradecía al modelo de datos, que declara `deleted_at` en `ACTIVITY`, `HARVEST` y `PURCHASE` y fija el borrado lógico como convención de persistencia de las entidades operativas. Decisión del PO (2026-07-28).
+
+#### Los maestros (extension de `MVP-806`, 2026-08-10)
+
+La regla se extiende a los cuatro maestros de `MVP-002` —terrenos, temporadas, trabajadores y tareas—, con un criterio que **no es el mismo** que el de los registros operativos, y la diferencia importa:
+
+| | Registro operativo | Ficha de maestro |
+|---|---|---|
+| Qué es borrar | Baja **lógica**: la fila sobrevive con `deleted_at` | Borrado **físico**: la fila desaparece |
+| Cuándo se puede | Siempre, con confirmación | **Solo si nunca se usó** |
+| Si no se puede | — | Se **inactiva** o se **fusiona** |
+
+El motivo de que en los maestros el borrado sí sea físico es que la política de conservación de un maestro ya existe y es otra: **inactivarlo**. Una ficha con histórico se inactiva y sigue explicando los registros que la nombran; lo que no tenía salida era la ficha creada por error y jamás referenciada, que se quedaba para siempre en la lista de inactivos (`P-036`). Ahí no hay nada que conservar, así que conservarla como baja lógica sería añadir un tercer estado sin ganar ningún dato.
+
+Las condiciones son tres, y las tres son del servidor:
+
+1. **Sin uso, comprobado contra todas las referencias.** Un maestro puede estar referenciado desde varias entidades operativas a la vez —el terreno, por ejemplo, desde actividades, cosechas **y consumos**—, y comprobarlo contra una sola es lo que dejaría un registro huérfano. Cuentan también los registros **eliminados lógicamente**: su clave ajena sigue apuntando a la ficha. Si hay uso, la respuesta dice **cuántos** registros la referencian y de qué tipo son.
+2. **Confirmación explícita**, igual que en los registros operativos, y nombrando la ficha que se elimina.
+3. **La ficha de un miembro del Workspace no se elimina nunca**, ni siquiera sin uso: su existencia la gobierna su acceso (RN-027), no el maestro.
+
+**La fusión es la salida para lo que sí tiene histórico.** Dos fichas que son la misma cosa se unifican: se elige cuál sobrevive, las referencias de la absorbida se reapuntan a la superviviente dentro de una transacción y la absorbida desaparece. La confirmación dice cuántos registros van a cambiar de ficha. Al fusionar una fila de cuadrilla con la de un miembro, **sobrevive la del miembro**: su nombre lo fija su cuenta (RN-036) y no es renombrable. Igual que el borrado, una fusión **no se puede deshacer**.
+
+Que un maestro tenga histórico **sigue sin habilitar su borrado** con confirmación: eso dejaría registros operativos sin la ficha que los explica, que es justo lo que la inactivación evita.
 
 ---
 

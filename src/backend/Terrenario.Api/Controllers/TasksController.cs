@@ -3,12 +3,15 @@ using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Terrenario.Api.Application.Masters;
 using Terrenario.Api.Application.Tasks;
 using Terrenario.Api.Application.Tasks.Commands;
 using Terrenario.Api.Common;
+using Terrenario.Api.Common.Auth;
 using Terrenario.Api.Common.Errors;
 using Terrenario.Api.Common.Http;
 using Terrenario.Api.Common.Workspaces;
+using Terrenario.Api.Domain.Masters;
 using Terrenario.Api.Domain.Tasks;
 
 namespace Terrenario.Api.Controllers;
@@ -20,8 +23,9 @@ namespace Terrenario.Api.Controllers;
 /// (RN-034). Ese aislamiento es lo que garantiza que el catálogo de un Workspace no afecte al de
 /// otro (CA-1).
 ///
-/// Alcance: alta, edición, listado e inactivación (HU-1/HU-2, CA-2/CA-3). El borrado físico queda
-/// fuera: las tareas con histórico se inactivan para no invalidar los registros que las referencian.
+/// Alcance: alta, edición, listado e inactivación (HU-1/HU-2, CA-2/CA-3). Una tarea con histórico se
+/// <b>inactiva</b> para no invalidar los registros que la referencian; desde MVP-806 sí se puede
+/// eliminar la que nunca se usó y fusionar dos que son la misma labor (RN-037).
 /// </summary>
 [ApiController]
 [Authorize]
@@ -31,6 +35,9 @@ public sealed class TasksController(
     CreateTaskHandler createTaskHandler,
     UpdateTaskHandler updateTaskHandler,
     ListTasksHandler listTasksHandler,
+    MasterUsageService masterUsageService,
+    DeleteMasterHandler deleteMasterHandler,
+    MergeMastersHandler mergeMastersHandler,
     IWorkspaceContext workspaceContext) : ControllerBase
 {
     /// <summary>Lista el catálogo del Workspace. Filtro opcional: <c>is_active</c>.</summary>
@@ -40,10 +47,12 @@ public sealed class TasksController(
         CancellationToken ct)
     {
         var tasks = await listTasksHandler.HandleAsync(workspaceContext.WorkspaceId, isActive, ct);
+        var usage = await masterUsageService.CountByWorkspaceAsync(
+            MasterKind.Task, workspaceContext.WorkspaceId, ct);
 
         return Ok(new
         {
-            data = tasks.Select(ToResponse),
+            data = tasks.Select(task => ToResponse(task, usage.GetValueOrDefault(task.Id))),
             meta = new { total = tasks.Count }
         });
     }
@@ -116,12 +125,52 @@ public sealed class TasksController(
         }
     }
 
-    private static object ToResponse(TaskSummary task) => new
+    /// <summary>
+    /// MVP-806 (CA-1) — Borrado <b>físico</b> de una tarea que nunca se usó. Con histórico responde
+    /// <c>422 BUSINESS_RULE_MASTER_IN_USE</c> diciendo cuántas actividades la referencian (CA-2).
+    /// Solo cuentan las actividades que la eligieron del catálogo: la tarea escrita en texto libre
+    /// (RN-025) no referencia a ninguna fila.
+    /// </summary>
+    [HttpDelete("{taskId:guid}")]
+    public async Task<IActionResult> Delete(Guid taskId, CancellationToken ct)
+    {
+        var deleted = await deleteMasterHandler.HandleAsync(
+            MasterKind.Task, workspaceContext.WorkspaceId, taskId, ct);
+
+        return deleted is null
+            ? NotFound(new ApiErrorResponse(ApiError.TaskNotFound()))
+            : NoContent();
+    }
+
+    /// <summary>
+    /// MVP-806 (CA-3) — Fusiona dos tareas: la de la ruta sobrevive y la del cuerpo cede sus
+    /// actividades y desaparece.
+    /// </summary>
+    [HttpPost("{taskId:guid}/merge")]
+    public async Task<IActionResult> Merge(
+        Guid taskId, [FromBody] MergeMasterRequest request, CancellationToken ct)
+    {
+        var result = await mergeMastersHandler.HandleAsync(
+            MasterKind.Task,
+            workspaceContext.WorkspaceId,
+            User.GetUserId()!.Value,
+            taskId,
+            request.AbsorbedId,
+            ct);
+
+        return result is null
+            ? NotFound(new ApiErrorResponse(ApiError.TaskNotFound()))
+            : Ok(MasterMergeResponse.From(result));
+    }
+
+    private static object ToResponse(TaskSummary task, int? usageCount = null) => new
     {
         id = task.Id,
         workspace_id = task.WorkspaceId,
         name = task.Name,
-        is_active = task.IsActive
+        is_active = task.IsActive,
+        // MVP-806 (CA-2) — Ver la nota de `PlotsController`: `null` significa «no consultado».
+        usage_count = usageCount
     };
 }
 

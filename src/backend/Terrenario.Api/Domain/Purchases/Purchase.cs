@@ -116,6 +116,22 @@ public sealed class Purchase
         Touch(userId);
     }
 
+    /// <summary>
+    /// MVP-806 — Reapunta la temporada al superviviente de una fusión de maestros. No revalida el
+    /// resto del registro: lo único que cambia es la clave ajena. <b>Sí mueve la versión</b>, que es lo
+    /// que hace que una edición simultánea reciba <c>409</c> en vez de quedar pisada (ADR-0005).
+    /// </summary>
+    public void ReassignSeason(Guid seasonId, Guid userId)
+    {
+        if (seasonId == Guid.Empty)
+            throw new PurchaseValidationException(
+                ErrorCodes.ValidationPurchaseRequiredFields, "La compra necesita una temporada.");
+        if (SeasonId == seasonId) return;
+
+        SeasonId = seasonId;
+        Touch(userId);
+    }
+
     /// <summary>Comprueba la versión de <c>If-Match</c> antes de mutar nada (ADR-0005).</summary>
     public void EnsureVersion(long expectedVersion)
     {

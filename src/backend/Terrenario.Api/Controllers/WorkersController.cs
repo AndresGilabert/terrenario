@@ -3,12 +3,15 @@ using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Terrenario.Api.Application.Masters;
 using Terrenario.Api.Application.Workers;
 using Terrenario.Api.Application.Workers.Commands;
 using Terrenario.Api.Common;
+using Terrenario.Api.Common.Auth;
 using Terrenario.Api.Common.Errors;
 using Terrenario.Api.Common.Http;
 using Terrenario.Api.Common.Workspaces;
+using Terrenario.Api.Domain.Masters;
 using Terrenario.Api.Domain.Workers;
 
 namespace Terrenario.Api.Controllers;
@@ -27,7 +30,9 @@ namespace Terrenario.Api.Controllers;
 /// <c>GET /workspace-members</c> sigue siendo la superficie de <b>accesos</b> (estado de membresía,
 /// invitar, revocar): lo que cambia es que ya no es también la fuente de responsables.
 ///
-/// El borrado físico queda fuera: los trabajadores con histórico se inactivan.
+/// Un trabajador con histórico se <b>inactiva</b>; desde MVP-806 sí se puede eliminar el de cuadrilla
+/// que nunca se usó y fusionar dos fichas de la misma persona (RN-037). La fila de un miembro no se
+/// elimina ni se absorbe: la gobierna su membresía (CA-4).
 /// </summary>
 [ApiController]
 [Authorize]
@@ -37,6 +42,9 @@ public sealed class WorkersController(
     CreateWorkerHandler createWorkerHandler,
     UpdateWorkerHandler updateWorkerHandler,
     ListWorkersHandler listWorkersHandler,
+    MasterUsageService masterUsageService,
+    DeleteMasterHandler deleteMasterHandler,
+    MergeMastersHandler mergeMastersHandler,
     IWorkspaceContext workspaceContext) : ControllerBase
 {
     /// <summary>
@@ -49,10 +57,12 @@ public sealed class WorkersController(
         CancellationToken ct)
     {
         var workers = await listWorkersHandler.HandleAsync(workspaceContext.WorkspaceId, isActive, ct);
+        var usage = await masterUsageService.CountByWorkspaceAsync(
+            MasterKind.Worker, workspaceContext.WorkspaceId, ct);
 
         return Ok(new
         {
-            data = workers.Select(ToResponse),
+            data = workers.Select(worker => ToResponse(worker, usage.GetValueOrDefault(worker.Id))),
             meta = new
             {
                 total = workers.Count,
@@ -144,7 +154,51 @@ public sealed class WorkersController(
         }
     }
 
-    private static object ToResponse(WorkerSummary worker) => new
+    /// <summary>
+    /// MVP-806 (CA-1) — Borrado <b>físico</b> de una ficha de cuadrilla que nunca se usó. Con
+    /// histórico responde <c>422 BUSINESS_RULE_MASTER_IN_USE</c> diciendo cuántas actividades la
+    /// referencian (CA-2), y sobre un responsable con cuenta,
+    /// <c>422 BUSINESS_RULE_WORKER_MEMBERSHIP_MANAGED</c>: su ficha depende de su acceso, no del
+    /// maestro (MVP-208, CA-4).
+    /// </summary>
+    [HttpDelete("{workerId:guid}")]
+    public async Task<IActionResult> Delete(Guid workerId, CancellationToken ct)
+    {
+        var deleted = await deleteMasterHandler.HandleAsync(
+            MasterKind.Worker, workspaceContext.WorkspaceId, workerId, ct);
+
+        return deleted is null
+            ? NotFound(new ApiErrorResponse(ApiError.WorkerNotFound()))
+            : NoContent();
+    }
+
+    /// <summary>
+    /// MVP-806 (CA-3/CA-4) — Fusiona dos fichas de la misma persona: la de la ruta sobrevive y la del
+    /// cuerpo cede sus actividades y desaparece.
+    ///
+    /// El caso que motiva la historia es el de MVP-208: la cuadrilla «Juan Pérez» que la migración
+    /// renombró « (2)» al materializar al miembro homónimo. Ahí la que sobrevive tiene que ser la del
+    /// miembro, así que absorber una ficha con cuenta responde
+    /// <c>422 BUSINESS_RULE_MASTER_MERGE_MEMBER_SURVIVES</c>.
+    /// </summary>
+    [HttpPost("{workerId:guid}/merge")]
+    public async Task<IActionResult> Merge(
+        Guid workerId, [FromBody] MergeMasterRequest request, CancellationToken ct)
+    {
+        var result = await mergeMastersHandler.HandleAsync(
+            MasterKind.Worker,
+            workspaceContext.WorkspaceId,
+            User.GetUserId()!.Value,
+            workerId,
+            request.AbsorbedId,
+            ct);
+
+        return result is null
+            ? NotFound(new ApiErrorResponse(ApiError.WorkerNotFound()))
+            : Ok(MasterMergeResponse.From(result));
+    }
+
+    private static object ToResponse(WorkerSummary worker, int? usageCount = null) => new
     {
         id = worker.Id,
         workspace_id = worker.WorkspaceId,
@@ -154,7 +208,9 @@ public sealed class WorkersController(
         // MVP-208 (CA-2): señal del catálogo cerrado `worker_kind` y cuenta vinculada, para que el
         // cliente distinga las dos clases de persona sin consultar otro endpoint.
         kind = worker.Kind,
-        user_account_id = worker.UserAccountId
+        user_account_id = worker.UserAccountId,
+        // MVP-806 (CA-2) — Ver la nota de `PlotsController`: `null` significa «no consultado».
+        usage_count = usageCount
     };
 }
 

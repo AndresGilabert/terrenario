@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ALL_SEASONS, type SeasonScope } from '../types/season.types';
 
 /**
@@ -45,24 +45,67 @@ export interface SeasonScopeSelection {
 export interface SeasonScopeControl {
   selection: string;
   onSelect: (value: string) => void;
+  /**
+   * MVP-801 — Cómo se escribe una **corrección** de la selección, cuando el servidor ha aplicado otra
+   * cosa. Separada de `onSelect` porque no es una navegación del usuario: si dejara entrada de
+   * historial, «atrás» devolvería a la URL con el ámbito ajeno y volvería a corregirse en bucle. Si no
+   * se informa, se corrige como una selección normal.
+   */
+  onCorrect?: (value: string) => void;
+}
+
+/** Cómo se llama, en el vocabulario del control, el ámbito que el servidor dice haber aplicado. */
+export function appliedSeasonValue(scope: SeasonScope | null): string | null {
+  if (!scope) return null;
+  return scope.all_seasons ? ALL_SEASONS : (scope.season?.id ?? ALL_SEASONS);
 }
 
 export function useSeasonScope(control?: SeasonScopeControl): SeasonScopeSelection {
   const [localSelection, setLocalSelection] = useState<string>(SEASON_SCOPE_DEFAULT);
   const [applied, setApplied] = useState<SeasonScope | null>(null);
+  /**
+   * Selección que estaba en vigor cuando se registró `applied`. Sin ella no se puede distinguir «el
+   * servidor no me hizo caso» de «todavía no ha contestado a lo último que le he pedido», y la segunda
+   * situación no debe mover el control.
+   */
+  const [appliedFor, setAppliedFor] = useState<string | null>(null);
 
   const selection = control ? control.selection : localSelection;
   const setSelection = control ? control.onSelect : setLocalSelection;
+  const correctSelection = control ? (control.onCorrect ?? control.onSelect) : setLocalSelection;
+
+  // La respuesta llega asíncrona: `applyFromResponse` necesita saber qué se estaba pidiendo en ese
+  // momento, y una referencia lo dice sin volver a crear la función en cada cambio de filtro (lo que
+  // reentraría en el efecto de carga de cada vista).
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
 
   const isExplicit = selection !== SEASON_SCOPE_DEFAULT;
+  const appliedValue = appliedSeasonValue(applied);
 
-  const value = isExplicit
-    ? selection
-    : applied
-      ? applied.all_seasons
-        ? ALL_SEASONS
-        : (applied.season?.id ?? ALL_SEASONS)
-      : SEASON_SCOPE_DEFAULT;
+  /**
+   * MVP-801 (`P-108`) — El servidor ha aplicado **otra cosa** distinta de lo pedido. Ocurre con un
+   * `season_id` heredado de otro Workspace: desde `MVP-705` la elección del diario viaja en la URL, y
+   * al cambiar de Workspace puede quedar la del anterior. RN-008 hace que el servidor caiga al defecto,
+   * pero el control seguía dando por buena la selección explícita; como ese identificador no está entre
+   * las opciones, el `<select>` caía en la primera y la pantalla rotulaba «Todas las temporadas»
+   * mientras enseñaba una sola campaña. Afirmar un ámbito falso es peor que no decir nada.
+   */
+  const isOverridden = isExplicit && appliedFor === selection && appliedValue !== null
+    && appliedValue !== selection;
+
+  /**
+   * Y además se **corrige la URL** (CA-4): se devuelve el control al defecto en vez de reescribirlo con
+   * la campaña aplicada. Las dos dejan la pantalla diciendo la verdad, pero solo esta respeta la
+   * higiene de RN-007 —los valores por defecto no se escriben—; fijar la campaña resuelta congelaría en
+   * el enlace la de trabajo del día en que se corrigió.
+   */
+  useEffect(() => {
+    if (isOverridden) correctSelection(SEASON_SCOPE_DEFAULT);
+  }, [isOverridden, correctSelection]);
+
+  const value =
+    isExplicit && !isOverridden ? selection : (appliedValue ?? SEASON_SCOPE_DEFAULT);
 
   const label = applied ? (applied.all_seasons ? 'todas las campañas' : applied.season?.name ?? null) : null;
 
@@ -74,6 +117,9 @@ export function useSeasonScope(control?: SeasonScopeControl): SeasonScopeSelecti
     label,
     select: setSelection,
     reset: useCallback(() => setSelection(SEASON_SCOPE_DEFAULT), [setSelection]),
-    applyFromResponse: useCallback((scope: SeasonScope) => setApplied(scope), []),
+    applyFromResponse: useCallback((scope: SeasonScope) => {
+      setApplied(scope);
+      setAppliedFor(selectionRef.current);
+    }, []),
   };
 }

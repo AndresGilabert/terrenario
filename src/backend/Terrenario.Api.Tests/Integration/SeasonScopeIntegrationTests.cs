@@ -167,4 +167,60 @@ public sealed class SeasonScopeIntegrationTests : IAsyncLifetime
             .GetGuid().Should().Be(_currentSeasonId);
         harvests.GetProperty("meta").GetProperty("total_kg").GetDecimal().Should().Be(4_460.5m);
     }
+
+    /// <summary>
+    /// MVP-801 (CA-1, <c>P-107</c>) — La Visión General era la única vista operativa exenta de la caída
+    /// al defecto: con un <c>season_id</c> de otro Workspace respondía <c>200</c> con
+    /// <c>scope.season: null</c> y los agregados a cero, mientras el diario, con ese <b>mismo</b>
+    /// identificador, aplicaba la campaña de trabajo.
+    ///
+    /// El test es la comparación de los dos endpoints con la misma entrada, no la comprobación de uno:
+    /// que fuera un caso de divergencia entre pantallas es exactamente lo que hacía el defecto
+    /// invisible leyendo cualquiera de las dos por separado.
+    /// </summary>
+    [Fact]
+    public async Task Deberia_ResolverElMismoAmbitoQueElDiario_Cuando_ElDashboardRecibeUnaTemporadaAjena()
+    {
+        var ajena = Guid.NewGuid();
+
+        var summary = await _session.GetJsonAsync($"/api/v1/dashboard/summary?season_id={ajena}");
+        var diary = await _session.GetJsonAsync($"/api/v1/diary?season_id={ajena}");
+
+        var dashboardSeason = summary.GetProperty("scope").GetProperty("season");
+        var diarySeason = diary.GetProperty("meta").GetProperty("scope").GetProperty("season");
+
+        dashboardSeason.GetProperty("id").GetGuid()
+            .Should().Be(diarySeason.GetProperty("id").GetGuid());
+        dashboardSeason.GetProperty("id").GetGuid().Should().Be(_currentSeasonId);
+
+        // Y deja de salir a cero: son los 4.460,5 kg de la campaña de trabajo.
+        summary.GetProperty("total_kg").GetDecimal().Should().Be(4_460.5m);
+    }
+
+    /// <summary>
+    /// MVP-801 (CA-2) — Mismo criterio para <c>plot_ids</c>: unos terrenos que no son de este Workspace
+    /// dejaban el ámbito en <c>plots: 0</c>, y con él todos los widgets.
+    /// </summary>
+    [Fact]
+    public async Task Deberia_CaerATodosLosTerrenos_Cuando_LosPedidosNoSonDeEsteWorkspace()
+    {
+        var summary = await _session.GetJsonAsync(
+            $"/api/v1/dashboard/summary?plot_ids={Guid.NewGuid()}&plot_ids={Guid.NewGuid()}");
+
+        summary.GetProperty("scope").GetProperty("plots").GetInt32().Should().Be(1);
+        summary.GetProperty("total_kg").GetDecimal().Should().Be(4_460.5m);
+    }
+
+    /// <summary>
+    /// MVP-801 — Lo que la caída al defecto <b>no</b> cambia: <c>season_id=all</c> sigue siendo un
+    /// <c>400</c> en el dashboard. <c>RU-38</c> acota el análisis a una sola campaña y esta historia no
+    /// lo reabre; sin esta comprobación, «tolerar lo desconocido» podría entenderse como tolerarlo todo.
+    /// </summary>
+    [Fact]
+    public async Task Deberia_SeguirRechazando_Cuando_ElDashboardRecibeTodasLasTemporadas()
+    {
+        var response = await _session.GetAsync("/api/v1/dashboard/summary?season_id=all");
+
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.BadRequest);
+    }
 }

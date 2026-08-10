@@ -149,6 +149,24 @@ ausencia del parámetro ya significa «aplica el defecto», así que «todas» n
 Un `season_id` que no exista en el Workspace **cae al defecto** en vez de dar error o ampliar el
 ámbito: desde MVP-705 el filtro viaja en la URL y al cambiar de Workspace puede quedar el de otro.
 
+La caída al defecto aplica **también al dashboard**, y no solo a la temporada: unos `plot_ids` que no
+pertenezcan al Workspace activo se descartan, y si no queda ninguno el ámbito cae en todos los terrenos
+activos. Hasta MVP-801 la Visión General era la única vista exenta: respondía `scope.season: null` con
+los agregados a cero y pedía en pantalla crear una campaña mientras su propio selector listaba las tres
+que el Workspace ya tenía (`P-107`). Un ámbito heredado no puede vaciar la pantalla de resumen.
+
+**El ámbito que devuelve el servidor manda sobre la selección que traiga la URL.** Si el cliente pide
+una campaña y el servidor aplica otra, la pantalla muestra la aplicada y **corrige la dirección**
+—sustituyendo la entrada de historial, no añadiendo una—. Sin esta precisión la regla se cumplía a
+medias: el diario aplicaba el defecto correctamente pero su `<select>` rotulaba «Todas las temporadas»,
+porque el identificador heredado no estaba entre las opciones y el control caía en la primera
+(`P-108`). Afirmar un ámbito distinto del que se está viendo es peor que no decir ninguno.
+
+Como refuerzo, al **cambiar de Workspace** se limpian de la URL los parámetros que nombran entidades
+del Workspace (`season_id`, `plot_id`, `plot_ids`). No sustituye a la caída al defecto —un enlace
+compartido o un marcador reproducen el escenario sin pasar por el selector—: evita que el caso se
+produzca por el camino más frecuente.
+
 ---
 
 ### RN-009 — Widgets minimos obligatorios de MVP

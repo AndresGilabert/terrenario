@@ -140,6 +140,13 @@ export const DiarioView: React.FC = () => {
   const seasonScope = useSeasonScope({
     selection: url.seasonSelection,
     onSelect: useCallback((value: string) => setFilter({ seasonSelection: value }), [setFilter]),
+    // MVP-801 (CA-4, `P-108`) — Un `season_id` que el servidor no ha podido aplicar se borra de la URL
+    // **sustituyendo** la entrada: corregirlo no es navegar, y con entrada de historial «atrás»
+    // devolvería a la dirección con el ámbito ajeno para volver a corregirla.
+    onCorrect: useCallback(
+      (value: string) => setFilter({ seasonSelection: value }, { replace: true }),
+      [setFilter]
+    ),
   });
   // Desestructurado para que las dependencias de `reload` sean identificadores estables y la regla de
   // exhaustividad de los hooks pueda comprobarlas.

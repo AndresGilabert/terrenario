@@ -1,7 +1,7 @@
 ﻿---
 bloque: 05-infraestructura
 documento: desarrollo-local
-actualizado_en: "2026-07-24"
+actualizado_en: "2026-08-10"
 ---
 
 # Desarrollo Local
@@ -325,6 +325,34 @@ dotnet tool install --global dotnet-ef
 
 ## Ejecución de tests
 
+### Qué exige el entorno (riesgo aceptado de `P-069`)
+
+La suite de backend **no se puede ejecutar entera en cualquier máquina**. Dos requisitos, y conviene
+conocerlos antes de dar por rota una rama:
+
+- **Docker en marcha.** Los tests de integración levantan PostgreSQL con Testcontainers (`MVP-501`,
+  decisión que cerró `P-031`). Sin Docker no arrancan; los unitarios sí.
+- **Una política de Application Control permisiva.** `Testcontainers.PostgreSql.dll` es un ensamblado
+  sin reputación establecida, y **Smart App Control de Windows lo bloquea**. Cuando ocurre, la suite
+  pasa de verde a decenas de fallos **sin ningún cambio de código**, todos con la misma firma:
+
+  ```text
+  System.IO.FileLoadException ... Una directiva de Control de aplicaciones bloqueó este archivo (0x800711C7)
+  ```
+
+  Si todos los fallos son ese, no hay nada roto en el producto: es la política de la máquina. Se
+  confirma en el registro de Code Integrity (eventos 3077/3118) y con
+  `Get-CimInstance -ClassName Win32_DeviceGuard` (`VerifiedAndReputablePolicyState = 1` significa que
+  está activo). Smart App Control **no admite exclusiones por fichero** y solo se puede desactivar de
+  forma **irreversible**, así que no es una decisión de desarrollo: es del responsable de la máquina.
+
+> **El entorno de referencia es el CI sobre Linux**, donde esta política no aplica y donde `ci.yml`
+> ejecuta la suite completa. Lo que diga el CI manda sobre lo que diga una máquina de desarrollo
+> Windows. El riesgo queda **aceptado y documentado** en el gate de `MVP-504`; no se revierte
+> Testcontainers, porque hacerlo reabriría `P-031`.
+
+### Comandos
+
 ```bash
 cd src/backend
 
@@ -396,3 +424,4 @@ Frontend                    Backend                     Google
 | Tech design MVP-102 | [`docs/09-desarrollos/epicas/.../tech-design.md`](../09-desarrollos/epicas/MVP-001--identidad-y-contexto-seguro/MVP-102--creacion-de-workspace-y-primer-acceso/tech-design.md) |
 | Tech design MVP-103 | [`docs/09-desarrollos/epicas/.../tech-design.md`](../09-desarrollos/epicas/MVP-001--identidad-y-contexto-seguro/MVP-103--invitaciones-por-email-y-enlace/tech-design.md) |
 | Entornos y secretos | [`docs/05-infraestructura/entornos.md`](./entornos.md) |
+| Riesgo de entorno de la suite (`P-069`) | [`docs/09-desarrollos/epicas/MVP-999--pendientes-transversales-y-diferidos/spec.md`](../09-desarrollos/epicas/MVP-999--pendientes-transversales-y-diferidos/spec.md) |

@@ -109,6 +109,9 @@ public sealed class ConsumptionRepository(TerrenarioDbContext db) : IConsumption
     /// La fecha no es una excepción a eso —no entra en ningún cálculo— sino la referencia con la que
     /// se deriva el aviso de RN-043 (MVP-708, <c>P-058</c>), que tiene que reflejar la compra tal y
     /// como está **ahora**: si se corrige la fecha de la compra, el aviso debe aparecer o irse solo.
+    ///
+    /// MVP-804 — La autoría entra con <c>LEFT JOIN</c> por el mismo motivo que en el resto: sin FK
+    /// hacia <c>users</c>, una cuenta purgada por RN-041 dejaría el consumo fuera del listado.
     /// </summary>
     private IQueryable<ConsumptionView> ProjectViews(IQueryable<PurchaseConsumption> consumptions)
         => from c in consumptions
@@ -116,6 +119,10 @@ public sealed class ConsumptionRepository(TerrenarioDbContext db) : IConsumption
            join s in db.Seasons on c.SeasonId equals s.Id
            join pu in db.Purchases on c.PurchaseId equals pu.Id into purchaseMatches
            from pu in purchaseMatches.DefaultIfEmpty()
+           join cb in db.Users on c.CreatedBy equals cb.Id into createdByMatches
+           from cb in createdByMatches.DefaultIfEmpty()
+           join ub in db.Users on c.UpdatedBy equals ub.Id into updatedByMatches
+           from ub in updatedByMatches.DefaultIfEmpty()
            select new ConsumptionView(
                c.Id,
                c.WorkspaceId,
@@ -134,7 +141,11 @@ public sealed class ConsumptionRepository(TerrenarioDbContext db) : IConsumption
                c.Version,
                c.CreatedAt,
                c.UpdatedAt,
-               pu != null ? pu.PurchaseDate : null);
+               pu != null ? pu.PurchaseDate : null,
+               // MVP-804 (CA-3) — La cuenta dada de baja no devuelve nombre **antes** de mirar qué
+               // guarda su `display_name`: quien lo rotula es `RecordAuthor.NameOf`.
+               cb != null && cb.DeletedAt == null ? cb.DisplayName : null,
+               ub != null && ub.DeletedAt == null ? ub.DisplayName : null);
 
     public async Task SaveChangesAsync(CancellationToken ct = default)
     {

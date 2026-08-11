@@ -1,7 +1,7 @@
 ﻿---
 bloque: 02-arquitectura
 documento: contratos-api
-actualizado_en: "2026-08-08"
+actualizado_en: "2026-08-11"
 ---
 
 # Contratos de API
@@ -704,15 +704,43 @@ Validaciones y reglas:
 Todas exigen `[RequireWorkspaceScope]`. La representación de una actividad es
 `{ id, workspace_id, date, plot_id, plot_name, season_id, season_name, worker_id, worker_name,
 task_id, task_name, task_text, task, hours, manual_cost, description, is_out_of_season_range,
-version, created_at, updated_at }` (MVP-301). Los nombres de los maestros llegan **resueltos** en la
-misma consulta para que el diario no tenga que pedirlos por separado, y dos campos son **derivados**,
-no columnas:
+version, created_at, updated_at, created_by_name, updated_by_name }` (MVP-301, autoría en MVP-804).
+Los nombres de los maestros llegan **resueltos** en la misma consulta para que el diario no tenga que
+pedirlos por separado, y dos campos son **derivados**, no columnas:
 
 | Campo derivado | Qué es |
 |---|---|
 | `task` | Texto de la tarea venga del catálogo o del campo libre (RN-025), para que ningún cliente rehaga ese `??` |
 | `is_out_of_season_range` | `true` si la fecha cae fuera del rango de la temporada asociada. Es el **aviso** de RN-023, nunca un bloqueo; se calcula en lectura, así que sigue siendo correcto si la temporada se edita después |
 | `task_catalog_outcome` | MVP-302 — qué pasó en el catálogo al pedir `save_task_to_catalog`: `created`, `reused` o `reactivated`. `null` en las lecturas y cuando no se pidió |
+
+#### Autoría de los registros operativos (MVP-804, `RU-21`)
+
+`created_by_name` y `updated_by_name` viajan en los **cuatro** recursos operativos —actividades,
+cosechas, compras y consumos— con la misma forma y el mismo significado. Las cuatro tablas guardaban
+`created_by`/`updated_by` desde que se crearon; lo que `MVP-804` añade es leerlos.
+
+| Campo | Qué es |
+|---|---|
+| `created_by_name` | Nombre de quien **apuntó** el registro. Nunca nulo ni vacío |
+| `updated_by_name` | Nombre de quien hizo la **última** corrección. Sin correcciones coincide con el anterior, y entonces `created_at == updated_at` |
+
+Tres precisiones que el contrato fija a propósito:
+
+1. **Solo el nombre.** No viaja ni el correo ni el identificador de la cuenta: no hacen falta para
+   responder a «quién apuntó esto» y exponerlos ampliaría la superficie de datos personales sin
+   contrapartida.
+2. **Una cuenta dada de baja se lee como «Cuenta eliminada»** (`MVP-505`, `RN-041`). El nombre que
+   tuvo **no** vuelve por este camino: la proyección deja de devolverlo en cuanto la cuenta está
+   anonimizada, sin mirar qué guarda su fila. Lo mismo vale para una cuenta ya purgada, cuya
+   referencia queda colgando porque las tablas operativas no tienen `FK` hacia `users`.
+3. **No hay histórico de cambios.** `RU-21` lo excluye expresamente: solo la última edición.
+
+En actividades, `created_by_name` **no** es `worker_name`: el responsable es quien hizo el trabajo en
+el campo y puede no tener cuenta; la autoría es quien lo registró en la aplicación.
+
+El **diario** (`GET /api/v1/diary`, §5.b) es la única lectura operativa que no los lleva: es un muro
+denso y su modal de corrección pide el registro completo por id, de donde sí llegan.
 
 Validaciones clave:
 
@@ -855,8 +883,9 @@ Reglas de contexto:
 
 La representación de una cosecha es
 `{ id, workspace_id, date, plot_id, plot_name, season_id, season_name, product, kgs, yield, liters,
-effective_yield, yield_source, destination, is_out_of_season_range, version, created_at, updated_at }`
-(MVP-401, ampliada en MVP-402). `plot_name` y `season_name` llegan resueltos y
+effective_yield, yield_source, destination, is_out_of_season_range, version, created_at, updated_at,
+created_by_name, updated_by_name }`
+(MVP-401, ampliada en MVP-402; autoría en MVP-804, §5). `plot_name` y `season_name` llegan resueltos y
 `is_out_of_season_range` es el mismo aviso derivado de RN-023 que en la actividad y la compra.
 `meta.total_kg` del listado son los **kilos acumulados de lo filtrado**, calculados en servidor, con el
 mismo criterio que `meta.total_cost` en compras.
@@ -930,7 +959,8 @@ cumplida entera (hallazgo `G-4`).
 La representación de un consumo es
 `{ id, workspace_id, purchase_id, has_purchase, purchase_date, plot_id, plot_name, season_id,
 season_name, date, product, quantity, unit_price, proportional_cost, is_out_of_season_range,
-is_before_purchase_date, version, created_at, updated_at }` (MVP-304 · MVP-708). `has_purchase` es
+is_before_purchase_date, version, created_at, updated_at, created_by_name, updated_by_name }`
+(MVP-304 · MVP-708; autoría en MVP-804, §5). `has_purchase` es
 **derivado** y desambigua el coste: `proportional_cost: 0` con `has_purchase: false` significa «se
 desconoce», no «fue gratis». `meta.without_purchase` cuenta esos registros: es la medida del impacto
 en la calidad del dato que pide el CA-3 de `MVP-003`.
@@ -942,7 +972,8 @@ pedir la compra aparte.
 
 La representación de una compra es
 `{ id, workspace_id, purchase_date, season_id, season_name, product, total_quantity, total_cost,
-unit_price, is_out_of_season_range, version, created_at, updated_at }` (MVP-303). `season_name` llega
+unit_price, is_out_of_season_range, version, created_at, updated_at, created_by_name,
+updated_by_name }` (MVP-303; autoría en MVP-804, §5). `season_name` llega
 resuelto y `is_out_of_season_range` es el mismo aviso derivado de RN-023 que en la actividad.
 `meta.total_cost` del listado es el **gasto acumulado de lo filtrado**, calculado en servidor.
 

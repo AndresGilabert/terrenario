@@ -41,6 +41,8 @@ describe('ComprasView — roces de captura (MVP-708)', () => {
     version: 1,
     created_at: '2026-07-31T09:00:00Z',
     updated_at: '2026-07-31T09:00:00Z',
+    created_by_name: 'Andrés Gilabert',
+    updated_by_name: 'Andrés Gilabert',
     ...overrides,
   });
 
@@ -64,6 +66,8 @@ describe('ComprasView — roces de captura (MVP-708)', () => {
     version: 1,
     created_at: '2026-08-05T09:00:00Z',
     updated_at: '2026-08-05T09:00:00Z',
+    created_by_name: 'Andrés Gilabert',
+    updated_by_name: 'Andrés Gilabert',
     ...overrides,
   });
 
@@ -190,6 +194,8 @@ describe('ComprasView — filtros en la URL (MVP-802)', () => {
     version: 1,
     created_at: '2026-07-31T09:00:00Z',
     updated_at: '2026-07-31T09:00:00Z',
+    created_by_name: 'Andrés Gilabert',
+    updated_by_name: 'Andrés Gilabert',
   });
 
   const scope = {
@@ -329,6 +335,8 @@ describe('ComprasView — maqueta adaptada (MVP-803)', () => {
     version: 1,
     created_at: '2026-07-31T09:00:00Z',
     updated_at: '2026-07-31T09:00:00Z',
+    created_by_name: 'Andrés Gilabert',
+    updated_by_name: 'Andrés Gilabert',
   });
 
   const consumption = (): Consumption => ({
@@ -351,6 +359,8 @@ describe('ComprasView — maqueta adaptada (MVP-803)', () => {
     version: 1,
     created_at: '2026-08-05T09:00:00Z',
     updated_at: '2026-08-05T09:00:00Z',
+    created_by_name: 'Andrés Gilabert',
+    updated_by_name: 'Andrés Gilabert',
   });
 
   const scope = {

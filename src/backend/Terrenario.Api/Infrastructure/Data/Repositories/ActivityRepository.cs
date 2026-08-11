@@ -62,6 +62,14 @@ public sealed class ActivityRepository(TerrenarioDbContext db) : IActivityReposi
     /// responsable y de la tarea, más el rango de la temporada que necesita el aviso de RN-023. La
     /// tarea entra con <c>LEFT JOIN</c> porque puede ser texto libre y no existir en el catálogo
     /// (RN-025).
+    ///
+    /// MVP-804 — La autoría entra igual, con <c>LEFT JOIN</c>: las tablas operativas no tienen FK
+    /// hacia <c>users</c>, así que una cuenta purgada al vencer RN-041 deja <c>created_by</c>
+    /// apuntando a una fila que ya no está. Con <c>INNER JOIN</c> la labor desaparecería del diario.
+    ///
+    /// <b>Cuidado con confundir dos cosas</b>: el <c>responsable</c> (<c>worker</c>) es quien hizo el
+    /// trabajo en el campo y puede no tener cuenta; la autoría es quien lo <b>apuntó</b> en la
+    /// aplicación. Casi nunca coinciden.
     /// </summary>
     private IQueryable<ActivityView> ProjectViews(IQueryable<Activity> activities)
         => from a in activities
@@ -70,6 +78,10 @@ public sealed class ActivityRepository(TerrenarioDbContext db) : IActivityReposi
            join w in db.Workers on a.WorkerId equals w.Id
            join t in db.Tasks on a.TaskId equals t.Id into taskMatches
            from t in taskMatches.DefaultIfEmpty()
+           join cb in db.Users on a.CreatedBy equals cb.Id into createdByMatches
+           from cb in createdByMatches.DefaultIfEmpty()
+           join ub in db.Users on a.UpdatedBy equals ub.Id into updatedByMatches
+           from ub in updatedByMatches.DefaultIfEmpty()
            select new ActivityView(
                a.Id,
                a.WorkspaceId,
@@ -90,7 +102,11 @@ public sealed class ActivityRepository(TerrenarioDbContext db) : IActivityReposi
                a.Description,
                a.Version,
                a.CreatedAt,
-               a.UpdatedAt);
+               a.UpdatedAt,
+               // MVP-804 (CA-3) — La cuenta dada de baja no devuelve nombre **antes** de mirar qué
+               // guarda su `display_name`: quien lo rotula es `RecordAuthor.NameOf`.
+               cb != null && cb.DeletedAt == null ? cb.DisplayName : null,
+               ub != null && ub.DeletedAt == null ? ub.DisplayName : null);
 
     public async Task SaveChangesAsync(CancellationToken ct = default)
     {

@@ -1,3 +1,5 @@
+using Terrenario.Api.Domain.Operations;
+
 namespace Terrenario.Api.Domain.Harvests;
 
 /// <summary>
@@ -114,6 +116,10 @@ public sealed record HarvestFilter(
 /// Vista de lectura de una cosecha con los nombres de terreno y temporada resueltos, para que el
 /// listado y el diario no tengan que pedir los maestros por separado. Incluye el rango de la temporada
 /// para poder señalar la fecha fuera de rango (RN-023) sin una consulta adicional del cliente.
+///
+/// MVP-804 — Resuelve también <b>quién</b> apuntó la partida y quién la corrigió por última vez
+/// (<see cref="IAuthoredRecord"/>), en la misma proyección y por el mismo motivo: es un nombre que
+/// vive en otra tabla y pedirlo aparte sería una consulta por registro.
 /// </summary>
 public sealed record HarvestView(
     Guid Id,
@@ -133,7 +139,11 @@ public sealed record HarvestView(
     decimal? UnitPrice,
     long Version,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt)
+    DateTimeOffset UpdatedAt,
+    /// <summary>MVP-804 — Nombre de quien apuntó la partida; <c>null</c> si su cuenta ya no nombra a nadie.</summary>
+    string? CreatedByAccountName = null,
+    /// <summary>MVP-804 — Nombre de quien hizo la última corrección, con el mismo criterio.</summary>
+    string? UpdatedByAccountName = null) : IAuthoredRecord
 {
     /// <summary>
     /// RN-023 — la fecha cae fuera del rango de la temporada asociada. Es un <b>aviso</b>, nunca un

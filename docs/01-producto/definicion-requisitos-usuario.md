@@ -1,7 +1,7 @@
 ﻿---
 bloque: 01-producto
 documento: definicion-requisitos-usuario
-actualizado_en: "2026-08-10"
+actualizado_en: "2026-08-11"
 ---
 
 # Definición de requisitos de usuario
@@ -551,7 +551,17 @@ Los criterios de aceptación detallados se cerrarán al bajar estas decisiones a
 - **RU-21: Metadato de última edición (sin histórico completo)**
   - Se guardan usuario y fecha de la última edición/creación de cada registro crítico.
   - No se mantiene histórico completo de cambios por simplicidad.
-  - Estado: MVP
+  - Estado: MVP — **entregado en `MVP-804` (2026-08-11)**.
+  - **Estaba cumplido a medias y la mitad que faltaba era la que sirve** (`P-113`): las cuatro tablas
+    operativas guardaban `created_by`/`updated_by` desde que se crearon, pero el dato no salía de la
+    base de datos. `MVP-804` lo expone en los cuatro recursos y lo muestra en el modal de corrección,
+    que es el detalle de un registro en este producto.
+  - **Dónde se ve y dónde no**: en el detalle, nunca en un listado. La autoría es información de apoyo
+    para aclarar una discrepancia (`RN-034`), y como columna cambiaría la densidad de las cuatro
+    listas operativas.
+  - **Una cuenta dada de baja se lee «Cuenta eliminada»**, que es exactamente lo que `MVP-505` dejó
+    previsto al conservar la fila anonimizada porque «el histórico operativo de terceros guarda quién
+    lo registró».
 
 - **RU-22: Borrado lógico de registros sincronizados**
   - Se permite borrar registros ya guardados en sistema (cosechas, actividades, compras).
@@ -791,7 +801,7 @@ decisión, y `RU-36` diciendo una cosa mientras el producto hacía otra.
 | RU-18 | Temporadas solapables por cultivo | MVP | `RN-021`, `MVP-203`; la dimensión de cultivo en `P-059`, `P-060` | entregado |
 | RU-19 | Campaña activa por defecto en los registros | MVP | `RN-021`, `RN-022`, `MVP-203`, `MVP-209`; la dimensión de cultivo en `P-060` | entregado |
 | RU-20 | Cierre de temporada sin bloqueo | MVP | `RN-024`, `MVP-209` | entregado |
-| RU-21 | Metadato de última creación y edición | MVP | `P-113`, `MVP-804` | en MVP-804 |
+| RU-21 | Metadato de última creación y edición | MVP | `P-113`, `MVP-804` | entregado |
 | RU-22 | Borrado lógico de registros | MVP | `RN-037`, `RN-041`, `MVP-305` | entregado |
 | RU-23 | Todos los campos obligatorios en el alta | MVP | `RN-002`, `RN-004`, `MVP-301`, `MVP-401` | entregado |
 | RU-24 | Aviso de posible cosecha duplicada | MVP | `RN-044`, `P-110`, `MVP-805` | entregado |

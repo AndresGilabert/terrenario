@@ -348,7 +348,11 @@ public sealed class PurchasesController(
         pending_quantity = purchase.TotalQuantity - imputedQuantity,
         version = purchase.Version,
         created_at = purchase.CreatedAt,
-        updated_at = purchase.UpdatedAt
+        updated_at = purchase.UpdatedAt,
+        // MVP-804 (RU-21, CA-1) — Quién la apuntó y quién la corrigió por última vez. Solo el nombre:
+        // ni correo ni identificador de cuenta, que no hacen falta para responder a la pregunta.
+        created_by_name = purchase.CreatedByName(),
+        updated_by_name = purchase.UpdatedByName()
     };
 }
 

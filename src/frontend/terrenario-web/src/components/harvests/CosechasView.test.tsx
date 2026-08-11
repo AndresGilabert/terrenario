@@ -40,6 +40,8 @@ const harvest = (overrides: Partial<Harvest> = {}): Harvest => ({
   version: 1,
   created_at: '2025-10-20T09:00:00Z',
   updated_at: '2025-10-20T09:00:00Z',
+  created_by_name: 'Andrés Gilabert',
+  updated_by_name: 'Andrés Gilabert',
   ...overrides,
 });
 
@@ -232,5 +234,39 @@ describe('CosechasView — maqueta adaptada', () => {
     expect(
       screen.getByRole('button', { name: 'Eliminar la cosecha de Matorral del 20 oct 2025' })
     ).toBeInTheDocument();
+  });
+});
+
+/**
+ * MVP-804 (`CA-4`) — La autoría **no** entra en la lista.
+ *
+ * El dato viaja en cada fila porque la lectura por id y el listado comparten proyección, así que nada
+ * impide pintarlo en la tabla salvo la decisión de no hacerlo. Este test es esa decisión escrita: la
+ * autoría es información de apoyo del detalle, y una columna más cambiaría la densidad de la lista
+ * justo en las vistas que `MVP-803` acaba de dejar legibles en móvil.
+ */
+describe('CosechasView — la autoría no cambia la densidad de la lista (MVP-804)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('no muestra quién apuntó cada partida en el listado', async () => {
+    http = createFakeHttpClient({
+      '/api/v1/harvests': {
+        data: [harvest()],
+        meta: { scope: scope(), total: 1, total_kg: 1000 },
+      },
+      '/api/v1/plots': { data: [{ id: 'p-1', name: 'Matorral', is_active: true }], meta: { total: 1 } },
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/app/cosechas']}>
+        <CosechasView />
+      </MemoryRouter>
+    );
+
+    await screen.findAllByText('Matorral');
+    expect(screen.queryByText(/Registrado por/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Última edición/)).not.toBeInTheDocument();
   });
 });

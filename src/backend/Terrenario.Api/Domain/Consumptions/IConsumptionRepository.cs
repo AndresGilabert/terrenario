@@ -1,3 +1,5 @@
+using Terrenario.Api.Domain.Operations;
+
 namespace Terrenario.Api.Domain.Consumptions;
 
 /// <summary>
@@ -72,6 +74,10 @@ public sealed record ConsumptionFilter(
 /// <summary>
 /// Vista de lectura de un consumo con el terreno y la temporada resueltos y el aviso de fecha fuera
 /// de rango derivado, para que el libro y el diario no pidan los maestros por separado.
+///
+/// MVP-804 — Resuelve también <b>quién</b> apuntó el consumo y quién lo corrigió por última vez
+/// (<see cref="IAuthoredRecord"/>). Como la compra, no tiene lectura por id: el modal se abre con la
+/// fila del listado.
 /// </summary>
 public sealed record ConsumptionView(
     Guid Id,
@@ -96,7 +102,11 @@ public sealed record ConsumptionView(
     /// previa. Es lo único que se lee de la compra, y solo para poder avisar de un consumo anterior
     /// a ella (RN-043). El coste y el material siguen siendo los del propio consumo (RN-032).
     /// </summary>
-    DateOnly? PurchaseDate = null)
+    DateOnly? PurchaseDate = null,
+    /// <summary>MVP-804 — Nombre de quien apuntó el consumo; <c>null</c> si su cuenta ya no nombra a nadie.</summary>
+    string? CreatedByAccountName = null,
+    /// <summary>MVP-804 — Nombre de quien hizo la última corrección, con el mismo criterio.</summary>
+    string? UpdatedByAccountName = null) : IAuthoredRecord
 {
     /// <summary>
     /// <c>false</c> cuando el consumo se registró sin compra previa (RN-032): el coste es <c>0</c>

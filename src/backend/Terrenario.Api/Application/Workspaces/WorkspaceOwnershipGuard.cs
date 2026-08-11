@@ -35,4 +35,28 @@ public sealed class WorkspaceOwnershipGuard(IWorkspaceRepository workspaceReposi
                 "Eres la única persona propietaria de algún Workspace: traspásalo o dalo de baja "
                 + "antes de cerrar tu cuenta.");
     }
+
+    /// <summary>
+    /// MVP-807 (HU-1, CA-2) — Misma regla, un solo Workspace: quien es su **propietario único** no
+    /// puede abandonarlo sin resolver antes la propiedad.
+    ///
+    /// <b>Vive aquí y no en el caso de uso a propósito.</b> Es la condición con la que se registró
+    /// <c>P-024</c> y la que <c>MVP-505</c> respetó al construir la baja de cuenta: la no-orfandad se
+    /// llama, no se reimplementa. Abandonar y cerrar la cuenta son dos puertas al mismo problema —una
+    /// persona que se va— y si cada una decidiera por su cuenta acabarían discrepando, que es
+    /// exactamente lo que le pasó a <c>can_revoke</c> con su propia guarda (<c>P-049</c>).
+    ///
+    /// Reutiliza <see cref="ListObligationsAsync"/>, así que la definición de «propietario único» es
+    /// literalmente la misma consulta.
+    /// </summary>
+    public async Task EnsureCanLeaveAsync(Guid userId, Guid workspaceId, CancellationToken ct = default)
+    {
+        var obligations = await ListObligationsAsync(userId, ct);
+
+        if (obligations.Workspaces.Any(workspace => workspace.WorkspaceId == workspaceId))
+            throw new WorkspaceMemberException(
+                ErrorCodes.BusinessRuleWorkspaceOwnershipUnresolved,
+                "Eres la única persona propietaria de este Workspace: traspásalo o dalo de baja "
+                + "antes de abandonarlo.");
+    }
 }

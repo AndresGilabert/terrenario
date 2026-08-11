@@ -97,6 +97,7 @@ y se mantienen en español.
 | Opciones de baja del activo (MVP-206) | `GET /api/v1/workspaces/active/closure` | — | `200 { workspace, is_owner, mode, active_owners, successor_name, candidates[] }` |
 | Dar de baja el workspace activo (MVP-206) | `POST /api/v1/workspaces/active/closure` | — | `200 { outcome, workspace, new_owner_name, notified_members, emails_sent }` |
 | Traspasar la propiedad (MVP-206) | `POST /api/v1/workspaces/active/transfer-ownership` | `new_owner_user_id*` | `200 { outcome: "transferred", workspace, new_owner_name }` |
+| Abandonar el workspace activo (MVP-807) | `POST /api/v1/workspaces/active/leave` | — | `204` |
 | Propiedades unicas sin resolver (MVP-206) | `GET /api/v1/workspaces/ownership-obligations` | — | `200 { data:[{ workspace_id, name, other_active_members, can_transfer }], meta:{ total, is_clear } }` |
 
 Validaciones clave:
@@ -673,6 +674,11 @@ solo aparecía en una lista de solo lectura y no había forma de retirarla.
 
 Lo que **ya no** sale de este endpoint son los responsables seleccionables: eso es
 `GET /workers` (MVP-208, CA-2). Esta sigue siendo la superficie de **accesos**.
+
+**`can_revoke` describe la guarda, no una versión más prudente de ella** (MVP-807, `P-049`). Es cierto
+para un miembro activo salvo que sea el **único propietario** o el **último miembro activo**, que son
+literalmente las dos condiciones del `CA-8` de `MVP-204`. Antes decía «activo y no propietario», más
+restrictivo que la API, así que la interfaz escondía una acción que el servidor acepta.
 
 Validaciones y reglas:
 

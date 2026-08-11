@@ -39,13 +39,19 @@ public sealed class WorkspaceMembersController(
         var actingUserId = User.GetUserId();
         var people = await listWorkspacePeopleHandler.HandleAsync(workspaceContext.WorkspaceId, ct);
 
+        // MVP-807 (`P-049`) — Cuántos propietarios activos quedan. Sin este dato, `can_revoke` no
+        // puede describir la guarda real y tenía que optar por la respuesta más restrictiva.
+        var activeOwners = people.Members.Count(m =>
+            m.Status == WorkspaceMemberStatuses.Active && m.Role == WorkspaceRoles.Owner);
+        var activeMembers = people.Members.Count(m => m.Status == WorkspaceMemberStatuses.Active);
+
         var active = people.Members
             .Where(m => m.Status == WorkspaceMemberStatuses.Active)
-            .Select(m => MemberResponse(m, actingUserId));
+            .Select(m => MemberResponse(m, actingUserId, activeOwners, activeMembers));
         var invited = people.Invited.Select(InvitedResponse);
         var revoked = people.Members
             .Where(m => m.Status == WorkspaceMemberStatuses.Revoked)
-            .Select(m => MemberResponse(m, actingUserId));
+            .Select(m => MemberResponse(m, actingUserId, activeOwners, activeMembers));
 
         var data = active.Concat(invited).Concat(revoked).ToList();
 
@@ -80,7 +86,28 @@ public sealed class WorkspaceMembersController(
         }
     }
 
-    private static object MemberResponse(WorkspaceMemberDetail member, Guid? actingUserId) => new
+    /// <summary>
+    /// MVP-807 (<c>P-049</c>, CA-6) — <c>can_revoke</c> describe ahora <b>la misma regla</b> que la
+    /// guarda de <see cref="RevokeMemberHandler"/>, ni más ni menos.
+    ///
+    /// Antes decía «activo y no propietario», mientras la guarda real solo protege al propietario
+    /// <b>único</b> (<c>CountActiveOwnersAsync &lt;= 1</c>), que es lo que dice literalmente el
+    /// <c>CA-8</c> de <c>MVP-204</c>. Mientras el propietario era siempre uno la diferencia no se
+    /// notaba; <c>MVP-206</c> introdujo Workspaces con varios propietarios y desde entonces la regla
+    /// publicada y la acción disponible no coincidían. <b>No era un fallo de seguridad</b> —la
+    /// interfaz era más restrictiva que la API— sino una incoherencia, y se resuelve alineando la
+    /// interfaz con la regla: <b>manda `RN-034`</b> (decisión del PO, 2026-08-10).
+    ///
+    /// Se refleja también la otra mitad del <c>CA-8</c>, que tampoco se decía: al último miembro
+    /// activo no se le puede retirar el acceso aunque no sea propietario.
+    ///
+    /// La guarda que de verdad importa —no dejar el Workspace sin propietario— no se toca.
+    /// </summary>
+    private static object MemberResponse(
+        WorkspaceMemberDetail member,
+        Guid? actingUserId,
+        int activeOwners,
+        int activeMembers) => new
     {
         kind = "member",
         status = member.Status,
@@ -91,7 +118,8 @@ public sealed class WorkspaceMembersController(
         joined_at = member.JoinedAt,
         is_self = actingUserId == member.UserId,
         can_revoke = member.Status == WorkspaceMemberStatuses.Active
-            && member.Role != WorkspaceRoles.Owner
+            && (member.Role != WorkspaceRoles.Owner || activeOwners > 1)
+            && activeMembers > 1
     };
 
     private static object InvitedResponse(Application.Workspaces.Commands.WorkspaceInvitedDetail invited) => new

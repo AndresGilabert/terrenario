@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MiembrosView } from './MiembrosView';
 import { createFakeHttpClient, type FakeHttpClient } from '../../test/http';
+import { HttpError } from '../../services/http-client';
 import type { WorkspacePerson } from '../../types/member.types';
 
 /**
@@ -13,6 +14,13 @@ import type { WorkspacePerson } from '../../types/member.types';
 let http: FakeHttpClient;
 vi.mock('../../contexts/ApiContext', () => ({
   useApiClient: () => http,
+}));
+
+// MVP-807 — La vista necesita el Workspace activo para nombrarlo en la salida voluntaria, y
+// resincroniza el contexto al salir. Igual que el cliente HTTP, se sustituye el hook.
+const refreshContext = vi.fn();
+vi.mock('../../contexts/WorkspaceContext', () => ({
+  useWorkspace: () => ({ activeWorkspace: { id: 'w-1', name: 'Finca El Olivar' }, refreshContext }),
 }));
 
 /**
@@ -233,5 +241,79 @@ describe('MiembrosView', () => {
     );
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Algo ha fallado.');
+  });
+});
+
+/**
+ * MVP-807 (HU-1, `P-048`) — La salida voluntaria.
+ *
+ * Lo que se cubre aquí es la **decisión de la vista**, que es donde `P-049` enseñó lo caro que sale
+ * duplicar una regla: quién puede irse lo decide el servidor, y la pantalla enseña su negativa en vez
+ * de adelantar la condición por su cuenta.
+ */
+describe('MiembrosView — abandonar el Workspace (MVP-807)', () => {
+  let http2: FakeHttpClient;
+
+  const renderConSalida = (leave: unknown) => {
+    http2 = createFakeHttpClient({
+      '/api/v1/workspace-members': { data: [], meta: { total: 0, active: 0, invited: 0, revoked: 0 } },
+      '/api/v1/workspaces/active/leave': leave,
+    });
+    http = http2;
+
+    return render(
+      <MemoryRouter>
+        <MiembrosView />
+      </MemoryRouter>
+    );
+  };
+
+  beforeEach(() => vi.clearAllMocks());
+
+  it('exige confirmación explícita antes de salir', async () => {
+    const user = userEvent.setup();
+    renderConSalida(undefined);
+
+    await user.click(await screen.findByRole('button', { name: /Abandonar este Workspace/ }));
+
+    // La confirmación **nombra el Workspace**: es una acción sin vuelta atrás sobre uno mismo.
+    expect(screen.getByText(/salir de «Finca El Olivar»/)).toBeInTheDocument();
+    expect(http2.callsTo('/api/v1/workspaces/active/leave')).toHaveLength(0);
+  });
+
+  it('avisa de que lo registrado no se borra', async () => {
+    renderConSalida(undefined);
+
+    expect(await screen.findByText(/Lo que registraste no se borra/)).toBeInTheDocument();
+  });
+
+  it('resincroniza el contexto al salir', async () => {
+    // El Workspace activo lo resuelve de nuevo el servidor: puede ser otro o ninguno.
+    const user = userEvent.setup();
+    renderConSalida(undefined);
+
+    await user.click(await screen.findByRole('button', { name: /Abandonar este Workspace/ }));
+    await user.click(screen.getByRole('button', { name: 'Sí, abandonar' }));
+
+    await waitFor(() => expect(refreshContext).toHaveBeenCalled());
+  });
+
+  it('enseña el motivo del servidor cuando no se puede salir', async () => {
+    // No se adelanta la condición: quién puede irse lo decide la guarda, y su mensaje es el que se
+    // muestra. Duplicar la regla aquí es exactamente lo que produjo `P-049` en esta misma pantalla.
+    const user = userEvent.setup();
+    renderConSalida(() => {
+      throw new HttpError(
+        422,
+        'BUSINESS_RULE_WORKSPACE_OWNERSHIP_UNRESOLVED',
+        'Eres la única persona propietaria de este Workspace: traspásalo o dalo de baja antes de abandonarlo.'
+      );
+    });
+
+    await user.click(await screen.findByRole('button', { name: /Abandonar este Workspace/ }));
+    await user.click(screen.getByRole('button', { name: 'Sí, abandonar' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/única persona propietaria/);
+    expect(refreshContext).not.toHaveBeenCalled();
   });
 });

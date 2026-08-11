@@ -2,7 +2,7 @@
 id: "MVP-807"
 tipo: feature
 titulo: "Ciclo de vida de la membresia"
-estado: aprobado
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Hito H — Ajustes de la segunda revision"
@@ -98,18 +98,39 @@ interfaz ofrece coincida con lo que la regla permite.
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Un miembro activo no propietario puede abandonar un Workspace desde la interfaz, con
+- [x] **CA-1**: Un miembro activo no propietario puede abandonar un Workspace desde la interfaz, con
   confirmacion explicita, y ese Workspace desaparece de su selector.
-- [ ] **CA-2**: Un propietario **unico** que intenta abandonar recibe la misma obligacion de resolver
+  **Evidencia**: prueba de integracion con dos cuentas reales —invitar, aceptar, abandonar—:
+  `POST /workspaces/active/leave` responde `204` y `GET /workspaces` deja de listarlo. En la interfaz,
+  la confirmacion **nombra el Workspace** y avisa de que lo registrado no se borra; fijado con test.
+- [x] **CA-2**: Un propietario **unico** que intenta abandonar recibe la misma obligacion de resolver
   la propiedad que ya impone la baja de cuenta, resuelta por `WorkspaceOwnershipGuard` y **no** por
   codigo nuevo. Comprobado que la llamada pasa por esa guarda.
-- [ ] **CA-3**: El ultimo miembro activo de un Workspace no puede abandonarlo dejandolo sin nadie.
-- [ ] **CA-4**: Quien abandona deja de aparecer como responsable seleccionable, y las labores que ya
+  **Evidencia**: `422 BUSINESS_RULE_WORKSPACE_OWNERSHIP_UNRESOLVED` contra la API real. La guarda gana
+  `EnsureCanLeaveAsync`, que reutiliza `ListObligationsAsync`: la definicion de «propietario unico» es
+  **la misma consulta** que usa la baja de cuenta. Hay un test que afirma sobre `ListSoleOwnedAsync`,
+  es decir, comprueba **que se llama a la guarda**, no que el veredicto coincida.
+- [x] **CA-3**: El ultimo miembro activo de un Workspace no puede abandonarlo dejandolo sin nadie.
+  **Evidencia**: guarda propia con su codigo de error, con test unitario y de integracion. Se comprueba
+  aunque quien se va **no** sea propietario: la regla es «no dejarlo vacio», no «no dejarlo sin dueno».
+- [x] **CA-4**: Quien abandona deja de aparecer como responsable seleccionable, y las labores que ya
   tenia asignadas siguen mostrando su nombre en el historico.
-- [ ] **CA-5**: Volver a entrar exige una invitacion nueva; el enlace anterior no sirve.
-- [ ] **CA-6**: En un Workspace con **dos** propietarios activos, la interfaz ofrece retirar el acceso
+  **Evidencia**: tras abandonar, `GET /workers?is_active=true` deja de incluirlo y `GET /workers` sigue
+  incluyendolo: la ficha se **inactiva**, no se borra.
+- [x] **CA-5**: Volver a entrar exige una invitacion nueva; el enlace anterior no sirve.
+  **Evidencia**: tras abandonar, la persona figura como `revocado` en «Miembros y accesos», que es el
+  mismo estado de quien fue revocado y el que ya exige invitacion nueva (`MVP-103`).
+- [x] **CA-6**: En un Workspace con **dos** propietarios activos, la interfaz ofrece retirar el acceso
   a uno de ellos y la operacion se completa; con **uno solo**, ni se ofrece ni la API la permite.
   `can_revoke` y la guarda de `RevokeMemberHandler` describen la misma regla, y `RN-034` la recoge.
+  **Evidencia**: con dos propietarios activos, `can_revoke` es `true` para los dos y la revocacion
+  responde `204`; con uno solo, `can_revoke` es `false` y la API responde `422`. La prueba se comprobo
+  **en rojo** sin la alineacion.
+  **Salvedad, y es un hallazgo**: el estado de «dos propietarios activos» **no lo produce hoy ningun
+  flujo del producto** —traspaso, baja con copropietario, reapertura y reactivacion promueven a uno y
+  degradan al otro, comprobados uno por uno—, asi que en la prueba se **siembra en base de datos**. La
+  incoherencia de `P-049` era por tanto **latente**, no viva. Se registra como punto nuevo en
+  `MVP-999`.
 
 ## Notas y decisiones
 

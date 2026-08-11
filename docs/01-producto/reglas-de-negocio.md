@@ -502,6 +502,37 @@ La vista principal del MVP es un diario cronológico unificado que mezcla activi
 
 En MVP todos los miembros del Workspace pueden operar y administrar registros, maestros, temporadas e invitaciones. Los permisos granulares se dejan para fases posteriores.
 
+**Salida voluntaria** (`MVP-807`, `P-048`): un miembro activo puede **abandonar** el Workspace por su
+propio pie, con confirmación explícita. Es el lado que faltaba del ciclo de vida de la membresía —
+`MVP-204` cubre retirar el acceso **a otra** persona y `MVP-206` la salida **del propietario**—, y con
+`RN-035` la asimetría se notaba: entrar en un Workspace ajeno es fácil y salir no existía.
+
+Abandonar tiene **el mismo efecto que ser revocado**: la membresía pasa a `revocado`, la persona deja
+de ofrecerse como responsable seleccionable (`MVP-208`) y su histórico no se toca —las labores que
+tenía asignadas siguen mostrando su nombre—. Volver exige **invitación nueva**; no hay readmisión
+automática ni el enlace anterior sirve.
+
+Dos guardas, y ninguna se reimplementa:
+
+- **No-orfandad** (`RN-038`, `WorkspaceOwnershipGuard`): un propietario **único** no puede abandonar
+  sin traspasar el Workspace o darlo de baja, exactamente igual que para cerrar su cuenta (`MVP-505`).
+- **No dejarlo vacío** (`CA-8` de `MVP-204`): el último miembro activo tampoco puede irse.
+
+**Qué revocación se ofrece** (`MVP-807`, `P-049`): la interfaz ofrece exactamente las revocaciones que
+la regla permite, ni una menos. `can_revoke` decía «activo y no propietario» mientras la guarda real
+solo protege al propietario **único** —que es lo que dice literalmente el `CA-8` de `MVP-204`—, así que
+la pantalla escondía una acción que la API acepta. **Decisión del PO (2026-08-10): manda esta regla**,
+los permisos son planos, y por tanto se alinea la interfaz con la API en vez de endurecer la guarda.
+Endurecerla obligaría a que un copropietario solo pudiera salir por su propio pie o traspasando.
+
+La guarda que de verdad importa —no dejar el Workspace sin propietario— no cambia.
+
+> **Nota de estado (2026-08-11)**: hoy **ningún flujo del producto produce dos propietarios activos**:
+> el traspaso, la baja con copropietario, la reapertura y la reactivación promueven a uno y degradan al
+> otro. La incoherencia de `P-049` era por tanto **latente**, no viva. La alineación se hace igual
+> porque el día que exista un segundo propietario nadie volvería a mirarlo, y porque una regla
+> publicada que no describe la guarda es una regla que ya ha empezado a divergir.
+
 ---
 
 ### RN-035 — Invitaciones por email y por enlace

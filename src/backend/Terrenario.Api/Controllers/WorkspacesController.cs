@@ -22,6 +22,7 @@ public sealed class WorkspacesController(
     GetWorkspaceClosureOptionsHandler closureOptionsHandler,
     CloseWorkspaceHandler closeWorkspaceHandler,
     TransferWorkspaceOwnershipHandler transferOwnershipHandler,
+    LeaveWorkspaceHandler leaveWorkspaceHandler,
     WorkspaceOwnershipGuard ownershipGuard,
     IActiveWorkspaceResolver activeWorkspaceResolver,
     IWorkspaceContext workspaceContext) : ControllerBase
@@ -210,6 +211,33 @@ public sealed class WorkspacesController(
                 ct);
 
             return Ok(ClosurePayload(result));
+        }
+        catch (WorkspaceMemberException ex)
+        {
+            return WorkspaceMemberErrorMapper.ToActionResult(ex);
+        }
+    }
+
+    /// <summary>
+    /// MVP-807 (HU-1, <c>P-048</c>) — <b>Abandonar</b> el Workspace activo. Es el hueco simétrico de
+    /// «retirar el acceso a otra persona» (<c>MVP-204</c>) y de «salir siendo propietario»
+    /// (<c>MVP-206</c>): un miembro corriente no tenía ninguna vía de salir.
+    ///
+    /// No reemite la sesión: el cliente resincroniza el contexto y el servidor le resuelve el
+    /// Workspace activo que corresponda —otro, o ninguno—, igual que tras dar de baja un Workspace.
+    /// Responde <c>204</c> porque no hay nada que devolver: lo que hay que saber después es cuál es el
+    /// contexto nuevo, y eso lo dice <c>GET /workspaces/active</c>.
+    /// </summary>
+    [HttpPost("active/leave")]
+    [RequireWorkspaceScope]
+    public async Task<IActionResult> Leave(CancellationToken ct)
+    {
+        try
+        {
+            await leaveWorkspaceHandler.HandleAsync(
+                workspaceContext.WorkspaceId, User.GetUserId()!.Value, ct);
+
+            return NoContent();
         }
         catch (WorkspaceMemberException ex)
         {

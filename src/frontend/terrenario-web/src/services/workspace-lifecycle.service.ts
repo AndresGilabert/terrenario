@@ -39,6 +39,16 @@ export function createWorkspaceLifecycleService(http: HttpClient) {
       });
     },
 
+    /**
+     * MVP-807 (HU-1, `P-048`) — Abandona el Workspace activo por voluntad propia.
+     *
+     * No devuelve nada: lo que hay que saber después es cuál es el contexto nuevo, y eso lo resuelve
+     * el servidor. Quien llama resincroniza el contexto, igual que tras dar de baja un Workspace.
+     */
+    async leave(): Promise<void> {
+      await http.request<void>('/api/v1/workspaces/active/leave', { method: 'POST' });
+    },
+
     /** Traspasa la propiedad a un miembro activo (CA-4). Quien traspasa se queda como miembro. */
     async transferOwnership(newOwnerUserId: string): Promise<WorkspaceClosureResult> {
       return http.request<WorkspaceClosureResult>('/api/v1/workspaces/active/transfer-ownership', {

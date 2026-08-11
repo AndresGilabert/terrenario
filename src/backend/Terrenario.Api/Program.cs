@@ -266,6 +266,7 @@ builder.Services.AddScoped<RenameWorkspaceHandler>();
 builder.Services.AddScoped<GetWorkspaceClosureOptionsHandler>();
 builder.Services.AddScoped<CloseWorkspaceHandler>();
 builder.Services.AddScoped<TransferWorkspaceOwnershipHandler>();
+builder.Services.AddScoped<LeaveWorkspaceHandler>();
 builder.Services.AddScoped<WorkspaceOwnershipGuard>();
 builder.Services.AddScoped<PreviewReactivationHandler>();
 builder.Services.AddScoped<RequestReactivationHandler>();

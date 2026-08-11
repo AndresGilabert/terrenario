@@ -12,6 +12,14 @@ public sealed record AccountClosurePreview(
     /// <summary>Workspaces de propiedad única sin resolver (RN-038). Vacío ⇒ la baja puede completarse.</summary>
     IReadOnlyList<SoleOwnedWorkspace> Obligations,
     int ActiveMemberships,
+    /// <summary>
+    /// MVP-811 (<c>P-118</c>) — De esas membresías, en cuántas hay **más gente**. La pantalla de baja
+    /// afirmaba que se salía de <i>n</i> Workspaces «compartidos» con el adjetivo fijo, y quien era la
+    /// única persona de su Workspace leía que lo compartía mientras la misma pantalla le decía más
+    /// arriba «eres la única persona en este Workspace». En un flujo irreversible, un texto que
+    /// describe mal la situación resta confianza justo donde hace falta.
+    /// </summary>
+    int SharedMemberships,
     int ActiveSessions)
 {
     public bool IsClear => Obligations.Count == 0;
@@ -59,9 +67,19 @@ public sealed class CloseAccountHandler(
         var obligations = await ownershipGuard.ListObligationsAsync(userId, ct);
         var memberships = await workspaceRepository.ListActiveMembershipsAsync(userId, ct);
 
+        // MVP-811 (`P-118`) — Cuántas de esas membresías son de verdad compartidas. Se cuenta aquí y no
+        // en el cliente porque el cliente no tiene el dato: la lista de membresías no dice cuánta gente
+        // hay en cada Workspace, y la pantalla acababa afirmándolo sin saberlo.
+        var shared = 0;
+        foreach (var membership in memberships)
+        {
+            if (await workspaceRepository.CountActiveMembersAsync(membership.WorkspaceId, ct) > 1) shared++;
+        }
+
         return new AccountClosurePreview(
             obligations.Workspaces,
             memberships.Count,
+            shared,
             await refreshTokenStore.CountActiveForUserAsync(userId, ct));
     }
 

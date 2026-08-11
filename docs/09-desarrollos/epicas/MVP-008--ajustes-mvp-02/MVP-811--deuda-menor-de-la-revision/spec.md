@@ -2,7 +2,7 @@
 id: "MVP-811"
 tipo: bugfix
 titulo: "Deuda menor de la revision"
-estado: aprobado
+estado: completado
 prioridad: media
 sprint: ""
 hito: "Hito H — Ajustes de la segunda revision"
@@ -89,16 +89,32 @@ Cerrar los tres sin dejar ninguno «para cuando toque la zona», que es como se 
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Entrar en `/app` no produce ningun aviso de React en la consola. Verificado sobre la
+- [x] **CA-1**: Entrar en `/app` no produce ningun aviso de React en la consola. Verificado sobre la
   aplicacion en marcha, y fijado con una prueba que falla si el aviso vuelve.
-- [ ] **CA-2**: El mecanismo de invalidacion sigue funcionando: cambiar de Workspace remonta el area
+  **Evidencia**: el aviso se reprodujo en el navegador antes del arreglo, con el texto literal del
+  punto («Cannot update a component (`DataScopeProvider`) while rendering a different component
+  (`WorkspaceProvider`)»). La prueba nueva espia `console.error` y se comprobo **en rojo** retirando el
+  arreglo: falla con ese mismo mensaje.
+- [x] **CA-2**: El mecanismo de invalidacion sigue funcionando: cambiar de Workspace remonta el area
   operativa y ninguna vista muestra datos del anterior. Es la garantia de `P-081` y no puede
   degradarse al arreglar el aviso.
-- [ ] **CA-3**: `GET /api/v1/noexiste` responde `404` con el envoltorio canonico y su
+  **Evidencia**: dos pruebas mas en el mismo fichero: `scopeVersion` **si** se incrementa al cambiar de
+  Workspace de verdad, y **no** se incrementa al resincronizar el mismo (el caso del renombrado de
+  `MVP-206`). Sin ellas, «quitar el aviso» se podria conseguir quitando la invalidacion.
+- [x] **CA-3**: `GET /api/v1/noexiste` responde `404` con el envoltorio canonico y su
   `Content-Type: application/json`, y los 404 de dominio siguen respondiendo exactamente igual que
   ahora.
-- [ ] **CA-4**: La pantalla de baja de cuenta concuerda en numero y solo habla de Workspaces
+  **Evidencia**: reproducido contra la API real antes del arreglo —los tres casos con
+  `status=404 type= len=0`— y fijado con una `[Theory]` de tres entradas que ademas comprueba el
+  `Content-Type`. Dos guardas de no-regresion: `PATCH /seasons/{desconocido}` sigue devolviendo
+  `SEASON_NOT_FOUND` con su mensaje propio, y `/app/diario` **no** recibe el envoltorio, porque no es
+  API.
+- [x] **CA-4**: La pantalla de baja de cuenta concuerda en numero y solo habla de Workspaces
   «compartidos» cuando hay mas de una persona. Comprobados los dos casos.
+  **Evidencia**: tres pruebas, una por caso: «Sales de 1 Workspace compartido», «Sales de 1 Workspace»
+  cuando la persona esta sola, y «Sales de 3 Workspaces, 2 de ellos compartidos». Arreglar solo la
+  concordancia no bastaba: el cliente **no tenia el dato**, asi que se anade `shared_memberships` a la
+  previsualizacion de baja.
 
 ## Notas y decisiones
 

@@ -39,7 +39,11 @@ actualizado_en: "2026-08-08"
 - Versionado en la URL: `/api/v1/...`
 - Recursos en plural y kebab-case, en inglés: `/plots`, `/workspace-members`
 - Campos de request y response en `snake_case` inglés: `access_token`, `season_id`
-- Respuestas de error: siempre JSON con `{ "error": { "code": "", "message": "", "details": [] } }`
+- Respuestas de error: siempre JSON con `{ "error": { "code": "", "message": "", "details": [] } }`.
+  **«Siempre» incluye el enrutado** (MVP-811, `P-117`): una ruta de `/api` que no existe, un método no
+  permitido sobre una que sí, y un parámetro de ruta que no cumple su restricción responden los tres
+  `404 RESOURCE_NOT_FOUND` con su `Content-Type: application/json`, no un cuerpo vacío. Las rutas del
+  cliente (`/app/…`, `/legal/…`) quedan fuera: no son API y devuelven el `index.html` del SPA.
 - Paginación: `?page=1&limit=20` con respuesta `{ "data": [], "meta": { "total": 0, "page": 1, "limit": 20 } }`
 - Todas las respuestas incluyen `X-Request-Id` para trazabilidad.
 - Concurrencia de escritura: `If-Match` obligatorio en `PATCH`/`DELETE` de entidades críticas.

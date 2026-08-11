@@ -591,6 +591,255 @@ def validar_registro_de_puntos():
             )
 
 
+# ─── Trazabilidad de los requisitos de usuario ────────────────────────────────
+
+REQUISITOS_USUARIO = DOCS_ROOT / "01-producto" / "definicion-requisitos-usuario.md"
+
+# Los 47 requisitos se declaran de dos formas historicas en el documento: los trece primeros como
+# seccion (`### RU-01 - ...`) y el resto como vineta (`- **RU-14: ...**`). Se aceptan las dos en vez
+# de reescribir el documento, que esta explicitamente fuera del alcance de `MVP-809`.
+RE_RU_SECCION = re.compile(r"^###\s+(RU-\d{2})\b")
+RE_RU_VINETA = re.compile(r"^-\s+\*\*(RU-\d{2})\s*[:：]")
+RE_RU_ESTADO = re.compile(r"^\s*(?:-\s+)?(?:\*\*)?Estado(?:\*\*)?\s*[:：]\s*(.+?)\s*$")
+RE_RU_FILA = re.compile(r"^\|\s*(RU-\d{2})\s*\|")
+
+#  | RU-xx | titulo | estado declarado | destino | estado real |
+#
+#  Se indexa **desde el final**, por el mismo motivo que el registro de puntos: la columna de destino
+#  es la larga y la que puede acabar llevando barras verticales escapadas.
+COL_RU_ESTADO_REAL = -2
+COL_RU_DESTINO = -3
+COL_RU_DECLARADO = -4
+
+# <b>Que cuenta como «tener destino».</b> No basta con que la celda tenga texto: tiene que **nombrar
+# algo que ya este vigilado por otra parte del sistema**. Una regla de negocio (`RN-xxx`), una historia
+# (`MVP-xxx`), un punto del registro (`P-xxx`) o un ADR. Prosa como «pendiente» o «se vera» no vale,
+# porque es exactamente lo que dejo `RU-24` sin construir durante siete epicas.
+RE_RU_DESTINO_ID = re.compile(r"\b(?:RN-\d{3}|MVP-\d{3}|P-\d{3}|ADR-\d{4})\b")
+RE_PUNTO_REGISTRO = re.compile(r"\bP-\d{3}\b")
+
+# Vocabulario cerrado de la columna «estado real». `en <historia>` se valida aparte porque lleva
+# argumento.
+ESTADOS_RU_REALES = {"entregado", "entregado con hueco", "backlog", "descartado"}
+ESTADOS_RU_ENTREGADOS = {"entregado", "entregado con hueco"}
+
+
+def normalizar_estado_declarado(texto: str) -> str | None:
+    """Reduce el «Estado:» escrito a mano a un vocabulario de cuatro valores."""
+    t = texto.strip().lower().rstrip(".")
+    if t.startswith("mvp"):
+        return "mvp"
+    if "backlog" in t:
+        return "backlog"
+    if "fase posterior" in t or "fase futura" in t:
+        return "fase-posterior"
+    if t.startswith("descartado"):
+        return "descartado"
+    return None
+
+
+def leer_requisitos_declarados(contenido: str) -> dict[str, str | None]:
+    """Devuelve `{RU-xx: texto del Estado declarado}` leyendo el cuerpo del documento."""
+    declarados: dict[str, str | None] = {}
+    actual: str | None = None
+
+    for linea in contenido.splitlines():
+        m = RE_RU_SECCION.match(linea) or RE_RU_VINETA.match(linea)
+        if m:
+            actual = m.group(1)
+            declarados.setdefault(actual, None)
+            continue
+
+        if actual is None:
+            continue
+
+        # Un encabezado o un separador cierran el bloque del requisito.
+        if linea.startswith("#") or linea.startswith("---"):
+            actual = None
+            continue
+
+        m = RE_RU_ESTADO.match(linea)
+        if m and declarados.get(actual) is None:
+            declarados[actual] = m.group(1)
+
+    return declarados
+
+
+def leer_matriz_requisitos(contenido: str) -> dict[str, list[str]]:
+    """Devuelve `{RU-xx: celdas de su fila}` de la matriz de trazabilidad."""
+    filas: dict[str, list[str]] = {}
+    for linea in contenido.splitlines():
+        m = RE_RU_FILA.match(linea)
+        if not m:
+            continue
+        filas[m.group(1)] = [celda.strip() for celda in linea.split("|")]
+    return filas
+
+
+def validar_trazabilidad_requisitos_usuario():
+    """
+    MVP-809 (`P-114`) — Un requisito de usuario marcado «Estado: MVP» tiene que tener destino
+    declarado en la matriz de trazabilidad, y si su destino son historias ya `completado` tiene que
+    constar como entregado.
+
+    <b>Por que existe esta comprobacion.</b> De los 47 requisitos, 44 no se citaban en ningun documento
+    fuera del que los define: las epicas trazan contra `RN-xxx` y nadie trazaba contra `RU-xxx`. El
+    resultado fue que `RU-24` (aviso de duplicados) llego al final del roadmap marcado MVP sin haberse
+    construido ni descartado, y que `RU-36` decia una cosa mientras el producto hacia otra. Es el mismo
+    patron que `P-096` describio en el registro de puntos: una cadena que solo se sostiene si alguien se
+    acuerda.
+
+    <b>Cada error se imputa a quien lo va a tocar.</b> En `--solo-cambios` un hallazgo sobre un fichero
+    que el PR no toca se degrada a aviso, asi que la imputacion decide si la regla bloquea o no:
+
+    - Falta de destino, estado incoherente o fila ausente -> al **documento de requisitos**, porque el
+      PR que da de alta o cambia un requisito toca ese fichero y ningun otro.
+    - Historia de destino ya `completado` sin entregar -> al **`spec.md` de la historia**, exactamente
+      como en `validar_registro_de_puntos()`: el PR que cierra una historia toca su spec y casi nunca
+      el documento de requisitos.
+    """
+    if not REQUISITOS_USUARIO.exists():
+        return
+
+    contenido = read_markdown_content(REQUISITOS_USUARIO)
+    declarados = leer_requisitos_declarados(contenido)
+    filas = leer_matriz_requisitos(contenido)
+
+    # Una guarda que se puede desactivar reordenando el documento no es una guarda.
+    if not declarados:
+        error(
+            f"{REQUISITOS_USUARIO}: no se encontro ninguna declaracion de requisito 'RU-xx'. "
+            f"La comprobacion de trazabilidad de MVP-809 depende de encontrarlas: revisa el formato "
+            f"('### RU-xx - titulo' o '- **RU-xx: titulo**')."
+        )
+        return
+
+    for ru in sorted(set(filas) - set(declarados)):
+        error(
+            f"{REQUISITOS_USUARIO}: la matriz de trazabilidad tiene una fila para {ru}, pero el "
+            f"documento no define ese requisito."
+        )
+
+    estados_por_historia: dict[str, str | None] = {}
+    rutas_por_historia: dict[str, str | None] = {}
+
+    for ru in sorted(declarados):
+        estado_texto = declarados[ru]
+        if estado_texto is None:
+            error(
+                f"{REQUISITOS_USUARIO}: {ru} no declara 'Estado:'. Todo requisito tiene que decir si "
+                f"es MVP, backlog, fase posterior o descartado."
+            )
+            estado_declarado = None
+        else:
+            estado_declarado = normalizar_estado_declarado(estado_texto)
+            if estado_declarado is None:
+                error(
+                    f"{REQUISITOS_USUARIO}: {ru} declara 'Estado: {estado_texto}', que no es un valor "
+                    f"reconocido (MVP | Backlog | Fase posterior | Descartado)."
+                )
+
+        celdas = filas.get(ru)
+        if celdas is None:
+            error(
+                f"{REQUISITOS_USUARIO}: {ru} no tiene fila en la matriz de trazabilidad. Todo "
+                f"requisito tiene que declarar donde se recoge y en que estado esta."
+            )
+            continue
+
+        if len(celdas) < 6:
+            error(
+                f"{REQUISITOS_USUARIO}: la fila de {ru} en la matriz de trazabilidad no tiene las "
+                f"cinco columnas esperadas (requisito, titulo, estado declarado, destino, estado real)."
+            )
+            continue
+
+        declarado_matriz = normalizar_estado_declarado(celdas[COL_RU_DECLARADO])
+        destino = celdas[COL_RU_DESTINO]
+        estado_real = celdas[COL_RU_ESTADO_REAL].lower()
+
+        if estado_declarado is not None and declarado_matriz != estado_declarado:
+            error(
+                f"{REQUISITOS_USUARIO}: {ru} declara 'Estado: {estado_texto}' en su definicion y "
+                f"'{celdas[COL_RU_DECLARADO]}' en la matriz de trazabilidad. Las dos tienen que decir "
+                f"lo mismo."
+            )
+
+        if estado_real.startswith("en "):
+            if not RE_ID_HISTORIA.search(celdas[COL_RU_ESTADO_REAL]):
+                error(
+                    f"{REQUISITOS_USUARIO}: {ru} esta '{celdas[COL_RU_ESTADO_REAL]}' en la matriz, "
+                    f"pero no nombra la historia que lo esta construyendo."
+                )
+        elif estado_real not in ESTADOS_RU_REALES:
+            error(
+                f"{REQUISITOS_USUARIO}: {ru} tiene estado real '{celdas[COL_RU_ESTADO_REAL]}', que no "
+                f"es un valor del vocabulario (entregado | entregado con hueco | en <historia> | "
+                f"backlog | descartado)."
+            )
+
+        # Un requisito entregado a medias solo vale si el hueco esta anotado en el registro de puntos,
+        # que es donde `P-096` ya obliga a que no se pudra.
+        if estado_real == "entregado con hueco" and not RE_PUNTO_REGISTRO.search(destino):
+            error(
+                f"{REQUISITOS_USUARIO}: {ru} esta 'entregado con hueco' pero su destino no cita ningun "
+                f"punto 'P-xxx' del registro de MVP-999 que persiga el hueco."
+            )
+
+        # El corazon de la comprobacion: un requisito MVP sin destino.
+        if estado_declarado == "mvp" and not RE_RU_DESTINO_ID.search(destino):
+            error(
+                f"{REQUISITOS_USUARIO}: {ru} esta marcado 'Estado: MVP' y no tiene destino declarado. "
+                f"Escribe en la matriz de trazabilidad la regla (RN-xxx), la historia (MVP-xxx), el "
+                f"punto del registro (P-xxx) o el ADR que lo recoge."
+            )
+
+        historias = RE_ID_HISTORIA.findall(destino)
+        if not historias:
+            continue
+
+        for ticket in historias:
+            if ticket not in estados_por_historia:
+                spec = buscar_spec_por_id(ticket)
+                fm = parse_frontmatter(spec) if spec else None
+                estados_por_historia[ticket] = fm.get("estado") if fm else None
+                rutas_por_historia[ticket] = str(spec) if spec else None
+
+        # La segunda mitad de la comprobacion es **solo para los requisitos MVP**. Uno declarado
+        # backlog o fase posterior puede recibir una rebanada de una historia sin quedar entregado
+        # —`RU-31` y el minimo in-app de `MVP-808` son exactamente ese caso— y exigirle «entregado»
+        # ensenaria a escribirlo para callar al gate, que es el vicio que esta guarda combate.
+        if estado_declarado != "mvp":
+            continue
+
+            if rutas_por_historia[ticket] is None:
+                error(
+                    f"{REQUISITOS_USUARIO}: el destino de {ru} nombra {ticket}, que no existe en "
+                    f"09-desarrollos. Corrige la referencia."
+                )
+
+        conocidas = [t for t in historias if rutas_por_historia.get(t)]
+        if not conocidas:
+            continue
+
+        # Basta con que **una** siga abierta para que el requisito pueda estar legitimamente en vuelo:
+        # hay requisitos que se reparten entre varias historias y cerrar la primera no los entrega.
+        if any(estados_por_historia[t] != "completado" for t in conocidas):
+            continue
+
+        if estado_real in ESTADOS_RU_ENTREGADOS:
+            continue
+
+        ultima = conocidas[-1]
+        destino_error = Path(rutas_por_historia[ultima])
+        error(
+            f"{destino_error}: {ultima} esta 'completado' y es el destino de {ru}, pero el requisito "
+            f"sigue como '{celdas[COL_RU_ESTADO_REAL]}' en la matriz de trazabilidad de "
+            f"01-producto/definicion-requisitos-usuario.md. Marcalo 'entregado', o 'entregado con "
+            f"hueco' con el punto que persigue lo que falta, o cambia su destino."
+        )
+
+
 # ─── Generación de índices ────────────────────────────────────────────────────
 
 ESTADO_EMOJI = {
@@ -720,6 +969,7 @@ def main():
         validar_desarrollos()
         validar_adrs()
         validar_registro_de_puntos()
+        validar_trazabilidad_requisitos_usuario()
 
         if warnings:
             print(f"\n⚠️  {len(warnings)} advertencia(s):")

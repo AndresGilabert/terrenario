@@ -1,7 +1,7 @@
 ﻿---
 bloque: 04-ingenieria
 documento: estandares-codigo
-actualizado_en: "2026-07-24"
+actualizado_en: "2026-08-11"
 ---
 
 # Estándares de Código
@@ -110,3 +110,56 @@ src/
 - Funciones con más de 3 parámetros (usar objetos)
 - Condicionales anidados de más de 2 niveles
 - Lógica de negocio en controllers o repositorios
+
+---
+
+## Iconos del cliente web (Material Symbols)
+
+> Introducido en `MVP-810`. Detalle y alternativas descartadas:
+> [tech-design de MVP-810](../09-desarrollos/epicas/MVP-008--ajustes-mvp-02/MVP-810--peso-de-la-primera-carga/tech-design.md).
+
+**La fuente de iconos no se sirve entera.** El `build` genera un subconjunto con exactamente los
+glifos que encuentra en el código: 75 iconos y 74 kB, frente a los 3,78 MB del catálogo completo,
+que era el 82 % de lo que descargaba la primera visita.
+
+La consecuencia práctica: **un icono que el inventario no vea no se descarga**, y en pantalla
+quedaría un hueco. Para que eso no pase, el nombre del icono se escribe **siempre como una cadena
+literal** en una de estas tres formas:
+
+```tsx
+<span className="material-symbols-outlined">agriculture</span>
+<span className="material-symbols-outlined">{activo ? 'toggle_on' : 'toggle_off'}</span>
+{ label: 'Cosechas', icon: 'agriculture' }   // o icon="agriculture" como atributo
+```
+
+Lo que **no** vale es que el nombre llegue por una vía que no se pueda leer en el código
+(`<span className="material-symbols-outlined">{nombre}</span>` con `nombre` viniendo de una
+variable que no se llame `icon`). No hace falta recordarlo: hay dos guardas y ninguna deja el fallo
+para producción.
+
+| Qué pasa | Quién lo detecta | Cuándo |
+|---|---|---|
+| Un `<span>` de iconos cuyo nombre no se puede deducir del código | `src/test/inventario-iconos.test.ts` | `npm test` y CI |
+| Un nombre que no existe en Material Symbols Outlined (errata incluida) | `scripts/subconjunto-iconos.mjs` | `npm run build` |
+| Un icono que el subconjunto no pinte igual que la fuente completa | `scripts/subconjunto-iconos.mjs` | `npm run build` |
+
+**Añadir un icono nuevo no requiere ningún paso extra**: se escribe como arriba y el siguiente
+`build` lo incluye. Con el servidor de desarrollo ya arrancado hay que **reiniciarlo**, porque el
+inventario se lee al arrancar.
+
+El proceso vive en `src/frontend/terrenario-web/scripts/`: `inventario-iconos.mjs` (qué iconos usa
+el producto) y `subconjunto-iconos.mjs` (el recorte). Los dos están comentados con el porqué.
+
+---
+
+## Presupuesto de peso de la primera carga
+
+> Introducido en `MVP-810`, a raíz de `P-115`.
+
+El `build` del cliente **falla** si el peso de la primera carga o el total de `dist/assets` superan
+el umbral fijado en `src/frontend/terrenario-web/scripts/peso-primera-carga.mjs`. Cada `build`
+imprime el desglose por tipo de recurso, y `npm run peso` lo vuelve a sacar sin reconstruir.
+
+Existe porque `P-115` no apareció por una decisión de servir 5,57 MB, sino porque nadie estaba
+midiendo. Si un cambio justificado sube el peso, **se sube el umbral y se explica en el PR**; lo que
+no vale es que suba sin que nadie lo diga.

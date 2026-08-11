@@ -38,6 +38,8 @@ describe('SeasonSwitcher', () => {
     is_closed: false,
     is_working: true,
     status: 'abierta',
+    // MVP-806 — El selector no depura nada, pero la campaña que recibe es la del listado.
+    usage_count: null,
     ...overrides,
   });
 

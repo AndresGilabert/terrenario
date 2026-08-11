@@ -13,6 +13,7 @@ using Terrenario.Api.Application.Feedback;
 using Terrenario.Api.Application.Diary;
 using Terrenario.Api.Application.Harvests;
 using Terrenario.Api.Application.Invitations;
+using Terrenario.Api.Application.Masters;
 using Terrenario.Api.Application.Materials;
 using Terrenario.Api.Application.Plots;
 using Terrenario.Api.Application.Purchases;
@@ -27,6 +28,7 @@ using Terrenario.Api.Domain.Activities;
 using Terrenario.Api.Domain.Consumptions;
 using Terrenario.Api.Domain.Diary;
 using Terrenario.Api.Domain.Harvests;
+using Terrenario.Api.Domain.Masters;
 using Terrenario.Api.Domain.Materials;
 using Terrenario.Api.Domain.Plots;
 using Terrenario.Api.Domain.Purchases;
@@ -233,6 +235,13 @@ builder.Services.AddScoped<DeleteHarvestHandler>();
 builder.Services.AddScoped<ListHarvestsHandler>();
 builder.Services.AddScoped<GetHarvestHandler>();
 builder.Services.AddScoped<FindHarvestDuplicatesHandler>();
+// MVP-806 — Depuración de los cuatro maestros: borrado de lo nunca usado y fusión de duplicados. Un
+// solo puerto para los cuatro, porque la parte delicada —comprobar el uso contra TODAS las entidades
+// que pueden referenciar la ficha— es la misma operación y solo cambia la lista de referencias.
+builder.Services.AddScoped<IMasterRepository, MasterRepository>();
+builder.Services.AddScoped<MasterUsageService>();
+builder.Services.AddScoped<DeleteMasterHandler>();
+builder.Services.AddScoped<MergeMastersHandler>();
 // MVP-701 — Defecto de temporada de RN-008 en un único punto, compartido por diario, cosechas y
 // compras. Antes cada vista arrancaba en «todas» por su cuenta y el dashboard resolvía el defecto en
 // servidor: dos pantallas respondían distinto a «cuánto llevo esta campaña» (`P-082`).
@@ -331,6 +340,9 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers(options =>
 {
     options.Filters.Add<WorkspaceAccessExceptionFilter>();
+    // MVP-806 — Lo que impide depurar un maestro se traduce igual en los cuatro: 422 con su código de
+    // regla, 400 si la ficha del cuerpo no existe y 409 si la fusión pisó una edición ajena.
+    options.Filters.Add<MasterDepurationExceptionFilter>();
     // Un cuerpo que el cliente envió mal codificado es un 400, no un 500 (MVP-502, P-027).
     options.Filters.Add<InvalidRequestBodyFilter>();
 });

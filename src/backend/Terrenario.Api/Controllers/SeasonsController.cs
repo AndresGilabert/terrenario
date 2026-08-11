@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Terrenario.Api.Application.Masters;
 using Terrenario.Api.Application.Seasons;
 using Terrenario.Api.Application.Seasons.Commands;
 using Terrenario.Api.Common;
@@ -11,6 +12,7 @@ using Terrenario.Api.Common.Auth;
 using Terrenario.Api.Common.Errors;
 using Terrenario.Api.Common.Http;
 using Terrenario.Api.Common.Workspaces;
+using Terrenario.Api.Domain.Masters;
 using Terrenario.Api.Domain.Seasons;
 
 namespace Terrenario.Api.Controllers;
@@ -23,8 +25,9 @@ namespace Terrenario.Api.Controllers;
 ///
 /// Alcance MVP-203: listar, crear, editar (nombre/fechas) y cerrar/reabrir (RN-024, informativo). Desde
 /// MVP-209, el estado (planificada/abierta/cerrada) es derivado e independiente de la temporada de
-/// <b>trabajo</b>, que es por usuario y se fija con <c>POST /seasons/{id}/activate</c>. No hay borrado
-/// físico: las temporadas con histórico se cierran, no se eliminan.
+/// <b>trabajo</b>, que es por usuario y se fija con <c>POST /seasons/{id}/activate</c>. Una temporada
+/// con histórico se <b>cierra</b>, nunca se elimina; desde MVP-806 sí se puede eliminar la que nunca
+/// se usó y fusionar dos que son la misma campaña (RN-037).
 /// </summary>
 [ApiController]
 [Authorize]
@@ -36,6 +39,9 @@ public sealed class SeasonsController(
     CreateSeasonHandler createSeasonHandler,
     UpdateSeasonHandler updateSeasonHandler,
     ActivateSeasonHandler activateSeasonHandler,
+    MasterUsageService masterUsageService,
+    DeleteMasterHandler deleteMasterHandler,
+    MergeMastersHandler mergeMastersHandler,
     IWorkspaceContext workspaceContext) : ControllerBase
 {
     /// <summary>Lista las temporadas del Workspace (activa primero, luego histórico por fecha).</summary>
@@ -44,10 +50,12 @@ public sealed class SeasonsController(
     {
         var seasons = await listSeasonsHandler.HandleAsync(
             User.GetUserId()!.Value, workspaceContext.WorkspaceId, ct);
+        var usage = await masterUsageService.CountByWorkspaceAsync(
+            MasterKind.Season, workspaceContext.WorkspaceId, ct);
 
         return Ok(new
         {
-            data = seasons.Select(ToResponse),
+            data = seasons.Select(season => ToResponse(season, usage.GetValueOrDefault(season.Id))),
             meta = new { total = seasons.Count }
         });
     }
@@ -169,6 +177,48 @@ public sealed class SeasonsController(
         return Ok(ToResponse(season));
     }
 
+    /// <summary>
+    /// MVP-806 (CA-1) — Borrado <b>físico</b> de una temporada que nunca se usó. Con histórico
+    /// responde <c>422 BUSINESS_RULE_MASTER_IN_USE</c> diciendo cuántos registros la referencian
+    /// (CA-2); la vía para ese caso sigue siendo el cierre.
+    ///
+    /// Tenerla fijada como temporada de trabajo <b>no</b> lo impide: es una preferencia por usuario
+    /// (MVP-209) con <c>ON DELETE SET NULL</c>, y al desaparecer se resuelve el defecto de
+    /// <c>WorkingSeasonPolicy</c>, que es exactamente lo que hace un Workspace recién creado.
+    /// </summary>
+    [HttpDelete("{seasonId:guid}")]
+    public async Task<IActionResult> Delete(Guid seasonId, CancellationToken ct)
+    {
+        var deleted = await deleteMasterHandler.HandleAsync(
+            MasterKind.Season, workspaceContext.WorkspaceId, seasonId, ct);
+
+        return deleted is null
+            ? NotFound(new ApiErrorResponse(ApiError.SeasonNotFoundById()))
+            : NoContent();
+    }
+
+    /// <summary>
+    /// MVP-806 (CA-3) — Fusiona dos temporadas: la de la ruta sobrevive y la del cuerpo cede sus
+    /// registros y desaparece. Quien tuviera fijada la absorbida como temporada de trabajo pasa a
+    /// tener la superviviente, en vez de volver al defecto sin haberlo pedido.
+    /// </summary>
+    [HttpPost("{seasonId:guid}/merge")]
+    public async Task<IActionResult> Merge(
+        Guid seasonId, [FromBody] MergeMasterRequest request, CancellationToken ct)
+    {
+        var result = await mergeMastersHandler.HandleAsync(
+            MasterKind.Season,
+            workspaceContext.WorkspaceId,
+            User.GetUserId()!.Value,
+            seasonId,
+            request.AbsorbedId,
+            ct);
+
+        return result is null
+            ? NotFound(new ApiErrorResponse(ApiError.SeasonNotFoundById()))
+            : Ok(MasterMergeResponse.From(result));
+    }
+
     private static FieldUpdate<string> ReadString(Dictionary<string, JsonElement> body, string key)
         => body.TryGetValue(key, out var el)
             ? FieldUpdate<string>.Set(JsonText.Read(el, key))
@@ -212,7 +262,7 @@ public sealed class SeasonsController(
             ErrorCodes.ValidationRequired, $"El campo '{key}' debe ser booleano.");
     }
 
-    private static object ToResponse(SeasonSummary season) => new
+    private static object ToResponse(SeasonSummary season, int? usageCount = null) => new
     {
         id = season.Id,
         workspace_id = season.WorkspaceId,
@@ -224,7 +274,9 @@ public sealed class SeasonsController(
         is_working = season.IsWorking,
         // Estado derivado (planificada/abierta/cerrada) para las etiquetas de la UI, independiente de
         // `is_working`.
-        status = season.Status.ToString().ToLowerInvariant()
+        status = season.Status.ToString().ToLowerInvariant(),
+        // MVP-806 (CA-2) — Ver la nota de `PlotsController`: `null` significa «no consultado».
+        usage_count = usageCount
     };
 }
 

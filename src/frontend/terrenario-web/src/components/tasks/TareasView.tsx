@@ -3,6 +3,9 @@ import { useApiClient } from '../../contexts/ApiContext';
 import { createTaskService } from '../../services/task.service';
 import { HttpError } from '../../services/http-client';
 import { TASK_NAME_MAX_LENGTH, type WorkTask } from '../../types/task.types';
+import { isDeletable } from '../../types/master.types';
+import { useMasterDepuration } from '../../lib/use-master-depuration';
+import { MasterDepurationLayer } from '../common/MasterDepurationLayer';
 
 /**
  * Catálogo de tareas del Workspace (MVP-205, RN-026). Es el maestro que da consistencia al registro
@@ -15,7 +18,9 @@ import { TASK_NAME_MAX_LENGTH, type WorkTask } from '../../types/task.types';
  * es la misma que en los otros maestros.
  *
  * El catálogo **arranca vacío** (CA-2) y las tareas con histórico se **inactivan**, no se borran
- * (CA-3): dejan de ofrecerse para registros nuevos sin invalidar los que ya las usan.
+ * (CA-3): dejan de ofrecerse para registros nuevos sin invalidar los que ya las usan. Desde MVP-806
+ * la que **nunca** se usó sí se elimina, y dos que son la misma labor se fusionan: el listado trae
+ * `usage_count` y el botón de eliminar solo aparece cuando el servidor confirma que está a cero.
  */
 export const TareasView: React.FC = () => {
   const http = useApiClient();
@@ -63,6 +68,10 @@ export const TareasView: React.FC = () => {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  // MVP-806 — Borrado de lo nunca usado y fusión de duplicados, con la misma mecánica que el resto
+  // de maestros: el hook lleva el estado y los diálogos, la vista pone los botones donde encajan.
+  const depuration = useMasterDepuration('tasks', { onChanged: reload });
 
   useEffect(() => {
     if (createdCount > 0) newNameInput.current?.focus();
@@ -259,6 +268,20 @@ export const TareasView: React.FC = () => {
         </div>
       )}
 
+      <MasterDepurationLayer
+        kindLabel="la tarea"
+        kindPlural="tareas"
+        depuration={depuration}
+        candidates={tasks.filter((t) => t.id !== depuration.merging?.id)}
+      />
+      {/* El 422 de «tiene histórico» llega cuando ya no hay diálogo abierto solo si el listado iba
+          desfasado; el mensaje del servidor trae la cifra, así que se muestra tal cual. */}
+      {depuration.error && !depuration.deleting && !depuration.merging && (
+        <div role="alert" className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+          {depuration.error}
+        </div>
+      )}
+
       {/* Catálogo */}
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
@@ -367,6 +390,33 @@ export const TareasView: React.FC = () => {
                         {task.is_active ? 'toggle_off' : 'toggle_on'}
                       </span>
                     </button>
+                    {/* MVP-806 — Fusionar solo tiene sentido si hay con qué. */}
+                    {tasks.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => depuration.askMerge(task)}
+                        disabled={busyTaskId === task.id}
+                        title="Fusionar con otra tarea"
+                        aria-label={`Fusionar ${task.name} con otra tarea`}
+                        className="p-2 rounded-lg text-[#76786b] hover:bg-[#f0ede8] hover:text-[#33450d] disabled:opacity-50"
+                      >
+                        <span className="material-symbols-outlined text-lg" aria-hidden="true">merge</span>
+                      </button>
+                    )}
+                    {/* CA-2 — La acción no se ofrece si hay histórico; la palabra definitiva la tiene
+                        el servidor, pero enseñar un botón que siempre va a fallar no es una opción. */}
+                    {isDeletable(task) && (
+                      <button
+                        type="button"
+                        onClick={() => depuration.askDelete(task)}
+                        disabled={busyTaskId === task.id}
+                        title="Eliminar"
+                        aria-label={`Eliminar ${task.name}`}
+                        className="p-2 rounded-lg text-[#76786b] hover:bg-red-50 hover:text-[#ba1a1a] disabled:opacity-50"
+                      >
+                        <span className="material-symbols-outlined text-lg" aria-hidden="true">delete</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
@@ -378,8 +428,9 @@ export const TareasView: React.FC = () => {
       {tasks.length > 0 && (
         <p className="text-[11px] text-[#76786b] flex items-center gap-1.5">
           <span className="material-symbols-outlined text-sm" aria-hidden="true">info</span>
-          Las tareas que ya no uses se inactivan, no se borran: los registros que las utilizan siguen
-          siendo válidos.
+          Las tareas que ya se han usado se inactivan, no se borran: los registros que las utilizan
+          siguen siendo válidos. Las que nunca se usaron sí se pueden eliminar, y dos que son la
+          misma labor se pueden fusionar.
         </p>
       )}
     </div>

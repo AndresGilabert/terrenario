@@ -25,6 +25,9 @@ const seasons: Season[] = [
     is_closed: false,
     is_working: true,
     status: 'abierta',
+    // MVP-806 — `null` es «no consultado»: solo lo trae el listado de temporadas, y este doble no
+    // pasa por él.
+    usage_count: null,
   },
 ];
 

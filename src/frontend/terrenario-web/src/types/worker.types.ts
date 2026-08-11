@@ -23,6 +23,11 @@ export interface Worker {
   kind: WorkerKind;
   /** Cuenta vinculada; `null` en la cuadrilla sin cuenta. */
   user_account_id: string | null;
+  /**
+   * MVP-806 (CA-2) — Cuántos registros la referencian. `null` significa **«no consultado»**, no
+   * «ninguno»: solo lo trae el listado. Es lo que decide si se ofrece «Eliminar».
+   */
+  usage_count: number | null;
 }
 
 /** Alta de trabajador de cuadrilla. Solo `name` es obligatorio (CA-2). */

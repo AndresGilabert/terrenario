@@ -304,3 +304,135 @@ describe('ComprasView — filtros en la URL (MVP-802)', () => {
     await waitFor(() => expect(location.search).toBe(''));
   });
 });
+
+/**
+ * MVP-803 — El libro de compras y sus consumos por debajo del punto de corte.
+ *
+ * El `spec` de la historia daba por hecho que Compras «ya tenía maqueta adaptada». Medido a 375 px no
+ * era cierto: su tabla mide 881 px dentro de un contenedor de 341, exactamente el mismo defecto que
+ * Cosechas. El alcance se amplió con esa medida delante (decisión del PO, 2026-08-10).
+ */
+describe('ComprasView — maqueta adaptada (MVP-803)', () => {
+  const purchase = (): Purchase => ({
+    id: 'pu-1',
+    workspace_id: 'w-1',
+    purchase_date: '2026-07-31',
+    season_id: 's-1',
+    season_name: 'Campaña 2026/27',
+    product: 'Abono NPK',
+    total_quantity: 200,
+    total_cost: 400,
+    unit_price: 2,
+    is_out_of_season_range: false,
+    imputed_quantity: 50,
+    pending_quantity: 150,
+    version: 1,
+    created_at: '2026-07-31T09:00:00Z',
+    updated_at: '2026-07-31T09:00:00Z',
+  });
+
+  const consumption = (): Consumption => ({
+    id: 'co-1',
+    workspace_id: 'w-1',
+    purchase_id: 'pu-1',
+    has_purchase: true,
+    purchase_date: '2026-07-31',
+    plot_id: 'p-1',
+    plot_name: 'La Hoya',
+    season_id: 's-1',
+    season_name: 'Campaña 2026/27',
+    date: '2026-08-05',
+    product: 'Abono NPK',
+    quantity: 50,
+    unit_price: 2,
+    proportional_cost: 100,
+    is_out_of_season_range: false,
+    is_before_purchase_date: false,
+    version: 1,
+    created_at: '2026-08-05T09:00:00Z',
+    updated_at: '2026-08-05T09:00:00Z',
+  });
+
+  const scope = {
+    season: {
+      id: 's-1',
+      name: 'Campaña 2026/27',
+      status: 'abierta',
+      start_date: '2026-07-01',
+      end_date: '2027-03-31',
+    },
+    all_seasons: false,
+  };
+
+  const renderEstrecho = () => {
+    vi.stubGlobal('matchMedia', (query: string) => {
+      const min = /\(min-width:\s*(\d+)px\)/.exec(query);
+      return {
+        matches: min ? 375 >= Number(min[1]) : false,
+        media: query,
+        onchange: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => false,
+      };
+    });
+
+    http = createFakeHttpClient({
+      '/api/v1/purchases/products': { data: [], meta: { total: 0 } },
+      '/api/v1/purchases': { data: [purchase()], meta: { scope, total: 1, total_cost: 400 } },
+      '/api/v1/consumptions': {
+        data: [consumption()],
+        meta: { scope, total: 1, total_cost: 100, without_purchase: 0 },
+      },
+      '/api/v1/plots': { data: [{ id: 'p-1', name: 'La Hoya', is_active: true }] },
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/app/compras']}>
+        <ComprasView />
+      </MemoryRouter>
+    );
+  };
+
+  it('no pinta ninguna de las dos tablas', async () => {
+    renderEstrecho();
+
+    await screen.findByRole('list', { name: 'Compras registradas' });
+    expect(screen.getByRole('list', { name: 'Consumos por terreno' })).toBeInTheDocument();
+    expect(document.querySelector('table')).toBeNull();
+  });
+
+  it('conserva el reparto por terrenos de la compra', async () => {
+    // Es la columna que más se pierde al estrechar y la que MVP-304 añadió a propósito.
+    renderEstrecho();
+
+    const compra = (await screen.findByRole('list', { name: 'Compras registradas' }))
+      .firstElementChild as HTMLElement;
+
+    expect(compra.textContent).toContain('50 / 200');
+    expect(compra.textContent).toContain('- 400,00 €');
+  });
+
+  it('mantiene las tres acciones de la compra con su etiqueta accesible', async () => {
+    renderEstrecho();
+
+    expect(
+      await screen.findByRole('button', { name: 'Imputar la compra de Abono NPK a un terreno' })
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Corregir la compra de Abono NPK' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Eliminar la compra de Abono NPK' })).toBeInTheDocument();
+  });
+
+  it('mantiene las acciones del consumo con su etiqueta accesible', async () => {
+    renderEstrecho();
+
+    expect(
+      await screen.findByRole('button', { name: 'Corregir el consumo de Abono NPK en La Hoya' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Eliminar el consumo de Abono NPK en La Hoya' })
+    ).toBeInTheDocument();
+  });
+});

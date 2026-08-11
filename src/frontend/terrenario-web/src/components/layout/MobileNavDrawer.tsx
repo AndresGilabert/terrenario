@@ -33,7 +33,7 @@ export const MobileNavDrawer: React.FC<MobileNavDrawerProps> = ({ isOpen, onClos
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 md:hidden flex">
+    <div className="fixed inset-0 z-50 lg:hidden flex">
       <div
         className="fixed inset-0 bg-black/40 backdrop-blur-xs"
         onClick={onClose}

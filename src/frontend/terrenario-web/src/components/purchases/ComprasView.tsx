@@ -20,6 +20,8 @@ import type { Plot } from '../../types/plot.types';
 import type { Consumption } from '../../types/consumption.types';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { MobileDisclosure } from '../common/MobileDisclosure';
+import { RecordCard, RecordCardList } from '../common/RecordCard';
+import { useIsWide } from '../../lib/use-media-query';
 import { PurchaseFormModal } from './PurchaseFormModal';
 import { ConsumptionFormModal, type ConsumptionFormValues } from './ConsumptionFormModal';
 import { fechaDeNegocio } from '../../lib/fechas';
@@ -146,6 +148,9 @@ export const ComprasView: React.FC = () => {
   const [isSubmittingConsumption, setSubmittingConsumption] = useState(false);
   const [consumptionError, setConsumptionError] = useState<string | null>(null);
 
+  // MVP-803 — Por encima de `lg:` las dos tablas caben; por debajo, las listas se leen como tarjetas.
+  const isWide = useIsWide();
+
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const [isDeleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -225,6 +230,32 @@ export const ComprasView: React.FC = () => {
   // RN-021 — la temporada de una compra nueva es la activa del Workspace, sin preguntarla en el
   // formulario en línea: se puede cambiar después al corregir, que es el caso raro.
   const defaultSeasonId = activeSeason?.id ?? seasons[0]?.id ?? null;
+
+  /**
+   * MVP-803 — Las acciones se disparan igual desde la tabla y desde la tarjeta. Se nombran aquí para
+   * que las dos maquetas compartan el gesto: una acción con dos implementaciones es una acción que
+   * puede empezar a comportarse distinto según el ancho de la pantalla.
+   */
+  const askImpute = (purchase: Purchase) => {
+    setConsumptionError(null);
+    setConsumptionForm({ purchase, consumption: null });
+  };
+  const askEditPurchase = (purchase: Purchase) => {
+    setFormError(null);
+    setEditing(purchase);
+  };
+  const askDeletePurchase = (purchase: Purchase) => {
+    setDeleteError(null);
+    setPendingDelete({ kind: 'purchase', purchase });
+  };
+  const askEditConsumption = (consumption: Consumption) => {
+    setConsumptionError(null);
+    setConsumptionForm({ purchase: null, consumption });
+  };
+  const askDeleteConsumption = (consumption: Consumption) => {
+    setDeleteError(null);
+    setPendingDelete({ kind: 'consumption', consumption });
+  };
 
   const handleCreate = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -597,6 +628,67 @@ export const ComprasView: React.FC = () => {
               : 'Apunta arriba lo que compras para la explotación: abonos, fitosanitarios, combustible o material.'}
           </p>
         </div>
+      ) : !isWide ? (
+        /* MVP-803 — La misma maqueta de tarjeta que Cosechas. El libro tiene ocho columnas y mide
+           ~881 px: por debajo de `lg:` no cabía tampoco, aunque el `spec` de la historia diera por
+           hecho que sí (se replanteó al medirlo, decisión del PO). */
+        <RecordCardList label="Compras registradas">
+          {purchases.map((purchase) => (
+            <RecordCard
+              key={purchase.id}
+              title={purchase.product}
+              subtitle={`${fechaDeNegocio(purchase.purchase_date)} · ${purchase.season_name}`}
+              badges={
+                purchase.is_out_of_season_range ? (
+                  <span
+                    title="La fecha queda fuera del rango de la temporada"
+                    className="px-2 py-0.5 rounded-full bg-[#fff6e5] text-[#8a5a00] border border-[#f0d9a8] font-semibold text-[10px]"
+                  >
+                    fuera de rango
+                  </span>
+                ) : undefined
+              }
+              highlight={
+                <span className="font-extrabold text-base text-[#ba1a1a]">
+                  - {euros(purchase.total_cost)} €
+                </span>
+              }
+              fields={[
+                {
+                  label: 'Cantidad',
+                  value: purchase.total_quantity.toLocaleString('es-ES'),
+                },
+                {
+                  label: 'Precio ud.',
+                  value: `${purchase.unit_price.toLocaleString('es-ES', { maximumFractionDigits: 4 })} €`,
+                },
+                {
+                  // MVP-304 — cuánto se ha repartido ya por terrenos.
+                  label: 'Imputado',
+                  value: (
+                    <span
+                      className={
+                        purchase.pending_quantity <= 0 ? 'text-[#33450d] font-semibold' : 'text-[#76786b]'
+                      }
+                    >
+                      {purchase.imputed_quantity.toLocaleString('es-ES')} /{' '}
+                      {purchase.total_quantity.toLocaleString('es-ES')}
+                    </span>
+                  ),
+                },
+              ]}
+              actions={
+                <PurchaseActions
+                  purchase={purchase}
+                  canImpute={plots.length > 0}
+                  onImpute={askImpute}
+                  onEdit={askEditPurchase}
+                  onDelete={askDeletePurchase}
+                />
+              }
+            />
+          ))}
+        </RecordCardList>
       ) : (
         <div className="bg-white rounded-2xl border border-[#e5e2dd] ambient-shadow overflow-hidden">
           <div className="overflow-x-auto">
@@ -656,50 +748,13 @@ export const ComprasView: React.FC = () => {
                       - {euros(purchase.total_cost)} €
                     </td>
                     <td className="px-3 py-3.5 text-right whitespace-nowrap">
-                      {/* MVP-304 (HU-1) — repartir la compra entre terrenos */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setConsumptionError(null);
-                          setConsumptionForm({ purchase, consumption: null });
-                        }}
-                        disabled={plots.length === 0 || purchase.pending_quantity <= 0}
-                        title={
-                          plots.length === 0
-                            ? 'Necesitas al menos un terreno'
-                            : purchase.pending_quantity <= 0
-                              ? 'Toda la compra ya está repartida'
-                              : 'Imputar a un terreno'
-                        }
-                        aria-label={`Imputar la compra de ${purchase.product} a un terreno`}
-                        className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#f0ede8] hover:text-[#33450d] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        <span className="material-symbols-outlined text-base" aria-hidden="true">call_split</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFormError(null);
-                          setEditing(purchase);
-                        }}
-                        title="Corregir compra"
-                        aria-label={`Corregir la compra de ${purchase.product}`}
-                        className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#f0ede8] hover:text-[#33450d] transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-base" aria-hidden="true">edit</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDeleteError(null);
-                          setPendingDelete({ kind: 'purchase', purchase });
-                        }}
-                        title="Eliminar compra"
-                        aria-label={`Eliminar la compra de ${purchase.product}`}
-                        className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#ffdad6]/60 hover:text-[#ba1a1a] transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-base" aria-hidden="true">delete</span>
-                      </button>
+                      <PurchaseActions
+                        purchase={purchase}
+                        canImpute={plots.length > 0}
+                        onImpute={askImpute}
+                        onEdit={askEditPurchase}
+                        onDelete={askDeletePurchase}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -753,6 +808,65 @@ export const ComprasView: React.FC = () => {
           <p className="text-sm text-[#76786b] italic bg-white p-6 rounded-2xl border border-[#e5e2dd] text-center">
             Todavía no has repartido ninguna compra por terrenos.
           </p>
+        ) : !isWide ? (
+          <RecordCardList label="Consumos por terreno">
+            {consumptions.map((consumption) => (
+              <RecordCard
+                key={consumption.id}
+                title={consumption.product}
+                subtitle={`${fechaDeNegocio(consumption.date)} · ${consumption.plot_name}`}
+                badges={
+                  <>
+                    {!consumption.has_purchase && (
+                      <span
+                        title="Registrado sin compra previa: el coste se desconoce"
+                        className="px-2 py-0.5 rounded-full bg-[#fff6e5] text-[#8a5a00] border border-[#f0d9a8] font-semibold text-[10px]"
+                      >
+                        sin compra
+                      </span>
+                    )}
+                    {/* RN-043 (MVP-708) — señala sin impedir, igual que en la tabla. */}
+                    {consumption.is_before_purchase_date && (
+                      <span
+                        title={
+                          consumption.purchase_date
+                            ? `El consumo es anterior a su compra, del ${fechaDeNegocio(consumption.purchase_date)}`
+                            : 'El consumo es anterior a su compra'
+                        }
+                        className="px-2 py-0.5 rounded-full bg-[#fff6e5] text-[#8a5a00] border border-[#f0d9a8] font-semibold text-[10px]"
+                      >
+                        antes de la compra
+                      </span>
+                    )}
+                  </>
+                }
+                highlight={
+                  <span
+                    className={
+                      consumption.has_purchase
+                        ? 'font-extrabold text-base text-[#ba1a1a]'
+                        : 'text-xs text-[#76786b]'
+                    }
+                  >
+                    {consumption.has_purchase
+                      ? `- ${euros(consumption.proportional_cost)} €`
+                      : 'sin coste'}
+                  </span>
+                }
+                fields={[
+                  { label: 'Cantidad', value: consumption.quantity.toLocaleString('es-ES') },
+                  { label: 'Terreno', value: consumption.plot_name },
+                ]}
+                actions={
+                  <ConsumptionActions
+                    consumption={consumption}
+                    onEdit={askEditConsumption}
+                    onDelete={askDeleteConsumption}
+                  />
+                }
+              />
+            ))}
+          </RecordCardList>
         ) : (
           <div className="bg-white rounded-2xl border border-[#e5e2dd] ambient-shadow overflow-hidden">
             <div className="overflow-x-auto">
@@ -812,30 +926,11 @@ export const ComprasView: React.FC = () => {
                           : 'sin coste'}
                       </td>
                       <td className="px-3 py-3.5 text-right">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setConsumptionError(null);
-                            setConsumptionForm({ purchase: null, consumption });
-                          }}
-                          title="Corregir consumo"
-                          aria-label={`Corregir el consumo de ${consumption.product} en ${consumption.plot_name}`}
-                          className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#f0ede8] hover:text-[#33450d] transition-colors"
-                        >
-                          <span className="material-symbols-outlined text-base" aria-hidden="true">edit</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setDeleteError(null);
-                            setPendingDelete({ kind: 'consumption', consumption });
-                          }}
-                          title="Eliminar consumo"
-                          aria-label={`Eliminar el consumo de ${consumption.product} en ${consumption.plot_name}`}
-                          className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#ffdad6]/60 hover:text-[#ba1a1a] transition-colors"
-                        >
-                          <span className="material-symbols-outlined text-base" aria-hidden="true">delete</span>
-                        </button>
+                        <ConsumptionActions
+                          consumption={consumption}
+                          onEdit={askEditConsumption}
+                          onDelete={askDeleteConsumption}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -912,5 +1007,88 @@ export const ComprasView: React.FC = () => {
         onSubmit={(payload) => void handleUpdate(payload)}
       />
     </div>
+  );
+};
+
+/**
+ * MVP-803 (CA-4) — Acciones de una compra, con **la misma etiqueta accesible** en la tabla y en la
+ * tarjeta. Se extraen a un componente por eso: dos copias del mismo trío de botones son dos sitios
+ * donde la etiqueta puede dejar de nombrar la compra a la que apunta.
+ */
+const PurchaseActions: React.FC<{
+  purchase: Purchase;
+  /** Repartir exige al menos un terreno (MVP-304, HU-1). */
+  canImpute: boolean;
+  onImpute: (purchase: Purchase) => void;
+  onEdit: (purchase: Purchase) => void;
+  onDelete: (purchase: Purchase) => void;
+}> = ({ purchase, canImpute, onImpute, onEdit, onDelete }) => (
+  <>
+    {/* MVP-304 (HU-1) — repartir la compra entre terrenos */}
+    <button
+      type="button"
+      onClick={() => onImpute(purchase)}
+      disabled={!canImpute || purchase.pending_quantity <= 0}
+      title={
+        !canImpute
+          ? 'Necesitas al menos un terreno'
+          : purchase.pending_quantity <= 0
+            ? 'Toda la compra ya está repartida'
+            : 'Imputar a un terreno'
+      }
+      aria-label={`Imputar la compra de ${purchase.product} a un terreno`}
+      className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#f0ede8] hover:text-[#33450d] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+    >
+      <span className="material-symbols-outlined text-base" aria-hidden="true">call_split</span>
+    </button>
+    <button
+      type="button"
+      onClick={() => onEdit(purchase)}
+      title="Corregir compra"
+      aria-label={`Corregir la compra de ${purchase.product}`}
+      className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#f0ede8] hover:text-[#33450d] transition-colors"
+    >
+      <span className="material-symbols-outlined text-base" aria-hidden="true">edit</span>
+    </button>
+    <button
+      type="button"
+      onClick={() => onDelete(purchase)}
+      title="Eliminar compra"
+      aria-label={`Eliminar la compra de ${purchase.product}`}
+      className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#ffdad6]/60 hover:text-[#ba1a1a] transition-colors"
+    >
+      <span className="material-symbols-outlined text-base" aria-hidden="true">delete</span>
+    </button>
+  </>
+);
+
+/** MVP-803 — Lo mismo para un consumo. */
+const ConsumptionActions: React.FC<{
+  consumption: Consumption;
+  onEdit: (consumption: Consumption) => void;
+  onDelete: (consumption: Consumption) => void;
+}> = ({ consumption, onEdit, onDelete }) => {
+  const nombre = `el consumo de ${consumption.product} en ${consumption.plot_name}`;
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => onEdit(consumption)}
+        title="Corregir consumo"
+        aria-label={`Corregir ${nombre}`}
+        className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#f0ede8] hover:text-[#33450d] transition-colors"
+      >
+        <span className="material-symbols-outlined text-base" aria-hidden="true">edit</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => onDelete(consumption)}
+        title="Eliminar consumo"
+        aria-label={`Eliminar ${nombre}`}
+        className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#ffdad6]/60 hover:text-[#ba1a1a] transition-colors"
+      >
+        <span className="material-symbols-outlined text-base" aria-hidden="true">delete</span>
+      </button>
+    </>
   );
 };

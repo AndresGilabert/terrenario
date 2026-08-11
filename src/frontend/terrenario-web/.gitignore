@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# MVP-810 — Tipografías generadas por el build (subconjunto de iconos y hoja de @font-face).
+# No se versionan a propósito: se derivan del código y de node_modules, y una copia comiteada
+# acabaría diciendo algo distinto de lo que el build produce.
+src/generado/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

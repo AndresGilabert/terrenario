@@ -1,7 +1,7 @@
 ﻿---
 bloque: 05-infraestructura
 documento: desarrollo-local
-actualizado_en: "2026-08-10"
+actualizado_en: "2026-08-11"
 ---
 
 # Desarrollo Local
@@ -94,6 +94,26 @@ Gestionadas con archivo `.env` local (excluido por `.gitignore`).
 | `VITE_GOOGLE_CLIENT_ID` | Client ID de Google (igual que el del backend) | `123456789.apps.googleusercontent.com` |
 
 > El puerto `5127` corresponde al perfil `http` de [`launchSettings.json`](../../src/backend/Terrenario.Api/Properties/launchSettings.json).
+
+#### Ficheros que genera el arranque (`MVP-810`)
+
+Tanto `npm run dev` como `npm run build` generan, antes de nada, dos ficheros en
+`src/frontend/terrenario-web/src/generado/` — **no se versionan** y no hay que crearlos a mano:
+
+| Fichero | Lo produce | Qué es |
+|---------|-----------|--------|
+| `material-symbols-subconjunto.woff2` | `scripts/subconjunto-iconos.mjs` | La fuente de iconos recortada a los que el producto usa (74 kB en vez de 3,78 MB) |
+| `tipografias-de-texto.css` | `scripts/tipografias-de-texto.mjs` | Los `@font-face` de `Inter` y `Plus Jakarta Sans`, sin la copia `.woff` de reserva |
+
+Consecuencias prácticas:
+
+- Los dos salen de `node_modules`, así que **hace falta `npm ci` antes del primer arranque**. Si
+  falta, el arranque falla con un mensaje que lo dice; no se queda a medias.
+- **Al añadir un icono nuevo con el servidor de desarrollo ya en marcha, hay que reiniciarlo**: el
+  inventario de iconos se lee al arrancar. Cómo se escribe un icono para que el inventario lo vea
+  está en [`estandares-codigo.md`](../04-ingenieria/estandares-codigo.md).
+- El `build` **falla** si el peso de la primera carga se pasa del presupuesto. `npm run peso`
+  imprime el desglose de un `dist` ya construido, sin reconstruirlo.
 
 ---
 

@@ -1,6 +1,65 @@
+import { resolve } from 'node:path'
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+// @ts-expect-error -- scripts/ son módulos de build en JavaScript, fuera del `tsconfig` de la app.
+import { generarSubconjuntoDeIconos } from './scripts/subconjunto-iconos.mjs'
+// @ts-expect-error -- idem.
+import { generarTipografiasDeTexto } from './scripts/tipografias-de-texto.mjs'
+// @ts-expect-error -- idem.
+import { comprobarUmbrales, informe, medirPrimeraCarga } from './scripts/peso-primera-carga.mjs'
+
+/**
+ * MVP-810 — Genera las tipografías que `src/index.css` importa, antes de que nada las referencie.
+ *
+ * Va en `buildStart` —y no en un `prebuild` de npm— para que valga igual en `vite build` y en
+ * `vite dev`: si dependiera del script de npm, quien arrancara Vite a mano se encontraría con que
+ * `src/index.css` apunta a un fichero que no existe. Es idempotente, así que arrancar el servidor
+ * de desarrollo no paga el recorte más de una vez.
+ *
+ * Un icono añadido con el servidor de desarrollo en marcha necesita reiniciarlo: el inventario se
+ * lee al arrancar. El aviso de que hace falta no es un hueco en blanco, sino el test
+ * `iconos-inventario.test.ts` y el fallo del propio generador ante un nombre que no existe.
+ */
+function tipografiasGeneradas(): Plugin {
+  return {
+    name: 'terrenario-tipografias-generadas',
+    async buildStart() {
+      generarTipografiasDeTexto()
+      await generarSubconjuntoDeIconos()
+    },
+  }
+}
+
+/**
+ * MVP-810 — El `build` falla si la primera carga se pasa del presupuesto.
+ *
+ * Se mide sobre `dist` ya escrito, que es lo que se publica de verdad, y no sobre el grafo de
+ * módulos. Los umbrales y su porqué viven en `scripts/peso-primera-carga.mjs`.
+ *
+ * Va en `writeBundle` y no en `closeBundle` a propósito: `closeBundle` se ejecuta **también cuando
+ * el build ha fallado**, y entonces medía el `dist` de la vez anterior y gritaba por un peso viejo,
+ * tapando el error de verdad. `writeBundle` solo corre si se ha escrito algo.
+ */
+function presupuestoDePrimeraCarga(): Plugin {
+  return {
+    name: 'terrenario-presupuesto-primera-carga',
+    apply: 'build',
+    writeBundle() {
+      const medida = medirPrimeraCarga(resolve(import.meta.dirname, 'dist'))
+      console.log(`\n${informe(medida)}\n`)
+      const incumplimientos = comprobarUmbrales(medida)
+      if (incumplimientos.length > 0) {
+        this.error(
+          'El peso de la primera carga se ha pasado del presupuesto (MVP-810):\n' +
+            incumplimientos.map((linea: string) => `  - ${linea}`).join('\n') +
+            '\n\nSi el aumento está justificado, sube el umbral en `scripts/peso-primera-carga.mjs`' +
+            ' y explica en el PR por qué. Lo que no vale es subirlo sin decirlo.'
+        )
+      }
+    },
+  }
+}
 
 /**
  * MVP-502 — Content-Security-Policy del documento del SPA.
@@ -77,9 +136,11 @@ function contentSecurityPolicy(apiBaseUrl: string): Plugin {
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
   plugins: [
+    tipografiasGeneradas(),
     tailwindcss(),
     react(),
     contentSecurityPolicy(loadEnv(mode, process.cwd(), 'VITE_').VITE_API_BASE_URL ?? ''),
+    presupuestoDePrimeraCarga(),
   ],
   build: {
     // Separa las dependencias que casi nunca cambian (React y el router) del código propio de la app.

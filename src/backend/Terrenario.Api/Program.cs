@@ -442,7 +442,28 @@ app.MapFallback(async context =>
 {
     if (context.Request.Path.StartsWithSegments("/api"))
     {
+        // MVP-811 (`P-117`) — `contratos-api.md` dice que las respuestas de error son **siempre** JSON
+        // con `{ error: { code, message } }`. Este borde respondía `404` con el cuerpo vacío y sin
+        // `Content-Type`, así que un cliente que lee el error para saber qué ha pasado se encontraba
+        // nada. Los 404 de dominio sí cumplían: la excepción era el transporte, igual que `P-027` y
+        // `P-043`, que `MVP-502` cerró en este mismo borde.
+        //
+        // Aquí caen tres cosas a la vez, y las tres se benefician del mismo envoltorio: una ruta que no
+        // existe, un **método no permitido** sobre una que sí (`DELETE /api/v1/seasons`) y un parámetro
+        // de ruta que no cumple su restricción (`/api/v1/plots/no-es-un-guid`). Las tres siguen
+        // respondiendo `404` —no se introduce un `405` que el contrato no declara—: lo que cambia es
+        // que ahora **dicen** algo.
+        //
+        // Se escribe a mano y no con un `Results`: aquí no hay endpoint, así que no hay resultado de
+        // acción que ejecutar. El envoltorio es el mismo tipo que usan los controladores, así que el
+        // contrato no se duplica.
         context.Response.StatusCode = StatusCodes.Status404NotFound;
+        context.Response.ContentType = "application/json; charset=utf-8";
+        await context.Response.WriteAsJsonAsync(
+            new ApiErrorResponse(new ApiError(
+                ErrorCodes.ResourceNotFound,
+                "El recurso solicitado no existe en esta API.")),
+            context.RequestAborted);
         return;
     }
 

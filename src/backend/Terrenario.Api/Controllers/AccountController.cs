@@ -51,6 +51,9 @@ public sealed class AccountController(CloseAccountHandler closeAccountHandler) :
             is_clear = preview.IsClear,
             obligations = preview.Obligations.Select(ToObligationResponse),
             active_memberships = preview.ActiveMemberships,
+            // MVP-811 (`P-118`) — De esas membresías, en cuántas hay más gente. Sin este dato la
+            // pantalla no puede decir «compartidos» solo cuando lo son.
+            shared_memberships = preview.SharedMemberships,
             active_sessions = preview.ActiveSessions,
             confirmation_phrase = ConfirmationPhrase,
             retention_months = AccountRetentionPolicy.RetentionMonths

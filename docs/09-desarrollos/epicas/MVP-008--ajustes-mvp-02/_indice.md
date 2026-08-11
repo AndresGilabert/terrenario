@@ -15,5 +15,5 @@
 | [MVP-808](./MVP-808--avisos-in-app-que-no-dependan-del-correo/spec.md) | Avisos in-app que no dependan del correo | ✔️ completado | @andres | media |
 | [MVP-809](./MVP-809--trazabilidad-de-los-requisitos-de-usuario/spec.md) | Trazabilidad de los requisitos de usuario | ✔️ completado | @andres | alta |
 | [MVP-810](./MVP-810--peso-de-la-primera-carga/spec.md) | Peso de la primera carga | ✅ aprobado | @andres | media |
-| [MVP-811](./MVP-811--deuda-menor-de-la-revision/spec.md) | Deuda menor de la revision | ✅ aprobado | @andres | media |
+| [MVP-811](./MVP-811--deuda-menor-de-la-revision/spec.md) | Deuda menor de la revision | ✔️ completado | @andres | media |
 | [MVP-899](./MVP-899--revision-epica/spec.md) | Revision epica | ✅ aprobado | @andres | media |

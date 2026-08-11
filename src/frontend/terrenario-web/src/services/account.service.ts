@@ -11,6 +11,12 @@ export interface AccountClosureOptions {
   is_clear: boolean;
   obligations: AccountClosureObligation[];
   active_memberships: number;
+  /**
+   * MVP-811 (`P-118`) — De esas membresías, en cuántas hay **más gente**. El cliente no lo puede
+   * deducir: la lista de membresías no dice cuánta gente hay en cada Workspace, y la pantalla acababa
+   * afirmando que se compartían todos.
+   */
+  shared_memberships: number;
   active_sessions: number;
   /** Frase que hay que escribir para confirmar. La dicta el servidor: la UI no se la inventa. */
   confirmation_phrase: string;

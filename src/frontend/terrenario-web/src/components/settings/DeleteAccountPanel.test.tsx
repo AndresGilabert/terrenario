@@ -21,6 +21,7 @@ describe('DeleteAccountPanel', () => {
     is_clear: true,
     obligations: [],
     active_memberships: 0,
+    shared_memberships: 0,
     active_sessions: 1,
     confirmation_phrase: 'ELIMINAR MI CUENTA',
     retention_months: 24,
@@ -59,12 +60,44 @@ describe('DeleteAccountPanel', () => {
   });
 
   it('Deberia_ExplicarQueDesaparece_Antes_DePreguntar', async () => {
-    renderWith({ active_memberships: 2, active_sessions: 3 });
+    renderWith({ active_memberships: 2, shared_memberships: 2, active_sessions: 3 });
 
     // Una confirmación que dice «es irreversible» sin decir qué se lleva no informa de nada.
     expect(await screen.findByText(/qué pasará si continúas/i)).toBeInTheDocument();
     expect(screen.getByText(/sales de 2 workspaces compartidos/i)).toBeInTheDocument();
     expect(screen.getByText(/a los 24 meses/i)).toBeInTheDocument();
+  });
+
+  /**
+   * MVP-811 (`P-118`, CA-4) — El adjetivo era **fijo**: con un solo Workspace salía «Sales de 1
+   * Workspace compartidos», y quien era la única persona del suyo leía que lo compartía mientras la
+   * misma pantalla le decía más arriba «eres la única persona en este Workspace». En un flujo
+   * irreversible, un texto que describe mal la situación resta confianza justo donde hace falta.
+   */
+  describe('el texto de salida concuerda con la situación (`P-118`)', () => {
+    const salida = async () => (await screen.findByText(/Sales de/)).textContent!;
+
+    it('concuerda en número con un solo Workspace', async () => {
+      renderWith({ active_memberships: 1, shared_memberships: 1 });
+
+      expect(await salida()).toContain('Sales de 1 Workspace compartido');
+      expect(await salida()).not.toContain('Workspace compartidos');
+    });
+
+    it('no dice «compartido» cuando la persona está sola', async () => {
+      renderWith({ active_memberships: 1, shared_memberships: 0 });
+
+      const texto = await salida();
+      expect(texto).toContain('Sales de 1 Workspace');
+      expect(texto).not.toContain('compartid');
+    });
+
+    it('distingue cuántos de ellos se comparten cuando no son todos', async () => {
+      // El caso que la redacción anterior no podía expresar: tres Workspaces, uno en solitario.
+      renderWith({ active_memberships: 3, shared_memberships: 2 });
+
+      expect(await salida()).toContain('Sales de 3 Workspaces, 2 de ellos compartidos');
+    });
   });
 
   it('Deberia_ExigirTeclearLaFrase_Cuando_SeConfirma', async () => {

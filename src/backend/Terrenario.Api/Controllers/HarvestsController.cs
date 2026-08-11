@@ -37,6 +37,7 @@ public sealed class HarvestsController(
     DeleteHarvestHandler deleteHarvestHandler,
     ListHarvestsHandler listHarvestsHandler,
     GetHarvestHandler getHarvestHandler,
+    FindHarvestDuplicatesHandler findHarvestDuplicatesHandler,
     SeasonScopeResolver seasonScopeResolver,
     IWorkspaceContext workspaceContext) : ControllerBase
 {
@@ -82,6 +83,51 @@ public sealed class HarvestsController(
                 // libro de compras (MVP-303).
                 total_kg = harvests.Sum(harvest => harvest.Kgs)
             }
+        });
+    }
+
+    /// <summary>
+    /// MVP-805 (RN-044, <c>RU-24</c>) — Partidas vivas que coinciden con la que se está escribiendo:
+    /// <b>mismo terreno, misma fecha y mismo producto</b>.
+    ///
+    /// Es una lectura de apoyo del formulario, no un filtro más del listado: lo que devuelve alimenta
+    /// un **aviso no bloqueante**, del mismo tipo que los de RN-023 y RN-043. Va en su propia ruta —y
+    /// no como parámetros de <c>GET /harvests</c>— para que la regla de qué cuenta como duplicado
+    /// tenga un nombre en el contrato en vez de vivir repartida en los dos formularios que la usan.
+    ///
+    /// <c>exclude_id</c> es la propia partida al corregir: cambiarle el destino a una cosecha no puede
+    /// avisar de que esa cosecha ya existe (CA-3).
+    /// </summary>
+    [HttpGet("duplicates")]
+    public async Task<IActionResult> Duplicates(
+        [FromQuery(Name = "plot_id")] Guid? plotId,
+        [FromQuery] string? date,
+        [FromQuery] string? product,
+        [FromQuery(Name = "exclude_id")] Guid? excludeId,
+        CancellationToken ct)
+    {
+        if (!TryParseDate(date, out var parsedDate) || parsedDate is null || plotId is null
+            || string.IsNullOrWhiteSpace(product))
+        {
+            return BadRequest(new ApiErrorResponse(ApiError.Validation(
+                ErrorCodes.ValidationRequired,
+                "Para buscar partidas iguales hacen falta plot_id, date (YYYY-MM-DD) y product.")));
+        }
+
+        var duplicates = await findHarvestDuplicatesHandler.HandleAsync(
+            workspaceContext.WorkspaceId, plotId.Value, parsedDate.Value, product, excludeId, ct);
+
+        return Ok(new
+        {
+            // Solo lo que el aviso necesita nombrar: los kilos y el destino de la partida que ya está,
+            // que es lo que permite distinguir de un vistazo si es la misma o una segunda de verdad.
+            data = duplicates.Select(duplicate => new
+            {
+                id = duplicate.Id,
+                kgs = duplicate.Kgs,
+                destination = duplicate.Destination
+            }),
+            meta = new { total = duplicates.Count }
         });
     }
 

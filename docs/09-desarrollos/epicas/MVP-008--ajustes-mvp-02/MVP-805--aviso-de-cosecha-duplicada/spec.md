@@ -2,7 +2,7 @@
 id: "MVP-805"
 tipo: feature
 titulo: "Aviso de cosecha duplicada"
-estado: aprobado
+estado: completado
 prioridad: media
 sprint: ""
 hito: "Hito H — Ajustes de la segunda revision"
@@ -83,15 +83,33 @@ mismo dia en el mismo terreno es posible y a veces correcta.
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Al rellenar una cosecha con terreno, fecha y producto iguales a los de una partida viva
+- [x] **CA-1**: Al rellenar una cosecha con terreno, fecha y producto iguales a los de una partida viva
   del Workspace, aparece un aviso que nombra la partida existente con sus kilos y su destino.
-- [ ] **CA-2**: El aviso **no impide guardar**: la partida se crea con normalidad si se confirma.
-- [ ] **CA-3**: Editar una partida existente sin cambiar terreno, fecha ni producto **no** dispara el
+  **Evidencia** (API real, el escenario con el que se detecto `P-110`): con la partida del 20 de
+  octubre de 2025 en «Matorral» registrada,
+  `GET /harvests/duplicates?plot_id=<Matorral>&date=2025-10-20&product=aceituna_olivar` devuelve
+  `{ kgs: 1000.00, destination: "aceite_para_venta" }`. El test de componente comprueba que el aviso
+  rotula «1000 kg, Aceite para venta».
+- [x] **CA-2**: El aviso **no impide guardar**: la partida se crea con normalidad si se confirma.
+  **Evidencia**: test de componente que comprueba que el boton de guardar sigue habilitado con el aviso
+  a la vista. El servidor no cambia: no hay validacion nueva en el alta.
+- [x] **CA-3**: Editar una partida existente sin cambiar terreno, fecha ni producto **no** dispara el
   aviso.
-- [ ] **CA-4**: Una partida eliminada (borrado logico, `RN-037`) no dispara el aviso.
-- [ ] **CA-5**: El aviso convive con los de `RN-023` y `RN-043` sin desplazar el formulario ni ocultar
+  **Evidencia**: con `exclude_id` de la propia partida, la misma consulta devuelve `total: 0` contra la
+  API real. Y el formulario **manda** ese identificador al corregir, comprobado con test de componente.
+- [x] **CA-4**: Una partida eliminada (borrado logico, `RN-037`) no dispara el aviso.
+  **Evidencia**: prueba de integracion que borra la partida y vuelve a preguntar: `total: 0`. Se cumple
+  por construccion —el puerto excluye las eliminadas en todas sus lecturas— y aun asi hay test, porque
+  «por construccion» es lo que deja de ser cierto cuando alguien anade otra consulta.
+- [x] **CA-5**: El aviso convive con los de `RN-023` y `RN-043` sin desplazar el formulario ni ocultar
   ninguno de los dos cuando coinciden.
-- [ ] **CA-6**: `RU-24` deja de figurar sin destino en el documento de requisitos.
+  **Evidencia**: los dos avisos se apilan en el mismo bloque, **encima** de los campos de captura, asi
+  que ninguno desplaza lo que se esta escribiendo. Test de componente con una fecha fuera de rango
+  **y** duplicada: los dos aparecen. `RN-043` no aplica a este formulario —es del consumo—, y se hace
+  constar en vez de darlo por comprobado.
+- [x] **CA-6**: `RU-24` deja de figurar sin destino en el documento de requisitos.
+  **Evidencia**: `RU-24` recoge su entrega en `MVP-805`, su formalizacion como `RN-044` y la decision
+  sobre «misma unidad» con su motivo.
 
 ## Maquetas y referencias visuales
 

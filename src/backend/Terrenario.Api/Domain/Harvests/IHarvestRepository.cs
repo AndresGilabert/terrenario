@@ -94,13 +94,21 @@ public sealed record HarvestAggregateRow(
     public bool HasOilData => Yield is not null || Liters is not null;
 }
 
-/// <summary>Filtros del listado de cosechas (<c>from</c>, <c>to</c>, terreno, temporada, destino).</summary>
+/// <summary>
+/// Filtros del listado de cosechas (<c>from</c>, <c>to</c>, terreno, temporada, destino, producto).
+///
+/// <c>Product</c> lo añade MVP-805: es lo que faltaba para poder preguntar «¿ya hay una partida de este
+/// terreno, esta fecha y este producto?», que es la comparación con la que RN-044 avisa de un duplicado.
+/// Se añade al filtro que ya existe en vez de abrir una consulta paralela: son las mismas columnas y el
+/// mismo conjunto vivo, y dos caminos de lectura sobre lo mismo acaban divergiendo.
+/// </summary>
 public sealed record HarvestFilter(
     DateOnly? From = null,
     DateOnly? To = null,
     Guid? PlotId = null,
     Guid? SeasonId = null,
-    string? Destination = null);
+    string? Destination = null,
+    string? Product = null);
 
 /// <summary>
 /// Vista de lectura de una cosecha con los nombres de terreno y temporada resueltos, para que el

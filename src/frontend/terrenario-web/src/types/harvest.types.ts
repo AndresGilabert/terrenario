@@ -177,3 +177,30 @@ export interface HarvestFilters {
 export const HARVEST_KGS_MAX = 99_999_999.99;
 /** No puede salir más aceite que fruto: por encima siempre es un error de tecleo. */
 export const HARVEST_YIELD_MAX = 100;
+
+/**
+ * MVP-805 (RN-044, `RU-24`) — Lo que se pregunta para saber si ya hay una partida igual: **terreno,
+ * fecha y producto**. `excludeId` es la propia partida al corregir.
+ */
+export interface HarvestDuplicateQuery {
+  plotId: string;
+  /** Fecha de negocio (`YYYY-MM-DD`). */
+  date: string;
+  product: string;
+  excludeId?: string;
+}
+
+/**
+ * Partida existente que coincide, con lo justo para **nombrarla** en el aviso: los kilos y el destino
+ * son lo que permite distinguir de un vistazo si es la misma o una segunda de verdad.
+ */
+export interface HarvestDuplicate {
+  id: string;
+  kgs: number;
+  destination: string;
+}
+
+export interface HarvestDuplicateListResponse {
+  data: HarvestDuplicate[];
+  meta: { total: number };
+}

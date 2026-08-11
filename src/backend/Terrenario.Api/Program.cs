@@ -232,6 +232,7 @@ builder.Services.AddScoped<UpdateHarvestHandler>();
 builder.Services.AddScoped<DeleteHarvestHandler>();
 builder.Services.AddScoped<ListHarvestsHandler>();
 builder.Services.AddScoped<GetHarvestHandler>();
+builder.Services.AddScoped<FindHarvestDuplicatesHandler>();
 // MVP-701 — Defecto de temporada de RN-008 en un único punto, compartido por diario, cosechas y
 // compras. Antes cada vista arrancaba en «todas» por su cuenta y el dashboard resolvía el defecto en
 // servidor: dos pantallas respondían distinto a «cuánto llevo esta campaña» (`P-082`).

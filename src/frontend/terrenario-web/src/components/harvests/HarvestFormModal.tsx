@@ -11,9 +11,12 @@ import {
   harvestProductLabel,
   type CreateHarvestPayload,
   type Harvest,
+  type HarvestDuplicate,
   type YieldInputMode,
 } from '../../types/harvest.types';
 import { Modal } from '../common/Modal';
+import { useApiClient } from '../../contexts/ApiContext';
+import { createHarvestService } from '../../services/harvest.service';
 
 interface HarvestFormModalProps {
   isOpen: boolean;
@@ -31,6 +34,9 @@ interface HarvestFormModalProps {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+/** Kilos con el formato del resto del producto, para que el aviso nombre la partida como se lee. */
+const number = (value: number) => value.toLocaleString('es-ES', { maximumFractionDigits: 2 });
+
 /**
  * Alta y corrección de una cosecha (MVP-401, HU-1/HU-2).
  *
@@ -44,6 +50,10 @@ const today = () => new Date().toISOString().slice(0, 10);
  *   convertido en servidor con la densidad de RN-016) y litros obtenidos, de los que se deriva.
  * - **La fecha fuera del rango de la temporada avisa mientras se escribe** (RN-023) y nunca impide
  *   guardar: es el mismo aviso que ya dan la actividad y la compra.
+ * - **Una partida repetida avisa igual** (RN-044, MVP-805): mismo terreno, misma fecha y mismo
+ *   producto. `RU-24` lo pedía desde el principio y nunca se construyó —es una de las tres
+ *   consecuencias de `P-114`—. Tampoco bloquea: dos partidas del mismo terreno y día son un caso
+ *   real.
  */
 export const HarvestFormModal: React.FC<HarvestFormModalProps> = ({
   isOpen,
@@ -69,6 +79,9 @@ export const HarvestFormModal: React.FC<HarvestFormModalProps> = ({
   const [fatYield, setFatYield] = useState('');
   const [liters, setLiters] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
+
+  const http = useApiClient();
+  const harvestService = useMemo(() => createHarvestService(http), [http]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -114,6 +127,47 @@ export const HarvestFormModal: React.FC<HarvestFormModalProps> = ({
     () => seasons.find((season) => season.id === seasonId) ?? null,
     [seasons, seasonId]
   );
+
+  /**
+   * MVP-805 (RN-044, `RU-24`) — Partidas vivas iguales a la que se está escribiendo.
+   *
+   * **Se pregunta al servidor y no se busca en lo que la pantalla tiene cargado.** El listado de
+   * Cosechas está filtrado y el diario trae una página, así que buscar ahí daría un aviso que aparece
+   * o no según lo que el usuario tuviera filtrado, que es peor que no avisar. Y la comparación que
+   * define un duplicado vive en un único sitio (RN-044), no en los dos formularios que abren este
+   * modal.
+   *
+   * Va rebotado por el mismo motivo que la búsqueda del diario: se dispara al cambiar tres campos y
+   * sin espera saldría una petición por pulsación en la fecha.
+   *
+   * Un fallo se trata como «no se sabe», no como error de pantalla: no poder comprobarlo no puede
+   * impedir registrar una cosecha.
+   */
+  const [duplicates, setDuplicates] = useState<HarvestDuplicate[]>([]);
+
+  useEffect(() => {
+    if (!isOpen || !plotId || !date || !product) {
+      setDuplicates([]);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      harvestService
+        .findDuplicates({ plotId, date, product, excludeId: harvest?.id })
+        .then((response) => {
+          if (!cancelled) setDuplicates(response.data);
+        })
+        .catch(() => {
+          if (!cancelled) setDuplicates([]);
+        });
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [isOpen, plotId, date, product, harvest?.id, harvestService]);
 
   // RN-023 — aviso, nunca bloqueo. Se calcula también en cliente para que aparezca al escribir.
   const isOutOfSeasonRange = useMemo(() => {
@@ -307,12 +361,44 @@ export const HarvestFormModal: React.FC<HarvestFormModalProps> = ({
           </select>
         </div>
 
+        {/* Los avisos no bloqueantes del formulario, apilados en el mismo sitio. Cuando coinciden se
+            ven **los dos**: son cosas distintas —una fecha rara y una partida repetida— y esconder uno
+            porque salga el otro dejaría al usuario decidiendo con la mitad de la información (CA-5). */}
         {isOutOfSeasonRange && (
           <p role="status" className="text-[11px] text-[#8a5a00] bg-[#fff6e5] border border-[#f0d9a8] rounded-lg px-2.5 py-1.5 flex items-start gap-1.5">
             <span className="material-symbols-outlined text-sm shrink-0" aria-hidden="true">warning</span>
             <span>
               La fecha queda fuera del rango de «{selectedSeason?.name}». Puedes guardarla igual; solo
               es un aviso.
+            </span>
+          </p>
+        )}
+
+        {/* MVP-805 (RN-044, `RU-24`) — Ya hay una partida con este terreno, esta fecha y este
+            producto. Avisa **mientras se rellena**, como RN-023, y **no impide guardar**: dos partidas
+            del mismo terreno y día son un caso real. */}
+        {duplicates.length > 0 && (
+          <p role="status" className="text-[11px] text-[#8a5a00] bg-[#fff6e5] border border-[#f0d9a8] rounded-lg px-2.5 py-1.5 flex items-start gap-1.5">
+            <span className="material-symbols-outlined text-sm shrink-0" aria-hidden="true">content_copy</span>
+            <span>
+              {duplicates.length === 1 ? (
+                <>
+                  Ya hay una partida de este terreno, esta fecha y este producto:{' '}
+                  <strong>
+                    {number(duplicates[0].kgs)} kg, {harvestDestinationLabel(duplicates[0].destination)}
+                  </strong>
+                  . Puedes guardarla igual si de verdad son dos.
+                </>
+              ) : (
+                <>
+                  Ya hay <strong>{duplicates.length} partidas</strong> de este terreno, esta fecha y
+                  este producto:{' '}
+                  {duplicates
+                    .map((d) => `${number(d.kgs)} kg (${harvestDestinationLabel(d.destination)})`)
+                    .join('; ')}
+                  . Puedes guardar otra igual si de verdad lo son.
+                </>
+              )}
             </span>
           </p>
         )}

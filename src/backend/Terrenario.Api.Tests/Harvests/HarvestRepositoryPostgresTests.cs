@@ -100,6 +100,30 @@ public sealed class HarvestRepositoryPostgresTests : RepositoryTestBase
             new DateOnly(2026, 11, 5), new DateOnly(2026, 10, 20), new DateOnly(2026, 10, 1));
     }
 
+    /// <summary>
+    /// MVP-805 (RN-044) — El filtro por producto es lo que sostiene el aviso de duplicado. Va aquí y
+    /// no en un test de mock porque lo que puede fallar es la traducción a SQL de la comparación
+    /// exacta sobre una columna de catálogo (lección de <c>P-014</c>).
+    /// </summary>
+    [Fact]
+    public async Task ListAsync_Deberia_FiltrarPorProducto_ConComparacionExacta()
+    {
+        var fixture = await SeedAsync("-producto");
+        Db.Harvests.Add(NewHarvest(fixture, new DateOnly(2026, 10, 20)));
+        await Db.SaveChangesAsync();
+        var repository = new HarvestRepository(Db);
+
+        var coincide = await repository.ListAsync(
+            fixture.Workspace.Id, new HarvestFilter(Product: "aceituna_olivar"));
+        // El catálogo de producto tiene hoy un único valor (`P-059`/`P-060` lo ampliarán), así que lo
+        // que se comprueba es que la comparación **acota de verdad** y no que ignora el filtro.
+        var noCoincide = await repository.ListAsync(
+            fixture.Workspace.Id, new HarvestFilter(Product: "almendra"));
+
+        coincide.Should().ContainSingle().Which.Product.Should().Be("aceituna_olivar");
+        noCoincide.Should().BeEmpty();
+    }
+
     [Fact]
     public async Task ListAsync_Deberia_FiltrarPorDestino_ConComparacionExacta()
     {

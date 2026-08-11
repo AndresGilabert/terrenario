@@ -753,6 +753,8 @@ Reglas de contexto:
 | Editar cosecha | `PATCH /api/v1/harvests/{harvestId}` | campos parciales · `If-Match: <version>` | `200 { ...harvest }` |
 | Eliminar cosecha | `DELETE /api/v1/harvests/{harvestId}` | `If-Match: <version>` | `204` |
 | Listado cosechas | `GET /api/v1/harvests` | `from?`, `to?`, `plot_id?`, `season_id?` (id \| `all`), `destination?` | `200 { data, meta: { scope, total, total_kg } }` |
+| Una cosecha (MVP-401) | `GET /api/v1/harvests/{harvestId}` | — | `200 { ...harvest }` |
+| Partidas iguales (MVP-805) | `GET /api/v1/harvests/duplicates` | `plot_id*`, `date*`, `product*`, `exclude_id?` | `200 { data:[{ id, kgs, destination }], meta:{ total } }` |
 
 > **MVP-707 — `unit_price` y `amount` (RN-029 matizada).** `unit_price` es el precio de venta por kilo,
 > **opcional**; `amount` es su importe (`kgs × unit_price`) y es **derivado, no columna**: no se envía
@@ -761,7 +763,16 @@ Reglas de contexto:
 > partida sin precio no ha ingresado 0 €. En `PATCH`, un `unit_price: null` explícito **retira** el
 > precio de una partida que lo tenía. Un `unit_price` de `0` o negativo se rechaza con
 > `VALIDATION_HARVEST_UNIT_PRICE_RANGE` (400): quien no lo sepa deja el campo vacío.
-| Una cosecha (MVP-401) | `GET /api/v1/harvests/{harvestId}` | — | `200 { ...harvest }` |
+>
+> **MVP-805 — `duplicates` (RN-044, `RU-24`).** Lectura de apoyo del formulario de cosecha: devuelve
+> las partidas **vivas** del Workspace con el mismo terreno, la misma fecha y el mismo producto, para
+> pintar un **aviso no bloqueante** mientras se rellena. Los tres parámetros son obligatorios y su
+> ausencia es `400 VALIDATION_REQUIRED`: responder «no hay duplicados» sin haber podido comprobarlo
+> haría que el formulario mostrase silencio donde no hay respuesta. `exclude_id` es la propia partida
+> al corregir (CA-3 de `MVP-805`). Devuelve solo lo que el aviso necesita **nombrar** —kilos y
+> destino—, no la cosecha entera. Tiene ruta propia y no parámetros de `GET /harvests` para que la
+> regla de qué cuenta como duplicado tenga un nombre en el contrato, en vez de vivir repartida en los
+> dos formularios que la usan.
 
 La representación de una cosecha es
 `{ id, workspace_id, date, plot_id, plot_name, season_id, season_name, product, kgs, yield, liters,

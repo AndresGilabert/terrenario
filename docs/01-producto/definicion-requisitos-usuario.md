@@ -536,7 +536,13 @@ Los criterios de aceptación detallados se cerrarán al bajar estas decisiones a
 - **RU-24: Avisos de posibles duplicados**
   - Si se intenta crear una cosecha con mismo terreno, fecha, producto y unidad que uno existente, se muestra aviso.
   - Se permite guardar igual (sin bloqueo).
-  - Estado: MVP
+  - Estado: MVP — **entregado en `MVP-805` (2026-08-10)**, formalizado como `RN-044`.
+  - **La «misma unidad» no se traduce literalmente** (decisión del PO, 2026-08-10): este requisito se
+    escribió cuando la cosecha aún podía informar el rendimiento de varias formas, y hoy `RN-013` fija
+    la unidad canónica, de modo que el modo de entrada es solo eso. La comparación es **terreno +
+    fecha + producto**. Incluir el modo de entrada dejaría sin avisar el duplicado más probable —quien
+    apunta dos veces lo mismo suele hacerlo de dos maneras—, y añadir los kilos se llevaría por delante
+    el caso de teclear mal la cantidad al repetir, que es cuando el aviso más sirve.
 
 ### Compras y consumo de materiales
 

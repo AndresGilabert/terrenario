@@ -168,3 +168,49 @@ public sealed class GetHarvestHandler(IHarvestRepository harvestRepository)
     public Task<HarvestView?> HandleAsync(Guid workspaceId, Guid harvestId, CancellationToken ct = default)
         => harvestRepository.GetViewAsync(workspaceId, harvestId, ct);
 }
+
+/// <summary>
+/// MVP-805 (RN-044, <c>RU-24</c>) — Partidas **vivas** que coinciden con la que se está escribiendo.
+///
+/// <b>Qué cuenta como duplicado vive aquí y no en el cliente.</b> Es la misma razón por la que RN-008
+/// resuelve el defecto en servidor: si el formulario construyera la comparación, la regla viviría en la
+/// pantalla que la usa y cambiarla obligaría a acordarse de las dos que abren este modal —Cosechas y el
+/// diario—.
+///
+/// La comparación es <b>terreno + fecha + producto</b>, y no incluye el modo de entrada ni los kilos
+/// (decisión del PO, 2026-08-10). <c>RU-24</c> hablaba de «misma unidad» cuando la cosecha aún podía
+/// informar el rendimiento de varias formas; hoy RN-013 fija la unidad canónica y el modo de entrada es
+/// solo eso. Incluirlo dejaría sin avisar precisamente el duplicado más probable —quien apunta dos
+/// veces lo mismo suele hacerlo de dos maneras, una con litros y otra con rendimiento— y añadir los
+/// kilos se llevaría por delante el caso de teclear mal la cantidad al repetir, que es cuando el aviso
+/// más sirve.
+///
+/// Al **corregir** se excluye la propia partida: cambiarle el destino a una cosecha no puede avisar de
+/// que esa cosecha ya existe.
+///
+/// Las eliminadas no cuentan: el puerto excluye la baja lógica en todas sus lecturas (RN-037).
+/// </summary>
+public sealed class FindHarvestDuplicatesHandler(IHarvestRepository harvestRepository)
+{
+    public async Task<IReadOnlyList<HarvestView>> HandleAsync(
+        Guid workspaceId,
+        Guid plotId,
+        DateOnly date,
+        string product,
+        Guid? excludeId,
+        CancellationToken ct = default)
+    {
+        // La temporada **no** entra en la comparación: `RU-24` identifica la partida por terreno, fecha
+        // y producto, y dos apuntes del mismo día en el mismo terreno son el duplicado que se busca
+        // aunque alguien los haya asociado a campañas distintas —que es, de hecho, un síntoma más de
+        // que uno de los dos sobra—.
+        var matches = await harvestRepository.ListAsync(
+            workspaceId,
+            new HarvestFilter(From: date, To: date, PlotId: plotId, Product: product),
+            ct);
+
+        return excludeId is { } id
+            ? matches.Where(match => match.Id != id).ToList()
+            : matches;
+    }
+}

@@ -3,6 +3,8 @@ import type {
   CreateHarvestPayload,
   Harvest,
   HarvestFilters,
+  HarvestDuplicateListResponse,
+  HarvestDuplicateQuery,
   HarvestListResponse,
   UpdateHarvestPayload,
 } from '../types/harvest.types';
@@ -27,6 +29,23 @@ export function createHarvestService(http: HttpClient) {
           plot_id: filters?.plotId,
           season_id: filters?.seasonId,
           destination: filters?.destination,
+        },
+      });
+    },
+
+    /**
+     * MVP-805 (RN-044) — Partidas vivas iguales a la que se está escribiendo: mismo terreno, misma
+     * fecha y mismo producto. Alimenta un **aviso no bloqueante**, así que quien la llama trata el
+     * fallo como «no se sabe» y no como un error de pantalla: no poder comprobarlo no puede impedir
+     * registrar una cosecha.
+     */
+    async findDuplicates(query: HarvestDuplicateQuery): Promise<HarvestDuplicateListResponse> {
+      return http.request<HarvestDuplicateListResponse>('/api/v1/harvests/duplicates', {
+        query: {
+          plot_id: query.plotId,
+          date: query.date,
+          product: query.product,
+          exclude_id: query.excludeId,
         },
       });
     },

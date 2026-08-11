@@ -43,6 +43,13 @@ public sealed class HarvestRepository(TerrenarioDbContext db) : IHarvestReposito
             live = live.Where(h => h.Destination == destination);
         }
 
+        // MVP-805 — El producto también es catálogo cerrado (RN-030): comparación exacta.
+        if (!string.IsNullOrWhiteSpace(filter.Product))
+        {
+            var product = filter.Product.Trim();
+            live = live.Where(h => h.Product == product);
+        }
+
         // Filtros y orden se aplican sobre columnas reales **antes** de proyectar, que es lo que EF
         // sabe traducir (lección de P-014).
         // Orden completo en SQL desde MVP-501, desempate incluido: antes el `ThenBy` se reaplicaba en

@@ -682,6 +682,46 @@ comprar y gastar el mismo día es lo normal.
 
 ---
 
+### RN-044 — Cosecha repetida permitida con aviso
+
+**Estado**: activa
+**Fuente**: producto (`RU-24`)
+**Módulos afectados**: produccion, diario
+
+Al registrar o corregir una cosecha, si ya existe una partida **viva** del Workspace con el **mismo
+terreno, la misma fecha y el mismo producto**, el sistema muestra un aviso **no bloqueante** mientras
+se rellena el formulario, y permite guardar igual.
+
+No se bloquea porque dos partidas del mismo terreno y del mismo día son un caso real —dos vuelcos, dos
+cuadrillas, dos destinos distintos—. Lo que no es real es que nadie te avise: apuntar dos veces lo
+mismo duplica los kilos de la campaña y no hay nada en pantalla que lo delate. Es el mismo trato que
+`RN-023` da a la fecha fuera de rango y `RN-043` al consumo anterior a su compra: avisar sin impedir.
+
+El aviso **nombra la partida existente** con sus kilos y su destino: sin eso, quien lo lee no puede
+distinguir si es la misma que acaba de apuntar o una segunda de verdad.
+
+Tres precisiones que definen la comparación:
+
+- **No entra el modo de entrada del rendimiento.** `RU-24` hablaba de «misma unidad» cuando la cosecha
+  aún podía informarlo de varias formas; hoy `RN-013` fija la unidad canónica. Incluirlo dejaría sin
+  avisar precisamente el duplicado más probable: quien apunta dos veces lo mismo suele hacerlo de dos
+  maneras, una con litros y otra con rendimiento.
+- **No entran los kilos.** Añadirlos se llevaría por delante el caso de teclear mal la cantidad al
+  repetir, que es cuando el aviso más sirve.
+- **No entra la temporada.** La partida la identifican terreno, fecha y producto; dos apuntes del mismo
+  día en el mismo terreno son el duplicado que se busca aunque estén asociados a campañas distintas
+  —que es, de hecho, un síntoma más de que uno de los dos sobra—.
+
+Al **corregir**, la comparación excluye la propia partida: cambiarle el destino a una cosecha no puede
+avisar de que esa cosecha ya existe. Una partida eliminada (`RN-037`, borrado lógico) tampoco cuenta.
+
+La comparación se resuelve **en servidor** (`GET /api/v1/harvests/duplicates`) y no buscando en lo que
+la pantalla tiene cargado: el listado de Cosechas está filtrado y el diario trae una página, así que
+buscar ahí daría un aviso que aparece o no según lo que el usuario tuviera filtrado, que es peor que no
+avisar. Es el mismo criterio de `RN-008`: la regla vive en un sitio, no en cada formulario.
+
+---
+
 ## Reglas obsoletas
 
 | ID | Nombre | Motivo de obsolescencia | Fecha |

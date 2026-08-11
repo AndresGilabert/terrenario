@@ -391,7 +391,11 @@ public sealed class HarvestsController(
         is_out_of_season_range = harvest.IsOutOfSeasonRange,
         version = harvest.Version,
         created_at = harvest.CreatedAt,
-        updated_at = harvest.UpdatedAt
+        updated_at = harvest.UpdatedAt,
+        // MVP-804 (RU-21, CA-1) — Quién la apuntó y quién la corrigió por última vez. Solo el nombre:
+        // ni correo ni identificador de cuenta, que no hacen falta para responder a la pregunta.
+        created_by_name = harvest.CreatedByName(),
+        updated_by_name = harvest.UpdatedByName()
     };
 }
 

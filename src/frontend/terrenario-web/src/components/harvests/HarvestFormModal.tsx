@@ -15,6 +15,7 @@ import {
   type YieldInputMode,
 } from '../../types/harvest.types';
 import { Modal } from '../common/Modal';
+import { RecordAuthorship } from '../common/RecordAuthorship';
 import { useApiClient } from '../../contexts/ApiContext';
 import { createHarvestService } from '../../services/harvest.service';
 
@@ -627,6 +628,11 @@ export const HarvestFormModal: React.FC<HarvestFormModalProps> = ({
             <span className="material-symbols-outlined text-sm" aria-hidden="true">check</span>
           </button>
         </div>
+
+        {/* MVP-804 (`RU-21`) — Quién lo apuntó y quién lo corrigió por última vez. Va al pie del
+            formulario, después de los botones: es información de apoyo para aclarar una discrepancia
+            (`RN-034`), no un campo de captura. En el alta no hay nada que contar todavía. */}
+        {harvest && <RecordAuthorship record={harvest} />}
       </form>
     </Modal>
   );

@@ -7,6 +7,7 @@ import {
   type Consumption,
 } from '../../types/consumption.types';
 import { Modal } from '../common/Modal';
+import { RecordAuthorship } from '../common/RecordAuthorship';
 import { fechaDeNegocio } from '../../lib/fechas';
 
 /** Lo que el formulario devuelve; quien lo abre decide a qué endpoint va (MVP-304). */
@@ -359,6 +360,11 @@ export const ConsumptionFormModal: React.FC<ConsumptionFormModalProps> = ({
             <span className="material-symbols-outlined text-sm" aria-hidden="true">check</span>
           </button>
         </div>
+
+        {/* MVP-804 (`RU-21`) — Quién lo apuntó y quién lo corrigió por última vez. Va al pie del
+            formulario, después de los botones: es información de apoyo para aclarar una discrepancia
+            (`RN-034`), no un campo de captura. En el alta no hay nada que contar todavía. */}
+        {consumption && <RecordAuthorship record={consumption} />}
       </form>
     </Modal>
   );

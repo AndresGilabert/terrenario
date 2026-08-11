@@ -94,11 +94,21 @@ public sealed class HarvestRepository(TerrenarioDbContext db) : IHarvestReposito
     /// <summary>
     /// Proyección de lectura: resuelve en una sola consulta el nombre del terreno y de la temporada,
     /// más el rango de esta última que necesita el aviso de RN-023.
+    ///
+    /// MVP-804 — Y la autoría, con la misma técnica que <c>ActivityRepository</c> usa para la tarea:
+    /// <c>LEFT JOIN</c> a <c>users</c>. Es <b>left</b> a propósito, no <c>inner</c>: las tablas
+    /// operativas no tienen FK hacia <c>users</c>, así que una cuenta purgada al vencer RN-041 deja
+    /// <c>created_by</c> apuntando a una fila que ya no está, y un <c>INNER JOIN</c> haría desaparecer
+    /// la cosecha del listado. Perder un dato de apoyo es aceptable; perder la partida, no.
     /// </summary>
     private IQueryable<HarvestView> ProjectViews(IQueryable<Harvest> harvests)
         => from h in harvests
            join p in db.Plots on h.PlotId equals p.Id
            join s in db.Seasons on h.SeasonId equals s.Id
+           join cb in db.Users on h.CreatedBy equals cb.Id into createdByMatches
+           from cb in createdByMatches.DefaultIfEmpty()
+           join ub in db.Users on h.UpdatedBy equals ub.Id into updatedByMatches
+           from ub in updatedByMatches.DefaultIfEmpty()
            select new HarvestView(
                h.Id,
                h.WorkspaceId,
@@ -117,7 +127,11 @@ public sealed class HarvestRepository(TerrenarioDbContext db) : IHarvestReposito
                h.UnitPrice,
                h.Version,
                h.CreatedAt,
-               h.UpdatedAt);
+               h.UpdatedAt,
+               // MVP-804 (CA-3) — La cuenta dada de baja no devuelve nombre **antes** de mirar qué
+               // guarda su `display_name`: quien lo rotula es `RecordAuthor.NameOf`.
+               cb != null && cb.DeletedAt == null ? cb.DisplayName : null,
+               ub != null && ub.DeletedAt == null ? ub.DisplayName : null);
 
     public async Task SaveChangesAsync(CancellationToken ct = default)
     {

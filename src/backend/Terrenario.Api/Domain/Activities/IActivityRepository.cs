@@ -1,3 +1,5 @@
+using Terrenario.Api.Domain.Operations;
+
 namespace Terrenario.Api.Domain.Activities;
 
 /// <summary>
@@ -47,6 +49,12 @@ public sealed record ActivityFilter(
 /// Vista de lectura de una actividad con los datos que el diario necesita mostrar sin pedir los
 /// maestros por separado. Incluye el rango de la temporada para poder señalar la fecha fuera de rango
 /// (RN-023) sin una consulta adicional del cliente.
+///
+/// MVP-804 — Resuelve también <b>quién</b> apuntó la labor y quién la corrigió por última vez
+/// (<see cref="IAuthoredRecord"/>). Ojo: el <b>muro del diario</b> tiene su propia proyección
+/// (<c>DiaryRow</c>) y no lleva autoría, porque <c>CA-4</c> prohíbe expresamente enseñarla como una
+/// columna más de la lista. El modal de corrección del diario no la necesita: pide el registro
+/// completo por id, y por ahí sí llega.
 /// </summary>
 public sealed record ActivityView(
     Guid Id,
@@ -68,7 +76,11 @@ public sealed record ActivityView(
     string? Description,
     long Version,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt)
+    DateTimeOffset UpdatedAt,
+    /// <summary>MVP-804 — Nombre de quien apuntó la labor; <c>null</c> si su cuenta ya no nombra a nadie.</summary>
+    string? CreatedByAccountName = null,
+    /// <summary>MVP-804 — Nombre de quien hizo la última corrección, con el mismo criterio.</summary>
+    string? UpdatedByAccountName = null) : IAuthoredRecord
 {
     /// <summary>
     /// Texto de la tarea, venga del catálogo o del campo libre (RN-025). El diario no distingue: para

@@ -339,6 +339,11 @@ public sealed class ActivitiesController(
         version = activity.Version,
         created_at = activity.CreatedAt,
         updated_at = activity.UpdatedAt,
+        // MVP-804 (RU-21, CA-1) — Quién la apuntó y quién la corrigió por última vez. No confundir con
+        // `worker_name`, que es quien **hizo** el trabajo y puede no tener cuenta. Solo el nombre: ni
+        // correo ni identificador de cuenta, que no hacen falta para responder a la pregunta.
+        created_by_name = activity.CreatedByName(),
+        updated_by_name = activity.UpdatedByName(),
         // MVP-302 — `created` / `reused` / `reactivated` cuando se pidió guardar la tarea en el
         // catálogo; `null` en las lecturas, donde no hay ninguna acción de catálogo asociada.
         task_catalog_outcome = taskCatalogOutcome?.ToString().ToLowerInvariant()

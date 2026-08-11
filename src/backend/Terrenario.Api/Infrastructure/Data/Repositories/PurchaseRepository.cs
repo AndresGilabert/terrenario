@@ -54,10 +54,18 @@ public sealed class PurchaseRepository(TerrenarioDbContext db) : IPurchaseReposi
     /// <summary>
     /// Proyección de lectura: resuelve el nombre y el rango de la temporada en la misma consulta, que
     /// es lo que necesita el aviso de RN-023 y la etiqueta de campaña del libro de compras.
+    ///
+    /// MVP-804 — Y la autoría, con <c>LEFT JOIN</c> por el mismo motivo que en actividades: sin FK
+    /// hacia <c>users</c>, una cuenta purgada por RN-041 dejaría la compra fuera del listado si el
+    /// <c>JOIN</c> fuera interno.
     /// </summary>
     private IQueryable<PurchaseView> ProjectViews(IQueryable<Purchase> purchases)
         => from p in purchases
            join s in db.Seasons on p.SeasonId equals s.Id
+           join cb in db.Users on p.CreatedBy equals cb.Id into createdByMatches
+           from cb in createdByMatches.DefaultIfEmpty()
+           join ub in db.Users on p.UpdatedBy equals ub.Id into updatedByMatches
+           from ub in updatedByMatches.DefaultIfEmpty()
            select new PurchaseView(
                p.Id,
                p.WorkspaceId,
@@ -72,7 +80,11 @@ public sealed class PurchaseRepository(TerrenarioDbContext db) : IPurchaseReposi
                p.UnitPrice,
                p.Version,
                p.CreatedAt,
-               p.UpdatedAt);
+               p.UpdatedAt,
+               // MVP-804 (CA-3) — La cuenta dada de baja no devuelve nombre **antes** de mirar qué
+               // guarda su `display_name`: quien lo rotula es `RecordAuthor.NameOf`.
+               cb != null && cb.DeletedAt == null ? cb.DisplayName : null,
+               ub != null && ub.DeletedAt == null ? ub.DisplayName : null);
 
     public async Task SaveChangesAsync(CancellationToken ct = default)
     {

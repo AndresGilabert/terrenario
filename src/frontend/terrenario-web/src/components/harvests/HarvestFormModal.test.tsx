@@ -197,3 +197,79 @@ describe('HarvestFormModal — aviso de cosecha repetida', () => {
     expect(screen.getByRole('button', { name: /Registrar cosecha|Guardar/ })).toBeEnabled();
   });
 });
+
+/**
+ * MVP-804 (`RU-21`, `P-113`) — La autoría en el modal de corrección de una cosecha.
+ *
+ * El producto no tiene pantalla de detalle: el detalle de un registro **es** su modal. Aquí se fija
+ * que la autoría llega hasta ahí y que en el **alta** no aparece, que es lo que evita que se lea como
+ * un campo más del formulario.
+ */
+describe('HarvestFormModal — autoría del registro (MVP-804)', () => {
+  const partida = (overrides: Partial<Harvest> = {}): Harvest => ({
+    id: 'h-1',
+    workspace_id: 'w-1',
+    date: '2025-10-20',
+    plot_id: 'p-1',
+    plot_name: 'Matorral',
+    season_id: 's-1',
+    season_name: 'Campaña 2025/26',
+    product: 'aceituna_olivar',
+    kgs: 1000,
+    yield: null,
+    liters: null,
+    effective_yield: null,
+    yield_source: null,
+    destination: 'aceite_para_venta',
+    unit_price: null,
+    amount: null,
+    is_out_of_season_range: false,
+    version: 1,
+    created_at: '2025-10-20T09:00:00Z',
+    updated_at: '2025-10-20T09:00:00Z',
+    created_by_name: 'Andrés Gilabert',
+    updated_by_name: 'Andrés Gilabert',
+    ...overrides,
+  });
+
+  const renderModal = (harvest: Harvest | null) => {
+    http = createFakeHttpClient({
+      '/api/v1/harvests/duplicates': () => ({ data: [], meta: { total: 0 } }),
+    });
+
+    return render(
+      <HarvestFormModal
+        isOpen
+        harvest={harvest}
+        plots={plots}
+        seasons={seasons}
+        activeSeason={seasons[0]}
+        isSubmitting={false}
+        errorMessage={null}
+        onClose={() => {}}
+        onSubmit={() => {}}
+      />
+    );
+  };
+
+  it('dice quién apuntó la partida al corregirla', () => {
+    renderModal(partida());
+
+    expect(screen.getByText(/Registrado por/)).toHaveTextContent('Andrés Gilabert');
+  });
+
+  it('separa a quien la apuntó de quien la corrigió por última vez', () => {
+    // RN-034 — con permisos planos, corregir la cifra de otro es normal. Sin esta línea, la única
+    // salida ante un número que no cuadra es preguntar uno por uno.
+    renderModal(partida({ updated_by_name: 'Lucía Pérez', updated_at: '2025-11-03T18:22:00Z' }));
+
+    expect(screen.getByText(/Registrado por/)).toHaveTextContent('Andrés Gilabert');
+    expect(screen.getByText(/Última edición/)).toHaveTextContent('Lucía Pérez');
+  });
+
+  it('no muestra nada en el alta, donde todavía no hay autoría que contar', () => {
+    renderModal(null);
+
+    expect(screen.queryByText(/Registrado por/)).not.toBeInTheDocument();
+  });
+});

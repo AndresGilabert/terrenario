@@ -161,6 +161,24 @@ public static class ErrorCodes
     // porque lo gobiernan su identidad de Google (RN-036) y su membresía (RN-027), no el maestro.
     public const string BusinessRuleWorkerIdentityManaged = "BUSINESS_RULE_WORKER_IDENTITY_MANAGED";
     public const string BusinessRuleWorkerMembershipManaged = "BUSINESS_RULE_WORKER_MEMBERSHIP_MANAGED";
+    // Depuración de maestros (MVP-806): lo que impide borrar o fusionar una ficha de maestro.
+    /// <summary>
+    /// MVP-806 (CA-2) — La ficha tiene histórico: hay registros que la referencian, así que el borrado
+    /// físico la dejaría huérfana. El mensaje dice <b>cuántos</b> y de qué tipo. La vía sigue siendo la
+    /// inactivación (RN-037), o la fusión si lo que hay son dos fichas de lo mismo.
+    /// </summary>
+    public const string BusinessRuleMasterInUse = "BUSINESS_RULE_MASTER_IN_USE";
+
+    /// <summary>MVP-806 — Se pidió fusionar una ficha consigo misma.</summary>
+    public const string BusinessRuleMasterMergeSelf = "BUSINESS_RULE_MASTER_MERGE_SELF";
+
+    /// <summary>
+    /// MVP-806 (CA-4) — La ficha absorbida es la de un miembro del Workspace. Su nombre lo fija su
+    /// cuenta (RN-036) y cada cuenta tiene exactamente una fila por Workspace (MVP-208, CA-1): la que
+    /// sobrevive es siempre la suya.
+    /// </summary>
+    public const string BusinessRuleMasterMergeMemberSurvives = "BUSINESS_RULE_MASTER_MERGE_MEMBER_SURVIVES";
+
     /// <summary>
     /// MVP-304 — No se da de baja una compra que todavía tiene imputaciones vivas: esos consumos son
     /// registros operativos propios que están en el diario, y borrarlos en cascada eliminaría datos

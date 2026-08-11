@@ -1,7 +1,7 @@
 ﻿---
 bloque: 01-producto
 documento: roadmap
-actualizado_en: "2026-08-07"
+actualizado_en: "2026-08-10"
 ---
 
 # Roadmap de Alto Nivel
@@ -13,9 +13,10 @@ actualizado_en: "2026-08-07"
 
 ## Estado actual del producto
 
-**Versión en producción**: `v0.6.0-hito-f`, publicada el 2026-08-05 en `https://app.terrenario.com`
-**Estado de definición**: MVP entregado; hitos A a F cerrados
-**Próximo hito**: Hito G — Ajustes de uso real (épica `MVP-007`)
+**Versión en producción**: `v0.7.1-hito-g`, publicada el 2026-08-09 en `https://app.terrenario.com`
+**Preparada para publicar**: `v0.8.0-hito-h` (épica `MVP-008`, 12/12)
+**Estado de definición**: MVP entregado; hitos A a G cerrados y **Hito H cerrado en desarrollo**
+**Próximo hito**: Hito I — Resiliencia offline
 
 ---
 
@@ -40,13 +41,14 @@ actualizado_en: "2026-08-07"
 | Endurecimiento y salida a MVP | Hardening de seguridad, tests obligatorios, validación RGPD/LOPDGDD, smoke E2E y criterios de salida | El MVP puede desplegarse con un nivel de riesgo controlado y evidencia mínima de calidad | Hito D | Hito E — Salida controlada a MVP |
 | Observabilidad inicial | Embudo de login, métricas de uso del dashboard, alertas básicas y operación medible | El equipo puede detectar barreras de acceso y degradaciones operativas en los primeros usuarios reales | Hito E | Hito F — Operación medible |
 | Ajustes MVP 01 | Coherencia de contexto (Workspace y temporada), aprovechamiento del espacio, arranque en el diario, modales accesibles, lectura económica mínima de la campaña, identidad de marca, canal de feedback y saneamiento acotado | El MVP publicado deja de contradecirse a sí mismo y el usuario real puede trabajar —y quejarse— sin fricción | Hito F | Hito G — Ajustes de uso real |
+| Ajustes MVP 02 | Coherencia del ámbito de temporada y filtros en la URL, Cosechas en móvil, autoría visible de los registros, aviso de cosecha duplicada, depuración de maestros, ciclo de vida de la membresía, avisos in-app, trazabilidad de los requisitos y peso de la primera carga | Lo que la KB promete y lo que el producto hace vuelven a coincidir, y el gate delata por sí solo un requisito sin destino | Hito G | Hito H — Ajustes de la segunda revisión |
 
 ### Largo plazo (6-12 meses)
 
 | Bloque | Alcance | Resultado esperado | Dependencia principal | Hito |
 |-------|---------|--------------------|-----------------------|------|
-| Offline/sync diferido | Outbox, idempotencia, reintentos y resolución de conflictos post-MVP | Captura resiliente fuera de cobertura, sin ampliar el alcance del MVP inicial | Hito G | Hito H — Resiliencia offline |
-| Evoluciones de producto | Permisos granulares, importación desde hoja, balance/molturación/precio, analítica avanzada, modelo de producción ampliado (variedad por terreno, producto por Workspace, maestro de almazaras y compradoras) y meteo+IA | Escalado funcional después de validar adopción y operativa base | Hito G | Hito I — Escalado funcional |
+| Offline/sync diferido | Outbox, idempotencia, reintentos y resolución de conflictos post-MVP | Captura resiliente fuera de cobertura, sin ampliar el alcance del MVP inicial | Hito H | Hito I — Resiliencia offline |
+| Evoluciones de producto | Permisos granulares, importación desde hoja, balance/molturación/precio, analítica avanzada, modelo de producción ampliado (variedad por terreno, producto por Workspace, maestro de almazaras y compradoras) y meteo+IA | Escalado funcional después de validar adopción y operativa base | Hito H | Hito J — Escalado funcional |
 
 ---
 
@@ -111,8 +113,9 @@ Estas líneas no bloquean el roadmap ni deben infiltrarse en las primeras épica
 | Hito E — Salida controlada a MVP | Hito D | No tiene sentido endurecer antes de cerrar el núcleo funcional |
 | Hito F — Operación medible | Hito E | La observabilidad inicial debe medir un MVP ya desplegable |
 | Hito G — Ajustes de uso real | Hito F | Los ajustes salen de usar el MVP publicado: no se pueden anticipar antes de publicarlo |
-| Hito H — Resiliencia offline | Hito G | No tiene sentido hacer resiliente una captura cuyas incoherencias de contexto siguen abiertas |
-| Hito I — Escalado funcional | Hito G | Escalar sobre un producto que aún se contradice multiplica el problema |
+| Hito H — Ajustes de la segunda revisión | Hito G | La segunda revisión se hace sobre el MVP ya ajustado: sus hallazgos no existían antes del Hito G |
+| Hito I — Resiliencia offline | Hito H | No tiene sentido hacer resiliente una captura cuyas incoherencias de contexto siguen abiertas |
+| Hito J — Escalado funcional | Hito H | Escalar sobre un producto que aún se contradice multiplica el problema |
 
 ## Trazabilidad con arquitectura
 

@@ -42,6 +42,13 @@ export interface Consumption {
   version: number;
   created_at: string;
   updated_at: string;
+  /**
+   * MVP-804 (`RU-21`) — Quién lo apuntó. «Cuenta eliminada» cuando la cuenta ya no nombra a nadie,
+   * por baja (`MVP-505`) o por purga (`RN-041`).
+   */
+  created_by_name: string;
+  /** MVP-804 — Quién hizo la **última** corrección. No hay histórico: `RU-21` lo excluye. */
+  updated_by_name: string;
 }
 
 /** Imputación de una compra a un terreno. El producto y la temporada los pone la compra. */

@@ -1,7 +1,7 @@
 ﻿---
 bloque: 01-producto
 documento: definicion-requisitos-usuario
-actualizado_en: "2026-07-20"
+actualizado_en: "2026-08-11"
 ---
 
 # Definición de requisitos de usuario
@@ -14,6 +14,10 @@ actualizado_en: "2026-07-20"
 ## Objetivo
 
 Consolidar la funcionalidad real del negocio a partir de la hoja actual y convertirla en una base de requisitos de usuario verificables, priorizados y alineados con el MVP.
+
+> **Dónde acabó cada requisito**: en [Matriz de trazabilidad RU -> destino](#matriz-de-trazabilidad-ru---destino),
+> al final del documento. Cada `RU-xx` declara ahí su destino y su estado real, y el gate de KB falla si
+> uno marcado «Estado: MVP» se queda sin destino.
 
 ---
 
@@ -109,6 +113,8 @@ Datos opcionales del MVP:
 - ubicación o coordenadas
 - número de olivos
 
+**Estado**: MVP
+
 ### RU-02 - Registrar temporadas
 
 El usuario debe poder definir temporadas con rango de fechas y usarlas como filtro de consulta y análisis.
@@ -120,6 +126,8 @@ Reglas derivadas:
 - La app autoselecciona la temporada activa al crear registros operativos.
 - Si la fecha cae fuera del rango de la temporada elegida, el sistema permite guardar pero muestra aviso.
 - El estado `cerrada` es informativo en MVP y no bloquea altas ni ediciones.
+
+**Estado**: MVP
 
 ### RU-03 - Registrar cosechas
 
@@ -138,6 +146,8 @@ Reglas derivadas:
 - El `producto` se selecciona desde un catálogo global fijo no editable por usuarios.
 - `destino = desconocido` es válido para no bloquear el registro operativo.
 - El alcance MVP no incluye precio, molturación ni balance.
+
+**Estado**: MVP
 
 ### RU-04 - Registrar trabajos del día
 
@@ -158,6 +168,8 @@ Reglas derivadas:
 - Los miembros del Workspace aparecen automáticamente como trabajadores seleccionables.
 - La tarifa horaria, si existe, solo actúa como referencia; el coste sigue siendo manual/editable.
 
+**Estado**: MVP
+
 ### RU-05 - Usar un catálogo de tareas
 
 El usuario debe poder seleccionar tareas desde un catálogo reutilizable para evitar introducir nombres inconsistentes.
@@ -168,11 +180,15 @@ Reglas derivadas:
 - El catálogo arranca vacío en MVP.
 - Las tareas con histórico asociado pueden inactivarse, pero no eliminarse.
 
+**Estado**: MVP
+
 ### RU-06 - Consultar el histórico
 
 El usuario debe poder filtrar y consultar por terreno, temporada, tarea y trabajador para reproducir la lógica actual de la hoja y del PowerBI.
 
 La experiencia principal de consulta operativa es un diario cronológico unificado.
+
+**Estado**: MVP
 
 ### RU-07 - Calcular indicadores del dashboard
 
@@ -185,6 +201,8 @@ La app debe generar como mínimo los mismos indicadores que hoy alimenta el dash
 - kg por destino
 - histórico de rendimiento
 - kg por árbol cuando exista dato de olivos
+
+**Estado**: MVP
 
 ### RU-08 - Acceder con identidad social simplificada
 
@@ -199,6 +217,8 @@ Requisitos derivados:
 - Minimizar pasos, campos y pantallas en el alta y el acceso.
 - Permitir invitaciones a Workspace por email y por enlace compartible.
 
+**Estado**: MVP
+
 ### RU-09 - Cumplir la normativa europea de protección de datos
 
 El sistema debe cumplir la normativa aplicable de protección de datos de la Unión Europea y su transposición en España desde el diseño y por defecto.
@@ -210,6 +230,8 @@ Requisitos derivados:
 - Registrar y documentar la base jurídica de cualquier dato personal tratado.
 - Evitar el almacenamiento innecesario de datos personales en texto plano, logs o URLs.
 - No condicionar el uso del sistema a tratamientos que no tengan base legal válida.
+
+**Estado**: MVP
 
 ### RU-10 - Registrar compras y consumo aproximado
 
@@ -226,6 +248,8 @@ Requisitos derivados:
 - No exigir stock tracking ni saldo acumulado en el MVP.
 - Mantener trazabilidad suficiente para entender qué se compró, dónde se consumió y cuánto costó.
 
+**Estado**: MVP
+
 ### RU-11 - Consultar estadísticas colaborativas anónimas
 
 El sistema debe poder generar estadísticas agregadas y anónimas a partir de datos compartidos por la comunidad de usuarios en fases posteriores.
@@ -235,6 +259,8 @@ Requisitos derivados:
 - Trabajar siempre sobre datos agregados o anonimizados.
 - No exponer información personal ni datos sensibles de explotaciones concretas.
 - Permitir activar esta capacidad solo cuando exista una base legal y de producto aprobada.
+
+**Estado**: Fase posterior
 
 ### RU-12 - Recibir análisis predictivo meteo + IA
 
@@ -246,6 +272,8 @@ Requisitos derivados:
 - Generar recomendaciones interpretables para el usuario.
 - Mantener esta capacidad como evolución posterior al MVP, sin bloquear el uso básico del producto.
 
+**Estado**: Fase posterior
+
 ### RU-13 - Gestionar acceso multiusuario granular
 
 El sistema debe poder evolucionar hacia permisos por usuario, rol y terreno cuando el producto tenga varios usuarios reales.
@@ -255,6 +283,8 @@ Requisitos derivados:
 - Soportar roles definidos a nivel de sistema.
 - Permitir aplicar permisos por terreno o grupo de terrenos.
 - Mantener el MVP actual con acceso simple, pero sin cerrar el diseño a la evolución multiusuario.
+
+**Estado**: Fase posterior
 
 ---
 
@@ -521,7 +551,17 @@ Los criterios de aceptación detallados se cerrarán al bajar estas decisiones a
 - **RU-21: Metadato de última edición (sin histórico completo)**
   - Se guardan usuario y fecha de la última edición/creación de cada registro crítico.
   - No se mantiene histórico completo de cambios por simplicidad.
-  - Estado: MVP
+  - Estado: MVP — **entregado en `MVP-804` (2026-08-11)**.
+  - **Estaba cumplido a medias y la mitad que faltaba era la que sirve** (`P-113`): las cuatro tablas
+    operativas guardaban `created_by`/`updated_by` desde que se crearon, pero el dato no salía de la
+    base de datos. `MVP-804` lo expone en los cuatro recursos y lo muestra en el modal de corrección,
+    que es el detalle de un registro en este producto.
+  - **Dónde se ve y dónde no**: en el detalle, nunca en un listado. La autoría es información de apoyo
+    para aclarar una discrepancia (`RN-034`), y como columna cambiaría la densidad de las cuatro
+    listas operativas.
+  - **Una cuenta dada de baja se lee «Cuenta eliminada»**, que es exactamente lo que `MVP-505` dejó
+    previsto al conservar la fila anonimizada porque «el histórico operativo de terceros guarda quién
+    lo registró».
 
 - **RU-22: Borrado lógico de registros sincronizados**
   - Se permite borrar registros ya guardados en sistema (cosechas, actividades, compras).
@@ -536,7 +576,13 @@ Los criterios de aceptación detallados se cerrarán al bajar estas decisiones a
 - **RU-24: Avisos de posibles duplicados**
   - Si se intenta crear una cosecha con mismo terreno, fecha, producto y unidad que uno existente, se muestra aviso.
   - Se permite guardar igual (sin bloqueo).
-  - Estado: MVP
+  - Estado: MVP — **entregado en `MVP-805` (2026-08-10)**, formalizado como `RN-044`.
+  - **La «misma unidad» no se traduce literalmente** (decisión del PO, 2026-08-10): este requisito se
+    escribió cuando la cosecha aún podía informar el rendimiento de varias formas, y hoy `RN-013` fija
+    la unidad canónica, de modo que el modo de entrada es solo eso. La comparación es **terreno +
+    fecha + producto**. Incluir el modo de entrada dejaría sin avisar el duplicado más probable —quien
+    apunta dos veces lo mismo suele hacerlo de dos maneras—, y añadir los kilos se llevaría por delante
+    el caso de teclear mal la cantidad al repetir, que es cuando el aviso más sirve.
 
 ### Compras y consumo de materiales
 
@@ -580,20 +626,27 @@ Los criterios de aceptación detallados se cerrarán al bajar estas decisiones a
 
 ### Sugerencia y planificación de tareas
 
+> **Corrección de estado (2026-08-10, `MVP-809` a partir de `P-111`).** Los tres requisitos de este
+> bloque figuraban como MVP y llegaron al final del roadmap sin construirse, sin épica y sin decisión.
+> El PO los pasa a backlog post-MVP: no son un defecto de la entrega sino alcance nuevo del tamaño de
+> una épica —entidad de plan, motor de recurrencia sobre el histórico, señal de omisión y superficie
+> propia—, y el producto de hoy no tiene el concepto de tarea planificada: el catálogo de `MVP-205` es
+> un maestro de nombres, no un plan. Se corrige el estado, no se retiran los requisitos.
+
 - **RU-32: Sugerencias de tareas por época y recurrencia**
   - La app sugiere tareas según época del año y recurrencia histórica de temporadas anteriores.
   - Solo sugiere tareas aún no realizadas en la temporada actual.
-  - Estado: MVP (básico)
+  - Estado: Backlog post-MVP
 
 - **RU-33: Registro de tareas omitidas con motivo**
   - Las tareas sugeridas pueden marcarse como "omitida" con motivo (clima, falta de tiempo, decisión agronómica, etc.).
   - Esa señal se usa para refinar futuras sugerencias.
-  - Estado: MVP
+  - Estado: Backlog post-MVP
 
 - **RU-34: Conversión manual de sugerencias a tareas planificadas**
   - Las sugerencias son recomendaciones visibles en el dashboard.
   - Antonio puede convertir manualmente una sugerencia en tarea planificada con fecha límite editable.
-  - Estado: MVP
+  - Estado: Backlog post-MVP
 
 ### Datos y privacidad
 
@@ -601,11 +654,20 @@ Los criterios de aceptación detallados se cerrarán al bajar estas decisiones a
   - La opción de borrar cuenta y anonimizar datos operativos está incluida desde MVP (cumplimiento RGPD).
   - Estado: MVP
 
-- **RU-36: Confirmación por código de email para borrado**
-  - Al solicitar borrar cuenta, se requiere validar código enviado por email.
-  - El borrado/anonimización se ejecuta inmediatamente tras validar el código.
+- **RU-36: Confirmación explícita del borrado con frase tecleada**
+  - Al solicitar borrar cuenta, se exige teclear la frase exacta `ELIMINAR MI CUENTA`.
+  - La frase se comprueba **también en servidor**, no solo en el diálogo del cliente.
+  - El borrado/anonimización se ejecuta inmediatamente tras la confirmación.
   - No hay período de gracia adicional.
   - Estado: MVP
+  - Decisión (2026-08-10, `MVP-809` a partir de `P-112`): el requisito pedía **un código enviado
+    por email** y `MVP-505` entregó la frase tecleada. Se mantiene la frase y se corrige el
+    requisito. Motivo: la frase ya cumple lo que el requisito buscaba de verdad —una confirmación
+    explícita, informada y verificada en servidor de una operación irreversible—, mientras que el
+    código añadiría un sexto correo del producto y un punto de fallo de entrega a un flujo que la
+    persona inicia estando ya autenticada con una cuenta que Google ha verificado. Lo que no se
+    sostenía era que el requisito dijera una cosa y el producto hiciera otra sin que constase la
+    divergencia.
 
 - **RU-37: Recuperación de cuenta fuera del MVP**
   - No se implementa en MVP flujo de recuperación/migración de cuenta si se pierde acceso a Google.
@@ -686,4 +748,104 @@ Los requisitos RU-14 a RU-47 impactan principalmente en:
 4. **Validación**: Alerta de duplicados sin bloqueo, campos obligatorios en alta.
 5. **Dashboard**: Filtrado siempre por una sola campaña, recálculo periódico no real-time.
 6. **Trabajadores**: Modelo opcional de vinculación a cuenta de usuario.
-7. **Privacidad**: Implementar baja de cuenta con confirmación por email y anonimización inmediata.
+7. **Privacidad**: Implementar baja de cuenta con confirmación explícita del titular y anonimización inmediata.
+
+---
+
+## Matriz de trazabilidad RU -> destino
+
+> Añadida en `MVP-809` (2026-08-10) a partir de `P-114`. **Es normativa, no informativa**: el gate de KB
+> (`docs/00-meta/scripts/validar_kb.py`) la lee y falla si un requisito marcado «Estado: MVP» no tiene
+> destino, o si su destino son historias ya `completado` y el requisito no consta como entregado.
+
+### Por qué existe
+
+De los 47 requisitos, **44 no se citaban en ningún documento fuera de este**. Las épicas trazan contra
+`RN-xxx`, que es una capa más abajo, y nadie trazaba contra `RU-xxx`, así que el primer eslabón de la
+cadena que el propio roadmap declara como criterio de priorización —«maximizar trazabilidad requisito
+-> regla -> contrato -> validación»— no existía. La consecuencia no fue teórica: `RU-24` llegó al final
+del roadmap marcado MVP sin construirse ni descartarse, `RU-32`/`RU-33`/`RU-34` sin épica y sin
+decisión, y `RU-36` diciendo una cosa mientras el producto hacía otra.
+
+### Cómo se lee
+
+- **Estado declarado**: lo que dice el `Estado:` del propio requisito. Las dos declaraciones tienen que
+  coincidir; el gate lo comprueba.
+- **Destino**: dónde queda recogido. Sirve una regla de negocio (`RN-xxx`), una historia (`MVP-xxx`), un
+  punto del registro de `MVP-999` (`P-xxx`) o un ADR. **Prosa sin identificador no cuenta como destino**
+  para un requisito MVP.
+- **Estado real**: `entregado` · `entregado con hueco` (obliga a citar el `P-xxx` que persigue lo que
+  falta) · `en <historia>` · `backlog` · `descartado`.
+
+### Matriz
+
+| Requisito | Qué pide | Estado declarado | Destino | Estado real |
+|---|---|---|---|---|
+| RU-01 | Registrar terrenos con alta mínima | MVP | `RN-028`, `MVP-202` | entregado |
+| RU-02 | Registrar temporadas con rango de fechas | MVP | `RN-021`, `RN-023`, `RN-024`, `MVP-203`, `MVP-209` | entregado |
+| RU-03 | Registrar cosechas | MVP | `RN-004`, `RN-029`, `RN-030`, `MVP-401`, `MVP-402` | entregado |
+| RU-04 | Registrar trabajos del día | MVP | `RN-002`, `RN-003`, `RN-025`, `MVP-301` | entregado |
+| RU-05 | Usar un catálogo de tareas | MVP | `RN-026`, `MVP-205`, `MVP-302` | entregado |
+| RU-06 | Filtrar el histórico por terreno, temporada, tarea y trabajador | MVP | `RN-033`, `MVP-305`, `MVP-405`, `MVP-506`; hueco en `P-119` | entregado con hueco |
+| RU-07 | Calcular los indicadores del dashboard | MVP | `RN-009`, `RN-010`, `RN-011`, `MVP-403`, `MVP-404` | entregado |
+| RU-08 | Acceder con identidad social simplificada | MVP | `RN-018`, `RN-035`, `RN-036`, `MVP-101`, `MVP-103` | entregado |
+| RU-09 | Cumplir RGPD y LOPDGDD | MVP | `RN-017`, `RN-041`, `RN-042`, `MVP-502`, `MVP-503`, `MVP-505` | entregado |
+| RU-10 | Registrar compras y consumo aproximado | MVP | `RN-031`, `RN-032`, `RN-043`, `MVP-303`, `MVP-304`; hueco en `P-121` | entregado con hueco |
+| RU-11 | Estadísticas colaborativas anónimas | Fase posterior | Fase futura: sin regla, sin épica y sin base legal aprobada | backlog |
+| RU-12 | Análisis predictivo meteo + IA | Fase posterior | Fase futura: sin regla y sin épica | backlog |
+| RU-13 | Acceso multiusuario granular | Fase posterior | `RN-034` fija permisos planos en MVP; la evolución no tiene épica | backlog |
+| RU-14 | Captura offline con sincronización diferida | Backlog post-MVP | `ADR-0002` (online-first), Hito I | backlog |
+| RU-15 | Edición limitada en modo offline | Backlog post-MVP | `ADR-0002` (online-first), Hito I | backlog |
+| RU-16 | Reintento híbrido y cola de errores | Backlog post-MVP | `ADR-0002` (online-first), Hito I | backlog |
+| RU-17 | Todo registro exige sesión iniciada | MVP | `RN-034`, `MVP-105` | entregado |
+| RU-18 | Temporadas solapables por cultivo | MVP | `RN-021`, `MVP-203`; la dimensión de cultivo en `P-059`, `P-060` | entregado |
+| RU-19 | Campaña activa por defecto en los registros | MVP | `RN-021`, `RN-022`, `MVP-203`, `MVP-209`; la dimensión de cultivo en `P-060` | entregado |
+| RU-20 | Cierre de temporada sin bloqueo | MVP | `RN-024`, `MVP-209` | entregado |
+| RU-21 | Metadato de última creación y edición | MVP | `P-113`, `MVP-804` | entregado |
+| RU-22 | Borrado lógico de registros | MVP | `RN-037`, `RN-041`, `MVP-305` | entregado |
+| RU-23 | Todos los campos obligatorios en el alta | MVP | `RN-002`, `RN-004`, `MVP-301`, `MVP-401` | entregado |
+| RU-24 | Aviso de posible cosecha duplicada | MVP | `RN-044`, `P-110`, `MVP-805` | entregado |
+| RU-25 | Compras desacopladas de las aplicaciones | MVP | `RN-031`, `RN-032`, `MVP-303` | entregado |
+| RU-26 | Coste manual obligatorio en el registro operativo | MVP | `RN-003`, `MVP-301` | entregado |
+| RU-27 | Compras con trazabilidad y sin recálculo | MVP | `RN-032`, `MVP-304` | entregado |
+| RU-28 | Consistencia de los costes históricos | MVP | `RN-032`, `MVP-304` | entregado |
+| RU-29 | Trabajadores activos o inactivos, nunca borrados | MVP | `RN-027`, `MVP-204`; hueco en `P-120` | entregado con hueco |
+| RU-30 | Trabajadores opcionalmente vinculados a una cuenta | MVP | `RN-027`, `MVP-204` | entregado |
+| RU-31 | Notificaciones configurables por canal y tipo | Fase posterior | `P-011`, `P-029`, `MVP-808` entregan el mínimo in-app; la generalización sigue en fase posterior | backlog |
+| RU-32 | Sugerencias de tareas por época y recurrencia | Backlog post-MVP | `P-111`: épica propia de planificación de tareas | backlog |
+| RU-33 | Registro de tareas omitidas con motivo | Backlog post-MVP | `P-111`: épica propia de planificación de tareas | backlog |
+| RU-34 | Conversión de sugerencia en tarea planificada | Backlog post-MVP | `P-111`: épica propia de planificación de tareas | backlog |
+| RU-35 | Baja de cuenta con anonimización | MVP | `RN-041`, `MVP-505` | entregado |
+| RU-36 | Confirmación explícita del borrado de cuenta | MVP | `MVP-505`, `P-112` (decisión: frase tecleada, no código por email) | entregado |
+| RU-37 | Recuperación de cuenta fuera del MVP | Backlog | Backlog post-MVP: migración si se pierde el acceso a Google | backlog |
+| RU-38 | Dashboard acotado a una sola campaña | MVP | `RN-005`, `RN-008`, `MVP-403`, `MVP-801` | entregado |
+| RU-39 | Estándar fijo de unidades y formatos | MVP | `RN-013`, `RN-016`, `MVP-402`; hueco en `P-121` | entregado con hueco |
+| RU-40 | Ubicación heredada del terreno | MVP | `RN-028`, `MVP-202` | entregado |
+| RU-41 | Duración 0 permitida en una actividad | MVP | `RN-002` lo contradice; discrepancia abierta en `P-122` | backlog |
+| RU-42 | Actividad que cruza medianoche como registro único | MVP | `MVP-301`: la actividad es fecha + horas, sin hora de inicio ni de fin | entregado |
+| RU-43 | Tarifa editable por registro, sin motivo | MVP | `RN-003`, `MVP-301`, `MVP-208` | entregado |
+| RU-44 | Sin límite máximo de horas por registro | MVP | `MVP-301`; tope técnico de 999,99 h en `P-122` | entregado con hueco |
+| RU-45 | Recálculo de KPIs en el siguiente refresco | MVP | `RN-006`, `MVP-403` | entregado |
+| RU-46 | Un registro independiente por terreno | MVP | `MVP-301`, `MVP-401` | entregado |
+| RU-47 | Catálogo fijo de destinos | MVP | `RN-012`, `MVP-402` | entregado |
+
+### Notas del repaso (2026-08-10)
+
+- **`RU-01`**: la ubicación del terreno es un texto libre (`plots.location`), no un par de coordenadas.
+  El requisito pide «ubicación **o** coordenadas» como dato opcional e informativo, así que queda
+  cubierto; se anota para que nadie lo lea como que hay geolocalización.
+- **`RU-18`, `RU-19`, `RU-38`**: los tres están escritos alrededor de una dimensión —el **cultivo**— que
+  el modelo no tiene. Hoy son ciertos por construcción, porque el catálogo `harvest_product` tiene un
+  único valor (`aceituna_olivar`) y no se pueden mezclar cultivos que no existen. Cuando se materialice
+  el producto por Workspace (`P-060`) habrá que releerlos.
+- **`RU-25`**: sigue vigente pese a `MVP-304`. La imputación de consumos vincula una compra con
+  **terrenos**, no con registros de trabajo, que es lo que el requisito excluye.
+- **`RU-29`**: `MVP-806` va a permitir borrar maestros **nunca usados**, lo que matiza el «nunca se
+  borran» del requisito sin contradecirlo: los que tienen histórico se seguirán inactivando.
+- **`RU-31`**: se declara «Fase posterior» y aun así ya tiene una rebanada construida. `MVP-808` entregó
+  el mínimo que quita la dependencia del correo (`P-011`, `P-029`), no la generalización por canal
+  —push, email, WhatsApp— ni por tipo de tarea, que es lo que el requisito pide. Por eso su estado real
+  es `backlog` y no `entregado`: lo entregado no es el requisito, es lo que hacía falta para no depender
+  de que llegue un correo.
+- **`RU-44`**: el tope de 999,99 h no es una regla de negocio, sino la cota de la columna
+  `decimal(5,2)`. Se anota como hueco porque el requisito dice «sin límite máximo» y hay uno.

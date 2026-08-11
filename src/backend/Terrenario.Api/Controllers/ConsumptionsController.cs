@@ -282,7 +282,11 @@ public sealed class ConsumptionsController(
         is_before_purchase_date = consumption.IsBeforePurchaseDate,
         version = consumption.Version,
         created_at = consumption.CreatedAt,
-        updated_at = consumption.UpdatedAt
+        updated_at = consumption.UpdatedAt,
+        // MVP-804 (RU-21, CA-1) — Quién lo apuntó y quién lo corrigió por última vez. Solo el nombre:
+        // ni correo ni identificador de cuenta, que no hacen falta para responder a la pregunta.
+        created_by_name = consumption.CreatedByName(),
+        updated_by_name = consumption.UpdatedByName()
     };
 }
 

@@ -5,6 +5,9 @@ import { createWorkerService } from '../../services/worker.service';
 import { HttpError } from '../../services/http-client';
 import type { CreateWorkerPayload, Worker } from '../../types/worker.types';
 import { WorkerFormModal } from './WorkerFormModal';
+import { isDeletable, type MasterRecordLike } from '../../types/master.types';
+import { useMasterDepuration } from '../../lib/use-master-depuration';
+import { MasterDepurationLayer } from '../common/MasterDepurationLayer';
 
 /**
  * Maestro de responsables del Workspace (MVP-204, HU-1/HU-2 · MVP-208, HU-1/HU-2). Es el roster de
@@ -18,6 +21,12 @@ import { WorkerFormModal } from './WorkerFormModal';
  *    Su nombre llega de su cuenta de Google (RN-036) y su disponibilidad la gobierna el acceso, que
  *    se administra en «Miembros y accesos». Aquí solo se ajusta su tarifa horaria.
  *  - **Cuadrilla sin cuenta** (`kind: 'crew'`): se da de alta, edita e inactiva aquí (CA-2/CA-3).
+ *
+ * MVP-806 añade la depuración, y aquí es donde tiene el caso que motivó la historia: la fila de
+ * cuadrilla que la migración de MVP-207 renombró « (2)» al materializarse el miembro homónimo de
+ * MVP-208 y que **probablemente es la misma persona**. Se fusionan, y siempre sobrevive la del
+ * miembro: su nombre lo fija su cuenta de Google (RN-036) y cada cuenta tiene una única fila por
+ * Workspace. La ficha de un miembro tampoco se elimina: depende de su acceso, no del maestro.
  */
 export const TrabajadoresView: React.FC = () => {
   const http = useApiClient();
@@ -52,6 +61,19 @@ export const TrabajadoresView: React.FC = () => {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  const depuration = useMasterDepuration('workers', { onChanged: reload });
+
+  /**
+   * RN-036 · MVP-208 (CA-1) — Una ficha con cuenta no puede ser la absorbida de una fusión: su
+   * nombre no es renombrable y su cuenta necesita seguir teniendo exactamente una fila. El diálogo
+   * usa esto para fijar el sentido, así que el usuario nunca llega a pedir lo que el servidor
+   * rechazaría con `BUSINESS_RULE_MASTER_MERGE_MEMBER_SURVIVES`.
+   */
+  const isMemberRow = useCallback(
+    (record: MasterRecordLike) => workers.some((w) => w.id === record.id && w.kind === 'member'),
+    [workers]
+  );
 
   const members = useMemo(() => workers.filter((w) => w.kind === 'member'), [workers]);
   const crew = useMemo(() => workers.filter((w) => w.kind === 'crew'), [workers]);
@@ -159,6 +181,23 @@ export const TrabajadoresView: React.FC = () => {
         </div>
       )}
 
+      <MasterDepurationLayer
+        kindLabel="el trabajador"
+        kindPlural="responsables"
+        depuration={depuration}
+        candidates={workers.filter((w) => w.id !== depuration.merging?.id)}
+        isProtected={isMemberRow}
+        protectedReason={
+          'La ficha de un miembro del Workspace no puede desaparecer: su nombre lo fija su cuenta de ' +
+          'Google, así que es siempre la que se conserva.'
+        }
+      />
+      {depuration.error && !depuration.deleting && !depuration.merging && (
+        <div role="alert" className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+          {depuration.error}
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
           <div className="w-8 h-8 border-4 border-[#33450d] border-t-transparent rounded-full animate-spin" />
@@ -197,9 +236,12 @@ export const TrabajadoresView: React.FC = () => {
                     key={worker.id}
                     worker={worker}
                     isBusy={busyWorkerId === worker.id}
+                    canMerge={workers.length > 1}
                     onEdit={() => openEdit(worker)}
                     onToggleActive={() => void toggleActive(worker)}
                     onManageAccess={() => navigate('/app/miembros')}
+                    onMerge={() => depuration.askMerge(worker)}
+                    onDelete={() => depuration.askDelete(worker)}
                   />
                 ))}
               </div>
@@ -226,9 +268,12 @@ export const TrabajadoresView: React.FC = () => {
                     key={worker.id}
                     worker={worker}
                     isBusy={busyWorkerId === worker.id}
+                    canMerge={workers.length > 1}
                     onEdit={() => openEdit(worker)}
                     onToggleActive={() => void toggleActive(worker)}
                     onManageAccess={() => navigate('/app/miembros')}
+                    onMerge={() => depuration.askMerge(worker)}
+                    onDelete={() => depuration.askDelete(worker)}
                   />
                 ))}
               </div>
@@ -284,17 +329,24 @@ const EmptyWorkers: React.FC<{ onAdd: () => void }> = ({ onAdd }) => (
 interface WorkerCardProps {
   worker: Worker;
   isBusy: boolean;
+  /** Fusionar solo tiene sentido si hay otra ficha con la que hacerlo. */
+  canMerge: boolean;
   onEdit: () => void;
   onToggleActive: () => void;
   onManageAccess: () => void;
+  onMerge: () => void;
+  onDelete: () => void;
 }
 
 const WorkerCard: React.FC<WorkerCardProps> = ({
   worker,
   isBusy,
+  canMerge,
   onEdit,
   onToggleActive,
   onManageAccess,
+  onMerge,
+  onDelete,
 }) => {
   const isMember = worker.kind === 'member';
 
@@ -355,13 +407,40 @@ const WorkerCard: React.FC<WorkerCardProps> = ({
             {worker.is_active ? 'Inactivar' : 'Reactivar'}
           </button>
         )}
-        <button
-          onClick={onEdit}
-          className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#f0ede8] hover:bg-[#ebe8e3] text-[#33450d] flex items-center gap-1"
-        >
-          <span className="material-symbols-outlined text-sm" aria-hidden="true">edit</span>
-          {isMember ? 'Editar tarifa' : 'Editar'}
-        </button>
+        <div className="flex items-center gap-1">
+          {/* MVP-806 (P-041) — El caso más probable: la cuadrilla « (2)» y el miembro homónimo. */}
+          {canMerge && (
+            <button
+              onClick={onMerge}
+              disabled={isBusy}
+              title="Fusionar con otra ficha"
+              aria-label={`Fusionar ${worker.name} con otra ficha`}
+              className="p-2 rounded-lg text-[#76786b] hover:bg-[#f0ede8] hover:text-[#33450d] disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-lg" aria-hidden="true">merge</span>
+            </button>
+          )}
+          {/* CA-2 y MVP-208 (CA-4) — Ni con histórico ni si la ficha es la de un miembro: esa
+              depende de su acceso, no del maestro. */}
+          {!isMember && isDeletable(worker) && (
+            <button
+              onClick={onDelete}
+              disabled={isBusy}
+              title="Eliminar"
+              aria-label={`Eliminar ${worker.name}`}
+              className="p-2 rounded-lg text-[#76786b] hover:bg-red-50 hover:text-[#ba1a1a] disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-lg" aria-hidden="true">delete</span>
+            </button>
+          )}
+          <button
+            onClick={onEdit}
+            className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#f0ede8] hover:bg-[#ebe8e3] text-[#33450d] flex items-center gap-1"
+          >
+            <span className="material-symbols-outlined text-sm" aria-hidden="true">edit</span>
+            {isMember ? 'Editar tarifa' : 'Editar'}
+          </button>
+        </div>
       </div>
     </div>
   );

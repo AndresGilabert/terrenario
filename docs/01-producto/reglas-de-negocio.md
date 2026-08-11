@@ -1,7 +1,7 @@
 ﻿---
 bloque: 01-producto
 documento: reglas-de-negocio
-actualizado_en: "2026-08-08"
+actualizado_en: "2026-08-10"
 ---
 
 # Reglas de Negocio Globales
@@ -97,20 +97,43 @@ informe operativo deja de publicarla. Ver `MVP-602` y `docs/05-infraestructura/o
 **Excepción**: Ninguna en MVP. El refresco automático o al recuperar el foco de la ventana queda
 descartado, no diferido.
 
+**Alcance de la regla — precisión de `MVP-808` (2026-08-10)**: esta regla habla de **recalcular
+cifras**, y solo de eso. No rige sobre los **avisos** de la bandeja de notificaciones, que desde
+`MVP-808` **sí** se refrescan al recuperar el foco de la ventana, con un intervalo mínimo entre
+refrescos. La diferencia no es de criterio, es de naturaleza: ante un panel, el usuario decide cuándo
+mirar y un número que cambia solo desorienta; un aviso es algo que **otra persona te ha mandado**, y
+enterarse de él no puede depender de cuándo mires. Ver `RN-040`.
+
 ---
 
 ### RN-007 — Conservacion de filtros en recarga
 
 **Estado**: activa
 **Fuente**: producto
-**Módulos afectados**: dashboard, diario
+**Módulos afectados**: dashboard, diario, cosechas, compras
 
 La recarga mantiene los filtros activos del usuario. Se materializa con los filtros en la **URL**: la
 recarga los conserva y el enlace es compartible.
 
+Rige en **las cuatro vistas operativas**:
+
 - **Dashboard** (MVP-405): `?season_id=…&plot_ids=…`.
 - **Diario** (MVP-705): `?type=…&plot_id=…&season_id=…&worker_id=…&search=…&page=…`. Es donde más
   duele no tenerlo —cinco filtros y paginación— y se había quedado fuera (`P-072`).
+- **Cosechas** (MVP-802): `?plot_id=…&season_id=…&destination=…`.
+- **Compras** (MVP-802): `?season_id=…&product=…`, aplicados por igual al libro y a su bloque de
+  consumos: las dos listas conviven en una sola pantalla y hablar de campañas distintas sería el propio
+  `P-082` dentro de una vista.
+
+Las dos últimas entran con `MVP-802`. Hasta entonces su estado vivía en memoria: filtrar Cosechas por
+una campaña pasaba la tabla de 1 a 4 filas sin que la dirección cambiara, así que recargar deshacía el
+trabajo y no había forma de mandarle a nadie «mira estas partidas» (`P-109`). Se descartó la
+alternativa de **acotar la regla** a dashboard y diario: el enunciado es general, y el usuario no tiene
+forma de saber que dos pantallas recuerdan y dos no.
+
+La materializa **una sola pieza** (`lib/list-url-state.ts`), no una copia por vista: la lección de
+`P-072` y `P-082` es que un comportamiento duplicado acaba divergiendo. Lo que cambia por vista es la
+declaración de sus parámetros, no la mecánica.
 
 Dos condiciones para que la URL sea usable y no un vertedero:
 
@@ -148,6 +171,24 @@ ausencia del parámetro ya significa «aplica el defecto», así que «todas» n
 
 Un `season_id` que no exista en el Workspace **cae al defecto** en vez de dar error o ampliar el
 ámbito: desde MVP-705 el filtro viaja en la URL y al cambiar de Workspace puede quedar el de otro.
+
+La caída al defecto aplica **también al dashboard**, y no solo a la temporada: unos `plot_ids` que no
+pertenezcan al Workspace activo se descartan, y si no queda ninguno el ámbito cae en todos los terrenos
+activos. Hasta MVP-801 la Visión General era la única vista exenta: respondía `scope.season: null` con
+los agregados a cero y pedía en pantalla crear una campaña mientras su propio selector listaba las tres
+que el Workspace ya tenía (`P-107`). Un ámbito heredado no puede vaciar la pantalla de resumen.
+
+**El ámbito que devuelve el servidor manda sobre la selección que traiga la URL.** Si el cliente pide
+una campaña y el servidor aplica otra, la pantalla muestra la aplicada y **corrige la dirección**
+—sustituyendo la entrada de historial, no añadiendo una—. Sin esta precisión la regla se cumplía a
+medias: el diario aplicaba el defecto correctamente pero su `<select>` rotulaba «Todas las temporadas»,
+porque el identificador heredado no estaba entre las opciones y el control caía en la primera
+(`P-108`). Afirmar un ámbito distinto del que se está viendo es peor que no decir ninguno.
+
+Como refuerzo, al **cambiar de Workspace** se limpian de la URL los parámetros que nombran entidades
+del Workspace (`season_id`, `plot_id`, `plot_ids`). No sustituye a la caída al defecto —un enlace
+compartido o un marcador reproducen el escenario sin pasar por el selector—: evita que el caso se
+produzca por el camino más frecuente.
 
 ---
 
@@ -461,6 +502,43 @@ La vista principal del MVP es un diario cronológico unificado que mezcla activi
 
 En MVP todos los miembros del Workspace pueden operar y administrar registros, maestros, temporadas e invitaciones. Los permisos granulares se dejan para fases posteriores.
 
+**Salida voluntaria** (`MVP-807`, `P-048`): un miembro activo puede **abandonar** el Workspace por su
+propio pie, con confirmación explícita. Es el lado que faltaba del ciclo de vida de la membresía —
+`MVP-204` cubre retirar el acceso **a otra** persona y `MVP-206` la salida **del propietario**—, y con
+`RN-035` la asimetría se notaba: entrar en un Workspace ajeno es fácil y salir no existía.
+
+Abandonar tiene **el mismo efecto que ser revocado**: la membresía pasa a `revocado`, la persona deja
+de ofrecerse como responsable seleccionable (`MVP-208`) y su histórico no se toca —las labores que
+tenía asignadas siguen mostrando su nombre—. Volver exige **invitación nueva**; no hay readmisión
+automática ni el enlace anterior sirve.
+
+Dos guardas, y ninguna se reimplementa:
+
+- **No-orfandad** (`RN-038`, `WorkspaceOwnershipGuard`): un propietario **único** no puede abandonar
+  sin traspasar el Workspace o darlo de baja, exactamente igual que para cerrar su cuenta (`MVP-505`).
+- **No dejarlo vacío** (`CA-8` de `MVP-204`): el último miembro activo tampoco puede irse.
+
+**Qué revocación se ofrece** (`MVP-807`, `P-049`): la interfaz ofrece exactamente las revocaciones que
+la regla permite, ni una menos. `can_revoke` decía «activo y no propietario» mientras la guarda real
+solo protege al propietario **único** —que es lo que dice literalmente el `CA-8` de `MVP-204`—, así que
+la pantalla escondía una acción que la API acepta. **Decisión del PO (2026-08-10): manda esta regla**,
+los permisos son planos, y por tanto se alinea la interfaz con la API en vez de endurecer la guarda.
+Endurecerla obligaría a que un copropietario solo pudiera salir por su propio pie o traspasando.
+
+La guarda que de verdad importa —no dejar el Workspace sin propietario— no cambia.
+
+> **Nota de estado (2026-08-11)**: hoy **ningún flujo del producto produce dos propietarios activos**:
+> el traspaso, la baja con copropietario, la reapertura y la reactivación promueven a uno y degradan al
+> otro. La incoherencia de `P-049` era por tanto **latente**, no viva. La alineación se hace igual
+> porque el día que exista un segundo propietario nadie volvería a mirarlo, y porque una regla
+> publicada que no describe la guarda es una regla que ya ha empezado a divergir.
+>
+> **Decisión del PO (2026-08-11)**: el producto **sí quiere copropiedad**. Lo que falta no son las
+> guardas —ya están escritas para ese estado— sino la **acción de promover a un miembro a propietario
+> sin degradar a nadie**, que hoy no existe. Queda en backlog (`P-123`): no es un defecto con síntoma
+> —nadie puede llegar al estado incoherente— y construirla pide superficie propia y decidir quién puede
+> promover, que con permisos planos es cualquiera y conviene pensarlo.
+
 ---
 
 ### RN-035 — Invitaciones por email y por enlace
@@ -491,13 +569,35 @@ La consecuencia es de producto y obliga a los textos: login, landing, aviso de a
 
 **Estado**: activa
 **Fuente**: producto
-**Módulos afectados**: actividades, produccion, compras-consumo
+**Módulos afectados**: actividades, produccion, compras-consumo, maestros
 
 El MVP permite eliminar registros operativos, pero la UI debe exigir **confirmación explícita** antes de ejecutar la acción, y el registro eliminado deja de aparecer en el diario, en los listados y en el dashboard.
 
 La eliminación es **lógica** (`deleted_at`), no física: el mismo criterio que la baja de Workspace (RN-039). Un borrado accidental sobre operativa ya capturada es recuperable, y el MVP no expone ninguna vía de restauración —papelera o deshacer— porque no la necesita para cumplir la regla: basta con que el dato no se pierda. La purga real de lo eliminado se decide junto a la política de retención (`MVP-999`, P-033).
 
 Enunciado anterior («el MVP permite borrado **físico**») corregido en la revisión de cierre de MVP-002 (`MVP-299`, 3ª pasada, hallazgo `G-1`): contradecía al modelo de datos, que declara `deleted_at` en `ACTIVITY`, `HARVEST` y `PURCHASE` y fija el borrado lógico como convención de persistencia de las entidades operativas. Decisión del PO (2026-07-28).
+
+#### Los maestros (extension de `MVP-806`, 2026-08-10)
+
+La regla se extiende a los cuatro maestros de `MVP-002` —terrenos, temporadas, trabajadores y tareas—, con un criterio que **no es el mismo** que el de los registros operativos, y la diferencia importa:
+
+| | Registro operativo | Ficha de maestro |
+|---|---|---|
+| Qué es borrar | Baja **lógica**: la fila sobrevive con `deleted_at` | Borrado **físico**: la fila desaparece |
+| Cuándo se puede | Siempre, con confirmación | **Solo si nunca se usó** |
+| Si no se puede | — | Se **inactiva** o se **fusiona** |
+
+El motivo de que en los maestros el borrado sí sea físico es que la política de conservación de un maestro ya existe y es otra: **inactivarlo**. Una ficha con histórico se inactiva y sigue explicando los registros que la nombran; lo que no tenía salida era la ficha creada por error y jamás referenciada, que se quedaba para siempre en la lista de inactivos (`P-036`). Ahí no hay nada que conservar, así que conservarla como baja lógica sería añadir un tercer estado sin ganar ningún dato.
+
+Las condiciones son tres, y las tres son del servidor:
+
+1. **Sin uso, comprobado contra todas las referencias.** Un maestro puede estar referenciado desde varias entidades operativas a la vez —el terreno, por ejemplo, desde actividades, cosechas **y consumos**—, y comprobarlo contra una sola es lo que dejaría un registro huérfano. Cuentan también los registros **eliminados lógicamente**: su clave ajena sigue apuntando a la ficha. Si hay uso, la respuesta dice **cuántos** registros la referencian y de qué tipo son.
+2. **Confirmación explícita**, igual que en los registros operativos, y nombrando la ficha que se elimina.
+3. **La ficha de un miembro del Workspace no se elimina nunca**, ni siquiera sin uso: su existencia la gobierna su acceso (RN-027), no el maestro.
+
+**La fusión es la salida para lo que sí tiene histórico.** Dos fichas que son la misma cosa se unifican: se elige cuál sobrevive, las referencias de la absorbida se reapuntan a la superviviente dentro de una transacción y la absorbida desaparece. La confirmación dice cuántos registros van a cambiar de ficha. Al fusionar una fila de cuadrilla con la de un miembro, **sobrevive la del miembro**: su nombre lo fija su cuenta (RN-036) y no es renombrable. Igual que el borrado, una fusión **no se puede deshacer**.
+
+Que un maestro tenga histórico **sigue sin habilitar su borrado** con confirmación: eso dejaría registros operativos sin la ficha que los explica, que es justo lo que la inactivación evita.
 
 ---
 
@@ -540,6 +640,14 @@ baja el Workspace; al autorizarla, el Workspace vuelve a estar activo y su propi
 solicito. Quien dio de baja el Workspace puede ademas volver a levantarlo por su cuenta en cualquier
 momento.
 
+**Precisión de `MVP-808` (2026-08-10)**: la solicitud pendiente de decidir se avisa **por dos vías a
+la vez**, no por una. Ademas del correo, aparece en la bandeja de notificaciones de quien tiene que
+decidir, con enlace a la pantalla de decision. El correo **se sigue enviando**: el aviso in-app se
+suma, no sustituye. El motivo es que la decision es irreversible —el Workspace vuelve y cambia de
+propietario— y hacerla depender de que un correo llegue la dejaba esperando indefinidamente si se
+perdia (`P-029`). No se notifica al solicitante el resultado: sigue descubriendolo porque el
+Workspace reaparece —o no— en su selector.
+
 ### RN-041 — Todo lo que se conserva tiene plazo
 
 **Estado**: activa
@@ -550,6 +658,23 @@ El producto conserva por diseno lo que se da de baja: la baja de un Workspace es
 eliminacion de un registro operativo tambien (RN-037) y una cuenta dada de baja conserva su fila
 anonimizada porque el historico operativo guarda quien lo registro. Todo eso se conserva **24 meses**
 desde su baja y despues se purga fisicamente.
+
+**Lo que el plazo se lleva por delante, y es deliberado** (decision del PO, 2026-08-11, sobre `P-124`).
+Al purgar la fila anonimizada de una cuenta, la autoria de los registros operativos que creo o edito
+**deja de poder resolverse**: las cuatro tablas operativas guardan `created_by`/`updated_by` pero no
+tienen clave ajena hacia `users`, asi que la referencia queda colgando y la lectura la rotula «Cuenta
+eliminada» (`MVP-804`). No es un descuido de la purga: es el resultado de aplicar el plazo, y **se
+acepta**, porque lo que interesa conservar es el **historico de datos** —la labor, los kilos, el
+gasto—, no quien lo tecleo hace mas de dos anos.
+
+La consecuencia es que la frase de arriba —«conserva su fila anonimizada porque el historico operativo
+guarda quien lo registro»— **describe los primeros 24 meses, no siempre**. Pasado el plazo, el
+historico operativo sobrevive y su autoria no. Se hace constar aqui en vez de dejar que la regla
+prometa algo que deja de cumplir: es lo que `P-124` destapo al construir `MVP-804`.
+
+Se descarta la alternativa de **retener la cuenta mientras le quede historico operativo**: en la
+practica ninguna cuenta que haya trabajado en una explotacion se purgaria nunca, y entonces el plazo de
+esta regla seria una promesa que no se cumple —que es exactamente el problema al reves—.
 
 Los **datos personales no esperan a ese plazo**: la baja de cuenta los borra o anonimiza en el acto
 —nombre, correo e identificador del proveedor de identidad, tanto en la cuenta como en los maestros de
@@ -630,6 +755,46 @@ El aviso se **deriva en lectura** comparando las dos fechas vigentes, no se cong
 después se corrige la fecha de la compra, el aviso aparece o desaparece solo. Un consumo sin compra
 previa (`RN-032`) nunca lo activa, porque no hay fecha contra la que comparar. La igualdad tampoco:
 comprar y gastar el mismo día es lo normal.
+
+---
+
+### RN-044 — Cosecha repetida permitida con aviso
+
+**Estado**: activa
+**Fuente**: producto (`RU-24`)
+**Módulos afectados**: produccion, diario
+
+Al registrar o corregir una cosecha, si ya existe una partida **viva** del Workspace con el **mismo
+terreno, la misma fecha y el mismo producto**, el sistema muestra un aviso **no bloqueante** mientras
+se rellena el formulario, y permite guardar igual.
+
+No se bloquea porque dos partidas del mismo terreno y del mismo día son un caso real —dos vuelcos, dos
+cuadrillas, dos destinos distintos—. Lo que no es real es que nadie te avise: apuntar dos veces lo
+mismo duplica los kilos de la campaña y no hay nada en pantalla que lo delate. Es el mismo trato que
+`RN-023` da a la fecha fuera de rango y `RN-043` al consumo anterior a su compra: avisar sin impedir.
+
+El aviso **nombra la partida existente** con sus kilos y su destino: sin eso, quien lo lee no puede
+distinguir si es la misma que acaba de apuntar o una segunda de verdad.
+
+Tres precisiones que definen la comparación:
+
+- **No entra el modo de entrada del rendimiento.** `RU-24` hablaba de «misma unidad» cuando la cosecha
+  aún podía informarlo de varias formas; hoy `RN-013` fija la unidad canónica. Incluirlo dejaría sin
+  avisar precisamente el duplicado más probable: quien apunta dos veces lo mismo suele hacerlo de dos
+  maneras, una con litros y otra con rendimiento.
+- **No entran los kilos.** Añadirlos se llevaría por delante el caso de teclear mal la cantidad al
+  repetir, que es cuando el aviso más sirve.
+- **No entra la temporada.** La partida la identifican terreno, fecha y producto; dos apuntes del mismo
+  día en el mismo terreno son el duplicado que se busca aunque estén asociados a campañas distintas
+  —que es, de hecho, un síntoma más de que uno de los dos sobra—.
+
+Al **corregir**, la comparación excluye la propia partida: cambiarle el destino a una cosecha no puede
+avisar de que esa cosecha ya existe. Una partida eliminada (`RN-037`, borrado lógico) tampoco cuenta.
+
+La comparación se resuelve **en servidor** (`GET /api/v1/harvests/duplicates`) y no buscando en lo que
+la pantalla tiene cargado: el listado de Cosechas está filtrado y el diario trae una página, así que
+buscar ahí daría un aviso que aparece o no según lo que el usuario tuviera filtrado, que es peor que no
+avisar. Es el mismo criterio de `RN-008`: la regla vive en un sitio, no en cada formulario.
 
 ---
 

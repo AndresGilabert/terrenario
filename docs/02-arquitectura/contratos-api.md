@@ -1,7 +1,7 @@
 ﻿---
 bloque: 02-arquitectura
 documento: contratos-api
-actualizado_en: "2026-08-08"
+actualizado_en: "2026-08-11"
 ---
 
 # Contratos de API
@@ -39,7 +39,11 @@ actualizado_en: "2026-08-08"
 - Versionado en la URL: `/api/v1/...`
 - Recursos en plural y kebab-case, en inglés: `/plots`, `/workspace-members`
 - Campos de request y response en `snake_case` inglés: `access_token`, `season_id`
-- Respuestas de error: siempre JSON con `{ "error": { "code": "", "message": "", "details": [] } }`
+- Respuestas de error: siempre JSON con `{ "error": { "code": "", "message": "", "details": [] } }`.
+  **«Siempre» incluye el enrutado** (MVP-811, `P-117`): una ruta de `/api` que no existe, un método no
+  permitido sobre una que sí, y un parámetro de ruta que no cumple su restricción responden los tres
+  `404 RESOURCE_NOT_FOUND` con su `Content-Type: application/json`, no un cuerpo vacío. Las rutas del
+  cliente (`/app/…`, `/legal/…`) quedan fuera: no son API y devuelven el `index.html` del SPA.
 - Paginación: `?page=1&limit=20` con respuesta `{ "data": [], "meta": { "total": 0, "page": 1, "limit": 20 } }`
 - Todas las respuestas incluyen `X-Request-Id` para trazabilidad.
 - Concurrencia de escritura: `If-Match` obligatorio en `PATCH`/`DELETE` de entidades críticas.
@@ -93,6 +97,7 @@ y se mantienen en español.
 | Opciones de baja del activo (MVP-206) | `GET /api/v1/workspaces/active/closure` | — | `200 { workspace, is_owner, mode, active_owners, successor_name, candidates[] }` |
 | Dar de baja el workspace activo (MVP-206) | `POST /api/v1/workspaces/active/closure` | — | `200 { outcome, workspace, new_owner_name, notified_members, emails_sent }` |
 | Traspasar la propiedad (MVP-206) | `POST /api/v1/workspaces/active/transfer-ownership` | `new_owner_user_id*` | `200 { outcome: "transferred", workspace, new_owner_name }` |
+| Abandonar el workspace activo (MVP-807) | `POST /api/v1/workspaces/active/leave` | — | `204` |
 | Propiedades unicas sin resolver (MVP-206) | `GET /api/v1/workspaces/ownership-obligations` | — | `200 { data:[{ workspace_id, name, other_active_members, can_transfer }], meta:{ total, is_clear } }` |
 
 Validaciones clave:
@@ -395,6 +400,64 @@ se resuelve en servidor desde el claim `workspace_id` (RN-034) y **nunca** viaja
 | La sesión no tiene ningún Workspace activo | `AUTH_WORKSPACE_SCOPE_REQUIRED` (403) |
 | El recurso no pertenece al Workspace activo (`IWorkspaceContext.EnsureInScope`) | `AUTH_WORKSPACE_FORBIDDEN` (403) |
 
+### 0.f) Depuracion de maestros: borrado y fusion (MVP-806)
+
+Los cuatro maestros de `MVP-002` —terrenos, temporadas, trabajadores y tareas— comparten **el mismo
+contrato** para las dos operaciones que introduce `RN-037` ampliada. Se documenta una vez aquí y cada
+sección de maestro remite a esta; `{maestro}` es `plots`, `seasons`, `workers` o `tasks`.
+
+| Operación | Método y ruta | Request | Respuesta 2xx |
+|---|---|---|---|
+| Eliminar ficha sin uso | `DELETE /api/v1/{maestro}/{id}` | — | `204` |
+| Fusionar dos fichas | `POST /api/v1/{maestro}/{id}/merge` | `absorbed_id*` | `200 { survivor_id, survivor_name, absorbed_id, absorbed_name, reassigned_count }` |
+
+Las dos exigen `[RequireWorkspaceScope]`. El identificador de la **ruta** es siempre el de la ficha
+que **sobrevive**; el del cuerpo, el de la que se absorbe y desaparece.
+
+**No llevan `If-Match`**: los maestros no tienen columna de versión. El control de concurrencia de
+`ADR-0005` sí actúa, pero sobre los **registros operativos que se reapuntan** en la fusión, no sobre
+las fichas.
+
+Además, el **listado** de cada maestro incorpora `usage_count` en cada fila:
+
+| Valor | Significado |
+|---|---|
+| `0` | Ninguna referencia: la interfaz puede ofrecer «Eliminar» |
+| `n > 0` | Hay histórico: no se ofrece el borrado, y es la cifra que anuncia la confirmación de la fusión |
+| `null` | **No consultado.** Solo lo trae el listado; el alta y la edición devuelven `null` en vez de `0`, que sería falso en el `PATCH` de una ficha con histórico |
+
+Validaciones y reglas:
+
+| Regla | Código error / comportamiento |
+|---|---|
+| Ficha inexistente o de otro Workspace (en la **ruta**) | `RESOURCE_NOT_FOUND` (404); `SEASON_NOT_FOUND` (404) en temporadas |
+| Ficha absorbida inexistente o de otro Workspace (en el **cuerpo**) | `FOREIGN_KEY_WORKSPACE_MISMATCH` (400): lo que falla es el cuerpo, no la ruta |
+| La ficha tiene histórico | `BUSINESS_RULE_MASTER_IN_USE` (422). El mensaje dice **cuántos** registros la referencian y de qué tipo: «No se puede eliminar el terreno «Bancal de arriba»: 2 actividades y 1 cosecha lo referencian» |
+| Fusionar una ficha consigo misma | `BUSINESS_RULE_MASTER_MERGE_SELF` (422) |
+| La ficha **absorbida** es la de un miembro (`kind: "member"`) | `BUSINESS_RULE_MASTER_MERGE_MEMBER_SURVIVES` (422). Cubre también dos cuentas homónimas |
+| Eliminar la ficha de un miembro | `BUSINESS_RULE_WORKER_MEMBERSHIP_MANAGED` (422): la gobierna su acceso, no el maestro |
+| Otra persona edita un registro mientras se reapunta | `CONFLICT_VERSION_MISMATCH` (409). La fusión **no se aplica en parte**: o entera o nada |
+
+Qué cuenta como uso, por maestro (declaración única en `MasterReferenceMap`):
+
+| Maestro | Referencias que impiden el borrado |
+|---|---|
+| `plots` | Actividades, cosechas y **consumos** |
+| `seasons` | Actividades, cosechas, **compras** y consumos |
+| `workers` | Actividades |
+| `tasks` | Actividades que la eligieron del catálogo (`task_id`). La tarea en texto libre de `RN-025` no referencia ninguna fila |
+
+Dos precisiones sobre el recuento:
+
+- **Incluye los registros eliminados lógicamente.** Una actividad con `deleted_at` conserva su clave
+  ajena, así que la FK `RESTRICT` seguiría impidiendo el borrado físico. Filtrar por «vivos» daría un
+  «sin uso» que la base de datos desmentiría.
+- **`workspace_members.active_season_id` no cuenta.** Tener una temporada fijada como temporada de
+  trabajo (`MVP-209`) es una preferencia por usuario con `ON DELETE SET NULL`, no histórico: borrarla
+  devuelve a esa persona al defecto de `WorkingSeasonPolicy`. En una **fusión** sí se reapunta, para
+  que nadie cambie de campaña sin haberlo pedido, pero no suma en `reassigned_count`, que cuenta solo
+  registros operativos.
+
 ### 1) Plots (terrenos)
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
@@ -402,6 +465,8 @@ se resuelve en servidor desde el claim `workspace_id` (RN-034) y **nunca** viaja
 | Alta terreno | `POST /api/v1/plots` | `name*`, `ownership_type*`, `alias?`, `owner_name?`, `tree_count?`, `cadastral_reference?`, `location?` | `201 { id, workspace_id, ... }` |
 | Editar terreno | `PATCH /api/v1/plots/{plotId}` | campos parciales permitidos | `200 { ...plot }` |
 | Listado terrenos | `GET /api/v1/plots` | filtros: `search?`, `is_active?` | `200 { data, meta }` |
+| Eliminar terreno sin uso | `DELETE /api/v1/plots/{plotId}` | — | `204` (ver §0.f) |
+| Fusionar dos terrenos | `POST /api/v1/plots/{plotId}/merge` | `absorbed_id*` | `200 { ...fusion }` (ver §0.f) |
 
 Validaciones clave. El **alta y la edición no devuelven los mismos códigos** (ver el aviso al final de
 esta sección):
@@ -427,7 +492,8 @@ Reglas de contexto (MVP-202):
 | Alta mínima (RN-028) | Solo `name` y `ownership_type` son obligatorios; el resto es opcional e informativo |
 | `tree_count` ausente | No bloquea; se marca como dato incompleto para el dashboard (RN-010). La respuesta incluye `has_tree_count` |
 | Duplicados (MVP-207) | Un Workspace no admite dos terrenos con el mismo `name` ignorando mayúsculas y espacios sobrantes (índice único `(workspace_id, lower(name))`). Los **inactivos también ocupan su nombre**. El `alias` es un apodo libre y **sí** puede repetirse |
-| Inactivación con histórico (CA-3) | `PATCH { is_active:false }`; reversible. No hay borrado físico de terrenos |
+| Inactivación con histórico (CA-3) | `PATCH { is_active:false }`; reversible. Un terreno con histórico **no** se elimina |
+| Depuración (MVP-806) | El terreno que **nunca** se usó se elimina físicamente y dos que son el mismo se fusionan (§0.f, RN-037). El uso se cuenta contra actividades, cosechas **y consumos**; el listado lo trae en `usage_count` |
 | `PATCH` de campos parciales | Un campo ausente mantiene su valor; presente (incluido vacío) lo asigna/limpia |
 | `location` | Texto libre. Coordenadas/mapas y `soil_metadata` quedan fuera de alcance del MVP |
 
@@ -456,6 +522,8 @@ Reglas de contexto (MVP-202):
 | Listado temporadas | `GET /api/v1/seasons` | — (sin filtros) | `200 { data, meta: { total } }` |
 | Mi temporada de trabajo | `GET /api/v1/seasons/active` | — | `200 { ...season }` · `404` si no hay |
 | Fijar mi temporada de trabajo | `POST /api/v1/seasons/{seasonId}/activate` | — | `200 { ...season }` |
+| Eliminar temporada sin uso | `DELETE /api/v1/seasons/{seasonId}` | — | `204` (ver §0.f) |
+| Fusionar dos temporadas | `POST /api/v1/seasons/{seasonId}/merge` | `absorbed_id*` | `200 { ...fusion }` (ver §0.f) |
 
 Todas exigen `[RequireWorkspaceScope]`. La representación de una temporada es
 `{ id, workspace_id, name, start_date, end_date, is_working, is_closed, status }` (MVP-209), donde:
@@ -496,7 +564,7 @@ Reglas de contexto (MVP-201 · MVP-203 · MVP-207 · MVP-209):
 | Duplicados (MVP-207) | Un Workspace no admite dos temporadas con el mismo nombre ignorando mayúsculas y espacios sobrantes (índice único `(workspace_id, lower(name))`). Las **cerradas también ocupan su nombre**: cerrar no lo libera |
 | `PATCH` de campos parciales | Un campo ausente mantiene su valor. Fijar la temporada de trabajo **no** va aquí: es `POST /seasons/{id}/activate` |
 | Orden del listado | Las abiertas primero (por fecha de inicio descendente) y las cerradas al final |
-| No hay borrado | Las temporadas con histórico se cierran, no se eliminan |
+| Borrado y fusión (MVP-806) | Una temporada con histórico se **cierra**, nunca se elimina. La que nunca se usó sí se elimina, y dos que son la misma campaña se fusionan (§0.f, RN-037). Tenerla fijada como temporada de trabajo no cuenta como uso: es una preferencia con `ON DELETE SET NULL` |
 
 ### 3) Tasks (tareas)
 
@@ -505,6 +573,8 @@ Reglas de contexto (MVP-201 · MVP-203 · MVP-207 · MVP-209):
 | Alta tarea | `POST /api/v1/tasks` | `name*`, `is_active?` | `201 { id, workspace_id, name, is_active }` |
 | Editar tarea | `PATCH /api/v1/tasks/{taskId}` | `name?`, `is_active?` | `200 { ...task }` |
 | Listado tareas | `GET /api/v1/tasks` | `is_active?` | `200 { data, meta }` |
+| Eliminar tarea sin uso | `DELETE /api/v1/tasks/{taskId}` | — | `204` (ver §0.f) |
+| Fusionar dos tareas | `POST /api/v1/tasks/{taskId}/merge` | `absorbed_id*` | `200 { ...fusion }` (ver §0.f) |
 
 Validaciones clave. El **alta y la edición no devuelven los mismos códigos** (ver el aviso de la
 sección de terrenos):
@@ -524,7 +594,8 @@ Reglas de contexto (MVP-205):
 |---|---|
 | Catálogo por Workspace (RN-026) | Arranca **vacío** y es editable por cualquier miembro activo (RN-034). El aislamiento por Workspace lo garantiza `[RequireWorkspaceScope]`: el catálogo de un Workspace no afecta al de otro |
 | Duplicados | Un Workspace no admite dos tareas con el mismo nombre ignorando mayúsculas y espacios sobrantes (índice único `(workspace_id, lower(name))`). Las **inactivas también ocupan su nombre**: se reactivan, no se duplican. No hay normalización de acentos: «Poda» y «Podá» conviven |
-| Inactivación con histórico (CA-3) | `PATCH { is_active:false }`; reversible. No hay borrado físico de tareas |
+| Inactivación con histórico (CA-3) | `PATCH { is_active:false }`; reversible. Una tarea con histórico **no** se elimina |
+| Depuración (MVP-806) | La tarea que **nunca** se eligió del catálogo se elimina y dos que son la misma labor se fusionan (§0.f, RN-037). La tarea en texto libre de RN-025 no referencia ninguna fila, así que no cuenta como uso |
 | `PATCH` de campos parciales | Un campo ausente mantiene su valor |
 | Orden del listado | Activas primero y luego por nombre. La operativa diaria pedirá `is_active=true` |
 | Tarea en la actividad (RN-025) | La tarea es obligatoria y puede venir del catálogo (`task_id`) o de texto libre (`task_text`) |
@@ -537,6 +608,8 @@ Reglas de contexto (MVP-205):
 | Alta de cuadrilla | `POST /api/v1/workers` | `name*`, `hourly_rate?` | `201 { ...worker }` |
 | Editar trabajador | `PATCH /api/v1/workers/{workerId}` | `name?`, `hourly_rate?`, `is_active?` | `200 { ...worker }` |
 | Listado de responsables | `GET /api/v1/workers` | `is_active?` | `200 { data, meta: { total, members, crew } }` |
+| Eliminar cuadrilla sin uso | `DELETE /api/v1/workers/{workerId}` | — | `204` (ver §0.f) |
+| Fusionar dos fichas | `POST /api/v1/workers/{workerId}/merge` | `absorbed_id*` | `200 { ...fusion }` (ver §0.f) |
 
 La representación de un responsable es
 `{ id, workspace_id, name, hourly_rate, is_active, kind, user_account_id }`, donde `kind` es el
@@ -576,7 +649,8 @@ Reglas de contexto (MVP-204 · MVP-208):
 | Duplicados (MVP-207 · MVP-208) | Un Workspace no admite dos responsables con el mismo nombre ignorando mayúsculas y espacios sobrantes (índice único `(workspace_id, lower(name))`), **tampoco cruzando la frontera miembro/cuadrilla**. Los **inactivos también ocupan su nombre**. No hay normalización de acentos: «Perez» y «Pérez» conviven |
 | Desempate de nombres (CA-5) | Si el nombre que trae una cuenta ya lo ocupa una fila de cuadrilla, la cuadrilla se renombra con sufijo « (2)» y el miembro conserva el suyo. Si lo ocupa **otro miembro** —dos cuentas homónimas—, el sufijo lo toma quien llega después: ninguno de los dos es renombrable |
 | Una fila por cuenta y Workspace (CA-1) | Invariante de datos: índice único parcial `ux_workers_workspace_user_account`. Readmitir a alguien revocado reactiva su fila, no crea una segunda |
-| Inactivación con histórico (CA-3) | `PATCH { is_active:false }` en cuadrilla; reversible. No hay borrado físico de trabajadores |
+| Inactivación con histórico (CA-3) | `PATCH { is_active:false }` en cuadrilla; reversible. Un responsable con histórico **no** se elimina |
+| Depuración (MVP-806) | La ficha de cuadrilla que **nunca** se usó se elimina, y dos fichas de la misma persona se fusionan (§0.f, RN-037). La ficha de un `member` ni se elimina ni se absorbe: su nombre lo fija su cuenta (RN-036) y cada cuenta tiene una única fila por Workspace (CA-1). Es la salida del duplicado que dejó el desempate de nombres |
 | `PATCH` de campos parciales | Un campo ausente mantiene su valor; presente (incluido vacío) lo asigna/limpia |
 
 ### 4.b) Workspace members (personas del Workspace, MVP-204)
@@ -600,6 +674,11 @@ solo aparecía en una lista de solo lectura y no había forma de retirarla.
 
 Lo que **ya no** sale de este endpoint son los responsables seleccionables: eso es
 `GET /workers` (MVP-208, CA-2). Esta sigue siendo la superficie de **accesos**.
+
+**`can_revoke` describe la guarda, no una versión más prudente de ella** (MVP-807, `P-049`). Es cierto
+para un miembro activo salvo que sea el **único propietario** o el **último miembro activo**, que son
+literalmente las dos condiciones del `CA-8` de `MVP-204`. Antes decía «activo y no propietario», más
+restrictivo que la API, así que la interfaz escondía una acción que el servidor acepta.
 
 Validaciones y reglas:
 
@@ -625,15 +704,43 @@ Validaciones y reglas:
 Todas exigen `[RequireWorkspaceScope]`. La representación de una actividad es
 `{ id, workspace_id, date, plot_id, plot_name, season_id, season_name, worker_id, worker_name,
 task_id, task_name, task_text, task, hours, manual_cost, description, is_out_of_season_range,
-version, created_at, updated_at }` (MVP-301). Los nombres de los maestros llegan **resueltos** en la
-misma consulta para que el diario no tenga que pedirlos por separado, y dos campos son **derivados**,
-no columnas:
+version, created_at, updated_at, created_by_name, updated_by_name }` (MVP-301, autoría en MVP-804).
+Los nombres de los maestros llegan **resueltos** en la misma consulta para que el diario no tenga que
+pedirlos por separado, y dos campos son **derivados**, no columnas:
 
 | Campo derivado | Qué es |
 |---|---|
 | `task` | Texto de la tarea venga del catálogo o del campo libre (RN-025), para que ningún cliente rehaga ese `??` |
 | `is_out_of_season_range` | `true` si la fecha cae fuera del rango de la temporada asociada. Es el **aviso** de RN-023, nunca un bloqueo; se calcula en lectura, así que sigue siendo correcto si la temporada se edita después |
 | `task_catalog_outcome` | MVP-302 — qué pasó en el catálogo al pedir `save_task_to_catalog`: `created`, `reused` o `reactivated`. `null` en las lecturas y cuando no se pidió |
+
+#### Autoría de los registros operativos (MVP-804, `RU-21`)
+
+`created_by_name` y `updated_by_name` viajan en los **cuatro** recursos operativos —actividades,
+cosechas, compras y consumos— con la misma forma y el mismo significado. Las cuatro tablas guardaban
+`created_by`/`updated_by` desde que se crearon; lo que `MVP-804` añade es leerlos.
+
+| Campo | Qué es |
+|---|---|
+| `created_by_name` | Nombre de quien **apuntó** el registro. Nunca nulo ni vacío |
+| `updated_by_name` | Nombre de quien hizo la **última** corrección. Sin correcciones coincide con el anterior, y entonces `created_at == updated_at` |
+
+Tres precisiones que el contrato fija a propósito:
+
+1. **Solo el nombre.** No viaja ni el correo ni el identificador de la cuenta: no hacen falta para
+   responder a «quién apuntó esto» y exponerlos ampliaría la superficie de datos personales sin
+   contrapartida.
+2. **Una cuenta dada de baja se lee como «Cuenta eliminada»** (`MVP-505`, `RN-041`). El nombre que
+   tuvo **no** vuelve por este camino: la proyección deja de devolverlo en cuanto la cuenta está
+   anonimizada, sin mirar qué guarda su fila. Lo mismo vale para una cuenta ya purgada, cuya
+   referencia queda colgando porque las tablas operativas no tienen `FK` hacia `users`.
+3. **No hay histórico de cambios.** `RU-21` lo excluye expresamente: solo la última edición.
+
+En actividades, `created_by_name` **no** es `worker_name`: el responsable es quien hizo el trabajo en
+el campo y puede no tener cuenta; la autoría es quien lo registró en la aplicación.
+
+El **diario** (`GET /api/v1/diary`, §5.b) es la única lectura operativa que no los lleva: es un muro
+denso y su modal de corrección pide el registro completo por id, de donde sí llegan.
 
 Validaciones clave:
 
@@ -753,6 +860,8 @@ Reglas de contexto:
 | Editar cosecha | `PATCH /api/v1/harvests/{harvestId}` | campos parciales · `If-Match: <version>` | `200 { ...harvest }` |
 | Eliminar cosecha | `DELETE /api/v1/harvests/{harvestId}` | `If-Match: <version>` | `204` |
 | Listado cosechas | `GET /api/v1/harvests` | `from?`, `to?`, `plot_id?`, `season_id?` (id \| `all`), `destination?` | `200 { data, meta: { scope, total, total_kg } }` |
+| Una cosecha (MVP-401) | `GET /api/v1/harvests/{harvestId}` | — | `200 { ...harvest }` |
+| Partidas iguales (MVP-805) | `GET /api/v1/harvests/duplicates` | `plot_id*`, `date*`, `product*`, `exclude_id?` | `200 { data:[{ id, kgs, destination }], meta:{ total } }` |
 
 > **MVP-707 — `unit_price` y `amount` (RN-029 matizada).** `unit_price` es el precio de venta por kilo,
 > **opcional**; `amount` es su importe (`kgs × unit_price`) y es **derivado, no columna**: no se envía
@@ -761,12 +870,22 @@ Reglas de contexto:
 > partida sin precio no ha ingresado 0 €. En `PATCH`, un `unit_price: null` explícito **retira** el
 > precio de una partida que lo tenía. Un `unit_price` de `0` o negativo se rechaza con
 > `VALIDATION_HARVEST_UNIT_PRICE_RANGE` (400): quien no lo sepa deja el campo vacío.
-| Una cosecha (MVP-401) | `GET /api/v1/harvests/{harvestId}` | — | `200 { ...harvest }` |
+>
+> **MVP-805 — `duplicates` (RN-044, `RU-24`).** Lectura de apoyo del formulario de cosecha: devuelve
+> las partidas **vivas** del Workspace con el mismo terreno, la misma fecha y el mismo producto, para
+> pintar un **aviso no bloqueante** mientras se rellena. Los tres parámetros son obligatorios y su
+> ausencia es `400 VALIDATION_REQUIRED`: responder «no hay duplicados» sin haber podido comprobarlo
+> haría que el formulario mostrase silencio donde no hay respuesta. `exclude_id` es la propia partida
+> al corregir (CA-3 de `MVP-805`). Devuelve solo lo que el aviso necesita **nombrar** —kilos y
+> destino—, no la cosecha entera. Tiene ruta propia y no parámetros de `GET /harvests` para que la
+> regla de qué cuenta como duplicado tenga un nombre en el contrato, en vez de vivir repartida en los
+> dos formularios que la usan.
 
 La representación de una cosecha es
 `{ id, workspace_id, date, plot_id, plot_name, season_id, season_name, product, kgs, yield, liters,
-effective_yield, yield_source, destination, is_out_of_season_range, version, created_at, updated_at }`
-(MVP-401, ampliada en MVP-402). `plot_name` y `season_name` llegan resueltos y
+effective_yield, yield_source, destination, is_out_of_season_range, version, created_at, updated_at,
+created_by_name, updated_by_name }`
+(MVP-401, ampliada en MVP-402; autoría en MVP-804, §5). `plot_name` y `season_name` llegan resueltos y
 `is_out_of_season_range` es el mismo aviso derivado de RN-023 que en la actividad y la compra.
 `meta.total_kg` del listado son los **kilos acumulados de lo filtrado**, calculados en servidor, con el
 mismo criterio que `meta.total_cost` en compras.
@@ -840,7 +959,8 @@ cumplida entera (hallazgo `G-4`).
 La representación de un consumo es
 `{ id, workspace_id, purchase_id, has_purchase, purchase_date, plot_id, plot_name, season_id,
 season_name, date, product, quantity, unit_price, proportional_cost, is_out_of_season_range,
-is_before_purchase_date, version, created_at, updated_at }` (MVP-304 · MVP-708). `has_purchase` es
+is_before_purchase_date, version, created_at, updated_at, created_by_name, updated_by_name }`
+(MVP-304 · MVP-708; autoría en MVP-804, §5). `has_purchase` es
 **derivado** y desambigua el coste: `proportional_cost: 0` con `has_purchase: false` significa «se
 desconoce», no «fue gratis». `meta.without_purchase` cuenta esos registros: es la medida del impacto
 en la calidad del dato que pide el CA-3 de `MVP-003`.
@@ -852,7 +972,8 @@ pedir la compra aparte.
 
 La representación de una compra es
 `{ id, workspace_id, purchase_date, season_id, season_name, product, total_quantity, total_cost,
-unit_price, is_out_of_season_range, version, created_at, updated_at }` (MVP-303). `season_name` llega
+unit_price, is_out_of_season_range, version, created_at, updated_at, created_by_name,
+updated_by_name }` (MVP-303; autoría en MVP-804, §5). `season_name` llega
 resuelto y `is_out_of_season_range` es el mismo aviso derivado de RN-023 que en la actividad.
 `meta.total_cost` del listado es el **gasto acumulado de lo filtrado**, calculado en servidor.
 
@@ -1028,6 +1149,9 @@ unidad canónica L/100kg (RN-013).
 | 400 | `FOREIGN_KEY_WORKSPACE_MISMATCH` | Un vínculo del registro operativo no existe en el Workspace activo |
 | 409 | `CONFLICT_VERSION_MISMATCH` | Colisión de versión por edición concurrente |
 | 422 | `BUSINESS_RULE_*` | Regla de negocio incumplida |
+| 422 | `BUSINESS_RULE_MASTER_IN_USE` | La ficha de maestro tiene histórico; el mensaje dice cuántos registros la referencian (MVP-806) |
+| 422 | `BUSINESS_RULE_MASTER_MERGE_SELF` | Se pidió fusionar una ficha consigo misma (MVP-806) |
+| 422 | `BUSINESS_RULE_MASTER_MERGE_MEMBER_SURVIVES` | La ficha absorbida es la de un miembro: la suya es siempre la que sobrevive (MVP-806, RN-036) |
 | 429 | `RATE_LIMIT_FEEDBACK` | Cupo del canal de sugerencias e incidencias agotado (MVP-711). Lleva `Retry-After` |
 | 503 | `FEEDBACK_CHANNEL_UNAVAILABLE` | El canal no tiene buzón o cuenta de envío configurados (MVP-711) |
 | 503 | `FEEDBACK_DELIVERY_FAILED` | El proveedor de correo no aceptó el reporte; reintentar tiene sentido (MVP-711) |

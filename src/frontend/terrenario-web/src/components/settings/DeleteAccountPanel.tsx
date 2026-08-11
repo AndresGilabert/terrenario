@@ -108,11 +108,23 @@ export const DeleteAccountPanel: React.FC = () => {
           • Se cierran tus {options.active_sessions === 1 ? 'sesión' : 'sesiones'} (
           {options.active_sessions}) y no podrás volver a entrar con esta cuenta.
         </p>
+        {/* MVP-811 (`P-118`, CA-4) — El adjetivo era **fijo**: con un solo Workspace salía «Sales de 1
+            Workspace compartidos», y quien era la única persona del suyo leía que lo compartía
+            mientras esta misma pantalla le decía más arriba «eres la única persona en este
+            Workspace». En un flujo irreversible, un texto que describe mal la situación resta
+            confianza justo donde hace falta. */}
         {options.active_memberships > 0 && (
           <p>
             • Sales de {options.active_memberships}{' '}
-            {options.active_memberships === 1 ? 'Workspace' : 'Workspaces'} compartidos. Lo que
-            registraste allí <strong>no se borra</strong>: seguiría figurando como «Cuenta eliminada».
+            {options.active_memberships === 1 ? 'Workspace' : 'Workspaces'}
+            {options.shared_memberships > 0 &&
+              (options.shared_memberships === options.active_memberships
+                ? options.active_memberships === 1
+                  ? ' compartido'
+                  : ' compartidos'
+                : `, ${options.shared_memberships} de ellos compartidos`)}
+            . Lo que registraste allí <strong>no se borra</strong>: seguiría figurando como «Cuenta
+            eliminada».
           </p>
         )}
         <p>

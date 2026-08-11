@@ -12,6 +12,14 @@ public sealed record AccountClosurePreview(
     /// <summary>Workspaces de propiedad única sin resolver (RN-038). Vacío ⇒ la baja puede completarse.</summary>
     IReadOnlyList<SoleOwnedWorkspace> Obligations,
     int ActiveMemberships,
+    /// <summary>
+    /// MVP-811 (<c>P-118</c>) — De esas membresías, en cuántas hay **más gente**. La pantalla de baja
+    /// afirmaba que se salía de <i>n</i> Workspaces «compartidos» con el adjetivo fijo, y quien era la
+    /// única persona de su Workspace leía que lo compartía mientras la misma pantalla le decía más
+    /// arriba «eres la única persona en este Workspace». En un flujo irreversible, un texto que
+    /// describe mal la situación resta confianza justo donde hace falta.
+    /// </summary>
+    int SharedMemberships,
     int ActiveSessions)
 {
     public bool IsClear => Obligations.Count == 0;
@@ -36,7 +44,16 @@ public sealed record AccountClosureResult(
 /// <item>La <b>fila</b> sobrevive anonimizada porque cada actividad, cosecha y compra guarda quién la
 /// registró: borrarla dejaría el histórico operativo del Workspace sin autoría, o lo arrastraría en
 /// cascada. Lo que el derecho de supresión exige son los datos personales, y esos ya no están.</item>
-/// <item>Al vencer el plazo de retención (RN-041) la fila se purga físicamente.</item>
+/// <item>Al vencer el plazo de retención (RN-041) la fila se purga físicamente, y con ella <b>se
+/// pierde la autoría</b> de lo que esa cuenta registró: las tablas operativas no tienen clave ajena
+/// hacia <c>users</c>, así que la referencia queda colgando y la lectura la rotula «Cuenta eliminada»
+/// (MVP-804). El punto 2 describe entonces los primeros 24 meses, no siempre.
+///
+/// <b>Está decidido, no es un cabo suelto</b> (decisión del PO, 2026-08-11, sobre <c>P-124</c>): lo
+/// que interesa conservar es el histórico de datos —la labor, los kilos, el gasto—, no quién lo tecleó
+/// hace más de dos años. Retener la cuenta mientras le quede histórico operativo se descartó porque
+/// ninguna cuenta que haya trabajado en una explotación se purgaría nunca, y el plazo de RN-041 pasaría
+/// a ser una promesa incumplida.</item>
 /// </list>
 ///
 /// <b>La regla de no-orfandad no se reimplementa</b>: se llama a
@@ -59,9 +76,19 @@ public sealed class CloseAccountHandler(
         var obligations = await ownershipGuard.ListObligationsAsync(userId, ct);
         var memberships = await workspaceRepository.ListActiveMembershipsAsync(userId, ct);
 
+        // MVP-811 (`P-118`) — Cuántas de esas membresías son de verdad compartidas. Se cuenta aquí y no
+        // en el cliente porque el cliente no tiene el dato: la lista de membresías no dice cuánta gente
+        // hay en cada Workspace, y la pantalla acababa afirmándolo sin saberlo.
+        var shared = 0;
+        foreach (var membership in memberships)
+        {
+            if (await workspaceRepository.CountActiveMembersAsync(membership.WorkspaceId, ct) > 1) shared++;
+        }
+
         return new AccountClosurePreview(
             obligations.Workspaces,
             memberships.Count,
+            shared,
             await refreshTokenStore.CountActiveForUserAsync(userId, ct));
     }
 

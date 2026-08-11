@@ -7,6 +7,7 @@ import {
   type Purchase,
 } from '../../types/purchase.types';
 import { Modal } from '../common/Modal';
+import { RecordAuthorship } from '../common/RecordAuthorship';
 
 interface PurchaseFormModalProps {
   isOpen: boolean;
@@ -246,6 +247,11 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
             <span className="material-symbols-outlined text-sm" aria-hidden="true">check</span>
           </button>
         </div>
+
+        {/* MVP-804 (`RU-21`) — Quién lo apuntó y quién lo corrigió por última vez. Va al pie del
+            formulario, después de los botones: es información de apoyo para aclarar una discrepancia
+            (`RN-034`), no un campo de captura. En el alta no hay nada que contar todavía. */}
+        {purchase && <RecordAuthorship record={purchase} />}
       </form>
     </Modal>
   );

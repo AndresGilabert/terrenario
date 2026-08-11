@@ -7,6 +7,9 @@ import { HttpError } from '../../services/http-client';
 import { SEASON_STATUS_LABELS, type Season } from '../../types/season.types';
 import { SeasonFormModal, type SeasonFormValues } from './SeasonFormModal';
 import { fechaDeNegocio } from '../../lib/fechas';
+import { isDeletable } from '../../types/master.types';
+import { useMasterDepuration } from '../../lib/use-master-depuration';
+import { MasterDepurationLayer } from '../common/MasterDepurationLayer';
 
 /**
  * Maestro de temporadas del Workspace (MVP-203). Lista las campañas, permite crear (la nueva pasa a
@@ -21,6 +24,11 @@ import { fechaDeNegocio } from '../../lib/fechas';
  * Tras cada acción resincroniza la temporada activa del contexto para que la cabecera y la
  * autoselección operativa queden coherentes. Esta pantalla vive fuera de la guarda de oferta de
  * temporada, así que es siempre accesible aunque el Workspace no tenga ninguna activa.
+ *
+ * **MVP-806** añade la depuración: eliminar la campaña que nunca se usó y fusionar dos que son la
+ * misma. El «nunca se usó» lo calcula el servidor contra actividades, cosechas, compras y consumos;
+ * tenerla fijada como temporada de trabajo no cuenta, porque es una preferencia que se resuelve sola.
+ * Por eso las dos acciones resincronizan también el contexto de temporada.
  */
 export const TemporadasView: React.FC = () => {
   const http = useApiClient();
@@ -71,6 +79,14 @@ export const TemporadasView: React.FC = () => {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  // Borrar o fusionar una campaña puede dejar sin efecto la temporada de trabajo del contexto, así
+  // que se resincroniza igual que tras activar o cerrar.
+  const refreshAll = useCallback(async () => {
+    await reload();
+    await refreshActiveSeason();
+  }, [reload, refreshActiveSeason]);
+  const depuration = useMasterDepuration('seasons', { onChanged: refreshAll });
 
   const openCreate = () => {
     setEditingSeason(null);
@@ -152,6 +168,18 @@ export const TemporadasView: React.FC = () => {
         </div>
       )}
 
+      <MasterDepurationLayer
+        kindLabel="la temporada"
+        kindPlural="temporadas"
+        depuration={depuration}
+        candidates={seasons.filter((s) => s.id !== depuration.merging?.id)}
+      />
+      {depuration.error && !depuration.deleting && !depuration.merging && (
+        <div role="alert" className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+          {depuration.error}
+        </div>
+      )}
+
       {/* Contenido */}
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
@@ -167,10 +195,13 @@ export const TemporadasView: React.FC = () => {
               season={season}
               production={production[season.id]}
               isBusy={busySeasonId === season.id}
+              canMerge={seasons.length > 1}
               onEdit={() => openEdit(season)}
               onActivate={() => void activate(season)}
               onClose={() => void close(season)}
               onReopen={() => void reopen(season)}
+              onMerge={() => depuration.askMerge(season)}
+              onDelete={() => depuration.askDelete(season)}
             />
           ))}
         </div>
@@ -220,10 +251,14 @@ interface SeasonCardProps {
   /** P-021 — producción agregada de la campaña. `undefined` si no se pudo calcular. */
   production?: { kg: number; harvests: number };
   isBusy: boolean;
+  /** Fusionar solo tiene sentido si hay otra campaña con la que hacerlo. */
+  canMerge: boolean;
   onEdit: () => void;
   onActivate: () => void;
   onClose: () => void;
   onReopen: () => void;
+  onMerge: () => void;
+  onDelete: () => void;
 }
 
 const STATUS_BADGE: Record<Season['status'], string> = {
@@ -236,10 +271,13 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
   season,
   production,
   isBusy,
+  canMerge,
   onEdit,
   onActivate,
   onClose,
   onReopen,
+  onMerge,
+  onDelete,
 }) => {
   const range = season.end_date
     ? `${fechaDeNegocio(season.start_date, { dia: '2-digit' })} — ${fechaDeNegocio(season.end_date, { dia: '2-digit' })}`
@@ -340,6 +378,32 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
           <span className="material-symbols-outlined text-sm" aria-hidden="true">edit</span>
           Editar
         </button>
+
+        {/* MVP-806 — Fusionar dos campañas duplicadas (P-041). */}
+        {canMerge && (
+          <button
+            onClick={onMerge}
+            disabled={isBusy}
+            title="Fusionar con otra temporada"
+            aria-label={`Fusionar ${season.name} con otra temporada`}
+            className="p-2 rounded-lg text-[#76786b] hover:bg-[#f0ede8] hover:text-[#33450d] disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined text-lg" aria-hidden="true">merge</span>
+          </button>
+        )}
+
+        {/* CA-2 — Solo con «sin uso» confirmado por el servidor (`usage_count === 0`). */}
+        {isDeletable(season) && (
+          <button
+            onClick={onDelete}
+            disabled={isBusy}
+            title="Eliminar"
+            aria-label={`Eliminar ${season.name}`}
+            className="p-2 rounded-lg text-[#76786b] hover:bg-red-50 hover:text-[#ba1a1a] disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined text-lg" aria-hidden="true">delete</span>
+          </button>
+        )}
       </div>
     </div>
   );

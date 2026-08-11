@@ -34,6 +34,14 @@ export interface Activity {
   created_at: string;
   updated_at: string;
   /**
+   * MVP-804 (`RU-21`) — Quién apuntó la labor. **No es `worker_name`**: el responsable es quien la
+   * hizo en el campo y puede no tener cuenta; esto es quien la registró en la aplicación.
+   * «Cuenta eliminada» cuando la cuenta ya no nombra a nadie (`RN-041`, `MVP-505`).
+   */
+  created_by_name: string;
+  /** MVP-804 — Quién hizo la **última** corrección. No hay histórico: `RU-21` lo excluye. */
+  updated_by_name: string;
+  /**
    * MVP-302 — Qué pasó en el catálogo cuando se pidió guardar la tarea escrita a mano. `null` en las
    * lecturas y cuando no se pidió.
    */

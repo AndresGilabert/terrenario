@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { useApiClient } from '../../contexts/ApiContext';
 import { useSeason } from '../../contexts/SeasonContext';
 import { useSeasonScope } from '../../lib/season-scope';
+import { FILTER_ALL, useListUrlState } from '../../lib/list-url-state';
 import { ALL_SEASONS } from '../../types/season.types';
 import { createHarvestService } from '../../services/harvest.service';
 import { createPlotService } from '../../services/plot.service';
@@ -18,9 +19,24 @@ import {
 import type { Plot } from '../../types/plot.types';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { MobileDisclosure } from '../common/MobileDisclosure';
+import { RecordCard, RecordCardList } from '../common/RecordCard';
+import { useIsWide } from '../../lib/use-media-query';
 import { SummaryStrip } from '../common/SummaryStrip';
 import { HarvestFormModal } from './HarvestFormModal';
 import { fechaDeNegocio } from '../../lib/fechas';
+
+/**
+ * MVP-802 — Los filtros de Cosechas en la URL (RN-007). Los nombres coinciden con los de la API para
+ * que la dirección se lea sola. La temporada tiene `''` por defecto y no `todos`: desde `MVP-701` el
+ * defecto lo resuelve el servidor (RN-008), y `all` es una elección explícita con valor propio.
+ */
+const HARVEST_URL_SPEC = {
+  filters: {
+    plotId: { param: 'plot_id', fallback: FILTER_ALL },
+    seasonSelection: { param: 'season_id', fallback: '' },
+    destination: { param: 'destination', fallback: FILTER_ALL },
+  },
+} as const;
 
 /** Formato de fecha corto y legible, sin depender del locale del navegador. */
 const number = (value: number, decimals = 0) =>
@@ -52,20 +68,45 @@ export const CosechasView: React.FC = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const [plotFilter, setPlotFilter] = useState('todos');
+  /**
+   * MVP-802 (`P-109`) — Los tres filtros viven en la **URL** (RN-007), con la misma pieza que el
+   * diario. Hasta aquí su estado vivía en memoria: filtrar por «Campaña 2026» pasaba la tabla de 1 a 4
+   * filas sin que la dirección cambiara, así que recargar deshacía el trabajo y no había forma de
+   * mandarle a nadie «mira estas partidas».
+   */
+  const url = useListUrlState(HARVEST_URL_SPEC);
+  const { setFilter } = url;
+  const plotFilter = url.values.plotId;
+  const destinationFilter = url.values.destination;
+
   // MVP-701 (`P-082`) — El ámbito de temporada ya no arranca en «todas»: lo resuelve el servidor con
   // el defecto de RN-008. Era la causa de que esta pantalla y la Visión General dieran totales
   // distintos de la misma campaña.
-  const seasonScope = useSeasonScope();
+  //
+  // MVP-802 — Y desde que la elección vive en la URL, el hook va en **modo controlado**: si la guardara
+  // también él, habría dos copias de lo mismo y podrían divergir.
+  const seasonScope = useSeasonScope({
+    selection: url.values.seasonSelection,
+    onSelect: useCallback((value: string) => setFilter({ seasonSelection: value }), [setFilter]),
+    // MVP-801 (`P-108`) — Un `season_id` que el servidor no ha podido aplicar se borra **sustituyendo**
+    // la entrada: corregirlo no es navegar. Sin esto, llevar el filtro a la URL propagaría a esta vista
+    // el defecto que `MVP-801` acaba de cerrar (CA-5).
+    onCorrect: useCallback(
+      (value: string) => setFilter({ seasonSelection: value }, { replace: true }),
+      [setFilter]
+    ),
+  });
   // Desestructurado para que las dependencias de `reload` sean identificadores estables y la regla de
   // exhaustividad de los hooks pueda comprobarlas.
   const { requested: seasonRequested, applyFromResponse: applySeasonScope } = seasonScope;
-  const [destinationFilter, setDestinationFilter] = useState('todos');
 
   const [isModalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Harvest | null>(null);
   const [isSubmitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // MVP-803 — Por encima de `lg:` la tabla cabe; por debajo, la lista se lee como tarjetas.
+  const isWide = useIsWide();
 
   const [pendingDelete, setPendingDelete] = useState<Harvest | null>(null);
   const [isDeleting, setDeleting] = useState(false);
@@ -144,6 +185,12 @@ export const CosechasView: React.FC = () => {
     setModalOpen(true);
   };
 
+  /** RN-037 — el borrado exige confirmación explícita, tanto desde la tabla como desde la tarjeta. */
+  const askDelete = (harvest: Harvest) => {
+    setDeleteError(null);
+    setPendingDelete(harvest);
+  };
+
   const handleSubmit = async (payload: CreateHarvestPayload) => {
     setSubmitting(true);
     setFormError(null);
@@ -206,13 +253,10 @@ export const CosechasView: React.FC = () => {
     }
   };
 
-  const hasFilters =
-    plotFilter !== 'todos' || seasonScope.isExplicit || destinationFilter !== 'todos';
+  // MVP-802 — Los cuenta la pieza común: son los mismos que hay escritos en la URL, así que contarlos
+  // aparte sería una segunda verdad sobre lo mismo.
   // MVP-702 — Con los filtros plegados en móvil, el número es lo que evita no saber que hay puestos.
-  const activeFilterCount =
-    (plotFilter !== 'todos' ? 1 : 0) +
-    (seasonScope.isExplicit ? 1 : 0) +
-    (destinationFilter !== 'todos' ? 1 : 0);
+  const { hasFilters, activeCount: activeFilterCount } = url;
 
   return (
     <div className="space-y-6 pb-12">
@@ -290,7 +334,7 @@ export const CosechasView: React.FC = () => {
             <select
               id="harvest-filter-plot"
               value={plotFilter}
-              onChange={(e) => setPlotFilter(e.target.value)}
+              onChange={(e) => setFilter({ plotId: e.target.value })}
               className="w-full px-3 py-2 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-xs font-medium text-[#1c1c19] focus:outline-none focus:border-[#33450d]"
             >
               <option value="todos">Todos los terrenos</option>
@@ -323,7 +367,7 @@ export const CosechasView: React.FC = () => {
             <select
               id="harvest-filter-destination"
               value={destinationFilter}
-              onChange={(e) => setDestinationFilter(e.target.value)}
+              onChange={(e) => setFilter({ destination: e.target.value })}
               className="w-full px-3 py-2 bg-[#f6f3ee] border border-[#c6c8b8] rounded-xl text-xs font-medium text-[#1c1c19] focus:outline-none focus:border-[#33450d]"
             >
               <option value="todos">Todos los destinos</option>
@@ -375,6 +419,98 @@ export const CosechasView: React.FC = () => {
         ) : (
           <EmptyHarvests canRegister={missingMasters.length === 0} onRegister={openCreate} />
         )
+      ) : !isWide ? (
+        /* MVP-803 (`P-095`) — Por debajo de `lg:` la tabla de ocho columnas no cabe: mide ~897 px y
+           el contenido tiene 341 (móvil) o 704 (tableta). Se lee como tarjeta, igual que el diario y
+           que los maestros. Se elige **un** árbol con una media query en vez de pintar los dos y
+           ocultar uno: pintar los dos metería en el DOM dos juegos de botones de corregir y eliminar
+           por partida, con la misma etiqueta accesible. */
+        <RecordCardList label="Partidas recolectadas">
+          {harvests.map((harvest) => (
+            <RecordCard
+              key={harvest.id}
+              title={harvest.plot_name}
+              subtitle={`${fechaDeNegocio(harvest.date)} · ${harvest.season_name}`}
+              badges={
+                harvest.is_out_of_season_range ? (
+                  <span
+                    title="La fecha queda fuera del rango de la temporada"
+                    className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#fff6e5] text-[#8a5a00] border border-[#f0d9a8]"
+                  >
+                    FUERA DE TEMPORADA
+                  </span>
+                ) : undefined
+              }
+              highlight={
+                <>
+                  <span className="block font-extrabold text-base text-[#1c1c19]">
+                    {number(harvest.kgs)} kg
+                  </span>
+                  <span className="block text-[11px] text-[#76786b]">
+                    {harvestProductLabel(harvest.product)}
+                  </span>
+                </>
+              }
+              fields={[
+                {
+                  label: 'Aceite',
+                  value:
+                    harvest.effective_yield !== null ? (
+                      <>
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded-full font-bold ${
+                            harvest.yield_source === 'informado'
+                              ? 'bg-[#c9f16f] text-[#33450d]'
+                              : 'bg-[#f0ede8] text-[#45483c]'
+                          }`}
+                        >
+                          {number(harvest.effective_yield, 1)} L/100kg
+                        </span>
+                        {harvest.yield_source === 'calculado' && (
+                          <span className="block text-[10px] text-[#76786b] mt-0.5">
+                            de {number(harvest.liters ?? 0, 1)} L
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-[#a2a496] italic">Sin dato</span>
+                    ),
+                },
+                {
+                  label: 'Importe',
+                  value:
+                    harvest.amount !== null ? (
+                      <>
+                        <span className="font-extrabold text-[#33450d]">
+                          {number(harvest.amount, 2)} €
+                        </span>
+                        <span className="block text-[10px] text-[#76786b]">
+                          {number(harvest.unit_price ?? 0, 2)} €/kg
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-[#a2a496] italic">Sin dato</span>
+                    ),
+                },
+                {
+                  label: 'Destino',
+                  value: (
+                    <span
+                      className={
+                        harvest.destination === 'desconocido'
+                          ? 'text-[#76786b] italic'
+                          : 'font-semibold'
+                      }
+                    >
+                      {harvestDestinationLabel(harvest.destination)}
+                    </span>
+                  ),
+                },
+              ]}
+              actions={<HarvestActions harvest={harvest} onEdit={openEdit} onDelete={askDelete} />}
+            />
+          ))}
+        </RecordCardList>
       ) : (
         <div className="bg-white rounded-2xl border border-[#e5e2dd] ambient-shadow overflow-hidden">
           <div className="overflow-x-auto">
@@ -466,27 +602,7 @@ export const CosechasView: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-5 py-4 text-right whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={() => openEdit(harvest)}
-                        title="Corregir cosecha"
-                        aria-label={`Corregir la cosecha de ${harvest.plot_name} del ${fechaDeNegocio(harvest.date)}`}
-                        className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#f0ede8] hover:text-[#33450d] transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-base" aria-hidden="true">edit</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDeleteError(null);
-                          setPendingDelete(harvest);
-                        }}
-                        title="Eliminar cosecha"
-                        aria-label={`Eliminar la cosecha de ${harvest.plot_name} del ${fechaDeNegocio(harvest.date)}`}
-                        className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#ffdad6]/60 hover:text-[#ba1a1a] transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-base" aria-hidden="true">delete</span>
-                      </button>
+                      <HarvestActions harvest={harvest} onEdit={openEdit} onDelete={askDelete} />
                     </td>
                   </tr>
                 ))}
@@ -538,6 +654,41 @@ export const CosechasView: React.FC = () => {
         onConfirm={() => void confirmDelete()}
       />
     </div>
+  );
+};
+
+/**
+ * MVP-803 (CA-4) — Corregir y eliminar una partida, con **la misma etiqueta accesible** en la tabla y
+ * en la tarjeta. Se extraen a un componente justamente para eso: dos copias del mismo par de botones
+ * son dos sitios donde la etiqueta puede dejar de nombrar la partida a la que apunta.
+ */
+const HarvestActions: React.FC<{
+  harvest: Harvest;
+  onEdit: (harvest: Harvest) => void;
+  onDelete: (harvest: Harvest) => void;
+}> = ({ harvest, onEdit, onDelete }) => {
+  const nombre = `la cosecha de ${harvest.plot_name} del ${fechaDeNegocio(harvest.date)}`;
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => onEdit(harvest)}
+        title="Corregir cosecha"
+        aria-label={`Corregir ${nombre}`}
+        className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#f0ede8] hover:text-[#33450d] transition-colors"
+      >
+        <span className="material-symbols-outlined text-base" aria-hidden="true">edit</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => onDelete(harvest)}
+        title="Eliminar cosecha"
+        aria-label={`Eliminar ${nombre}`}
+        className="p-1.5 rounded-lg text-[#76786b] hover:bg-[#ffdad6]/60 hover:text-[#ba1a1a] transition-colors"
+      >
+        <span className="material-symbols-outlined text-base" aria-hidden="true">delete</span>
+      </button>
+    </>
   );
 };
 

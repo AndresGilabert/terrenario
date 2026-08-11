@@ -1,3 +1,5 @@
+using Terrenario.Api.Domain.Operations;
+
 namespace Terrenario.Api.Domain.Purchases;
 
 /// <summary>
@@ -43,6 +45,10 @@ public sealed record PurchaseFilter(
 /// <summary>
 /// Vista de lectura de una compra con el nombre de su temporada y el aviso de fecha fuera de rango
 /// resueltos, para que el libro de compras y el diario no tengan que pedir el maestro.
+///
+/// MVP-804 — Resuelve también <b>quién</b> apuntó el gasto y quién lo corrigió por última vez
+/// (<see cref="IAuthoredRecord"/>). La compra no tiene lectura por id: el modal de corrección se abre
+/// con la fila del listado, así que la autoría tiene que venir en esta proyección o no llega.
 /// </summary>
 public sealed record PurchaseView(
     Guid Id,
@@ -58,7 +64,11 @@ public sealed record PurchaseView(
     decimal UnitPrice,
     long Version,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt)
+    DateTimeOffset UpdatedAt,
+    /// <summary>MVP-804 — Nombre de quien apuntó la compra; <c>null</c> si su cuenta ya no nombra a nadie.</summary>
+    string? CreatedByAccountName = null,
+    /// <summary>MVP-804 — Nombre de quien hizo la última corrección, con el mismo criterio.</summary>
+    string? UpdatedByAccountName = null) : IAuthoredRecord
 {
     /// <summary>RN-023 — aviso no bloqueante de fecha fuera del rango de la temporada, igual que en la actividad.</summary>
     public bool IsOutOfSeasonRange =>

@@ -99,16 +99,32 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   }, [isAuthenticated, isAuthLoading, loadWorkspaces]);
 
   /**
+   * El Workspace activo del último render. Es lo que permite comparar «el de antes» con «el nuevo»
+   * **fuera** del updater de `setState`; ver `applyActiveWorkspace`.
+   */
+  const activeWorkspaceIdRef = useRef<string | null>(null);
+  activeWorkspaceIdRef.current = activeWorkspace?.id ?? null;
+
+  /**
    * MVP-701 — Fija el Workspace activo e invalida los datos cargados **solo si de verdad ha
    * cambiado**. Renombrar (MVP-206) resincroniza el contexto sin cambiar de Workspace: remontar el
    * área operativa por un cambio de nombre sería recargarlo todo para nada.
+   *
+   * MVP-811 (`P-116`) — La comparación se hacía **dentro del updater** de `setActiveWorkspace`, y ese
+   * updater lo ejecuta React en fase de render: `invalidateScope()` resultaba en un `setState` sobre
+   * otro componente durante el render, y la consola avisaba en **cada** entrada a `/app`. No rompía
+   * nada visible —`scopeVersion` es solo una clave de remontaje—, pero en `StrictMode` el updater
+   * corre dos veces y en versiones posteriores de React esto escala de aviso a fallo. Y lo que
+   * sostiene es el mecanismo que corrigió `P-081`: los datos cruzados entre Workspaces.
+   *
+   * La corrección es sacar la comparación del updater, no mover la invalidación a un efecto: un
+   * efecto que mirase `activeWorkspace?.id` también se dispararía en la **primera** resolución —de «no
+   * hay» a «este»—, que es justo lo que `DataScopeContext` explica que no debe remontar nada.
    */
   const applyActiveWorkspace = useCallback(
     (next: Workspace | null) => {
-      setActiveWorkspace((previous) => {
-        if (previous?.id !== next?.id) invalidateScope();
-        return next;
-      });
+      if (activeWorkspaceIdRef.current !== (next?.id ?? null)) invalidateScope();
+      setActiveWorkspace(next);
     },
     [invalidateScope]
   );

@@ -13,6 +13,7 @@ using Terrenario.Api.Application.Feedback;
 using Terrenario.Api.Application.Diary;
 using Terrenario.Api.Application.Harvests;
 using Terrenario.Api.Application.Invitations;
+using Terrenario.Api.Application.Masters;
 using Terrenario.Api.Application.Materials;
 using Terrenario.Api.Application.Plots;
 using Terrenario.Api.Application.Purchases;
@@ -27,6 +28,7 @@ using Terrenario.Api.Domain.Activities;
 using Terrenario.Api.Domain.Consumptions;
 using Terrenario.Api.Domain.Diary;
 using Terrenario.Api.Domain.Harvests;
+using Terrenario.Api.Domain.Masters;
 using Terrenario.Api.Domain.Materials;
 using Terrenario.Api.Domain.Plots;
 using Terrenario.Api.Domain.Purchases;
@@ -232,6 +234,14 @@ builder.Services.AddScoped<UpdateHarvestHandler>();
 builder.Services.AddScoped<DeleteHarvestHandler>();
 builder.Services.AddScoped<ListHarvestsHandler>();
 builder.Services.AddScoped<GetHarvestHandler>();
+builder.Services.AddScoped<FindHarvestDuplicatesHandler>();
+// MVP-806 — Depuración de los cuatro maestros: borrado de lo nunca usado y fusión de duplicados. Un
+// solo puerto para los cuatro, porque la parte delicada —comprobar el uso contra TODAS las entidades
+// que pueden referenciar la ficha— es la misma operación y solo cambia la lista de referencias.
+builder.Services.AddScoped<IMasterRepository, MasterRepository>();
+builder.Services.AddScoped<MasterUsageService>();
+builder.Services.AddScoped<DeleteMasterHandler>();
+builder.Services.AddScoped<MergeMastersHandler>();
 // MVP-701 — Defecto de temporada de RN-008 en un único punto, compartido por diario, cosechas y
 // compras. Antes cada vista arrancaba en «todas» por su cuenta y el dashboard resolvía el defecto en
 // servidor: dos pantallas respondían distinto a «cuánto llevo esta campaña» (`P-082`).
@@ -256,6 +266,7 @@ builder.Services.AddScoped<RenameWorkspaceHandler>();
 builder.Services.AddScoped<GetWorkspaceClosureOptionsHandler>();
 builder.Services.AddScoped<CloseWorkspaceHandler>();
 builder.Services.AddScoped<TransferWorkspaceOwnershipHandler>();
+builder.Services.AddScoped<LeaveWorkspaceHandler>();
 builder.Services.AddScoped<WorkspaceOwnershipGuard>();
 builder.Services.AddScoped<PreviewReactivationHandler>();
 builder.Services.AddScoped<RequestReactivationHandler>();
@@ -330,6 +341,9 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers(options =>
 {
     options.Filters.Add<WorkspaceAccessExceptionFilter>();
+    // MVP-806 — Lo que impide depurar un maestro se traduce igual en los cuatro: 422 con su código de
+    // regla, 400 si la ficha del cuerpo no existe y 409 si la fusión pisó una edición ajena.
+    options.Filters.Add<MasterDepurationExceptionFilter>();
     // Un cuerpo que el cliente envió mal codificado es un 400, no un 500 (MVP-502, P-027).
     options.Filters.Add<InvalidRequestBodyFilter>();
 });
@@ -429,7 +443,28 @@ app.MapFallback(async context =>
 {
     if (context.Request.Path.StartsWithSegments("/api"))
     {
+        // MVP-811 (`P-117`) — `contratos-api.md` dice que las respuestas de error son **siempre** JSON
+        // con `{ error: { code, message } }`. Este borde respondía `404` con el cuerpo vacío y sin
+        // `Content-Type`, así que un cliente que lee el error para saber qué ha pasado se encontraba
+        // nada. Los 404 de dominio sí cumplían: la excepción era el transporte, igual que `P-027` y
+        // `P-043`, que `MVP-502` cerró en este mismo borde.
+        //
+        // Aquí caen tres cosas a la vez, y las tres se benefician del mismo envoltorio: una ruta que no
+        // existe, un **método no permitido** sobre una que sí (`DELETE /api/v1/seasons`) y un parámetro
+        // de ruta que no cumple su restricción (`/api/v1/plots/no-es-un-guid`). Las tres siguen
+        // respondiendo `404` —no se introduce un `405` que el contrato no declara—: lo que cambia es
+        // que ahora **dicen** algo.
+        //
+        // Se escribe a mano y no con un `Results`: aquí no hay endpoint, así que no hay resultado de
+        // acción que ejecutar. El envoltorio es el mismo tipo que usan los controladores, así que el
+        // contrato no se duplica.
         context.Response.StatusCode = StatusCodes.Status404NotFound;
+        context.Response.ContentType = "application/json; charset=utf-8";
+        await context.Response.WriteAsJsonAsync(
+            new ApiErrorResponse(new ApiError(
+                ErrorCodes.ResourceNotFound,
+                "El recurso solicitado no existe en esta API.")),
+            context.RequestAborted);
         return;
     }
 

@@ -42,6 +42,14 @@ public sealed record DashboardScope(
 /// <b>Un terreno inactivo sí cuenta si se pide explícitamente.</b> Inactivar deja de ofrecer para
 /// registros nuevos (MVP-202, CA-3), no borra el histórico: excluir su producción al mirar una campaña
 /// pasada falsearía los totales.
+///
+/// <b>MVP-801 (<c>P-107</c>) — descartar en silencio no basta cuando no queda nada.</b> Un ámbito
+/// pedido entero desde otro Workspace se resolvía en «ninguna temporada y ningún terreno», y la Visión
+/// General pintaba el estado vacío de RN-021 —«crea o activa una temporada»— mientras el selector de al
+/// lado listaba las tres que el Workspace sí tiene. La caída al defecto que ya aplicaban el diario, las
+/// cosechas y las compras (<see cref="Terrenario.Api.Application.Seasons.SeasonScopeResolver"/>) rige
+/// aquí también: un filtro
+/// heredado no puede vaciar la pantalla insignia del producto.
 /// </summary>
 public sealed class DashboardScopeResolver(
     ISeasonRepository seasonRepository,
@@ -53,15 +61,27 @@ public sealed class DashboardScopeResolver(
         DashboardRequest request,
         CancellationToken ct = default)
     {
-        var season = request.SeasonId is { } seasonId
+        var requestedSeason = request.SeasonId is { } seasonId
             ? await seasonRepository.FindByIdAsync(workspaceId, seasonId, ct)
-            : await seasonRepository.FindWorkingSeasonAsync(userId, workspaceId, ct);
+            : null;
+
+        // RN-008 — sin temporada pedida, o pedida una que no es de este Workspace, la de trabajo del
+        // usuario (MVP-209). `null` solo si el Workspace todavía no tiene ninguna, que es el único caso
+        // en que la pantalla debe pedir que se cree.
+        var season = requestedSeason
+            ?? await seasonRepository.FindWorkingSeasonAsync(userId, workspaceId, ct);
 
         var all = await plotRepository.ListByWorkspaceAsync(workspaceId, null, null, ct);
 
-        var plots = request.PlotIds is { Count: > 0 } requested
+        var requestedPlots = request.PlotIds is { Count: > 0 } requested
             ? all.Where(plot => requested.Contains(plot.Id)).ToList()
-            // RN-008 — por defecto, todos los terrenos **activos**.
+            : [];
+
+        var plots = requestedPlots.Count > 0
+            ? requestedPlots
+            // RN-008 — por defecto, todos los terrenos **activos**. También cuando lo pedido no dejó
+            // ninguno: una selección que resulta vacía es un filtro obsoleto, no la petición de un
+            // resumen de cero terrenos.
             : all.Where(plot => plot.IsActive).ToList();
 
         return new DashboardScope(season, plots);

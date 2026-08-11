@@ -217,4 +217,70 @@ public sealed class TransportValidationTests : IAsyncLifetime
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
+
+    // ── MVP-811 · `P-117` — El 404 de **enrutado** también respeta el contrato ────────────────
+
+    /// <summary>
+    /// MVP-811 (`P-117`, CA-3) — <c>contratos-api.md</c> dice que las respuestas de error son
+    /// <b>siempre</b> JSON con <c>{ error: { code, message } }</c>, y este borde respondía con el
+    /// cuerpo vacío y sin <c>Content-Type</c>. Es el mismo borde de transporte que esta historia cerró
+    /// para <c>P-027</c> y <c>P-043</c>, con la diferencia de que aquí no llega a haber endpoint.
+    ///
+    /// Los tres casos caen en el mismo sitio: ruta inexistente, método no permitido sobre una ruta que
+    /// sí existe, y parámetro de ruta que no cumple su restricción.
+    /// </summary>
+    [Theory]
+    [InlineData("GET", "/api/v1/noexiste")]
+    [InlineData("DELETE", "/api/v1/seasons")]
+    [InlineData("GET", "/api/v1/plots/no-es-un-guid")]
+    public async Task Deberia_ResponderConElEnvoltorioCanonico_Cuando_LaRutaNoExiste(
+        string metodo, string ruta)
+    {
+        var response = metodo == "DELETE"
+            ? await _session.DeleteAsync(ruta)
+            : await _session.GetAsync(ruta);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("application/json");
+
+        var (code, message) = await ErrorOf(response);
+        code.Should().Be("RESOURCE_NOT_FOUND");
+        message.Should().NotBeNullOrWhiteSpace();
+    }
+
+    /// <summary>
+    /// MVP-811 (CA-3) — Y los 404 de <b>dominio</b> siguen respondiendo exactamente igual que antes:
+    /// el arreglo del borde no puede llevarse por delante el mensaje concreto de «esa temporada no
+    /// existe en tu Workspace», que es el que sirve para algo.
+    /// </summary>
+    [Fact]
+    public async Task NoDeberia_CambiarLos404DeDominio()
+    {
+        // `PATCH` sobre una temporada que no existe: la ruta **sí** existe, así que llega al
+        // controlador y responde su error de dominio.
+        var response = await _session.PatchAsync(
+            $"/api/v1/seasons/{Guid.NewGuid()}", new { name = "Campaña 2030/31" }, ifMatch: 1);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        var (code, message) = await ErrorOf(response);
+
+        code.Should().Be("SEASON_NOT_FOUND");
+        message.Should().NotBe("El recurso solicitado no existe en esta API.");
+    }
+
+    /// <summary>
+    /// La ruta del cliente no cambia: <c>/app/diario</c> no es un endpoint y debe seguir devolviendo el
+    /// <c>index.html</c> del SPA, no un error JSON. Sin esta guarda, «que todo error sea JSON» podría
+    /// aplicarse de más y romper la recarga de cualquier pantalla.
+    /// </summary>
+    [Fact]
+    public async Task NoDeberia_DevolverJson_Cuando_LaRutaEsDelCliente()
+    {
+        var response = await _session.GetAsync("/app/diario");
+
+        // En el arnés no hay `wwwroot`, así que la respuesta es 404 —estado legítimo documentado en
+        // `Program.cs`—; lo que se comprueba es que **no** se le aplica el envoltorio de la API.
+        response.Content.Headers.ContentType?.MediaType.Should().NotBe("application/json");
+        (await response.Content.ReadAsStringAsync()).Should().NotContain("RESOURCE_NOT_FOUND");
+    }
 }

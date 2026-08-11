@@ -189,6 +189,38 @@ public sealed class Harvest
     }
 
     /// <summary>
+    /// MVP-806 — Reapunta el terreno al superviviente de una fusión de maestros. No revalida el resto
+    /// del registro: lo único que cambia es la clave ajena. <b>Sí mueve la versión</b>, que es lo que
+    /// hace que una edición simultánea reciba <c>409</c> en vez de quedar pisada (ADR-0005).
+    /// </summary>
+    public void ReassignPlot(Guid plotId, Guid userId)
+    {
+        EnsureLink(plotId);
+        if (PlotId == plotId) return;
+
+        PlotId = plotId;
+        Touch(userId);
+    }
+
+    /// <summary>MVP-806 — Reapunta la temporada al superviviente de una fusión. Ver <see cref="ReassignPlot"/>.</summary>
+    public void ReassignSeason(Guid seasonId, Guid userId)
+    {
+        EnsureLink(seasonId);
+        if (SeasonId == seasonId) return;
+
+        SeasonId = seasonId;
+        Touch(userId);
+    }
+
+    private static void EnsureLink(Guid replacement)
+    {
+        if (replacement == Guid.Empty)
+            throw new HarvestValidationException(
+                ErrorCodes.ValidationHarvestRequiredFields,
+                "La cosecha necesita terreno y temporada.");
+    }
+
+    /// <summary>
     /// Comprueba que la versión que trae el cliente es la vigente (ADR-0005). Se llama <b>antes</b> de
     /// mutar nada: el conflicto no debe dejar el agregado a medias.
     /// </summary>

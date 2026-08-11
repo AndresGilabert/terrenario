@@ -154,6 +154,38 @@ public sealed class PurchaseConsumption
         Touch(userId);
     }
 
+    /// <summary>
+    /// MVP-806 — Reapunta el terreno al superviviente de una fusión de maestros. Los consumos son la
+    /// referencia que el spec señala como fácil de olvidar: el terreno también se referencia desde
+    /// aquí, no solo desde actividades y cosechas. <b>Sí mueve la versión</b> (ADR-0005).
+    /// </summary>
+    public void ReassignPlot(Guid plotId, Guid userId)
+    {
+        EnsureLink(plotId);
+        if (PlotId == plotId) return;
+
+        PlotId = plotId;
+        Touch(userId);
+    }
+
+    /// <summary>MVP-806 — Reapunta la temporada al superviviente de una fusión. Ver <see cref="ReassignPlot"/>.</summary>
+    public void ReassignSeason(Guid seasonId, Guid userId)
+    {
+        EnsureLink(seasonId);
+        if (SeasonId == seasonId) return;
+
+        SeasonId = seasonId;
+        Touch(userId);
+    }
+
+    private static void EnsureLink(Guid replacement)
+    {
+        if (replacement == Guid.Empty)
+            throw new ConsumptionValidationException(
+                ErrorCodes.ValidationConsumptionRequiredFields,
+                "El consumo necesita terreno y temporada.");
+    }
+
     /// <summary>Comprueba la versión de <c>If-Match</c> antes de mutar nada (ADR-0005).</summary>
     public void EnsureVersion(long expectedVersion)
     {

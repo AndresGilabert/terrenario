@@ -10,6 +10,7 @@ import {
   type CreateActivityPayload,
 } from '../../types/activity.types';
 import { Modal } from '../common/Modal';
+import { RecordAuthorship } from '../common/RecordAuthorship';
 
 /** Valor centinela del selector de tarea para «escribirla a mano» (RN-025). */
 const FREE_TEXT_TASK = '__free__';
@@ -434,6 +435,11 @@ export const ActivityFormModal: React.FC<ActivityFormModalProps> = ({
             <span className="material-symbols-outlined text-sm" aria-hidden="true">check</span>
           </button>
         </div>
+
+        {/* MVP-804 (`RU-21`) — Quién lo apuntó y quién lo corrigió por última vez. Va al pie del
+            formulario, después de los botones: es información de apoyo para aclarar una discrepancia
+            (`RN-034`), no un campo de captura. En el alta no hay nada que contar todavía. */}
+        {activity && <RecordAuthorship record={activity} />}
       </form>
     </Modal>
   );

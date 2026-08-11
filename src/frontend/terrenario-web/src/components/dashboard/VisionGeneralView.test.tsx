@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VisionGeneralView } from './VisionGeneralView';
 import { createFakeHttpClient, type FakeHttpClient } from '../../test/http';
@@ -313,5 +313,84 @@ describe('VisionGeneralView — señales de uso', () => {
     renderWith({}, { fallan: ['summary'] });
 
     expect(await screen.findByText(/Producción de Campaña 2025\/26/)).toBeInTheDocument();
+  });
+});
+
+/**
+ * MVP-801 (`P-107`/`P-108`) — Lo que la Visión General hace con un ámbito que **no es de este
+ * Workspace**. Es el escenario que produce cambiar de Workspace desde esta pantalla: la sesión se
+ * reemite y el área operativa se remonta, pero la dirección conserva la campaña y los terrenos del
+ * anterior.
+ *
+ * El servidor cae al defecto de RN-008 (lo fija la prueba de integración); aquí se comprueba la otra
+ * mitad, que es la que hacía que la pantalla **afirmara** un ámbito distinto del que se estaba viendo.
+ */
+describe('VisionGeneralView — ámbito heredado de otro Workspace', () => {
+  const renderAt = (search: string) => {
+    http = createFakeHttpClient({
+      // El servidor responde ya con el ámbito **aplicado**, que es el defecto: `s-1` y `p-1`.
+      '/api/v1/dashboard/summary': summary(3),
+      '/api/v1/dashboard/kg-by-destination': destinations(false),
+      '/api/v1/dashboard/kg-by-plot': kgByPlot(false),
+      '/api/v1/dashboard/yield-evolution': evolution(false),
+      '/api/v1/dashboard/economics': economics(),
+      '/api/v1/plots': { data: [{ id: 'p-1', name: 'La Vega', is_active: true }], meta: { total: 1 } },
+    });
+
+    const location: { search: string } = { search };
+    const Probe = () => {
+      location.search = useLocation().search;
+      return null;
+    };
+
+    render(
+      <MemoryRouter initialEntries={[`/app/vision-general${search}`]}>
+        <VisionGeneralView />
+        <Probe />
+      </MemoryRouter>
+    );
+
+    return location;
+  };
+
+  beforeEach(() => {
+    sessionStorage.clear();
+    logUsage.mockClear();
+  });
+
+  it('posiciona el filtro en la campaña que el servidor ha aplicado', async () => {
+    // `P-108` — antes el `<select>` daba por buena la selección de la URL; como ese identificador no
+    // está entre las opciones, el control caía en la primera y rotulaba otra cosa.
+    renderAt('?season_id=de-otro-workspace');
+
+    const filtro = await screen.findByLabelText('Temporada');
+    await waitFor(() => expect(filtro).toHaveValue('s-1'));
+  });
+
+  it('borra de la dirección la campaña que no se ha podido aplicar', async () => {
+    const location = renderAt('?season_id=de-otro-workspace');
+
+    await waitFor(() => expect(location.search).not.toContain('season_id'));
+  });
+
+  it('no toca la dirección cuando la campaña pedida es la que se aplica', async () => {
+    const location = renderAt('?season_id=s-1');
+
+    await screen.findByText(/Producción de Campaña 2025\/26/);
+    expect(location.search).toContain('season_id=s-1');
+  });
+
+  it('borra los terrenos que el servidor no ha podido aplicar', async () => {
+    // `P-107` — con terrenos de otro Workspace el ámbito quedaba en `plots: 0`. Con la caída al
+    // defecto el servidor devuelve todos los activos, y la URL debe dejar de pedir los que no son.
+    const location = renderAt('?plot_ids=de-otro-workspace');
+
+    await waitFor(() => expect(location.search).not.toContain('plot_ids'));
+  });
+
+  it('conserva los terrenos que sí son de este Workspace', async () => {
+    const location = renderAt('?plot_ids=p-1&plot_ids=de-otro-workspace');
+
+    await waitFor(() => expect(location.search).toBe('?plot_ids=p-1'));
   });
 });

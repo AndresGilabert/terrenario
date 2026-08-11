@@ -175,6 +175,68 @@ public sealed class Activity
     }
 
     /// <summary>
+    /// MVP-806 — Reapunta el terreno de la actividad al superviviente de una fusión de maestros. No es
+    /// una corrección del usuario, así que no pasa por <see cref="Update"/> ni revalida el resto del
+    /// registro: el único dato que cambia es la clave ajena, y todo lo demás ya era válido.
+    ///
+    /// <b>Sí mueve la versión</b> (<see cref="Touch"/>), y ahí está el sentido de hacerlo por el
+    /// agregado en vez de con un <c>UPDATE</c> masivo: quien tuviera abierta esta actividad recibe
+    /// <c>409</c> al guardar en lugar de reescribir con el terreno viejo (ADR-0005).
+    /// </summary>
+    public void ReassignPlot(Guid plotId, Guid userId)
+    {
+        EnsureLink(plotId);
+        if (PlotId == plotId) return;
+
+        PlotId = plotId;
+        Touch(userId);
+    }
+
+    /// <summary>MVP-806 — Reapunta la temporada al superviviente de una fusión. Ver <see cref="ReassignPlot"/>.</summary>
+    public void ReassignSeason(Guid seasonId, Guid userId)
+    {
+        EnsureLink(seasonId);
+        if (SeasonId == seasonId) return;
+
+        SeasonId = seasonId;
+        Touch(userId);
+    }
+
+    /// <summary>MVP-806 — Reapunta el responsable al superviviente de una fusión. Ver <see cref="ReassignPlot"/>.</summary>
+    public void ReassignWorker(Guid workerId, Guid userId)
+    {
+        EnsureLink(workerId);
+        if (WorkerId == workerId) return;
+
+        WorkerId = workerId;
+        Touch(userId);
+    }
+
+    /// <summary>
+    /// MVP-806 — Reapunta la tarea del catálogo al superviviente de una fusión. Solo aplica a las
+    /// actividades que traen <see cref="TaskId"/>: la tarea en texto libre (RN-025) no referencia al
+    /// catálogo y no participa de la fusión.
+    /// </summary>
+    public void ReassignTask(Guid taskId, Guid userId)
+    {
+        if (taskId == Guid.Empty)
+            throw new ActivityValidationException(
+                ErrorCodes.ValidationActivityTaskRequired, "La tarea del catálogo no es válida.");
+        if (TaskId is null || TaskId == taskId) return;
+
+        TaskId = taskId;
+        Touch(userId);
+    }
+
+    private static void EnsureLink(Guid replacement)
+    {
+        if (replacement == Guid.Empty)
+            throw new ActivityValidationException(
+                ErrorCodes.ValidationActivityRequiredFields,
+                "La actividad necesita terreno, temporada y responsable.");
+    }
+
+    /// <summary>
     /// Comprueba que la versión que trae el cliente es la vigente (ADR-0005). Se llama <b>antes</b> de
     /// mutar nada: el conflicto no debe dejar el agregado a medias.
     /// </summary>

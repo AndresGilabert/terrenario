@@ -16,6 +16,11 @@ export interface Plot {
   is_active: boolean;
   /** `true` si el terreno tiene número de árboles registrado (RN-010/RN-028). */
   has_tree_count: boolean;
+  /**
+   * MVP-806 (CA-2) — Cuántos registros la referencian. `null` significa **«no consultado»**, no
+   * «ninguno»: solo lo trae el listado. Es lo que decide si se ofrece «Eliminar».
+   */
+  usage_count: number | null;
 }
 
 /** Catálogo cerrado `plot_ownership_type` (MVP-202). */

@@ -19,6 +19,11 @@ export interface Season {
   is_working: boolean;
   /** Estado derivado informativo (planificada/abierta/cerrada). */
   status: SeasonStatus;
+  /**
+   * MVP-806 (CA-2) — Cuántos registros la referencian. `null` significa **«no consultado»**, no
+   * «ninguno»: solo lo trae el listado. Es lo que decide si se ofrece «Eliminar».
+   */
+  usage_count: number | null;
 }
 
 /** Estado informativo de la temporada (MVP-209). Derivado de `is_closed` + fechas en el backend. */

@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useApiClient } from '../../contexts/ApiContext';
+import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { createMemberService } from '../../services/member.service';
+import { createWorkspaceLifecycleService } from '../../services/workspace-lifecycle.service';
 import { HttpError } from '../../services/http-client';
 import type {
   ResendInvitationResult,
@@ -40,6 +42,8 @@ export const MiembrosView: React.FC = () => {
   const http = useApiClient();
   const navigate = useNavigate();
   const memberService = useMemo(() => createMemberService(http), [http]);
+  const lifecycle = useMemo(() => createWorkspaceLifecycleService(http), [http]);
+  const { activeWorkspace, refreshContext } = useWorkspace();
 
   const [people, setPeople] = useState<WorkspacePerson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,6 +54,10 @@ export const MiembrosView: React.FC = () => {
   const [confirmingCancel, setConfirmingCancel] = useState<string | null>(null);
   const [resendResults, setResendResults] = useState<Record<string, ResendInvitationResult>>({});
   const [copiedInvitationId, setCopiedInvitationId] = useState<string | null>(null);
+  // MVP-807 — Salida voluntaria del Workspace.
+  const [isConfirmingLeave, setConfirmingLeave] = useState(false);
+  const [isLeaving, setLeaving] = useState(false);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     setIsLoading(true);
@@ -84,6 +92,30 @@ export const MiembrosView: React.FC = () => {
       );
     } finally {
       setBusyId(null);
+    }
+  };
+
+  /**
+   * MVP-807 (HU-1, `P-048`) — Abandonar el Workspace.
+   *
+   * **Las guardas no se replican en el cliente.** Un propietario único y el último miembro activo no
+   * pueden irse, pero quién lo es lo decide el servidor —con la misma guarda que usa la baja de
+   * cuenta—, y su mensaje es el que se enseña. Adelantar aquí la condición sería una segunda copia de
+   * la regla, que es justo lo que produjo `P-049` en esta misma pantalla.
+   */
+  const leave = async () => {
+    setLeaving(true);
+    setLeaveError(null);
+    try {
+      await lifecycle.leave();
+      // El Workspace activo lo resuelve de nuevo el servidor: puede ser otro o ninguno.
+      await refreshContext();
+      navigate('/app', { replace: true });
+    } catch (error) {
+      setLeaveError(
+        error instanceof HttpError ? error.message : 'No se pudo abandonar el Workspace. Inténtalo de nuevo.'
+      );
+      setLeaving(false);
     }
   };
 
@@ -376,6 +408,66 @@ export const MiembrosView: React.FC = () => {
             );
           })}
         </ul>
+      )}
+
+      {/* MVP-807 (HU-1, `P-048`) — La salida voluntaria. Va al final y en su propio bloque, separada
+          de la lista: es una acción sobre uno mismo, no sobre otra persona, y mezclarla con las de la
+          lista la haría parecer una más de las que se ejercen sobre los demás.
+
+          Se ofrece siempre que haya Workspace activo. Quién puede irse lo decide el servidor: un
+          propietario único y el último miembro activo reciben su negativa con el motivo. */}
+      {activeWorkspace && (
+        <section className="bg-white rounded-2xl border border-[#f0caca] p-5 space-y-3">
+          <div>
+            <h3 className="font-headline font-bold text-base text-[#ba1a1a]">Abandonar este Workspace</h3>
+            <p className="text-xs text-[#76786b] mt-1">
+              Dejarás de ver «{activeWorkspace.name}» en tu selector y de aparecer como responsable
+              seleccionable. <strong>Lo que registraste no se borra</strong>: las labores, cosechas y
+              compras que apuntaste siguen ahí con tu nombre. Para volver a entrar necesitarás una
+              invitación nueva.
+            </p>
+          </div>
+
+          {leaveError && (
+            <p role="alert" className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl p-3">
+              {leaveError}
+            </p>
+          )}
+
+          {isConfirmingLeave ? (
+            <div className="flex items-center gap-2 flex-wrap text-xs">
+              <span className="text-[#45483c]">¿Seguro que quieres salir de «{activeWorkspace.name}»?</span>
+              <button
+                type="button"
+                onClick={() => void leave()}
+                disabled={isLeaving}
+                className="px-3 py-1.5 rounded-lg bg-[#ba1a1a] hover:bg-[#a01515] text-white font-semibold disabled:opacity-60"
+              >
+                {isLeaving ? 'Saliendo…' : 'Sí, abandonar'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmingLeave(false)}
+                disabled={isLeaving}
+                className="px-3 py-1.5 rounded-lg text-[#45483c] hover:bg-[#f0ede8] font-semibold"
+              >
+                Cancelar
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setConfirmingLeave(true);
+                setLeaveError(null);
+              }}
+              className="text-xs font-semibold text-[#ba1a1a] hover:underline flex items-center gap-1"
+            >
+              <span className="material-symbols-outlined text-base" aria-hidden="true">logout</span>
+              Abandonar este Workspace
+            </button>
+          )}
+        </section>
       )}
     </div>
   );

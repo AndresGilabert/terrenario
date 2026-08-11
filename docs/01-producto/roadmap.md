@@ -14,8 +14,9 @@ actualizado_en: "2026-08-10"
 ## Estado actual del producto
 
 **Versión en producción**: `v0.7.1-hito-g`, publicada el 2026-08-09 en `https://app.terrenario.com`
-**Estado de definición**: MVP entregado; hitos A a G cerrados
-**Próximo hito**: Hito H — Ajustes de la segunda revisión (épica `MVP-008`)
+**Preparada para publicar**: `v0.8.0-hito-h` (épica `MVP-008`, 12/12)
+**Estado de definición**: MVP entregado; hitos A a G cerrados y **Hito H cerrado en desarrollo**
+**Próximo hito**: Hito I — Resiliencia offline
 
 ---
 

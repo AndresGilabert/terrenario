@@ -2,7 +2,7 @@
 id: "MVP-008"
 tipo: epica
 titulo: "Ajustes MVP 02"
-estado: aprobado
+estado: completado
 prioridad: alta
 hito: "Hito H — Ajustes de la segunda revision"
 tickets: []
@@ -104,19 +104,35 @@ que el gate lo diga, igual que `P-096` hizo con el registro de puntos.
 
 ## Criterios de aceptación de la épica
 
-- [ ] **CA-1**: Todas las historias de la epica estan en estado `completado`.
-- [ ] **CA-2**: Cambiar de Workspace desde cualquier vista operativa deja las cuatro —diario, cosechas,
+> Veredicto de cierre en [`MVP-899`](./MVP-899--revision-epica/tech-design.md), medido contra el
+> sistema en marcha el 2026-08-11.
+
+- [x] **CA-1**: Todas las historias de la epica estan en estado `completado`.
+  Las once funcionales, mas `MVP-899`.
+- [x] **CA-2**: Cambiar de Workspace desde cualquier vista operativa deja las cuatro —diario, cosechas,
   compras y Vision General— mostrando el ambito del Workspace elegido, y ninguna afirma en pantalla un
   ambito distinto del que aplica. Verificado sobre el sistema en marcha con el escenario que produjo
   `P-107` y `P-108`: un `season_id` de otro Workspace en la URL.
-- [ ] **CA-3**: Un enlace a cualquiera de las cuatro vistas operativas reproduce los filtros que veia
+  Con el **mismo** identificador ajeno, los cuatro endpoints devuelven el mismo `scope.season`
+  («Campana 2025»), y en el navegador las cuatro vistas lo rotulan y **corrigen la direccion**. Con
+  `plot_ids` ajenos, el ambito cae en los 2 terrenos activos en vez de `plots: 0`.
+- [x] **CA-3**: Un enlace a cualquiera de las cuatro vistas operativas reproduce los filtros que veia
   quien lo comparte, y recargar no los pierde.
-- [ ] **CA-4**: El gate de KB **falla** si un requisito de usuario marcado «Estado: MVP» no tiene
+  Elegir «Campaña 2026» en Cosechas pasa la tabla de **1 a 4 filas** y la direccion lo recoge; abrirla
+  desde cero deja los controles posicionados. La mecanica vive en **una sola pieza**.
+- [x] **CA-4**: El gate de KB **falla** si un requisito de usuario marcado «Estado: MVP» no tiene
   destino declarado. Comprobado provocando el fallo, no solo leyendo la regla.
-- [ ] **CA-5**: La primera carga de la aplicacion baja de los 5,57 MB medidos, con el desglose antes y
+  Provocado de las **dos** formas de no tener destino, con la salida literal en el `tech-design.md` de
+  `MVP-899`. Sonda retirada y validador de nuevo en `0 errores`.
+- [x] **CA-5**: La primera carga de la aplicacion baja de los 5,57 MB medidos, con el desglose antes y
   despues.
-- [ ] **CA-6**: Ningun punto con destino `MVP-008` en el registro de `MVP-999` queda sin historia que lo
+  **4.591,4 kB → 881,1 kB** de primera carga (**−80,8 %**) y 5.593,1 → 1.227,2 kB en `dist/assets`,
+  con el desglose por tipo de recurso. Practicamente todo sale de los iconos: 3.776,0 → 74,2 kB.
+- [x] **CA-6**: Ningun punto con destino `MVP-008` en el registro de `MVP-999` queda sin historia que lo
   construya, y ninguna fila del registro sigue diciendo `triado` con el trabajo hecho.
+  Los **18** en `resuelto`, repartidos entre las once historias. `P-111` sigue en backlog a proposito
+  —la epica solo prometia corregir el estado del requisito, no construir la planificacion— y `P-069` ya
+  estaba resuelto desde el gate de `MVP-504`.
 
 ## Historias de esta épica
 

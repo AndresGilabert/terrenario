@@ -532,6 +532,12 @@ La guarda que de verdad importa —no dejar el Workspace sin propietario— no c
 > otro. La incoherencia de `P-049` era por tanto **latente**, no viva. La alineación se hace igual
 > porque el día que exista un segundo propietario nadie volvería a mirarlo, y porque una regla
 > publicada que no describe la guarda es una regla que ya ha empezado a divergir.
+>
+> **Decisión del PO (2026-08-11)**: el producto **sí quiere copropiedad**. Lo que falta no son las
+> guardas —ya están escritas para ese estado— sino la **acción de promover a un miembro a propietario
+> sin degradar a nadie**, que hoy no existe. Queda en backlog (`P-123`): no es un defecto con síntoma
+> —nadie puede llegar al estado incoherente— y construirla pide superficie propia y decidir quién puede
+> promover, que con permisos planos es cualquiera y conviene pensarlo.
 
 ---
 
@@ -652,6 +658,23 @@ El producto conserva por diseno lo que se da de baja: la baja de un Workspace es
 eliminacion de un registro operativo tambien (RN-037) y una cuenta dada de baja conserva su fila
 anonimizada porque el historico operativo guarda quien lo registro. Todo eso se conserva **24 meses**
 desde su baja y despues se purga fisicamente.
+
+**Lo que el plazo se lleva por delante, y es deliberado** (decision del PO, 2026-08-11, sobre `P-124`).
+Al purgar la fila anonimizada de una cuenta, la autoria de los registros operativos que creo o edito
+**deja de poder resolverse**: las cuatro tablas operativas guardan `created_by`/`updated_by` pero no
+tienen clave ajena hacia `users`, asi que la referencia queda colgando y la lectura la rotula «Cuenta
+eliminada» (`MVP-804`). No es un descuido de la purga: es el resultado de aplicar el plazo, y **se
+acepta**, porque lo que interesa conservar es el **historico de datos** —la labor, los kilos, el
+gasto—, no quien lo tecleo hace mas de dos anos.
+
+La consecuencia es que la frase de arriba —«conserva su fila anonimizada porque el historico operativo
+guarda quien lo registro»— **describe los primeros 24 meses, no siempre**. Pasado el plazo, el
+historico operativo sobrevive y su autoria no. Se hace constar aqui en vez de dejar que la regla
+prometa algo que deja de cumplir: es lo que `P-124` destapo al construir `MVP-804`.
+
+Se descarta la alternativa de **retener la cuenta mientras le quede historico operativo**: en la
+practica ninguna cuenta que haya trabajado en una explotacion se purgaria nunca, y entonces el plazo de
+esta regla seria una promesa que no se cumple —que es exactamente el problema al reves—.
 
 Los **datos personales no esperan a ese plazo**: la baja de cuenta los borra o anonimiza en el acto
 —nombre, correo e identificador del proveedor de identidad, tanto en la cuenta como en los maestros de

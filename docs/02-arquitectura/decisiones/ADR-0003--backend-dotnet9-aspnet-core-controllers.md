@@ -1,13 +1,13 @@
 ﻿---
 id: "ADR-0003"
-titulo: "Backend MVP con .NET 10 y ASP.NET Core Controllers"
+titulo: "Backend MVP con .NET 9 y ASP.NET Core Controllers"
 estado: aceptada
 fecha: "2026-07-17"
 decisores: ["@po", "@tech-lead"]
 etiquetas: ["backend", "dotnet", "api"]
 ---
 
-# ADR-0003 - Backend MVP con .NET 10 y ASP.NET Core Controllers
+# ADR-0003 - Backend MVP con .NET 9 y ASP.NET Core Controllers
 
 ## Estado
 
@@ -19,7 +19,18 @@ El equipo confirmó experiencia fuerte en ecosistema .NET y se prioriza producti
 
 ## Decisión
 
-Se adopta backend con **.NET 10** y **ASP.NET Core Web API con Controllers** para los endpoints del MVP.
+Se adopta backend con **.NET 9** y **ASP.NET Core Web API con Controllers** para los endpoints del MVP.
+
+> **Corrección de versión (2026-08-12, `P-129`).** Este ADR y los documentos derivados decían
+> **.NET 10** desde su redacción. Nunca fue cierto: `Terrenario.Api.csproj` declara `net9.0` **desde
+> el primer commit** (`MVP-101`, 2026-07-24) y el CI instala `9.0.x`. No hubo migración ni cambio de
+> criterio que registrar —hubo una versión mal escrita en la KB que se propagó a `tech-stack.md`,
+> `vision-general.md`, `entornos.md`, `ADR-0001` y al nombre de este fichero—. Se corrige el número
+> en todos ellos en vez de dejar constancia de una decisión que no se tomó. `componentes.md` ya se
+> había corregido antes, en `P-094`.
+>
+> Lo que este ADR decide de verdad —**Controllers frente a Minimal APIs**— no cambia: es lo que se
+> comparó en las alternativas y lo que está implementado.
 
 ## Alternativas consideradas
 

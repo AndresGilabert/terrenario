@@ -23,7 +23,7 @@ actualizado_en: "2026-07-24"
 7. Cosecha exige `kgs` obligatorio; `rendimiento` y `litros` son opcionales, y si se informa uno aplica exclusión mutua (no se informan ambos).
 8. Dashboard MVP usa agregaciones por temporada activa y filtros persistentes en recarga.
 9. Offline/sync diferido se mueve a backlog post-MVP para simplificar implementación y operación.
-10. Backend autorizado para MVP: .NET 10 con ASP.NET Core Web API (Controllers).
+10. Backend autorizado para MVP: .NET 9 con ASP.NET Core Web API (Controllers).
 11. Frontend autorizado para MVP: React + TypeScript + Vite.
 12. Persistencia autorizada: SQL relacional con PostgreSQL.
 13. Acceso a datos MVP autorizado: EF Core code-first con perspectiva de evolución a EF + Dapper post-MVP.
@@ -75,7 +75,7 @@ C4Container
 
     Container_Boundary(c1, "Terrenario") {
         Container(webapp, "Web App", "SPA", "UI y validación de formularios")
-        Container(api, "API Backend", ".NET 10 + ASP.NET Core Controllers", "Reglas de dominio y control de acceso por workspace")
+        Container(api, "API Backend", ".NET 9 + ASP.NET Core Controllers", "Reglas de dominio y control de acceso por workspace")
         ContainerDb(db, "PostgreSQL", "Relacional", "Persistencia transaccional y trazabilidad")
     }
 
@@ -110,7 +110,7 @@ C4Container
 | Decisión | Motivo | Impacto | Dependencias | Pros | Contras |
 |---|---|---|---|---|---|
 | Monolito modular online-first | Reducir complejidad de MVP y acelerar entrega | Menor coste operativo inicial | ADR de arquitectura base | Flujo simple y mantenible | Escalado independiente posterior |
-| Backend .NET 10 + ASP.NET Controllers | Decisión por experiencia del equipo | Mayor velocidad de entrega y mantenibilidad | ADR de stack backend | Productividad con stack conocido | Mayor dependencia del ecosistema .NET |
+| Backend .NET 9 + ASP.NET Controllers | Decisión por experiencia del equipo | Mayor velocidad de entrega y mantenibilidad | ADR de stack backend | Productividad con stack conocido | Mayor dependencia del ecosistema .NET |
 | Frontend React + TypeScript + Vite | Equilibrar velocidad de entrega, ecosistema y mantenibilidad | Estandariza la SPA del MVP y acelera validación con usuarios | ADR-0007 | Ecosistema maduro, testing E2E directo y buen DX | Requiere gobernanza de librerías UI/estado para evitar deriva |
 | Persistencia relacional única en PostgreSQL | Integridad fuerte y trazabilidad para reglas MVP | Esquema consistente y consultas KPI fiables | ADR-0001 | ACID, SQL analítico útil para dashboard | Requiere estrategia de migraciones disciplinada |
 | EF Core code-first en MVP (evolución a EF + Dapper) | Agilizar implementación inicial y evolucionar lecturas complejas después | Menor fricción inicial con ruta de rendimiento post-MVP | ADR de acceso a datos | Productividad en CRUD y migraciones | Requiere gobernanza al introducir doble stack de acceso |

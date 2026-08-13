@@ -27,13 +27,19 @@ Reglas de activacion:
 
 ## Entorno `dev` (fase A en adelante)
 
-**Requisitos base**:
+> **No existe todavia.** La fase actual es C, con `prod` como unico entorno. Lo que sigue es el
+> diseno previsto para cuando se active, no algo que se pueda arrancar hoy: **no hay
+> `docker-compose.yml` en el repositorio**. Para desarrollar en local, ver
+> [desarrollo-local.md](./desarrollo-local.md), que sí describe el flujo real (servicios arrancados
+> por separado y PostgreSQL en un contenedor suelto).
+
+**Requisitos base previstos**:
 
 1. Docker
-2. Runtime .NET 10
+2. Runtime .NET 9
 3. Node.js LTS para frontend y tooling
 
-**Arrancar el entorno**:
+**Arrancar el entorno** (cuando exista el fichero de composicion):
 
 ```bash
 docker compose up --build
@@ -59,7 +65,20 @@ docker compose up --build
 
 **Acceso**: restringido.
 
-**Deploy**: gate manual obligatorio en pipeline.
+**Alojamiento**: Azure, region **Espana (Spain Central)**. App Service B1 Linux + Azure Database for
+PostgreSQL Flexible Server B1ms (PostgreSQL 16). La API y el cliente comparten **un solo origen**
+(`https://app.terrenario.com`): la cookie de refresco es `SameSite=Strict` y separarlos en dominios
+sin dominio registrable comun rompe la sesion. La region y el proveedor estan declarados en la
+Politica de Privacidad y en el registro del art. 30, asi que cambiarlos obliga a rehacer esos
+documentos.
+
+**Aprovisionamiento**: scripts `az` en [`infra/azure/`](../../infra/azure/). No hay Terraform, pese a
+lo que declaraba ADR-0008 (ver su nota de realidad).
+
+**Deploy**: gate manual obligatorio en pipeline. Se dispara **al publicar un tag `v*`**, no al
+mergear a `main`; exige el gate de CI en verde sobre ese commit y espera aprobacion humana en el
+entorno `produccion` de GitHub. Autenticacion contra Azure por identidad federada OIDC, sin secretos
+almacenados.
 
 **Backup fase C (actual)**: snapshot puntual/manual.
 **Backup fase A**: snapshot semanal con retencion 2 semanas.
@@ -75,7 +94,7 @@ docker compose up --build
 | `LOG_LEVEL` | `debug` | `info` | `warning` | Nivel de logs |
 | `DATABASE_URL` | secreto | secreto | secreto | Cadena de conexión DB |
 | `OIDC_CLIENT_ID` | secreto | secreto | secreto | Cliente OIDC |
-| `SENTRY_DSN` | secreto | secreto | secreto | Error tracking |
+| ~~`SENTRY_DSN`~~ | — | — | — | **Retirada (2026-08-12, `P-129`).** Sentry nunca se implemento: no hay dependencia ni cuenta, y ningun despliegue lee esta variable. La observabilidad del MVP es propia (`MVP-601`/`602`/`603`) |
 | `Invitations__AcceptBaseUrl` | URL del front dev | URL del front staging | `https://app.terrenario.com/invitations` | Base pública del enlace de invitación |
 | `WorkspaceLifecycle__ReactivationBaseUrl` | URL del front dev | URL del front staging | `https://app.terrenario.com/reactivations` | Base pública del enlace de reactivación de Workspace (MVP-206) |
 | `WorkspaceLifecycle__ReactivationLifetimeDays` | `7` | `7` | `7` | Vigencia del enlace de reactivación, de un solo uso |

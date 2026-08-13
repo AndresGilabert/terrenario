@@ -30,6 +30,13 @@ Alcance:
 3. Tipado estático con TypeScript.
 4. Integración de pruebas E2E con Playwright según estrategia de testing.
 
+> **Nota de realidad (2026-08-12, `P-129`).** El punto 4 **no se implementó**. Playwright se descartó
+> en `MVP-501` por decisión del PO —automatizar el login de Google OIDC obliga a sembrar sesión
+> inyectando un token de desarrollo— y el hueco quedó registrado como `MVP-999` / `P-064`, hoy en
+> backlog. La cobertura E2E del MVP es **de servidor**: recorre el núcleo por la API real con
+> `WebApplicationFactory`, sin navegador. El resto de la decisión (React + TypeScript + Vite) sí está
+> implementado. Ver `../../04-ingenieria/estrategia-testing.md`.
+
 ## Alternativas consideradas
 
 ### Opción A: React + TypeScript + Vite

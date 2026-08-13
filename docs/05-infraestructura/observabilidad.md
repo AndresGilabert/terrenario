@@ -10,11 +10,17 @@ actualizado_en: "2026-08-08"
 
 ## Stack de observabilidad
 
-| Herramienta | Propósito |
-|------------|-----------|
-| Logs estructurados + request-id | Diagnóstico base de errores y trazabilidad E2E |
-| Sentry | Error tracking de aplicación |
-| Métricas operativas básicas | Disponibilidad, 5xx y latencia p95 |
+| Herramienta | Propósito | Estado |
+|------------|-----------|--------|
+| Logs estructurados + request-id | Diagnóstico base de errores y trazabilidad | implementado |
+| Telemetría propia (`MVP-601`/`602`/`603`) | Embudo de login, uso del panel, señales operativas en `/api/v1/ops/signals` y alertas por correo | implementado |
+| Métricas operativas básicas | Disponibilidad, 5xx y latencia p95 | implementado |
+| Sentry | Error tracking de aplicación | **no implementado** (ADR-0008 §3, `P-129`) |
+
+> **Sentry no está montado** y no hay cuenta ni dependencia: lo declaró ADR-0008 en fase C y nunca se
+> llegó a integrar, porque la observabilidad del MVP se construyó a medida en la épica `MVP-006`. Se
+> deja en la tabla —marcado— en vez de borrarlo, porque sigue siendo la herramienta objetivo si en
+> fase A se decide externalizar el error tracking. Ver la nota de realidad de ADR-0008.
 
 Estado fase A: stack liviano y coste controlado.
 Escalado a stack completo: al entrar en fase B o antes si hay 2 meses seguidos con alertas críticas recurrentes.

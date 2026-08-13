@@ -1,7 +1,7 @@
 ﻿---
 bloque: 02-arquitectura
 documento: componentes
-actualizado_en: "2026-08-09"
+actualizado_en: "2026-08-12"
 ---
 
 # Componentes del Sistema
@@ -73,7 +73,7 @@ C4Component
         Component(dom, "Domain Services", "C#", "Reglas de negocio: workspace-scope, XOR cosecha, validaciones")
         Component(repo, "Repositories", "EF Core", "Acceso a datos y control de concurrencia optimista")
         Component(qry, "Dashboard Queries", "SQL/EF Core", "Agregaciones KPI por filtros de temporada y terreno")
-        Component(obs, "Observability Adapter", "OpenTelemetry/Sentry", "Trazabilidad y métricas operativas")
+        Component(obs, "Observability Adapter", "Telemetría propia (MVP-601/602/603)", "Embudo de login, uso del panel, señales operativas y alertas por correo")
     }
 
     Rel(ctrl, app, "Invoca")

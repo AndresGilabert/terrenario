@@ -37,6 +37,22 @@ Se formalizan las decisiones de infraestructura y observabilidad para MVP fase C
 5. **OpenTelemetry 1.x** queda definido en stack, con activación diferida y parametrización final en fase A.
 6. La **retención detallada de telemetría** y umbrales finales de alertado se cierran al entrar en fase A.
 
+> **Nota de realidad (2026-08-12, `P-129`).** De los cinco puntos, **tres no se han implementado** y
+> conviene decirlo aquí, que es donde se buscan:
+>
+> | Punto | Estado real |
+> |---|---|
+> | 1. Docker 27.x | **Implementado**, con un alcance menor al enunciado: PostgreSQL local y los contenedores de la suite de tests (`Testcontainers`, `MVP-501`). No hay `docker-compose.yml` en el repositorio ni imagen de la aplicación: el despliegue publica el artefacto de `dotnet publish` sobre App Service |
+> | 2. GitHub Actions | **Implementado** (`ci.yml`, `validar-kb.yml`, `deploy.yml`) |
+> | 3. Sentry 8.x | **No implementado.** No hay dependencia ni cuenta. La observabilidad del MVP se construyó en `MVP-601`/`602`/`603` con telemetría en tablas propias, señales en `/api/v1/ops/signals` y alertas por correo |
+> | 4. Terraform 1.9.x | **No implementado.** Producción se aprovisionó con scripts `az` en `infra/azure/` |
+> | 5. OpenTelemetry 1.x | **No implementado.** Se mantiene el diferimiento |
+>
+> El punto 3 es el único que no era un diferimiento explícito, así que era el único que la KB
+> presentaba como adoptado sin serlo. Si Sentry sigue siendo el objetivo o si la observabilidad
+> propia lo sustituye de forma definitiva es una decisión abierta para fase A: hasta entonces este
+> ADR **no describe el sistema desplegado** en sus puntos 3 a 5.
+
 ## Alternativas consideradas
 
 ### Opción A: Crear ADRs separados por herramienta

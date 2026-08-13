@@ -21,11 +21,16 @@ Para Terrenario MVP se requiere:
 
 1. Integridad transaccional fuerte para datos operativos.
 2. Consultas agregadas fiables para KPIs del dashboard.
-3. Encaje con backend .NET 10 en arquitectura monolito modular online-first.
+3. Encaje con backend .NET 9 en arquitectura monolito modular online-first.
 
 ## Decisión
 
 Se adopta **PostgreSQL 15** como base de datos relacional principal del MVP.
+
+> **Nota de realidad (2026-08-12, `P-129`).** Producción corre **PostgreSQL 16** (Azure Database for
+> PostgreSQL Flexible Server, aprovisionado con `--version 16` en `infra/azure/crear-infraestructura.sh`);
+> en local se usa `postgres:15`. La decisión —motor relacional PostgreSQL— no cambia: la versión
+> concreta la fija el aprovisionamiento, y el mínimo soportado es 15.
 
 Alcance:
 
@@ -55,7 +60,7 @@ Alcance:
 ### Positivas
 
 - Soporte completo de ACID y transacciones complejas
-- Buen encaje con EF Core en backend .NET 10
+- Buen encaje con EF Core en backend .NET 9
 - Capacidad analítica sólida para consultas KPI
 
 ### Negativas / Trade-offs

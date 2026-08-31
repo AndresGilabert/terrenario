@@ -1,7 +1,7 @@
 ﻿---
 bloque: 05-infraestructura
 documento: observabilidad
-actualizado_en: "2026-08-08"
+actualizado_en: "2026-08-31"
 ---
 
 # Observabilidad — Monitoring, Alertas y SLOs
@@ -15,6 +15,7 @@ actualizado_en: "2026-08-08"
 | Logs estructurados + request-id | Diagnóstico base de errores y trazabilidad | implementado |
 | Telemetría propia (`MVP-601`/`602`/`603`) | Embudo de login, uso del panel, señales operativas en `/api/v1/ops/signals` y alertas por correo | implementado |
 | Métricas operativas básicas | Disponibilidad, 5xx y latencia p95 | implementado |
+| Analítica web de terceros (Google Analytics o equivalente) | Medición de adquisición web | **postergada** (ADR-0011) |
 | Sentry | Error tracking de aplicación | **no implementado** (ADR-0008 §3, `P-129`) |
 
 > **Sentry no está montado** y no hay cuenta ni dependencia: lo declaró ADR-0008 en fase C y nunca se

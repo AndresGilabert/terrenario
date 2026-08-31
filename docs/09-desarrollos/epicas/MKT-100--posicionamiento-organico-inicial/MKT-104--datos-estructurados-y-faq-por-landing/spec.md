@@ -30,6 +30,20 @@ actualizado_en: "2026-08-31"
 
 Añadir contexto semántico machine-readable para mejorar comprensión de las landings por buscadores.
 
+## Requisitos de usuario
+
+### HU-1 — Mejorar comprensión del contenido por buscadores
+
+**Como** responsable de crecimiento,
+**quiero** que las landings publiquen datos estructurados (`Organization`, `SoftwareApplication`, `FAQPage`),
+**para** aumentar la probabilidad de aparecer con resultados enriquecidos en buscadores.
+
+### HU-2 — Resolver dudas frecuentes sin salir de la landing
+
+**Como** visitante de una landing,
+**quiero** encontrar respuestas a preguntas frecuentes sobre la funcionalidad,
+**para** resolver objeciones antes de decidir si accedo a la plataforma.
+
 ## Alcance (in-scope)
 
 - Schema `Organization` y `SoftwareApplication` para la superficie pública.

@@ -30,6 +30,20 @@ actualizado_en: "2026-08-31"
 
 Dejar configurada la lectura base de cobertura, clics e impresiones orgánicas sobre landings publicadas.
 
+## Requisitos de usuario
+
+### HU-1 — Conocer el estado de indexación real
+
+**Como** responsable de crecimiento,
+**quiero** verificar el sitio en Search Console y Bing Webmaster y enviar el sitemap,
+**para** poder consultar cobertura, clics e impresiones orgánicas reales sin depender de suposiciones.
+
+### HU-2 — Tener un punto de partida para medir progreso
+
+**Como** responsable de crecimiento,
+**quiero** un baseline documentado de indexación y tráfico orgánico inicial,
+**para** poder comparar la evolución en las siguientes revisiones periódicas.
+
 ## Alcance (in-scope)
 
 - Alta y verificación en Search Console y Bing Webmaster.

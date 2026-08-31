@@ -34,6 +34,26 @@ Sin contenido público orientado a búsqueda, no hay base para indexación ni at
 
 Publicar el conjunto inicial de landings definidas para funcionalidades y casos de uso.
 
+## Requisitos de usuario
+
+### HU-1 — Decidir con información antes de acceder
+
+**Como** persona que busca gestionar su explotación agrícola y llega desde un buscador,
+**quiero** encontrar una página pública que explique una funcionalidad concreta de Terrenario,
+**para** decidir si el producto resuelve mi problema antes de crear cuenta.
+
+### HU-2 — Navegar entre funcionalidades relacionadas
+
+**Como** visitante de una landing,
+**quiero** poder llegar a otras landings de funcionalidades o casos de uso relacionados,
+**para** entender el alcance completo del producto sin volver a buscar en el buscador.
+
+### HU-3 — Disponer de contenido indexable antes del rastreo técnico
+
+**Como** responsable de crecimiento,
+**quiero** que existan URLs públicas con contenido sustantivo por funcionalidad y caso de uso,
+**para** tener superficie indexable real antes de publicar `robots.txt` y `sitemap.xml`.
+
 ## Alcance (in-scope)
 
 - Crear las URLs públicas del plan P0:

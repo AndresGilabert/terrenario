@@ -30,6 +30,20 @@ actualizado_en: "2026-08-31"
 
 Exponer directivas de rastreo y mapa de URLs públicas reales para habilitar indexación efectiva.
 
+## Requisitos de usuario
+
+### HU-1 — Permitir que los buscadores rastreen el contenido público
+
+**Como** responsable de crecimiento,
+**quiero** que `robots.txt` autorice el rastreo de las páginas públicas y bloquee las privadas,
+**para** que los buscadores indexen lo que debe indexarse y no gasten presupuesto de rastreo en rutas privadas.
+
+### HU-2 — Facilitar el descubrimiento de todas las URLs públicas
+
+**Como** responsable de crecimiento,
+**quiero** que `sitemap.xml` liste todas las landings públicas vigentes,
+**para** acelerar su descubrimiento e indexación por los buscadores.
+
 ## Alcance (in-scope)
 
 - `robots.txt` con política para rastreo de páginas públicas.

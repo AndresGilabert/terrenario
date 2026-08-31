@@ -30,6 +30,20 @@ actualizado_en: "2026-08-31"
 
 Garantizar metadatos y estructura semántica mínimos por URL pública para indexación limpia.
 
+## Requisitos de usuario
+
+### HU-1 — Aparecer correctamente en resultados de búsqueda
+
+**Como** responsable de crecimiento,
+**quiero** que cada landing tenga `title`, `description`, `canonical` y `h1` únicos y coherentes con su intención de búsqueda,
+**para** evitar contenido duplicado o mal indexado y mejorar el CTR en buscadores.
+
+### HU-2 — Evitar que las landings compitan entre sí
+
+**Como** responsable de crecimiento,
+**quiero** que ninguna landing compita por la misma intención de búsqueda que otra,
+**para** que cada URL tenga una oportunidad clara de posicionar sin canibalizarse.
+
 ## Alcance (in-scope)
 
 - `title`, `meta description`, `canonical`, `h1` único por landing.

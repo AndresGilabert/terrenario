@@ -30,6 +30,14 @@ actualizado_en: "2026-08-31"
 
 Cerrar la épica con verificación completa de resultados, gaps y siguientes acciones priorizadas.
 
+## Requisitos de usuario
+
+### HU-1 — Cerrar sobre evidencia, no sobre intención
+
+**Como** responsable de producto,
+**quiero** que el cierre de la épica se sostenga en verificación real de indexación, tráfico y conversión,
+**para** no dar por resuelto lo que solo quedó planificado.
+
 ## Alcance (in-scope)
 
 - Verificar cumplimiento de criterios de aceptación de la épica.

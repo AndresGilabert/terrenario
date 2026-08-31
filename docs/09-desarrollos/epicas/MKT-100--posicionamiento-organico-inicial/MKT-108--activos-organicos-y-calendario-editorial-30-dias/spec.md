@@ -30,6 +30,20 @@ actualizado_en: "2026-08-31"
 
 Definir y preparar las piezas de contenido que alimentan las landings y su distribución orgánica.
 
+## Requisitos de usuario
+
+### HU-1 — Tener contenido listo para publicar sin improvisar
+
+**Como** responsable de crecimiento,
+**quiero** un calendario editorial de 30 días con piezas y copies mapeados a una landing destino,
+**para** ejecutar la distribución orgánica sin depender de decisiones ad hoc cada semana.
+
+### HU-2 — No prometer lo que el producto no hace
+
+**Como** responsable de producto,
+**quiero** que ninguna pieza de contenido describa una funcionalidad inexistente,
+**para** no generar expectativas que el producto no cumple.
+
 ## Alcance (in-scope)
 
 - Paquete inicial de piezas y copies por canal.

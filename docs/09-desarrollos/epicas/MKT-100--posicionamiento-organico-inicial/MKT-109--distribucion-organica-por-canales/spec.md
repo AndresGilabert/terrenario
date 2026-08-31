@@ -30,6 +30,20 @@ actualizado_en: "2026-08-31"
 
 Ejecutar distribución inicial en canales orgánicos con trazabilidad de origen.
 
+## Requisitos de usuario
+
+### HU-1 — Generar tráfico medible desde canales gratuitos
+
+**Como** responsable de crecimiento,
+**quiero** publicar las piezas del calendario editorial en canales orgánicos con enlaces trazables,
+**para** poder atribuir el tráfico y la conversión a cada canal.
+
+### HU-2 — Repetir lo que funciona y descartar lo que no
+
+**Como** responsable de crecimiento,
+**quiero** un registro de qué se publicó, dónde y cuándo,
+**para** correlacionarlo con las señales de tráfico y decidir qué canales priorizar.
+
 ## Alcance (in-scope)
 
 - Publicación en canales definidos.

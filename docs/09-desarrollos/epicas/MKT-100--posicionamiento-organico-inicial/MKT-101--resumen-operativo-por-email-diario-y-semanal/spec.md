@@ -2,7 +2,7 @@
 id: "MKT-101"
 tipo: feature
 titulo: "Resumen operativo por email diario y semanal"
-estado: borrador
+estado: aprobado
 prioridad: alta
 sprint: ""
 hito: "Post-MVP — Crecimiento orgánico"
@@ -66,6 +66,22 @@ alertas operativas (`Ops:AlertEmail`).
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: El resumen diario se envía una vez al día al `Ops:AlertEmail`.
-- [ ] **CA-2**: El resumen semanal se envía una vez cada 7 días al `Ops:AlertEmail`.
-- [ ] **CA-3**: Si falla el envío, el proceso se registra y no tumba la API.
+- [x] **CA-1**: El resumen diario se envía una vez al día al `Ops:AlertEmail`.
+- [x] **CA-2**: El resumen semanal se envía una vez cada 7 días al `Ops:AlertEmail`.
+- [x] **CA-3**: Si falla el envío, el proceso se registra y no tumba la API.
+
+## Notas y decisiones
+
+- **Aprobación**: estado pasado de `borrador` a `aprobado` para cumplir el DoR antes de iniciar el
+  desarrollo (`docs/08-procesos/definition-of-ready.md`).
+- **Cadencia y huso horario**: resumen diario a las 05:00 Europe/Madrid; resumen semanal los lunes a
+  las 05:00 Europe/Madrid, agregando los 7 días naturales previos. Decisión tomada con el PO al no
+  estar especificada en el spec original.
+- **«Visitas a landing» diferido**: el spec pedía esta métrica como mínima, pero la telemetría de
+  visitas a landing (`landing_view`) todavía no existe — la introduce `MKT-106`
+  (`trazabilidad-por-landing-y-conversion-completa`), que no es una dependencia declarada de esta
+  historia. Se decidió con el PO **no bloquear** MKT-101 por esto: el resumen sale sin esa métrica y
+  con una nota explícita de que llegará con MKT-106. Ver `tech-design.md` para el detalle.
+- **Registro de fallos (CA-3)**: se reutiliza el logging estructurado existente (mismo criterio que
+  `AlertNotifier`); no se añade tabla de estado ni reintentos más allá de la siguiente pasada del
+  worker (cada minuto, dentro de la misma ventana horaria).

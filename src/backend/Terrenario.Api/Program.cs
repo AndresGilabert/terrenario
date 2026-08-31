@@ -45,6 +45,7 @@ using Terrenario.Api.Infrastructure.Feedback;
 using Terrenario.Api.Infrastructure.Invitations;
 using Terrenario.Api.Infrastructure.Telemetry;
 using Terrenario.Api.Infrastructure.Telemetry.Alerts;
+using Terrenario.Api.Infrastructure.Telemetry.Summary;
 using Terrenario.Api.Application.Ops;
 using Terrenario.Api.Application.Retention;
 using Terrenario.Api.Infrastructure.Retention;
@@ -159,6 +160,9 @@ builder.Services.AddScoped<IAlertNotifier, AlertNotifier>();
 builder.Services.AddSingleton<AlertStateStore>();
 builder.Services.AddHostedService<AlertMonitor>();
 builder.Services.AddScoped<OperationalSignalsService>();
+// MKT-101 — Resumen operativo periódico. Reutiliza el mismo destinatario que las alertas
+// (`Ops:AlertEmail`) y el mismo transporte/plantilla que el resto de correos del producto.
+builder.Services.AddHostedService<OperationalSummaryWorker>();
 builder.Services.AddScoped<ILoginTelemetry, LoginTelemetryService>();
 // MVP-602 — Señales de uso del producto: comparten acumulador y almacén con el embudo de login.
 builder.Services.AddScoped<IUsageTelemetry, UsageTelemetryService>();
@@ -391,6 +395,13 @@ if (opsConfigurados.AlertsEnabled && string.IsNullOrWhiteSpace(opsConfigurados.A
     app.Logger.LogWarning(
         "Vigilancia de alertas activa sin destinatario ('Ops:AlertEmail'). "
         + "Las alertas solo quedarán en la traza: nadie recibirá aviso.");
+
+// MKT-101 — Mismo criterio que el aviso de arriba: sin destinatario, el resumen periódico no se puede
+// entregar y conviene saberlo al arrancar, no el día que se eche en falta.
+if (opsConfigurados.SummaryEnabled && string.IsNullOrWhiteSpace(opsConfigurados.AlertEmail))
+    app.Logger.LogWarning(
+        "Resumen operativo activo sin destinatario ('Ops:AlertEmail'). "
+        + "No se enviará ningún resumen diario ni semanal.");
 
 // MVP-711 — Mismo criterio que los dos avisos de arriba: el destinatario del canal de feedback es un
 // secreto de despliegue (el repositorio es público), así que lo normal en una máquina de trabajo es

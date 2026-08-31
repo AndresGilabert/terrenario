@@ -1,9 +1,11 @@
 using MimeKit;
 using Microsoft.Extensions.Options;
+using Terrenario.Api.Application.Ops;
 using Terrenario.Api.Infrastructure.Email;
 using Terrenario.Api.Infrastructure.Feedback;
 using Terrenario.Api.Infrastructure.Invitations;
 using Terrenario.Api.Infrastructure.Telemetry.Alerts;
+using Terrenario.Api.Infrastructure.Telemetry.Summary;
 
 namespace Terrenario.Api.Tests.Emails;
 
@@ -19,6 +21,9 @@ namespace Terrenario.Api.Tests.Emails;
 /// MVP-711 — Entra el sexto, el del canal de sugerencias e incidencias. Es el primero que llega por
 /// esta puerta desde que existe el inventario, y por eso importa que llegue: `MVP-715` dejó escrito
 /// que tendría que hacerlo.
+///
+/// MKT-101 — Entran el séptimo y el octavo: el resumen operativo diario y el semanal, al mismo
+/// destinatario que las alertas (`Ops:AlertEmail`).
 /// </summary>
 internal static class ProductEmailCatalog
 {
@@ -102,7 +107,59 @@ internal static class ProductEmailCatalog
                         "/app/diario",
                         "3f8c1d9a4b2e4f6a8c0d2e4f6a8c0d2e",
                         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0")
-                }))
+                })),
+
+            ("resumen-operativo-diario", "Resumen operativo diario",
+                OperationalSummaryEmailComposer.ComposeDaily(
+                    template,
+                    "operacion@ejemplo.com",
+                    new DailySignals(
+                        Date: new DateOnly(2026, 8, 30),
+                        LoginScreenViewed: 42,
+                        LoginSuccess: 31,
+                        LoginAbandonment: 6,
+                        LoginConversion: 31d / 42,
+                        Sessions: 28,
+                        SessionsWithDashboard: 20,
+                        DashboardUsage: 20d / 28,
+                        WidgetCoverage: 0.9,
+                        Requests: 640,
+                        ErrorRate: 0.003,
+                        LatencyP95Ms: 180,
+                        RecordsCreated: 12,
+                        HealthyMinutes: 1440,
+                        DegradedMinutes: 0),
+                    [])),
+
+            ("resumen-operativo-semanal", "Resumen operativo semanal",
+                OperationalSummaryEmailComposer.ComposeWeekly(
+                    template,
+                    "operacion@ejemplo.com",
+                    new DateOnly(2026, 8, 24),
+                    new LoginFunnelSignals(
+                        ScreenViewed: 300,
+                        GoogleClicked: 250,
+                        Success: 214,
+                        Errors: 4,
+                        Abandonment: 42,
+                        Conversion: 214d / 300,
+                        AbandonmentRate: 42d / 300,
+                        AverageSuccessMs: 820),
+                    new ProductUsageSignals(
+                        Sessions: 190,
+                        SessionsWithDashboard: 140,
+                        DashboardUsage: 140d / 190,
+                        WidgetCoverage: 0.88),
+                    new SloSignals(
+                        ErrorRate7d: 0.004,
+                        ErrorRateObjective: 0.001,
+                        LatencyP95Ms7d: 210,
+                        LatencyP95ObjectiveMs: 300,
+                        HealthyMinutes30d: 43200,
+                        DegradedMinutes30d: 12,
+                        InternalRequests7d: 300,
+                        InternalErrors7d: 0),
+                    []))
         ];
     }
 }

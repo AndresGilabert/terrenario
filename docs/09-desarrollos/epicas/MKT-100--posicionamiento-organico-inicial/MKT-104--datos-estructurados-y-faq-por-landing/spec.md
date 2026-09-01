@@ -2,7 +2,7 @@
 id: "MKT-104"
 tipo: feature
 titulo: "Datos estructurados y FAQ por landing"
-estado: en-testing
+estado: completado
 prioridad: media
 sprint: ""
 hito: "Post-MVP — Crecimiento orgánico"

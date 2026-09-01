@@ -2,7 +2,7 @@
 id: "MKT-104"
 tipo: feature
 titulo: "TDD: Datos estructurados y FAQ por landing"
-estado: en-testing
+estado: completado
 tickets: []
 epica: "MKT-100--posicionamiento-organico-inicial"
 responsable: "@andres"

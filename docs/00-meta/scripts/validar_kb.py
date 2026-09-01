@@ -845,11 +845,11 @@ def validar_trazabilidad_requisitos_usuario():
 ESTADO_EMOJI = {
     "borrador": "📝",
     "en-revision": "👀",
-    "aprobado": "✅",
+    "aprobado": "[OK]",
     "en-progreso": "🔄",
     "en-testing": "🧪",
     "completado": "✔️",
-    "cancelado": "❌",
+    "cancelado": "[X]",
 }
 
 
@@ -963,7 +963,7 @@ def main():
             print("\nℹ️  Modo solo cambios activo, pero no se detectaron cambios en docs. Se valida en modo estricto.")
 
     if args.validar:
-        print("\n📋 Validando Knowledge Base...\n")
+        print("\nValidando Knowledge Base...\n")
         validar_longitudes_docs()
         validar_template_state()
         validar_desarrollos()
@@ -972,23 +972,23 @@ def main():
         validar_trazabilidad_requisitos_usuario()
 
         if warnings:
-            print(f"\n⚠️  {len(warnings)} advertencia(s):")
+            print(f"\n[WARN] {len(warnings)} advertencia(s):")
             for w in warnings:
                 print(w)
 
         if errors:
-            print(f"\n❌ {len(errors)} error(es) encontrado(s):")
+            print(f"\n[FAIL] {len(errors)} error(es) encontrado(s):")
             for e in errors:
                 print(e)
             print("\nCorrige los errores antes de continuar.\n")
             sys.exit(1)
         else:
-            print(f"\n✅ Validación completada. {len(warnings)} advertencia(s), 0 errores.\n")
+            print(f"\n[OK] Validación completada. {len(warnings)} advertencia(s), 0 errores.\n")
 
     if args.generar_indices:
-        print("\n📑 Regenerando índices de épicas...\n")
+        print("\nRegenerando índices de épicas...\n")
         generar_todos_los_indices()
-        print("\n✅ Índices generados.\n")
+        print("\n[OK] Índices generados.\n")
 
 
 if __name__ == "__main__":

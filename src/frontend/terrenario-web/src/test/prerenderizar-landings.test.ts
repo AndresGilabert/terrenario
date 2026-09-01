@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error -- `scripts/` son módulos de build en JavaScript, fuera del `tsconfig` de la app.
-import { construirDatosEstructurados, construirDocumentoLanding } from '../../scripts/prerenderizar-landings.mjs';
+import { construirDatosEstructurados, construirDocumentoLanding, construirRobotsTxt, construirSitemapXml } from '../../scripts/prerenderizar-landings.mjs';
+import { HOME_META, LANDING_CONTENTS } from '../content/landings';
 
 /**
  * MKT-102 — `construirDocumentoLanding` es la parte de `scripts/prerenderizar-landings.mjs` que se
@@ -106,5 +107,39 @@ describe('construirDocumentoLanding', () => {
     expect(documento).toContain('<link rel="icon" href="/favicon.ico" />');
     expect(documento).toContain('<link rel="manifest" href="/manifest.webmanifest" />');
     expect(documento).toContain('href="/assets/index-abc123.css"');
+  });
+});
+
+describe('construirRobotsTxt', () => {
+  it('permite el rastreo público, excluye las rutas no indexables y anuncia el sitemap', () => {
+    const robots = construirRobotsTxt();
+
+    expect(robots).toContain('User-agent: *');
+    expect(robots).toContain('Allow: /');
+    expect(robots).toContain('Disallow: /app/');
+    expect(robots).toContain('Disallow: /onboarding/');
+    expect(robots).toContain('Disallow: /invitations/');
+    expect(robots).toContain('Disallow: /reactivations/');
+    expect(robots).toContain('Disallow: /auth/callback');
+    expect(robots).toContain('Disallow: /api/');
+    expect(robots).toContain('Sitemap: https://app.terrenario.com/sitemap.xml');
+  });
+});
+
+describe('construirSitemapXml', () => {
+  it('incluye exactamente la home y las diez landings públicas P0', () => {
+    const sitemap = construirSitemapXml([HOME_META, ...LANDING_CONTENTS]);
+    const urls = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
+
+    expect(urls).toEqual([
+      'https://app.terrenario.com/',
+      ...LANDING_CONTENTS.map((content) => `https://app.terrenario.com${content.path}`),
+    ]);
+    expect(urls).toHaveLength(11);
+    expect(sitemap).toContain('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
+    expect(sitemap).not.toMatch(/\/(?:app|onboarding|invitations|reactivations|api)(?:\/|<)/);
+    expect(sitemap).not.toContain('/auth/callback');
+    expect(sitemap).not.toContain('/login');
+    expect(sitemap).not.toContain('/legal/');
   });
 });

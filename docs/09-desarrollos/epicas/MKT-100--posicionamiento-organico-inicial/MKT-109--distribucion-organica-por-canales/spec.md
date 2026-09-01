@@ -2,7 +2,7 @@
 id: "MKT-109"
 tipo: tarea
 titulo: "Distribucion organica por canales"
-estado: borrador
+estado: aprobado
 prioridad: media
 sprint: ""
 hito: "Post-MVP — Crecimiento orgánico"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["distribution", "communities", "social", "utm"]
   nivel_riesgo: bajo
 creado_en: "2026-08-31"
-actualizado_en: "2026-08-31"
+actualizado_en: "2026-09-01"
 ---
 
 # MKT-109 — Distribucion organica por canales

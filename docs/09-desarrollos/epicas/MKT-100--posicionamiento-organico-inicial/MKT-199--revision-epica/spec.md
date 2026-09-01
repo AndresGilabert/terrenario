@@ -2,7 +2,7 @@
 id: "MKT-199"
 tipo: tarea
 titulo: "Revision epica"
-estado: borrador
+estado: aprobado
 prioridad: media
 sprint: ""
 hito: "Post-MVP — Crecimiento orgánico"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["epic-review", "post-mvp", "growth"]
   nivel_riesgo: bajo
 creado_en: "2026-08-31"
-actualizado_en: "2026-08-31"
+actualizado_en: "2026-09-01"
 ---
 
 # MKT-199 — Revision epica

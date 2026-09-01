@@ -49,7 +49,7 @@ export const LandingPage: React.FC = () => {
             <span className="material-symbols-outlined fill text-2xl" aria-hidden="true">eco</span>
           </div>
           <div>
-            <h1 className="font-headline font-bold text-xl text-[#33450d] tracking-tight">Terrenario</h1>
+            <p className="font-headline font-bold text-xl text-[#33450d] tracking-tight">Terrenario</p>
             <p className="text-xs text-[#76786b] font-medium hidden sm:block">Tu tierra, bajo control</p>
           </div>
         </div>

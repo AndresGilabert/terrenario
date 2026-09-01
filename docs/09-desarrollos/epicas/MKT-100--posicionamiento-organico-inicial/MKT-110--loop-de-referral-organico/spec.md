@@ -2,7 +2,7 @@
 id: "MKT-110"
 tipo: tarea
 titulo: "Loop de referral organico"
-estado: borrador
+estado: aprobado
 prioridad: media
 sprint: ""
 hito: "Post-MVP — Crecimiento orgánico"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["referral", "organic", "utm", "manual-share"]
   nivel_riesgo: bajo
 creado_en: "2026-08-31"
-actualizado_en: "2026-08-31"
+actualizado_en: "2026-09-01"
 ---
 
 # MKT-110 — Loop de referral organico

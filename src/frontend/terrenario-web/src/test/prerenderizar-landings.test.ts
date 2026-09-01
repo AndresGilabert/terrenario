@@ -59,6 +59,14 @@ describe('construirDocumentoLanding', () => {
     );
   });
 
+  it('añade hreflang es-ES apuntando a la misma URL que el canonical', () => {
+    const documento = construirDocumentoLanding(PLANTILLA, CONTENIDO, '<main>cuerpo</main>');
+
+    expect(documento).toContain(
+      '<link rel="alternate" hreflang="es-ES" href="https://app.terrenario.com/funcionalidades/gestion-terrenos" />'
+    );
+  });
+
   it('inyecta el cuerpo pre-renderizado dentro de #root', () => {
     const documento = construirDocumentoLanding(PLANTILLA, CONTENIDO, '<main>hola mundo</main>');
 

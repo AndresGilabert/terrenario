@@ -2,7 +2,7 @@
 id: "MKT-107"
 tipo: tarea
 titulo: "Alta en webmaster y baseline de indexacion"
-estado: borrador
+estado: aprobado
 prioridad: media
 sprint: ""
 hito: "Post-MVP — Crecimiento orgánico"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["baseline", "indexation", "organic-monitoring"]
   nivel_riesgo: bajo
 creado_en: "2026-08-31"
-actualizado_en: "2026-08-31"
+actualizado_en: "2026-09-01"
 ---
 
 # MKT-107 — Alta en webmaster y baseline de indexacion

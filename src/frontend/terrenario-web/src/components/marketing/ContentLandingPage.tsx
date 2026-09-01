@@ -94,6 +94,22 @@ export const ContentLandingPage: React.FC<{ content: LandingContent }> = ({ cont
           </div>
         </section>
 
+        <section aria-labelledby="faq-heading" className="py-14 px-6 lg:px-12">
+          <div className="max-w-4xl mx-auto space-y-6">
+            <h2 id="faq-heading" className="font-headline font-bold text-2xl text-[#1c1c19]">
+              Preguntas frecuentes
+            </h2>
+            <dl className="space-y-4">
+              {content.faqs.map((faq) => (
+                <div key={faq.question} className="border-b border-[#e5e2dd] pb-4">
+                  <dt className="font-headline font-bold text-lg text-[#1c1c19]">{faq.question}</dt>
+                  <dd className="mt-2 text-sm text-[#45483c] leading-relaxed">{faq.answer}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </section>
+
         {relatedLandings.length > 0 && (
           <nav aria-label="Funcionalidades relacionadas" className="py-14 px-6 lg:px-12">
             <div className="max-w-5xl mx-auto space-y-6">

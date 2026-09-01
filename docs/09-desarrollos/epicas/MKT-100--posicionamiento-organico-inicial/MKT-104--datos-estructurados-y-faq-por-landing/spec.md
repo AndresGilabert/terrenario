@@ -2,7 +2,7 @@
 id: "MKT-104"
 tipo: feature
 titulo: "Datos estructurados y FAQ por landing"
-estado: aprobado
+estado: en-testing
 prioridad: media
 sprint: ""
 hito: "Post-MVP — Crecimiento orgánico"
@@ -51,6 +51,6 @@ Añadir contexto semántico machine-readable para mejorar comprensión de las la
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Las landings publican JSON-LD válido para los tipos definidos.
-- [ ] **CA-2**: Cada FAQ incluida en UI está reflejada en su `FAQPage`.
-- [ ] **CA-3**: No se introduce contenido estructurado que no exista en la página visible.
+- [x] **CA-1**: Las landings publican JSON-LD válido para los tipos definidos.
+- [x] **CA-2**: Cada FAQ incluida en UI está reflejada en su `FAQPage`.
+- [x] **CA-3**: No se introduce contenido estructurado que no exista en la página visible.

@@ -2,7 +2,7 @@
 id: "MKT-103"
 tipo: feature
 titulo: "SEO on-page base para landings"
-estado: en-progreso
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Post-MVP — Crecimiento orgánico"
@@ -52,6 +52,6 @@ Garantizar metadatos y estructura semántica mínimos por URL pública para inde
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Cada landing tiene `title` y `description` únicos.
-- [ ] **CA-2**: Cada landing publica `canonical` autoconsistente.
-- [ ] **CA-3**: Cada landing tiene un único `h1` alineado con intención principal.
+- [x] **CA-1**: Cada landing tiene `title` y `description` únicos.
+- [x] **CA-2**: Cada landing publica `canonical` autoconsistente.
+- [x] **CA-3**: Cada landing tiene un único `h1` alineado con intención principal.

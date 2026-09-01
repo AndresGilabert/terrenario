@@ -70,4 +70,14 @@ describe('contenido de landings públicas', () => {
     expect(new Set(titles).size).toBe(titles.length);
     expect(new Set(descriptions).size).toBe(descriptions.length);
   });
+
+  it('cada landing publica FAQ visibles no vacías', () => {
+    for (const content of LANDING_CONTENTS) {
+      expect(content.faqs.length).toBeGreaterThan(0);
+      for (const faq of content.faqs) {
+        expect(faq.question.trim()).not.toBe('');
+        expect(faq.answer.trim()).not.toBe('');
+      }
+    }
+  });
 });

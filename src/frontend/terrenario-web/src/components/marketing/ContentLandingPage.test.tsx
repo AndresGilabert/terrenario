@@ -33,6 +33,16 @@ describe('ContentLandingPage', () => {
     expect(screen.getByText(content.intro)).toBeInTheDocument();
   });
 
+  it('muestra las FAQ que usa el dato estructurado de la landing', () => {
+    const content = renderLanding('gestion-terrenos');
+
+    expect(screen.getByRole('heading', { level: 2, name: /preguntas frecuentes/i })).toBeInTheDocument();
+    for (const faq of content.faqs) {
+      expect(screen.getByText(faq.question)).toBeInTheDocument();
+      expect(screen.getByText(faq.answer)).toBeInTheDocument();
+    }
+  });
+
   it('el CTA principal y el del pie enlazan a /login', () => {
     renderLanding('diario-de-campo');
 

@@ -2,7 +2,7 @@
 id: "MKT-106"
 tipo: feature
 titulo: "Trazabilidad por landing y conversion completa"
-estado: borrador
+estado: aprobado
 prioridad: alta
 sprint: ""
 hito: "Post-MVP — Crecimiento orgánico"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["first-party", "utm", "landing-attribution", "conversion"]
   nivel_riesgo: medio
 creado_en: "2026-08-31"
-actualizado_en: "2026-08-31"
+actualizado_en: "2026-09-01"
 ---
 
 # MKT-106 — Trazabilidad por landing y conversion completa

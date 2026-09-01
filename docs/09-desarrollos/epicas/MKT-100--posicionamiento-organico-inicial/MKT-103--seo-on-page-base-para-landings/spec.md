@@ -2,7 +2,7 @@
 id: "MKT-103"
 tipo: feature
 titulo: "SEO on-page base para landings"
-estado: borrador
+estado: en-progreso
 prioridad: alta
 sprint: ""
 hito: "Post-MVP — Crecimiento orgánico"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["title", "description", "canonical", "hreflang"]
   nivel_riesgo: bajo
 creado_en: "2026-08-31"
-actualizado_en: "2026-08-31"
+actualizado_en: "2026-09-01"
 ---
 
 # MKT-103 — SEO on-page base para landings

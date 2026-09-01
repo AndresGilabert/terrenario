@@ -18,6 +18,13 @@ function renderLanding() {
 }
 
 describe('LandingPage — acceso con cualquier dirección', () => {
+  it('publica un unico h1 para la intención principal de la home', () => {
+    const { container } = render(<LandingPage />);
+
+    expect(container.querySelectorAll('h1')).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 1, name: /tu tierra, bajo control/i })).toBeInTheDocument();
+  });
+
   it('dice con qué se entra antes de pedir nada', () => {
     renderLanding();
 

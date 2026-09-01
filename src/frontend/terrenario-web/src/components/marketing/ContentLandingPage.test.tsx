@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { ContentLandingPage } from './ContentLandingPage';
-import { getLandingBySlug } from '../../content/landings';
+import { getLandingBySlug, LANDING_CONTENTS } from '../../content/landings';
 import { GOOGLE_ACCOUNT_SIGNUP_URL } from '../../lib/google-account';
 
 /**
@@ -17,6 +17,15 @@ function renderLanding(slug: string) {
 }
 
 describe('ContentLandingPage', () => {
+  it('publica un unico h1 alineado con cada landing', () => {
+    for (const content of LANDING_CONTENTS) {
+      const { container } = render(<ContentLandingPage content={content} />);
+
+      expect(container.querySelectorAll('h1')).toHaveLength(1);
+      expect(container.querySelector('h1')).toHaveTextContent(content.h1);
+    }
+  });
+
   it('muestra el H1 y la intro del contenido recibido', () => {
     const content = renderLanding('gestion-terrenos');
 

@@ -2,7 +2,7 @@
 id: "MKT-108"
 tipo: tarea
 titulo: "Activos organicos y calendario editorial 30 dias"
-estado: borrador
+estado: aprobado
 prioridad: media
 sprint: ""
 hito: "Post-MVP — Crecimiento orgánico"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["content", "calendar", "organic-distribution"]
   nivel_riesgo: bajo
 creado_en: "2026-08-31"
-actualizado_en: "2026-08-31"
+actualizado_en: "2026-09-01"
 ---
 
 # MKT-108 — Activos organicos y calendario editorial 30 dias

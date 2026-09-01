@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LANDING_CONTENTS, getLandingBySlug, getRelatedLandings } from './landings';
+import { HOME_META, LANDING_CONTENTS, getLandingBySlug, getRelatedLandings } from './landings';
 
 /**
  * MKT-102 (CA-1, CA-2) — El plan P0 fija 10 landings y exige que cada una enlace a landings
@@ -59,10 +59,11 @@ describe('contenido de landings públicas', () => {
   });
 
   it('título y descripción de meta no están vacíos ni se repiten entre landings', () => {
-    const titles = LANDING_CONTENTS.map((content) => content.title);
-    const descriptions = LANDING_CONTENTS.map((content) => content.metaDescription);
+    const publicPages = [HOME_META, ...LANDING_CONTENTS];
+    const titles = publicPages.map((content) => content.title);
+    const descriptions = publicPages.map((content) => content.metaDescription);
 
-    for (const content of LANDING_CONTENTS) {
+    for (const content of publicPages) {
       expect(content.title.length).toBeGreaterThan(0);
       expect(content.metaDescription.length).toBeGreaterThan(0);
     }

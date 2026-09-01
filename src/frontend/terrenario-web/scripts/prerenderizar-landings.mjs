@@ -73,8 +73,9 @@ export function construirDocumentoLanding(plantillaHtml, contenido, cuerpo) {
   );
 
   const canonico = `<link rel="canonical" href="${ORIGEN}${contenido.path}" />`;
+  const hreflang = `<link rel="alternate" hreflang="es-ES" href="${ORIGEN}${contenido.path}" />`;
   html = html.replace('<link rel="manifest" href="/manifest.webmanifest" />', (coincidencia) =>
-    `${coincidencia}\n    ${canonico}`
+    `${coincidencia}\n    ${canonico}\n    ${hreflang}`
   );
 
   html = html.replace('<div id="root"></div>', `<div id="root">${cuerpo}</div>`);

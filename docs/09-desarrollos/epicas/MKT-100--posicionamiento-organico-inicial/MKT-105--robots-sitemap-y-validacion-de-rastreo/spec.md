@@ -2,7 +2,7 @@
 id: "MKT-105"
 tipo: feature
 titulo: "Robots sitemap y validacion de rastreo"
-estado: borrador
+estado: aprobado
 prioridad: alta
 sprint: ""
 hito: "Post-MVP — Crecimiento orgánico"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["robots", "sitemap", "crawlability"]
   nivel_riesgo: bajo
 creado_en: "2026-08-31"
-actualizado_en: "2026-08-31"
+actualizado_en: "2026-09-01"
 ---
 
 # MKT-105 — Robots sitemap y validacion de rastreo

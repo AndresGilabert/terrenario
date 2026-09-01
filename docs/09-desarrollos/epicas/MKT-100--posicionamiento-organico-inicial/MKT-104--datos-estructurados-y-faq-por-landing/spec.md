@@ -2,7 +2,7 @@
 id: "MKT-104"
 tipo: feature
 titulo: "Datos estructurados y FAQ por landing"
-estado: borrador
+estado: aprobado
 prioridad: media
 sprint: ""
 hito: "Post-MVP — Crecimiento orgánico"
@@ -21,7 +21,7 @@ ai_context:
   etiquetas: ["json-ld", "faq", "rich-results"]
   nivel_riesgo: bajo
 creado_en: "2026-08-31"
-actualizado_en: "2026-08-31"
+actualizado_en: "2026-09-01"
 ---
 
 # MKT-104 — Datos estructurados y FAQ por landing

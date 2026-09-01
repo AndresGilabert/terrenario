@@ -50,6 +50,39 @@ const TITULO_HOME = 'Terrenario — Tu tierra, bajo control';
 const DESCRIPCION_HOME =
   'La herramienta sencilla para el agricultor: gestiona terrenos, cosechas, compras y el diario de campo de tu explotación en un solo sitio.';
 
+export function construirDatosEstructurados(contenido) {
+  const graph = [
+    { '@type': 'Organization', name: 'Terrenario', url: ORIGEN },
+    {
+      '@type': 'SoftwareApplication',
+      name: 'Terrenario',
+      applicationCategory: 'Agricultural management application',
+      operatingSystem: 'Web',
+      url: `${ORIGEN}${contenido.path}`,
+    },
+  ];
+
+  if (contenido.faqs?.length > 0) {
+    graph.push({
+      '@type': 'FAQPage',
+      mainEntity: contenido.faqs.map((faq) => ({
+        '@type': 'Question',
+        name: faq.question,
+        acceptedAnswer: { '@type': 'Answer', text: faq.answer },
+      })),
+    });
+  }
+
+  return {
+    '@context': 'https://schema.org',
+    '@graph': graph,
+  };
+}
+
+function serializarDatosEstructurados(contenido) {
+  return JSON.stringify(construirDatosEstructurados(contenido)).replace(/</g, '\\u003c');
+}
+
 /**
  * Construye el documento HTML final de una landing a partir de la plantilla ya construida
  * (`dist/index.html`) y el cuerpo pre-renderizado del componente.
@@ -74,8 +107,9 @@ export function construirDocumentoLanding(plantillaHtml, contenido, cuerpo) {
 
   const canonico = `<link rel="canonical" href="${ORIGEN}${contenido.path}" />`;
   const hreflang = `<link rel="alternate" hreflang="es-ES" href="${ORIGEN}${contenido.path}" />`;
+  const datosEstructurados = `<script type="application/ld+json">${serializarDatosEstructurados(contenido)}</script>`;
   html = html.replace('<link rel="manifest" href="/manifest.webmanifest" />', (coincidencia) =>
-    `${coincidencia}\n    ${canonico}\n    ${hreflang}`
+    `${coincidencia}\n    ${canonico}\n    ${hreflang}\n    ${datosEstructurados}`
   );
 
   html = html.replace('<div id="root"></div>', `<div id="root">${cuerpo}</div>`);

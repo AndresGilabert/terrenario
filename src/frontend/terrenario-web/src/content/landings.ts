@@ -21,6 +21,11 @@ export interface LandingBullet {
   text: string;
 }
 
+export interface LandingFaq {
+  question: string;
+  answer: string;
+}
+
 export interface LandingContent {
   slug: string;
   /** Ruta pública, sin barra final, tal y como la fija el `spec.md` de `MKT-102`. */
@@ -33,8 +38,52 @@ export interface LandingContent {
   h1: string;
   intro: string;
   bullets: LandingBullet[];
+  faqs: LandingFaq[];
   relatedSlugs: string[];
 }
+
+const LANDING_FAQS: Record<string, LandingFaq[]> = {
+  'gestion-terrenos': [
+    { question: '¿Qué datos necesito para crear un terreno?', answer: 'Puedes empezar con el nombre y el tipo de propiedad. La ubicación, el propietario y el número de olivos se pueden completar después.' },
+    { question: '¿Por qué cada registro se asocia a un terreno?', answer: 'El terreno es la base para relacionar actividades, cosechas y compras, y para consultar después costes y rendimiento por parcela.' },
+  ],
+  'diario-de-campo': [
+    { question: '¿Qué puedo registrar en el diario de campo?', answer: 'El diario reúne actividades, compras, consumos y cosechas en un único eje cronológico por fecha.' },
+    { question: '¿Qué información lleva una actividad?', answer: 'Cada actividad registra terreno, tarea, responsable, horas y coste manual.' },
+  ],
+  'control-cosechas': [
+    { question: '¿Qué datos son obligatorios al registrar una cosecha?', answer: 'Cada cosecha incluye el terreno, la temporada, el producto, los kilos y el destino.' },
+    { question: '¿Puedo registrar rendimiento y litros a la vez?', answer: 'No. Puedes informar el rendimiento o los litros obtenidos, pero no los dos en la misma cosecha.' },
+  ],
+  'compras-y-consumos': [
+    { question: '¿Puedo registrar un consumo sin haber anotado antes la compra?', answer: 'Sí. El consumo queda registrado con coste 0 y un aviso; una compra posterior no recalcula ese coste histórico.' },
+    { question: '¿Cómo reparto un material entre varios terrenos?', answer: 'Puedes imputar un consumo aproximado a cada terreno y Terrenario calcula el coste proporcional cuando está vinculado a la compra.' },
+  ],
+  'dashboard-campana': [
+    { question: '¿Qué muestra el dashboard de campaña?', answer: 'Muestra producción total, litros de aceite, rendimiento medio, kilos por terreno, kilos por destino y la evolución del rendimiento.' },
+    { question: '¿Qué ocurre si faltan datos para un indicador?', answer: 'Cuando falta un dato como el número de olivos, el panel marca el resultado como incompleto en lugar de estimarlo.' },
+  ],
+  'workspaces-colaboracion': [
+    { question: '¿Cómo invito a otra persona a mi Workspace?', answer: 'Puedes enviar una invitación por email o compartir un enlace de un solo uso.' },
+    { question: '¿Qué puede hacer un miembro del Workspace?', answer: 'En esta fase, cualquier miembro puede registrar y consultar la operativa completa del Workspace.' },
+  ],
+  'trabajadores-y-tareas': [
+    { question: '¿Los miembros invitados aparecen como responsables?', answer: 'Sí. Quien invitas al Workspace aparece automáticamente como trabajador seleccionable.' },
+    { question: '¿Puedo registrar trabajadores sin cuenta?', answer: 'Sí. Puedes crear fichas de trabajadores externos sin darles acceso al Workspace.' },
+  ],
+  'agricultor-particular': [
+    { question: '¿Para qué tipo de explotación sirve Terrenario?', answer: 'Está pensado para gestionar una o varias parcelas familiares o adquiridas, incluso cuando las trabajas en tu tiempo libre.' },
+    { question: '¿Qué puedo consultar al final de una temporada?', answer: 'Puedes revisar qué se hizo en cada terreno, cuánto costó y cuánto se recolectó desde el mismo registro.' },
+  ],
+  'explotacion-familiar': [
+    { question: '¿Puede una familia trabajar sobre la misma información?', answer: 'Sí. Un Workspace compartido permite que las personas invitadas vean los mismos terrenos, diario y dashboard.' },
+    { question: '¿Hay que configurar roles para empezar?', answer: 'No. En esta fase todos los miembros del Workspace pueden registrar y consultar la operativa.' },
+  ],
+  'gestion-multiterreno': [
+    { question: '¿Cómo comparo varias parcelas?', answer: 'Cada terreno tiene su propia ficha e histórico, y el dashboard desglosa producción y coste por terreno.' },
+    { question: '¿Qué datos se ven por terreno?', answer: 'Puedes consultar los kilos y el rendimiento por terreno, además de los costes de actividades y compras registradas.' },
+  ],
+};
 
 export const LANDING_CONTENTS: LandingContent[] = [
   {
@@ -66,6 +115,7 @@ export const LANDING_CONTENTS: LandingContent[] = [
         text: 'Con el número de olivos registrado, el dashboard puede calcular el rendimiento por árbol además del rendimiento por kilo.',
       },
     ],
+    faqs: LANDING_FAQS['gestion-terrenos'],
     relatedSlugs: ['diario-de-campo', 'control-cosechas', 'dashboard-campana', 'gestion-multiterreno'],
   },
   {
@@ -97,6 +147,7 @@ export const LANDING_CONTENTS: LandingContent[] = [
         text: 'El coste de cada actividad lo escribes tú: Terrenario no calcula tarifas automáticas, así que lo que ves es exactamente lo que decidiste anotar.',
       },
     ],
+    faqs: LANDING_FAQS['diario-de-campo'],
     relatedSlugs: ['gestion-terrenos', 'compras-y-consumos', 'trabajadores-y-tareas', 'control-cosechas'],
   },
   {
@@ -128,6 +179,7 @@ export const LANDING_CONTENTS: LandingContent[] = [
         text: 'Cada cosecha aparece también en el diario cronológico unificado, junto al resto de la operativa de esa fecha.',
       },
     ],
+    faqs: LANDING_FAQS['control-cosechas'],
     relatedSlugs: ['dashboard-campana', 'gestion-terrenos', 'diario-de-campo'],
   },
   {
@@ -159,6 +211,7 @@ export const LANDING_CONTENTS: LandingContent[] = [
         text: 'Puedes registrar el consumo aunque la compra todavía no exista: queda con coste 0 y un aviso, y no se recalcula si la compra llega más tarde.',
       },
     ],
+    faqs: LANDING_FAQS['compras-y-consumos'],
     relatedSlugs: ['diario-de-campo', 'dashboard-campana'],
   },
   {
@@ -190,6 +243,7 @@ export const LANDING_CONTENTS: LandingContent[] = [
         text: 'Cuando falta un dato para un cálculo —como el número de olivos de un terreno— el panel lo marca en vez de estimarlo.',
       },
     ],
+    faqs: LANDING_FAQS['dashboard-campana'],
     relatedSlugs: ['control-cosechas', 'compras-y-consumos', 'gestion-terrenos'],
   },
   {
@@ -221,6 +275,7 @@ export const LANDING_CONTENTS: LandingContent[] = [
         text: 'Quien abandona el Workspace deja de aparecer como responsable seleccionable, pero su trabajo pasado se conserva tal cual quedó registrado.',
       },
     ],
+    faqs: LANDING_FAQS['workspaces-colaboracion'],
     relatedSlugs: ['trabajadores-y-tareas', 'diario-de-campo'],
   },
   {
@@ -252,6 +307,7 @@ export const LANDING_CONTENTS: LandingContent[] = [
         text: 'Puedes registrar personas que trabajan tu explotación sin que tengan cuenta ni acceso al Workspace.',
       },
     ],
+    faqs: LANDING_FAQS['trabajadores-y-tareas'],
     relatedSlugs: ['diario-de-campo', 'workspaces-colaboracion'],
   },
   {
@@ -283,6 +339,7 @@ export const LANDING_CONTENTS: LandingContent[] = [
         text: 'Consulta el rendimiento de cada temporada y compáralo con campañas anteriores desde el mismo panel.',
       },
     ],
+    faqs: LANDING_FAQS['agricultor-particular'],
     relatedSlugs: ['gestion-terrenos', 'diario-de-campo', 'control-cosechas'],
   },
   {
@@ -314,6 +371,7 @@ export const LANDING_CONTENTS: LandingContent[] = [
         text: 'Cualquier miembro del Workspace puede registrar y consultar la operativa: no hay que configurar roles para empezar.',
       },
     ],
+    faqs: LANDING_FAQS['explotacion-familiar'],
     relatedSlugs: ['workspaces-colaboracion', 'trabajadores-y-tareas', 'diario-de-campo'],
   },
   {
@@ -345,6 +403,7 @@ export const LANDING_CONTENTS: LandingContent[] = [
         text: 'Actividades y compras se registran siempre por terreno, así que el coste de cada parcela queda separado del resto desde el primer día.',
       },
     ],
+    faqs: LANDING_FAQS['gestion-multiterreno'],
     relatedSlugs: ['gestion-terrenos', 'dashboard-campana', 'control-cosechas'],
   },
 ];

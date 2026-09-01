@@ -2,7 +2,7 @@
 id: "MKT-103"
 tipo: feature
 titulo: "TDD: SEO on-page base para landings"
-estado: en-progreso
+estado: completado
 tickets: []
 epica: "MKT-100--posicionamiento-organico-inicial"
 responsable: "@andres"

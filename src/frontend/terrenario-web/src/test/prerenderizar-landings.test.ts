@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error -- `scripts/` son módulos de build en JavaScript, fuera del `tsconfig` de la app.
-import { construirDocumentoLanding } from '../../scripts/prerenderizar-landings.mjs';
+import { construirDatosEstructurados, construirDocumentoLanding } from '../../scripts/prerenderizar-landings.mjs';
 
 /**
  * MKT-102 — `construirDocumentoLanding` es la parte de `scripts/prerenderizar-landings.mjs` que se
@@ -39,6 +39,7 @@ const CONTENIDO = {
   path: '/funcionalidades/gestion-terrenos',
   title: 'Gestión de terrenos agrícolas | Terrenario',
   metaDescription: 'Registra cada parcela con propietario, ubicación y número de olivos.',
+  faqs: [{ question: '¿Qué datos necesito?', answer: 'El nombre y el tipo de propiedad.' }],
 };
 
 describe('construirDocumentoLanding', () => {
@@ -65,6 +66,25 @@ describe('construirDocumentoLanding', () => {
     expect(documento).toContain(
       '<link rel="alternate" hreflang="es-ES" href="https://app.terrenario.com/funcionalidades/gestion-terrenos" />'
     );
+  });
+
+  it('publica Organization, SoftwareApplication y FAQPage desde las FAQ visibles', () => {
+    const datos = construirDatosEstructurados(CONTENIDO);
+    const documento = construirDocumentoLanding(PLANTILLA, CONTENIDO, '<main>cuerpo</main>');
+
+    expect(datos['@graph'].map((schema: { '@type': string }) => schema['@type'])).toEqual([
+      'Organization',
+      'SoftwareApplication',
+      'FAQPage',
+    ]);
+    expect(datos['@graph'][2].mainEntity).toEqual([
+      {
+        '@type': 'Question',
+        name: CONTENIDO.faqs[0].question,
+        acceptedAnswer: { '@type': 'Answer', text: CONTENIDO.faqs[0].answer },
+      },
+    ]);
+    expect(documento).toContain('<script type="application/ld+json">');
   });
 
   it('inyecta el cuerpo pre-renderizado dentro de #root', () => {

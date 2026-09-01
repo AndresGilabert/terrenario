@@ -119,6 +119,7 @@ flowchart LR
 | [MVP-711](../../09-desarrollos/epicas/MVP-007--ajustes-mvp-01/MVP-711--canal-de-feedback-del-usuario/tech-design.md) | Canal de sugerencias e incidencias: contexto técnico, límite anti-abuso y correo |
 | [MKT-102](../../09-desarrollos/epicas/MKT-100--posicionamiento-organico-inicial/MKT-102--landings-publicas-p0-de-funcionalidades-y-casos/tech-design.md) · [ADR-0012](../../02-arquitectura/decisiones/ADR-0012--prerenderizado-estatico-landings-publicas-mkt-102.md) | Landings públicas de funcionalidades y casos de uso, pre-renderizadas a HTML estático en el build |
 | [MKT-103](../../09-desarrollos/epicas/MKT-100--posicionamiento-organico-inicial/MKT-103--seo-on-page-base-para-landings/tech-design.md) | Metadatos SEO por URL pública: `title`, description, canonical, `hreflang` y un único `h1` |
+| [MKT-104](../../09-desarrollos/epicas/MKT-100--posicionamiento-organico-inicial/MKT-104--datos-estructurados-y-faq-por-landing/tech-design.md) | FAQ visibles y JSON-LD `Organization`, `SoftwareApplication` y `FAQPage` por landing |
 | [Contratos de API](../../02-arquitectura/contratos-api.md) · [Componentes](../../02-arquitectura/componentes.md) | Convenciones de contrato y despiece C4, mantenidos de forma central |
 | [Estándares de código](../../04-ingenieria/estandares-codigo.md) | Convenciones que este chasis impone al resto |
 

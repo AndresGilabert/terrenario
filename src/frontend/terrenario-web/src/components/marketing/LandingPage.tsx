@@ -5,6 +5,7 @@ import {
   GOOGLE_ACCOUNT_SIGNUP_LABEL,
   GOOGLE_ACCOUNT_SIGNUP_URL,
 } from '../../lib/google-account';
+import { LANDING_CONTENTS } from '../../content/landings';
 
 /**
  * Landing pública. Recupera el lenguaje visual del prototipo (marca `eco`, tipografía display y
@@ -13,6 +14,9 @@ import {
  */
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
+
+  const funcionalidades = LANDING_CONTENTS.filter((content) => content.cluster === 'funcionalidad');
+  const perfiles = LANDING_CONTENTS.filter((content) => content.cluster === 'perfil');
 
   const benefits = [
     {
@@ -155,6 +159,45 @@ export const LandingPage: React.FC = () => {
             ))}
           </div>
         </div>
+      </section>
+
+      {/* MKT-102 (CA-3) — Hub de enlazado a las landings públicas de funcionalidades y casos de
+          uso. Son páginas estáticas pre-renderizadas fuera de la SPA (ver
+          `components/marketing/ContentLandingPage.tsx`), así que los enlaces son `<a>` reales y no
+          `<Link>`: no están dadas de alta en el router del cliente y una navegación de React Router
+          hacia una ruta que no existe ahí caería en el 404 de la SPA en vez de servir la página. */}
+      <section aria-label="Funcionalidades" className="py-16 px-6 lg:px-12 max-w-7xl mx-auto w-full space-y-8">
+        <div className="text-center max-w-2xl mx-auto space-y-3">
+          <h2 className="font-headline font-bold text-3xl sm:text-4xl text-[#1c1c19]">Explora por funcionalidad</h2>
+        </div>
+        <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {funcionalidades.map((content) => (
+            <li key={content.slug}>
+              <a
+                href={content.path}
+                className="block p-5 rounded-xl border border-[#e5e2dd] hover:border-[#33450d] transition-colors"
+              >
+                <span className="font-semibold text-[#33450d]">{content.navLabel}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+
+        <div className="text-center max-w-2xl mx-auto space-y-3 pt-6">
+          <h2 className="font-headline font-bold text-3xl sm:text-4xl text-[#1c1c19]">¿Para quién es Terrenario?</h2>
+        </div>
+        <ul className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {perfiles.map((content) => (
+            <li key={content.slug}>
+              <a
+                href={content.path}
+                className="block p-5 rounded-xl border border-[#e5e2dd] hover:border-[#33450d] transition-colors"
+              >
+                <span className="font-semibold text-[#33450d]">{content.navLabel}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
       </section>
 
       {/* CTA */}

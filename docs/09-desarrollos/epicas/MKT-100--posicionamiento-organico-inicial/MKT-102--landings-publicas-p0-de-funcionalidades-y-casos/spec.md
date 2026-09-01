@@ -2,7 +2,7 @@
 id: "MKT-102"
 tipo: feature
 titulo: "Landings publicas P0 de funcionalidades y casos"
-estado: borrador
+estado: aprobado
 prioridad: alta
 sprint: ""
 hito: "Post-MVP — Crecimiento orgánico"
@@ -13,7 +13,7 @@ depende_de: []
 bloquea: ["MKT-103", "MKT-104", "MKT-105", "MKT-106", "MKT-108"]
 relacionado_con: ["MKT-100"]
 responsable: "@andres"
-revisores: []
+revisores: ["@andres"]
 ai_context:
   dominios: ["marketing", "seo", "conversion"]
   modulo_path: "03-modulos/plataforma-de-aplicacion"

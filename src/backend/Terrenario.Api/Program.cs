@@ -437,6 +437,30 @@ app.UseCors("FrontendPolicy");
 //
 // De regalo desaparecen dos problemas: no hay CORS que configurar, y la cookie de refresco
 // `SameSite=Strict` deja de estar en riesgo, porque ya no hay nada cross-site.
+
+// MKT-102 — La home pública (`/`) es una landing pre-renderizada propia (`home.html`), no el
+// `index.html` que `MapFallback` sirve para el resto de rutas de la SPA (`/app/diario` incluida).
+// React arranca con `createRoot(...).render(...)` — reemplaza `#root`, no lo hidrata—, así que si la
+// home se sirviera desde `index.html` cada ruta autenticada mostraría un parpadeo de contenido de
+// marketing antes de que React lo sustituyera. Middleware explícito y no un cambio en
+// `UseDefaultFiles`: si `home.html` no existe —build de frontend no ejecutado, típico en
+// desarrollo— cae al comportamiento de siempre sin romper nada (`ADR-0012`).
+app.Use(async (context, next) =>
+{
+    if (HttpMethods.IsGet(context.Request.Method) && context.Request.Path == "/")
+    {
+        var home = Path.Combine(app.Environment.WebRootPath ?? string.Empty, "home.html");
+        if (File.Exists(home))
+        {
+            context.Response.ContentType = "text/html; charset=utf-8";
+            await context.Response.SendFileAsync(home);
+            return;
+        }
+    }
+
+    await next();
+});
+
 app.UseDefaultFiles();
 app.UseStaticFiles();
 

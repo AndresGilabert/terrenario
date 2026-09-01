@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && npm run prerender:landings",
+    "prerender:landings": "node scripts/prerenderizar-landings.mjs",
     "lint": "oxlint",
     "peso": "node --input-type=module -e \"const m=await import('./scripts/peso-primera-carga.mjs');console.log(m.informe(m.medirPrimeraCarga('dist')))\"",
     "test": "vitest run",

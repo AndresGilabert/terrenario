@@ -78,7 +78,7 @@ sabría dónde está descrito.
 | Capa | Elementos |
 | ---- | --------- |
 | Backend | `Common/Errors`, `Common/Http` (`RequestId`, `SecurityHeaders`, `RequestMetrics`, `IfMatchHeader`, `PartialUpdateBody`), `Common/DeployedVersion.cs`, `Infrastructure/Data`, `Application/Feedback` e `Infrastructure/Feedback` (MVP-711) |
-| Frontend | `lib/http-client.ts`, `lib/report-context.ts`, `contexts/{ApiContext,DataScopeContext}`, `routes/`, `components/{layout,home,errors,common,marketing,legal,feedback}`, `config/legal-entity.ts`, `index.html`, `public/` (iconos, manifest e imagen social) y `scripts/generar-iconos.mjs` |
+| Frontend | `lib/http-client.ts`, `lib/report-context.ts`, `contexts/{ApiContext,DataScopeContext}`, `routes/`, `components/{layout,home,errors,common,marketing,legal,feedback}`, `content/landings.ts`, `entry-server.tsx`, `config/legal-entity.ts`, `index.html`, `public/` (iconos, manifest e imagen social) y `scripts/{generar-iconos,prerenderizar-landings}.mjs` |
 | Datos | Ninguna tabla propia: gestiona el `DbContext` y las migraciones de todo el esquema. El canal de feedback tampoco crea ninguna: el correo **es** el registro |
 
 ---
@@ -117,6 +117,7 @@ flowchart LR
 | [MVP-703](../../09-desarrollos/epicas/MVP-007--ajustes-mvp-01/MVP-703--arranque-en-el-diario-y-definicion-de-sesion-activa/tech-design.md) | Decisión de arranque en `HomeView` |
 | [MVP-710](../../09-desarrollos/epicas/MVP-007--ajustes-mvp-01/MVP-710--identidad-de-marca-y-presencia-del-producto/tech-design.md) | Iconos de marca, manifest y tarjeta social, todo autoalojado |
 | [MVP-711](../../09-desarrollos/epicas/MVP-007--ajustes-mvp-01/MVP-711--canal-de-feedback-del-usuario/tech-design.md) | Canal de sugerencias e incidencias: contexto técnico, límite anti-abuso y correo |
+| [MKT-102](../../09-desarrollos/epicas/MKT-100--posicionamiento-organico-inicial/MKT-102--landings-publicas-p0-de-funcionalidades-y-casos/tech-design.md) · [ADR-0012](../../02-arquitectura/decisiones/ADR-0012--prerenderizado-estatico-landings-publicas-mkt-102.md) | Landings públicas de funcionalidades y casos de uso, pre-renderizadas a HTML estático en el build |
 | [Contratos de API](../../02-arquitectura/contratos-api.md) · [Componentes](../../02-arquitectura/componentes.md) | Convenciones de contrato y despiece C4, mantenidos de forma central |
 | [Estándares de código](../../04-ingenieria/estandares-codigo.md) | Convenciones que este chasis impone al resto |
 

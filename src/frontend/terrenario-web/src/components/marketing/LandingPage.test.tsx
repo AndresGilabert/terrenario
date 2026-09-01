@@ -1,21 +1,20 @@
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
 import { LandingPage } from './LandingPage';
 import { GOOGLE_ACCOUNT_SIGNUP_URL } from '../../lib/google-account';
+import { LANDING_CONTENTS } from '../../content/landings';
 
 /**
  * MVP-712 — La landing es **pública** y es donde se decide si probar el producto. Hasta ahora no
  * decía con qué se entra, así que quien no tiene Gmail se enteraba en el login… o no llegaba nunca
  * (`P-089`). Es la única pantalla del producto que se lee sin haber entrado, y por eso el texto de
  * acceso tiene que estar aquí y no solo detrás del botón.
+ *
+ * MKT-102 — Se renderiza **sin** `MemoryRouter`: `LandingPage` ya no usa `react-router` (ver
+ * comentario del componente), condición para poder pre-renderizarla como HTML estático.
  */
 function renderLanding() {
-  render(
-    <MemoryRouter>
-      <LandingPage />
-    </MemoryRouter>
-  );
+  render(<LandingPage />);
 }
 
 describe('LandingPage — acceso con cualquier dirección', () => {
@@ -44,5 +43,15 @@ describe('LandingPage — acceso con cualquier dirección', () => {
     expect(alta).toHaveAttribute('href', GOOGLE_ACCOUNT_SIGNUP_URL);
     expect(alta).toHaveAttribute('target', '_blank');
     expect(alta).toHaveAttribute('rel', expect.stringContaining('noreferrer'));
+  });
+});
+
+describe('LandingPage — hub de enlazado a las landings públicas (MKT-102, CA-3)', () => {
+  it('enlaza a cada landing de funcionalidad y de caso de uso por su ruta pública', () => {
+    renderLanding();
+
+    for (const content of LANDING_CONTENTS) {
+      expect(screen.getByRole('link', { name: content.navLabel })).toHaveAttribute('href', content.path);
+    }
   });
 });

@@ -1,18 +1,23 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router';
 import {
   ANY_EMAIL_WORKS_HINT,
   GOOGLE_ACCOUNT_SIGNUP_LABEL,
   GOOGLE_ACCOUNT_SIGNUP_URL,
 } from '../../lib/google-account';
+import { LANDING_CONTENTS } from '../../content/landings';
 
 /**
- * Landing pública. Recupera el lenguaje visual del prototipo (marca `eco`, tipografía display y
- * hero a dos columnas con imagen), manteniendo las decisiones de copy/CTA de MVP-106: un único
- * patrón de acceso ("Acceder"), sin reclamos de gratuidad ni métricas inventadas.
+ * Landing pública (la home, `/`). Recupera el lenguaje visual del prototipo (marca `eco`,
+ * tipografía display y hero a dos columnas con imagen), manteniendo las decisiones de copy/CTA de
+ * MVP-106: un único patrón de acceso ("Acceder"), sin reclamos de gratuidad ni métricas inventadas.
+ *
+ * MKT-102 — Sin `react-router`, igual que `ContentLandingPage`: se pre-renderiza a HTML estático en
+ * el build (`scripts/prerenderizar-landings.mjs` -> `dist/home.html`, servido en `/` por un
+ * middleware propio en `Program.cs`, **no** por `dist/index.html`) y no necesita Router para eso.
  */
 export const LandingPage: React.FC = () => {
-  const navigate = useNavigate();
+  const funcionalidades = LANDING_CONTENTS.filter((content) => content.cluster === 'funcionalidad');
+  const perfiles = LANDING_CONTENTS.filter((content) => content.cluster === 'perfil');
 
   const benefits = [
     {
@@ -54,12 +59,12 @@ export const LandingPage: React.FC = () => {
         </nav>
 
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/login')}
+          <a
+            href="/login"
             className="px-4 py-2 text-sm font-semibold text-white bg-[#33450d] hover:bg-[#4a5d23] rounded-xl shadow-sm transition-colors"
           >
             Acceder
-          </button>
+          </a>
         </div>
       </header>
 
@@ -82,12 +87,12 @@ export const LandingPage: React.FC = () => {
           </p>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
-            <button
-              onClick={() => navigate('/login')}
+            <a
+              href="/login"
               className="flex items-center justify-center gap-3 px-6 py-3.5 rounded-xl bg-[#33450d] hover:bg-[#4a5d23] text-white font-semibold text-base shadow-md transition-all"
             >
               Acceder a la plataforma
-            </button>
+            </a>
           </div>
 
           {/* MVP-712 (CA-2) — Antes de pedir nada. Esta es la pantalla donde se decide si probar el
@@ -157,6 +162,45 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
+      {/* MKT-102 (CA-3) — Hub de enlazado a las landings públicas de funcionalidades y casos de
+          uso. Son páginas estáticas pre-renderizadas fuera de la SPA (ver
+          `components/marketing/ContentLandingPage.tsx`), así que los enlaces son `<a>` reales y no
+          `<Link>`: no están dadas de alta en el router del cliente y una navegación de React Router
+          hacia una ruta que no existe ahí caería en el 404 de la SPA en vez de servir la página. */}
+      <section aria-label="Funcionalidades" className="py-16 px-6 lg:px-12 max-w-7xl mx-auto w-full space-y-8">
+        <div className="text-center max-w-2xl mx-auto space-y-3">
+          <h2 className="font-headline font-bold text-3xl sm:text-4xl text-[#1c1c19]">Explora por funcionalidad</h2>
+        </div>
+        <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {funcionalidades.map((content) => (
+            <li key={content.slug}>
+              <a
+                href={content.path}
+                className="block p-5 rounded-xl border border-[#e5e2dd] hover:border-[#33450d] transition-colors"
+              >
+                <span className="font-semibold text-[#33450d]">{content.navLabel}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+
+        <div className="text-center max-w-2xl mx-auto space-y-3 pt-6">
+          <h2 className="font-headline font-bold text-3xl sm:text-4xl text-[#1c1c19]">¿Para quién es Terrenario?</h2>
+        </div>
+        <ul className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {perfiles.map((content) => (
+            <li key={content.slug}>
+              <a
+                href={content.path}
+                className="block p-5 rounded-xl border border-[#e5e2dd] hover:border-[#33450d] transition-colors"
+              >
+                <span className="font-semibold text-[#33450d]">{content.navLabel}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+
       {/* CTA */}
       <section className="py-16 px-6 lg:px-12 bg-[#33450d] text-white text-center">
         <div className="max-w-3xl mx-auto space-y-6">
@@ -166,12 +210,12 @@ export const LandingPage: React.FC = () => {
           <p className="text-base text-[#bed58e]">
             Únete a agricultores que ya gestionan sus cultivos de forma organizada.
           </p>
-          <button
-            onClick={() => navigate('/login')}
-            className="px-8 py-4 rounded-xl bg-[#c9f16f] text-[#33450d] hover:bg-[#aed456] font-bold text-base shadow-lg transition-all"
+          <a
+            href="/login"
+            className="inline-block px-8 py-4 rounded-xl bg-[#c9f16f] text-[#33450d] hover:bg-[#aed456] font-bold text-base shadow-lg transition-all"
           >
             Acceder a la plataforma
-          </button>
+          </a>
         </div>
       </section>
 
@@ -186,9 +230,9 @@ export const LandingPage: React.FC = () => {
           <div className="flex items-center gap-6">
             {/* MVP-505 (CA-1) — Las páginas legales tienen que alcanzarse también desde la landing:
                 es la primera pantalla y la única que ve quien todavía no ha entrado. */}
-            <Link to="/legal/privacidad" className="hover:underline">Privacidad</Link>
-            <Link to="/legal/terminos" className="hover:underline">Términos</Link>
-            <button onClick={() => navigate('/login')} className="hover:underline">Acceder</button>
+            <a href="/legal/privacidad" className="hover:underline">Privacidad</a>
+            <a href="/legal/terminos" className="hover:underline">Términos</a>
+            <a href="/login" className="hover:underline">Acceder</a>
           </div>
         </div>
       </footer>

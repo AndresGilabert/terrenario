@@ -6,7 +6,7 @@
 | Historia | Título | Estado | Responsable | Prioridad |
 |----------|--------|--------|-------------|-----------|
 | [MKT-101](./MKT-101--resumen-operativo-por-email-diario-y-semanal/spec.md) | Resumen operativo por email diario y semanal | ✅ aprobado | @andres | alta |
-| [MKT-102](./MKT-102--landings-publicas-p0-de-funcionalidades-y-casos/spec.md) | Landings publicas P0 de funcionalidades y casos | 📝 borrador | @andres | alta |
+| [MKT-102](./MKT-102--landings-publicas-p0-de-funcionalidades-y-casos/spec.md) | Landings publicas P0 de funcionalidades y casos | ✅ aprobado | @andres | alta |
 | [MKT-103](./MKT-103--seo-on-page-base-para-landings/spec.md) | SEO on-page base para landings | 📝 borrador | @andres | alta |
 | [MKT-104](./MKT-104--datos-estructurados-y-faq-por-landing/spec.md) | Datos estructurados y FAQ por landing | 📝 borrador | @andres | media |
 | [MKT-105](./MKT-105--robots-sitemap-y-validacion-de-rastreo/spec.md) | Robots sitemap y validacion de rastreo | 📝 borrador | @andres | alta |

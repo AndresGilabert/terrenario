@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ContentLandingPage } from './components/marketing/ContentLandingPage';
+import { LandingPage } from './components/marketing/LandingPage';
 import type { LandingContent } from './content/landings';
 
 /**
@@ -13,3 +14,9 @@ import type { LandingContent } from './content/landings';
 export function renderLandingBody(content: LandingContent): string {
   return renderToStaticMarkup(<ContentLandingPage content={content} />);
 }
+
+/** La home (`/`) es una landing propia, con su propio marcado (`LandingPage.tsx`). */
+export function renderHomeBody(): string {
+  return renderToStaticMarkup(<LandingPage />);
+}
+

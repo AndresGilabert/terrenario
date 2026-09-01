@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
 import { LandingPage } from './LandingPage';
 import { GOOGLE_ACCOUNT_SIGNUP_URL } from '../../lib/google-account';
@@ -10,13 +9,12 @@ import { LANDING_CONTENTS } from '../../content/landings';
  * decía con qué se entra, así que quien no tiene Gmail se enteraba en el login… o no llegaba nunca
  * (`P-089`). Es la única pantalla del producto que se lee sin haber entrado, y por eso el texto de
  * acceso tiene que estar aquí y no solo detrás del botón.
+ *
+ * MKT-102 — Se renderiza **sin** `MemoryRouter`: `LandingPage` ya no usa `react-router` (ver
+ * comentario del componente), condición para poder pre-renderizarla como HTML estático.
  */
 function renderLanding() {
-  render(
-    <MemoryRouter>
-      <LandingPage />
-    </MemoryRouter>
-  );
+  render(<LandingPage />);
 }
 
 describe('LandingPage — acceso con cualquier dirección', () => {

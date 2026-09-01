@@ -358,3 +358,18 @@ export function getRelatedLandings(content: LandingContent): LandingContent[] {
     .map((slug) => getLandingBySlug(slug))
     .filter((related): related is LandingContent => related !== undefined);
 }
+
+/**
+ * MKT-102 — Metadatos de la home (`/`) para `scripts/prerenderizar-landings.mjs`. La home no es
+ * una `LandingContent` más: su marcado vive en `LandingPage.tsx` (hero con imagen propia, no el
+ * layout genérico de `ContentLandingPage`), así que solo necesita lo mínimo para construir su
+ * documento — el resto (título y descripción) se mantiene igual que el que ya publicaba
+ * `index.html`, para no cambiar lo que ya está indexado en `/`.
+ */
+export const HOME_META = {
+  path: '/',
+  title: 'Terrenario — Tu tierra, bajo control',
+  metaDescription:
+    'La herramienta sencilla para el agricultor: gestiona terrenos, cosechas, compras y el diario de campo de tu explotación en un solo sitio.',
+};
+

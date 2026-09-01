@@ -43,8 +43,8 @@ Restricciones que limitan las opciones:
 
 ## Decisión
 
-Las 10 landings de `MKT-102` (y solo ellas; el resto de la SPA no cambia) se **pre-renderizan a HTML
-estático en el `build` del frontend**, sin depender de ningún framework SSR ni de servicios externos:
+Las 10 landings de `MKT-102`, **y la home pública (`/`)**, se **pre-renderizan a HTML estático en el
+`build` del frontend**, sin depender de ningún framework SSR ni de servicios externos:
 
 1. El contenido y el marcado de cada landing viven en un componente React puro sin estado ni
    dependencia de `react-router` (`ContentLandingPage`), porque no tienen ninguna interacción propia
@@ -60,13 +60,24 @@ estático en el `build` del frontend**, sin depender de ningún framework SSR ni
    etc.), **sin el bundle de JavaScript de la SPA**: como el componente no tiene estado ni
    interacción propia, no hay nada que hidratar, y no descargar React en estas páginas es mejor para
    el rendimiento, no un compromiso.
-5. El backend no cambia: `app.UseStaticFiles()` sirve estos ficheros directamente porque existen
-   físicamente en `wwwroot`, antes de que la petición llegue a `MapFallback`. El pipeline de despliegue
-   tampoco cambia: ya copia `dist/` completo a `wwwroot/` (`deploy.yml`).
+5. El backend no cambia para las 10 landings: `app.UseStaticFiles()` sirve estos ficheros
+   directamente porque existen físicamente en `wwwroot`, antes de que la petición llegue a
+   `MapFallback`. La home es la única excepción, y acotada: como `/` es también la ruta que
+   `UseDefaultFiles` resolvería contra el `index.html` de siempre (el shell de la SPA, compartido
+   por **todas** las demás rutas vía `MapFallback`), un middleware explícito en `Program.cs`
+   intercepta `GET /` y sirve `wwwroot/home.html` en su lugar, **antes** de `UseDefaultFiles`. Si
+   `home.html` no existe (build de frontend no ejecutado), cae al comportamiento anterior sin
+   romper nada. `index.html` sigue siendo exactamente el mismo shell vacío para el resto de rutas:
+   sin esta separación, cualquier ruta autenticada (`/app/diario` incluida) mostraría un parpadeo
+   de contenido de marketing antes de que React la sustituyera, porque `createRoot(...).render(...)`
+   reemplaza `#root` en vez de hidratarlo.
+   El pipeline de despliegue tampoco cambia: ya copia `dist/` completo a `wwwroot/` (`deploy.yml`).
 6. La navegación **desde** estas páginas —incluida la nueva sección de enlazado de la home
    (`LandingPage`, `CA-3`)— usa `<a href>` planas, nunca `<Link>` de `react-router`: estas rutas no
    están dadas de alta en el router del cliente, y una navegación de React Router hacia una ruta
-   ausente ahí caería en el 404 de la SPA en vez de servir la página real.
+   ausente ahí caería en el 404 de la SPA en vez de servir la página real. `LandingPage` deja de
+   importar `react-router` por completo para poder pre-renderizarse con el mismo mecanismo que las
+   10 landings.
 
 ## Alternativas consideradas
 
@@ -108,6 +119,8 @@ proporcional a 10 páginas).
 
 - `CA-3` de `MKT-102` queda resuelto sin comprometer el presupuesto de primera carga de `MVP-810`: las
   landings nuevas no cuentan contra él porque no cargan el bundle de la SPA.
+- La home pública deja de depender de que un rastreador ejecute JavaScript para ver su contenido: es
+  indexable en igualdad de condiciones con el resto de landings del plan P0.
 - No se abre ninguna dependencia nueva de terceros ni se toca la CSP `default-src 'self'`.
 - El backend y el pipeline de despliegue no cambian: las landings son ficheros estáticos más dentro
   de `wwwroot`.

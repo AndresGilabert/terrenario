@@ -1,5 +1,6 @@
 /**
- * MKT-102 — Pre-renderizado de las landings públicas de funcionalidades y casos de uso.
+ * MKT-102 — Pre-renderizado de la home y de las landings públicas de funcionalidades y casos de
+ * uso.
  *
  * **Por qué existe.** `ADR-0012` decide servir estas páginas como HTML estático generado en el
  * `build`, en vez de dejarlas como rutas cliente de la SPA: sin esto, un rastreador vería el mismo
@@ -7,14 +8,23 @@
  * `CA-3` de `MKT-102` («contenido indexable antes del rastreo técnico») no se cumpliría con
  * JavaScript sin ejecutar.
  *
+ * **Por qué la home es un fichero aparte (`home.html`) y no `dist/index.html`.** `index.html` es
+ * el documento que `MapFallback` sirve para *cualquier* ruta de la SPA sin fichero físico —
+ * `/app/diario` incluida—, porque `React` arranca con `createRoot(...).render(...)` (reemplaza
+ * `#root`, no lo hidrata). Si la home se pre-renderizara ahí, cada ruta autenticada mostraría un
+ * parpadeo de contenido de marketing antes de que React lo sustituyera. `Program.cs` sirve
+ * `home.html` con un middleware propio solo para `GET /`, así que `index.html` sigue siendo el
+ * shell vacío de siempre para el resto de rutas.
+ *
  * **Cómo lo hace.** No compila un segundo bundle: usa `vite.createServer` en modo *middleware* para
  * cargar `entry-server.tsx` con `ssrLoadModule` (la API de bajo nivel que documenta el propio Vite
- * para pre-render/SSG), invoca `renderToStaticMarkup` por cada landing y escribe el resultado sobre
+ * para pre-render/SSG), invoca `renderToStaticMarkup` por cada página y escribe el resultado sobre
  * la plantilla ya construida en `dist/index.html`. No hay una plantilla paralela que mantener: la
  * cabecera (iconos, manifest, CSP, tipografías) es exactamente la que `vite build` ya generó.
  *
- * Cada página sale **sin el bundle de la SPA**: no tiene ningún estado ni interacción propia (son
- * enlaces), así que enviar React y el router sería peso que nadie va a usar.
+ * Cada página sale **sin el bundle de JavaScript de la SPA**: ni la home ni las landings tienen
+ * estado ni interacción propia (son enlaces), así que enviar React y el router sería peso que
+ * nadie va a usar.
  *
  * Se ejecuta como paso posterior a `vite build` (`npm run build`, ver `package.json`), nunca antes:
  * necesita que `dist/index.html` y `dist/assets/*.css` ya existan.
@@ -87,8 +97,15 @@ async function main() {
   });
 
   try {
-    const { renderLandingBody } = await servidor.ssrLoadModule('/src/entry-server.tsx');
-    const { LANDING_CONTENTS } = await servidor.ssrLoadModule('/src/content/landings.ts');
+    const { renderLandingBody, renderHomeBody } = await servidor.ssrLoadModule('/src/entry-server.tsx');
+    const { LANDING_CONTENTS, HOME_META } = await servidor.ssrLoadModule('/src/content/landings.ts');
+
+    // La home primero y a su propio fichero: nunca sobre `dist/index.html` (ver cabecera de este
+    // fichero y `ADR-0012`).
+    const cuerpoHome = renderHomeBody();
+    const documentoHome = construirDocumentoLanding(plantilla, HOME_META, cuerpoHome);
+    writeFileSync(join(DIST, 'home.html'), documentoHome);
+    console.log('[MKT-102] Portada generada: home.html');
 
     for (const contenido of LANDING_CONTENTS) {
       const cuerpo = renderLandingBody(contenido);

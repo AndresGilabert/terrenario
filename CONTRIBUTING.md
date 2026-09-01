@@ -186,17 +186,32 @@ Regla sobre aprobaciones:
 
 ## Validación local
 
-Antes de hacer push, ejecuta la validación en local:
+Instala los hooks versionados al preparar el entorno. `pre-commit` ejecuta la validación completa de
+la KB cuando cambian documentos y las validaciones de frontend cuando cambia el cliente; `pre-push`
+ejecuta build y tests de backend cuando cambia el servidor. No sustituyen al CI, que sigue siendo el
+gate de integración en Linux.
 
 ```bash
-# Instalar dependencias
-pip install pyyaml
+# Una vez por clon
+pip install pre-commit pyyaml
+pre-commit install
+pre-commit install --hook-type pre-push
 
-# Validar estructura y frontmatter
-python docs/00-meta/scripts/validar_kb.py --validar
+# Ejecutar todos los controles manualmente antes de abrir un PR
+pre-commit run --all-files
+pre-commit run --hook-stage pre-push --all-files
+```
 
-# Regenerar índices de épicas
-python docs/00-meta/scripts/validar_kb.py --generar-indices
+Si el control de la KB regenera un `_indice.md`, añádelo al commit y vuelve a ejecutar el hook. El
+hook local regenera los índices; CI comprueba además que el resultado no deja ningún índice pendiente
+de versionar.
+
+Los comandos directos siguen disponibles para diagnosticar un fallo concreto:
+
+```bash
+python docs/00-meta/scripts/validar_pipeline_kb.py --check-indices-clean
+cd src/frontend/terrenario-web && npm run lint && npm run build && npm test
+dotnet test src/backend/Terrenario.sln --configuration Release
 ```
 
 ---

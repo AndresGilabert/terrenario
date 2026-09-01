@@ -2,7 +2,7 @@
 id: "MKT-105"
 tipo: feature
 titulo: "Robots sitemap y validacion de rastreo"
-estado: aprobado
+estado: en-testing
 prioridad: alta
 sprint: ""
 hito: "Post-MVP — Crecimiento orgánico"

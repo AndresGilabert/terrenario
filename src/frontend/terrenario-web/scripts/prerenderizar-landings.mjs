@@ -50,6 +50,15 @@ const TITULO_HOME = 'Terrenario — Tu tierra, bajo control';
 const DESCRIPCION_HOME =
   'La herramienta sencilla para el agricultor: gestiona terrenos, cosechas, compras y el diario de campo de tu explotación en un solo sitio.';
 
+const RUTAS_NO_RASTREABLES = [
+  '/app/',
+  '/onboarding/',
+  '/invitations/',
+  '/reactivations/',
+  '/auth/callback',
+  '/api/',
+];
+
 export function construirDatosEstructurados(contenido) {
   const graph = [
     { '@type': 'Organization', name: 'Terrenario', url: ORIGEN },
@@ -77,6 +86,24 @@ export function construirDatosEstructurados(contenido) {
     '@context': 'https://schema.org',
     '@graph': graph,
   };
+}
+
+export function construirRobotsTxt() {
+  return [
+    'User-agent: *',
+    'Allow: /',
+    ...RUTAS_NO_RASTREABLES.map((ruta) => `Disallow: ${ruta}`),
+    `Sitemap: ${ORIGEN}/sitemap.xml`,
+    '',
+  ].join('\n');
+}
+
+export function construirSitemapXml(contenidos) {
+  const urls = contenidos
+    .map((contenido) => `  <url>\n    <loc>${escaparHtml(`${ORIGEN}${contenido.path}`)}</loc>\n  </url>`)
+    .join('\n');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
 }
 
 function serializarDatosEstructurados(contenido) {
@@ -134,6 +161,10 @@ async function main() {
   try {
     const { renderLandingBody, renderHomeBody } = await servidor.ssrLoadModule('/src/entry-server.tsx');
     const { LANDING_CONTENTS, HOME_META } = await servidor.ssrLoadModule('/src/content/landings.ts');
+
+    writeFileSync(join(DIST, 'robots.txt'), construirRobotsTxt());
+    writeFileSync(join(DIST, 'sitemap.xml'), construirSitemapXml([HOME_META, ...LANDING_CONTENTS]));
+    console.log('[MKT-105] Recursos de rastreo generados: robots.txt y sitemap.xml');
 
     // La home primero y a su propio fichero: nunca sobre `dist/index.html` (ver cabecera de este
     // fichero y `ADR-0012`).

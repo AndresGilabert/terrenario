@@ -3,6 +3,7 @@ import {
   beginLoginScreen,
   clearLoginFlow,
   getDeviceType,
+  getEntryReferrer,
   getLoginFlowId,
   getSessionId,
   isLoginStarted,
@@ -98,6 +99,24 @@ describe('login-telemetry', () => {
       restartLoginFlow();
 
       expect(isLoginStarted()).toBe(false);
+    });
+  });
+
+  describe('entry_referrer (MKT-106)', () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    it('devuelve el referrer del navegador tal cual', () => {
+      vi.spyOn(document, 'referrer', 'get').mockReturnValue(
+        'https://terrenario.example/funcionalidades/gestion-terrenos'
+      );
+
+      expect(getEntryReferrer()).toBe('https://terrenario.example/funcionalidades/gestion-terrenos');
+    });
+
+    it('devuelve null cuando no hay referrer', () => {
+      vi.spyOn(document, 'referrer', 'get').mockReturnValue('');
+
+      expect(getEntryReferrer()).toBeNull();
     });
   });
 });

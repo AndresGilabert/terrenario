@@ -12,11 +12,14 @@ public sealed class LoginTelemetryService(
     ILogger<LoginTelemetryService> logger,
     ITelemetryCounters counters,
     LoginFlowTimings timings,
+    LoginFlowEntries entries,
     TimeProvider clock) : ILoginTelemetry
 {
-    public void LoginScreenViewed(LoginEventContext context)
+    public void LoginScreenViewed(LoginEventContext context, string entryClassification)
     {
         timings.Start(context.FlowId);
+        entries.Start(context.FlowId, entryClassification);
+        counters.Add(TelemetryMetrics.LoginEntryFor(entryClassification));
         Emit(LoginFunnelEvents.ScreenViewed, context, TelemetryMetrics.LoginScreenViewed);
     }
 
@@ -35,11 +38,16 @@ public sealed class LoginTelemetryService(
             counters.Add(TelemetryMetrics.LoginSuccessTimedCount);
             counters.Add(TelemetryMetrics.LoginSuccessDurationMsSum, (long)duration.TotalMilliseconds);
         }
+
+        // MKT-106 — Solo se suma si la clasificación de entrada seguía viva (mismo TTL que `timings`).
+        if (entries.Complete(context.FlowId) is { } classification)
+            counters.Add(TelemetryMetrics.LoginSuccessEntryFor(classification));
     }
 
     public void LoginError(LoginEventContext context, string errorCode)
     {
         timings.Discard(context.FlowId);
+        entries.Discard(context.FlowId);
 
         Emit(LoginFunnelEvents.Error, context, TelemetryMetrics.LoginError, errorCode);
         counters.Add(TelemetryMetrics.LoginErrorFor(errorCode));
@@ -48,6 +56,7 @@ public sealed class LoginTelemetryService(
     public void LoginAbandoned(LoginEventContext context)
     {
         timings.Discard(context.FlowId);
+        entries.Discard(context.FlowId);
         Emit(LoginFunnelEvents.Abandonment, context, TelemetryMetrics.LoginAbandonment);
     }
 

@@ -151,6 +151,9 @@ builder.Services.AddSingleton<TelemetryCounterAccumulator>();
 builder.Services.AddSingleton<RollingWindowMetrics>();
 builder.Services.AddSingleton<ITelemetryCounters, CompositeTelemetryCounters>();
 builder.Services.AddSingleton<LoginFlowTimings>();
+// MKT-106 — Mismo motivo que `LoginFlowTimings`: la clasificación de entrada se fija en una petición
+// (pantalla vista) y se recupera en otra (éxito).
+builder.Services.AddSingleton<LoginFlowEntries>();
 builder.Services.AddScoped<ITelemetryCounterStore, TelemetryCounterStore>();
 builder.Services.AddHostedService<TelemetryFlushWorker>();
 // Salud y vigilancia (MVP-603). El estado de las alertas es singleton: la vigilancia lo escribe y la
@@ -460,6 +463,10 @@ app.Use(async (context, next) =>
 
     await next();
 });
+
+// MKT-106 (CA-1) — Cuenta la visita antes de que `UseStaticFiles` sirva la landing; no toca la
+// respuesta, solo suma un contador.
+app.UseMiddleware<LandingViewMiddleware>();
 
 app.UseDefaultFiles();
 app.UseStaticFiles();

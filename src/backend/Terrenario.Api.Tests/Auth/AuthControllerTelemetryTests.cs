@@ -1,4 +1,6 @@
 using FluentAssertions;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -11,10 +13,17 @@ namespace Terrenario.Api.Tests.Auth;
 public class AuthControllerTelemetryTests
 {
     private readonly ILoginTelemetry _telemetry = Substitute.For<ILoginTelemetry>();
+    private readonly IWebHostEnvironment _env = Substitute.For<IWebHostEnvironment>();
 
     // Solo la acción de telemetría entra en juego: el resto de dependencias no se invoca.
-    private AuthController CreateSut() =>
-        new(null!, null!, null!, null!, _telemetry, NullLogger<AuthController>.Instance);
+    private AuthController CreateSut() => new(null!, null!, null!, null!, _telemetry, _env,
+        NullLogger<AuthController>.Instance)
+    {
+        ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { Request = { Host = new HostString("terrenario.example") } }
+        }
+    };
 
     private const string ValidFlowId = "0123456789abcdef";
     private const string ValidSessionId = "fedcba9876543210";
@@ -26,7 +35,8 @@ public class AuthControllerTelemetryTests
             new LoginTelemetryRequest(LoginFunnelEvents.ScreenViewed, ValidFlowId));
 
         result.Should().BeOfType<AcceptedResult>();
-        _telemetry.Received(1).LoginScreenViewed(Arg.Is<LoginEventContext>(c => c.FlowId == ValidFlowId));
+        _telemetry.Received(1).LoginScreenViewed(
+            Arg.Is<LoginEventContext>(c => c.FlowId == ValidFlowId), Arg.Any<string>());
     }
 
     [Fact]
@@ -57,7 +67,7 @@ public class AuthControllerTelemetryTests
             new LoginTelemetryRequest(LoginFunnelEvents.ScreenViewed, "flow con espacios"));
 
         result.Should().BeOfType<BadRequestObjectResult>();
-        _telemetry.DidNotReceive().LoginScreenViewed(Arg.Any<LoginEventContext>());
+        _telemetry.DidNotReceive().LoginScreenViewed(Arg.Any<LoginEventContext>(), Arg.Any<string>());
     }
 
     [Fact]
@@ -80,7 +90,7 @@ public class AuthControllerTelemetryTests
             c.FlowId == ValidFlowId &&
             c.SessionId == ValidSessionId &&
             c.DeviceType == TelemetryDimensions.DeviceMobile &&
-            c.Channel == TelemetryDimensions.ChannelWeb));
+            c.Channel == TelemetryDimensions.ChannelWeb), Arg.Any<string>());
     }
 
     [Theory]
@@ -99,5 +109,30 @@ public class AuthControllerTelemetryTests
         _telemetry.Received(1).LoginGoogleClicked(Arg.Is<LoginEventContext>(c =>
             c.SessionId == TelemetryDimensions.Unknown &&
             c.DeviceType == TelemetryDimensions.Unknown));
+    }
+
+    // ── MKT-106 — Clasificación de origen (`entry_referrer`) ────────────────────
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("no-es-una-url")]
+    public void LoginTelemetry_ClasificaComoDirect_Cuando_NoHayReferrerUtilizable(string? referrer)
+    {
+        CreateSut().LoginTelemetry(new LoginTelemetryRequest(
+            LoginFunnelEvents.ScreenViewed, ValidFlowId, EntryReferrer: referrer));
+
+        _telemetry.Received(1).LoginScreenViewed(
+            Arg.Any<LoginEventContext>(), ReferrerClassifier.Direct);
+    }
+
+    [Fact]
+    public void LoginTelemetry_ClasificaComoExterno_Cuando_ElReferrerEsDeOtroDominio()
+    {
+        CreateSut().LoginTelemetry(new LoginTelemetryRequest(
+            LoginFunnelEvents.ScreenViewed, ValidFlowId,
+            EntryReferrer: "https://www.google.com/search?q=terrenario"));
+
+        _telemetry.Received(1).LoginScreenViewed(Arg.Any<LoginEventContext>(), "external.google.com");
     }
 }

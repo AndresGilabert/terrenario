@@ -10,8 +10,9 @@ namespace Terrenario.Api.Infrastructure.Telemetry.Summary;
 /// MKT-101 — Compone el resumen operativo diario y semanal a partir de las mismas señales que expone
 /// <c>GET /api/v1/ops/signals</c>, para no mantener una segunda fuente de verdad de las métricas.
 ///
-/// «Visitas a landing» no aparece: la telemetría de landing todavía no existe (la introduce
-/// <c>MKT-106</c>), así que en vez de inventar un dato se avisa de la ausencia en <see cref="Notes"/>.
+/// El resumen semanal incluye desde <c>MKT-106</c> el top de landings por conversión
+/// (<c>landing_view -&gt; login_view -&gt; login_success</c>); el diario no, porque esa serie solo se
+/// calcula sobre 7 días.
 /// </summary>
 public static class OperationalSummaryEmailComposer
 {
@@ -23,10 +24,10 @@ public static class OperationalSummaryEmailComposer
         "Para dejar de recibirlos, retira la dirección de la configuración «Ops:AlertEmail» del "
         + "despliegue o desactiva «Ops:SummaryEnabled».";
 
-    private static readonly IReadOnlyList<string> Notes =
+    private static readonly IReadOnlyList<string> DailyNotes =
     [
-        "Las visitas a landing no se incluyen todavía en este resumen: la telemetría de landing "
-        + "la incorpora MKT-106."
+        "Las visitas a landing se resumen solo en el correo semanal: la serie de conversión se calcula "
+        + "sobre 7 días."
     ];
 
     public static MimeMessage ComposeDaily(
@@ -47,7 +48,7 @@ public static class OperationalSummaryEmailComposer
                 $"Tasa de conversión: {FormatRatio(day.LoginConversion)}.",
                 AlertsParagraph(firingAlerts)
             ],
-            Notes = Notes,
+            Notes = DailyNotes,
             Reason = Reason,
             OptOut = OptOut
         });
@@ -59,6 +60,7 @@ public static class OperationalSummaryEmailComposer
         LoginFunnelSignals loginFunnel7d,
         ProductUsageSignals productUsage7d,
         SloSignals slo,
+        IReadOnlyList<LandingSignals> landingConversion7d,
         IReadOnlyList<AlertState> firingAlerts) =>
         template.Compose(new ProductEmailContent
         {
@@ -73,12 +75,29 @@ public static class OperationalSummaryEmailComposer
                 $"Tasa de conversión (7 días): {FormatRatio(loginFunnel7d.Conversion)}.",
                 $"Tasa de error (7 días): {FormatRatio(slo.ErrorRate7d)} "
                 + $"(objetivo {FormatRatio(slo.ErrorRateObjective)}).",
+                LandingConversionParagraph(landingConversion7d),
                 AlertsParagraph(firingAlerts)
             ],
-            Notes = Notes,
             Reason = Reason,
             OptOut = OptOut
         });
+
+    /// <summary>
+    /// MKT-106 — Las 5 landings con más vistas de la semana, con su conversión a login exitoso. Sin
+    /// datos todavía (catálogo abierto: puede no haber ninguna landing con vistas esa semana) se dice
+    /// explícitamente, no se omite el párrafo.
+    /// </summary>
+    private static string LandingConversionParagraph(IReadOnlyList<LandingSignals> landingConversion7d)
+    {
+        if (landingConversion7d.Count == 0) return "Landings (7 días): sin visitas registradas.";
+
+        var top = landingConversion7d
+            .OrderByDescending(l => l.Views)
+            .Take(5)
+            .Select(l => $"{l.Landing}: {l.Views} vistas, conversión {FormatRatio(l.Conversion)}");
+
+        return $"Landings (7 días): {string.Join("; ", top)}.";
+    }
 
     private static string AlertsParagraph(IReadOnlyList<AlertState> firingAlerts) =>
         firingAlerts.Count == 0

@@ -107,6 +107,14 @@ public sealed class OpsController(
                 records_created = report.Business7d.RecordsCreated,
                 visible_error_rate = report.Business7d.VisibleErrorRate
             },
+            landing_conversion_7d = report.LandingConversion7d.Select(landing => new
+            {
+                landing = landing.Landing,
+                views = landing.Views,
+                login_views = landing.LoginViews,
+                login_success = landing.LoginSuccess,
+                conversion = landing.Conversion
+            }),
             live = new
             {
                 window_minutes = report.Live.WindowMinutes,

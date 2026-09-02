@@ -69,6 +69,17 @@ export function getDeviceType(): 'desktop' | 'mobile' | 'tablet' {
 }
 
 /**
+ * MKT-106 (CA-2) — `document.referrer`, tal cual, para que el servidor lo clasifique (landing propia,
+ * navegación interna, sitio externo o directo). No se procesa aquí nada más: la landing de origen es
+ * HTML estático sin JavaScript (`ADR-0012`), así que este es el único momento —ya en la SPA de
+ * login— en el que hay JS para leerlo. Ausente (`""`) se manda como `null`, igual criterio de
+ * degradación que el resto de dimensiones: el servidor lo clasifica como «direct».
+ */
+export function getEntryReferrer(): string | null {
+  return document.referrer || null;
+}
+
+/**
  * Marca la entrada a la pantalla de login: asegura un flow_id para el intento y reinicia el flag de
  * "login iniciado" (cada visita a la pantalla es una nueva oportunidad de abandono). Devuelve el
  * flow_id vigente.

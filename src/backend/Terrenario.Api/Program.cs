@@ -93,6 +93,8 @@ builder.Services.Configure<OpsOptions>(
     builder.Configuration.GetSection(OpsOptions.SectionName));
 builder.Services.Configure<FeedbackOptions>(
     builder.Configuration.GetSection(FeedbackOptions.SectionName));
+builder.Services.Configure<DomainRedirectOptions>(
+    builder.Configuration.GetSection(DomainRedirectOptions.SectionName));
 // MVP-715 — La identidad del responsable del tratamiento se puede ajustar por despliegue, pero lo
 // que no se configura sale del fichero versionado que comparte con las páginas legales: un campo en
 // blanco dejaría un hueco en un texto que la normativa obliga a publicar.
@@ -420,6 +422,10 @@ if (!opsConfigurados.IsSignalsEndpointEnabled)
 // ── Middleware pipeline ───────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
+
+// PLT-101 — Antes que nada: un dominio comprado solo para no perderlo (terrenario.com/.es y sus
+// www) no necesita traza, métricas ni CORS propios, solo la redirección permanente al canonico.
+app.UseMiddleware<AlternateDomainRedirectMiddleware>();
 
 // Transversales primero, para que cubran también respuestas de error y redirecciones (MVP-105).
 app.UseMiddleware<RequestIdMiddleware>();       // X-Request-Id + scope de logging (P-006)

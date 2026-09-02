@@ -132,4 +132,18 @@ public static class TelemetryMetrics
             ? $"{LoginError}.{TelemetryDimensions.Unknown}"
             : $"{LoginError}.{saneado}";
     }
+
+    // ── Landings públicas y correlación de origen (MKT-106) ─────────────────────
+
+    /// <summary>Vistas de una landing pública, por clave (<c>landing.view.home</c>). Catálogo abierto.</summary>
+    public static string LandingViewFor(string landingKey) => $"landing.view.{landingKey}";
+
+    /// <summary>
+    /// «Pantalla de login vista», dimensionado por de dónde venía la visita
+    /// (<c>login.entry.landing.home</c>, <c>login.entry.direct</c>, <c>login.entry.external.google.com</c>).
+    /// </summary>
+    public static string LoginEntryFor(string classification) => $"login.entry.{classification}";
+
+    /// <summary>«Login con éxito», con la misma dimensión de origen que <see cref="LoginEntryFor"/>.</summary>
+    public static string LoginSuccessEntryFor(string classification) => $"login.success.entry.{classification}";
 }

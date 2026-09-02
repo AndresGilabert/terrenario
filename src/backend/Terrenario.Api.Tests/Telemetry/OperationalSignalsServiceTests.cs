@@ -111,6 +111,57 @@ public class OperationalSignalsServiceTests
         report.Slo.DegradedMinutes30d.Should().Be(10);
     }
 
+    // ── MKT-106 — Conversión por landing ─────────────────────────────────────────
+
+    [Fact]
+    public async Task Deberia_CalcularLaConversionPorLanding()
+    {
+        var report = await CreateSut(new Dictionary<string, long>
+        {
+            [TelemetryMetrics.LandingViewFor("funcionalidades.gestion-terrenos")] = 120,
+            [TelemetryMetrics.LoginEntryFor("landing.funcionalidades.gestion-terrenos")] = 40,
+            [TelemetryMetrics.LoginSuccessEntryFor("landing.funcionalidades.gestion-terrenos")] = 22,
+        }).BuildAsync(null, CancellationToken.None);
+
+        report.LandingConversion7d.Should().ContainSingle();
+        var landing = report.LandingConversion7d[0];
+        landing.Landing.Should().Be("funcionalidades.gestion-terrenos");
+        landing.Views.Should().Be(120);
+        landing.LoginViews.Should().Be(40);
+        landing.LoginSuccess.Should().Be(22);
+        landing.Conversion.Should().Be(22d / 120);
+    }
+
+    [Fact]
+    public async Task Deberia_DejarLaConversionEnNulo_Cuando_NoHuboVistas()
+    {
+        // No puede pasar en la práctica (login.success.entry solo existe si hubo landing.view), pero el
+        // cociente sigue el mismo criterio que el resto del informe: sin divisor, no se inventa un 0.
+        var report = await CreateSutWith([
+            new TelemetryCounter(Hoy, TelemetryMetrics.LoginSuccessEntryFor("landing.home"), 3),
+        ]).BuildAsync(null, CancellationToken.None);
+
+        report.LandingConversion7d.Should().BeEmpty("sin `landing.view.*` no hay landing que listar");
+    }
+
+    [Fact]
+    public async Task Deberia_DevolverListaVacia_Cuando_NoHayNingunaLandingConVistas() =>
+        (await CreateSut([]).BuildAsync(null, CancellationToken.None))
+            .LandingConversion7d.Should().BeEmpty();
+
+    [Fact]
+    public async Task Deberia_DescubrirVariasLandings_SinListaDeclarada()
+    {
+        var report = await CreateSut(new Dictionary<string, long>
+        {
+            [TelemetryMetrics.LandingViewFor("home")] = 300,
+            [TelemetryMetrics.LandingViewFor("para.agricultor-particular")] = 50,
+        }).BuildAsync(null, CancellationToken.None);
+
+        report.LandingConversion7d.Select(l => l.Landing).Should()
+            .BeEquivalentTo(["home", "para.agricultor-particular"]);
+    }
+
     // ── MVP-699 (`R-01`) — Serie diaria ──────────────────────────────────────────
 
     [Fact]

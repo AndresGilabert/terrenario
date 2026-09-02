@@ -1,5 +1,5 @@
 import { API_BASE } from './api.config';
-import { getDeviceType, getSessionId } from '../lib/login-telemetry';
+import { getDeviceType, getEntryReferrer, getSessionId } from '../lib/login-telemetry';
 import type { LoginFunnelEventName } from '../lib/login-telemetry';
 import type { DashboardWidgetOutcome, UsageEventName } from '../lib/usage-telemetry';
 
@@ -14,9 +14,10 @@ const USAGE_TELEMETRY_URL = `${API_BASE}/api/v1/telemetry/usage`;
  * donde una petición normal no llegaría a completarse. El resto usa `fetch` con `keepalive` para
  * sobrevivir a la redirección a Google.
  *
- * Las dimensiones `session_id` y `device_type` se resuelven aquí y no las pasa quien llama: son las
- * mismas para todos los eventos, y dejarlas en un solo sitio es lo que impide que un evento salga con
- * ellas y otro sin ellas.
+ * Las dimensiones `session_id`, `device_type` y `entry_referrer` se resuelven aquí y no las pasa quien
+ * llama: son las mismas para todos los eventos, y dejarlas en un solo sitio es lo que impide que un
+ * evento salga con ellas y otro sin ellas. El servidor solo usa `entry_referrer` en
+ * `login_screen_viewed` (MKT-106); en el resto de eventos lo ignora si llega.
  */
 export function logLoginEvent(
   event: LoginFunnelEventName,
@@ -28,6 +29,7 @@ export function logLoginEvent(
     flow_id: flowId,
     session_id: getSessionId(),
     device_type: getDeviceType(),
+    entry_referrer: getEntryReferrer(),
   });
 
   if (options.beacon && typeof navigator.sendBeacon === 'function') {

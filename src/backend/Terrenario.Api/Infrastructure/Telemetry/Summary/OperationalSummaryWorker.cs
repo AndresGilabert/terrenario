@@ -98,7 +98,7 @@ public sealed class OperationalSummaryWorker(
                     mailer,
                     () => OperationalSummaryEmailComposer.ComposeWeekly(
                         template, recipient, localDate, signals.LoginFunnel7d, signals.ProductUsage7d,
-                        signals.Slo, firingAlerts),
+                        signals.Slo, signals.LandingConversion7d, firingAlerts),
                     "resumen-operativo-semanal",
                     recipient,
                     ct))

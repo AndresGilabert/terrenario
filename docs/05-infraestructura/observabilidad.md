@@ -14,6 +14,7 @@ actualizado_en: "2026-08-31"
 |------------|-----------|--------|
 | Logs estructurados + request-id | Diagnóstico base de errores y trazabilidad | implementado |
 | Telemetría propia (`MVP-601`/`602`/`603`) | Embudo de login, uso del panel, señales operativas en `/api/v1/ops/signals` y alertas por correo | implementado |
+| Trazabilidad de landing y conversión (`MKT-106`) | Vistas por landing y conversión a login exitoso, primera parte y agregada | implementado |
 | Métricas operativas básicas | Disponibilidad, 5xx y latencia p95 | implementado |
 | Analítica web de terceros (Google Analytics o equivalente) | Medición de adquisición web | **postergada** (ADR-0011) |
 | Sentry | Error tracking de aplicación | **no implementado** (ADR-0008 §3, `P-129`) |
@@ -288,6 +289,35 @@ Tres matices que cambian lo que significan estas cifras:
 Limite conocido: la senal de widget bloqueado viaja **por la propia API**, asi que cubre el fallo de un
 widget concreto, no una caida total del servicio —en ese caso tampoco llegaria la senal—. La
 disponibilidad se mide aparte (`MVP-603`).
+
+### Trazabilidad de landing y conversion (MKT-106)
+
+Las landings publicas (`MKT-102`) son HTML estatico **sin bundle de JavaScript** (`ADR-0012`): no
+pueden emitir ningun evento de cliente. `landing_view` se cuenta por eso en **servidor**, contando las
+peticiones reales a esas rutas antes de que `UseStaticFiles` las sirva (origen unico, sin CDN por
+delante, asi que el servidor ve el 100 % del trafico real).
+
+La correlacion con el embudo de login reutiliza el `Referer` que el navegador ya manda en la
+navegacion `landing -> /login` (el CTA no lleva `noreferrer`): la SPA de login lo clasifica en el
+primer evento del intento (`login_screen_viewed`) y la clasificacion viaja en memoria (mismo patron
+que el resto del embudo) hasta `login_success`, para poder calcular conversion por landing sin
+persistir nada por visita (`RN-042`).
+
+| Contador | Que cuenta |
+|---|---|
+| `landing.view.{landing}` | Vistas reales de una landing (`home`, `funcionalidades.{slug}`, `para.{slug}`). Catalogo abierto: la clave sale de que el fichero exista, no de una lista declarada |
+| `login.entry.{clasificacion}` | «Pantalla de login vista», por de donde venia la visita: `landing.{landing}`, `internal`, `external.{dominio}` o `direct` |
+| `login.success.entry.{clasificacion}` | Igual que el anterior, para el login con exito |
+
+Conversion por landing = `login.success.entry.landing.{landing}` / `landing.view.{landing}`, expuesta
+en `landing_conversion_7d` de `GET /api/v1/ops/signals` y en el resumen operativo semanal (`MKT-101`).
+
+El `Referer` **no se conserva en crudo**: solo se persiste el cubo agregado (una landing propia, un
+dominio externo saneado y acotado, o ninguno). Un dominio externo agregado no identifica a nadie, igual
+que hoy no lo hace `device_type`; sigue encajando en el supuesto de `ADR-0011`/`RN-042` (primera parte,
+agregada, sin perfilado). Limite conocido: navegadores con proteccion de rastreo reforzada, o un sitio
+externo con politica de referrer estricta, pueden suprimirlo — esa visita cae en `direct`, un suelo y
+no un techo de medicion.
 
 ---
 

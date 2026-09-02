@@ -21,8 +21,11 @@ public class LoginTelemetryServiceTests
     public LoginTelemetryServiceTests()
     {
         _counters = new TelemetryCounterAccumulator(_clock);
-        _sut = new LoginTelemetryService(_logger, _counters, new LoginFlowTimings(_clock), _clock);
+        _sut = new LoginTelemetryService(
+            _logger, _counters, new LoginFlowTimings(_clock), new LoginFlowEntries(_clock), _clock);
     }
+
+    private const string Entrada = ReferrerClassifier.Direct;
 
     private static LoginEventContext Context(string flowId = "flow01") =>
         LoginEventContext.Create(flowId, "session01", TelemetryDimensions.DeviceMobile);
@@ -32,7 +35,7 @@ public class LoginTelemetryServiceTests
     [Fact]
     public void Deberia_EmitirLosCincoEventosDelEmbudo_ConSusNombresCanonicos()
     {
-        _sut.LoginScreenViewed(Context());
+        _sut.LoginScreenViewed(Context(), Entrada);
         _sut.LoginGoogleClicked(Context());
         _sut.LoginSuccess(Context());
         _sut.LoginError(Context(), ErrorCodes.AuthGoogleTokenInvalid);
@@ -78,7 +81,7 @@ public class LoginTelemetryServiceTests
     [InlineData("error")]
     public void Deberia_EmitirSoloLasDimensionesDeclaradas_YNingunCampoMas(string caso)
     {
-        if (caso == "screen") _sut.LoginScreenViewed(Context());
+        if (caso == "screen") _sut.LoginScreenViewed(Context(), Entrada);
         else _sut.LoginError(Context(), ErrorCodes.AuthGoogleTokenInvalid);
 
         // La garantía de «sin PII en claro» es que el conjunto de campos sea **cerrado**: si algún día
@@ -95,8 +98,8 @@ public class LoginTelemetryServiceTests
     [Fact]
     public void Deberia_SumarUnContadorPorEvento()
     {
-        _sut.LoginScreenViewed(Context("uno"));
-        _sut.LoginScreenViewed(Context("dos"));
+        _sut.LoginScreenViewed(Context("uno"), Entrada);
+        _sut.LoginScreenViewed(Context("dos"), Entrada);
         _sut.LoginAbandoned(Context("dos"));
 
         var contadores = _counters.Drain().ToDictionary(c => c.Metric, c => c.Value);
@@ -117,7 +120,7 @@ public class LoginTelemetryServiceTests
     [Fact]
     public void Deberia_MedirLaDuracionDelLogin_Cuando_ConoceElInicioDelIntento()
     {
-        _sut.LoginScreenViewed(Context());
+        _sut.LoginScreenViewed(Context(), Entrada);
         _clock.Advance(TimeSpan.FromSeconds(12));
         _sut.LoginSuccess(Context());
 
@@ -139,5 +142,55 @@ public class LoginTelemetryServiceTests
         contadores[TelemetryMetrics.LoginSuccess].Should().Be(1);
         contadores.Should().NotContainKey(TelemetryMetrics.LoginSuccessTimedCount);
         contadores.Should().NotContainKey(TelemetryMetrics.LoginSuccessDurationMsSum);
+    }
+
+    // ── MKT-106 — Conversión por origen de entrada ──────────────────────────────
+
+    [Fact]
+    public void Deberia_SumarElContadorDeEntrada_AlVerLaPantalla()
+    {
+        _sut.LoginScreenViewed(Context(), "landing.funcionalidades.gestion-terrenos");
+
+        var contadores = _counters.Drain().ToDictionary(c => c.Metric, c => c.Value);
+        contadores[TelemetryMetrics.LoginEntryFor("landing.funcionalidades.gestion-terrenos")]
+            .Should().Be(1);
+    }
+
+    [Fact]
+    public void Deberia_SumarElExitoConLaMismaEntrada_Cuando_SigueViva()
+    {
+        _sut.LoginScreenViewed(Context(), "landing.home");
+        _sut.LoginSuccess(Context());
+
+        var contadores = _counters.Drain().ToDictionary(c => c.Metric, c => c.Value);
+        contadores[TelemetryMetrics.LoginSuccessEntryFor("landing.home")].Should().Be(1);
+    }
+
+    [Fact]
+    public void NoDeberia_SumarExitoConEntrada_Cuando_NoSeConocioElInicio()
+    {
+        // Mismo caso que `Deberia_ContarElExitoSinDuracion_Cuando_NoConoceElInicio`: éxito tras un
+        // reinicio, sin `login_screen_viewed` previo en este proceso.
+        _sut.LoginSuccess(Context());
+
+        var contadores = _counters.Drain().ToDictionary(c => c.Metric, c => c.Value);
+        contadores.Keys.Should().NotContain(k => k.StartsWith("login.success.entry."));
+    }
+
+    [Fact]
+    public void Deberia_DescartarLaEntrada_Cuando_ElIntentoAcabaEnErrorOAbandono()
+    {
+        _sut.LoginScreenViewed(Context("uno"), "landing.home");
+        _sut.LoginError(Context("uno"), ErrorCodes.AuthGoogleTokenInvalid);
+
+        _sut.LoginScreenViewed(Context("dos"), "landing.home");
+        _sut.LoginAbandoned(Context("dos"));
+
+        // Ninguno de los dos llegó a éxito: no debe haber contador de éxito con esa entrada.
+        _sut.LoginScreenViewed(Context("tres"), "landing.home");
+        _sut.LoginSuccess(Context("cuatro")); // flow distinto: no hereda la entrada de "tres"
+
+        var contadores = _counters.Drain().ToDictionary(c => c.Metric, c => c.Value);
+        contadores.Should().NotContainKey(TelemetryMetrics.LoginSuccessEntryFor("landing.home"));
     }
 }

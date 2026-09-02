@@ -6,7 +6,9 @@ namespace Terrenario.Api.Infrastructure.Telemetry;
 /// </summary>
 public interface ILoginTelemetry
 {
-    void LoginScreenViewed(LoginEventContext context);
+    // MKT-106 — `entryClassification` viene de `ReferrerClassifier`; `"direct"` cuando no hay Referer
+    // que clasificar (mismo criterio de degradación que el resto de dimensiones secundarias).
+    void LoginScreenViewed(LoginEventContext context, string entryClassification);
     void LoginGoogleClicked(LoginEventContext context);
     void LoginSuccess(LoginEventContext context);
     void LoginError(LoginEventContext context, string errorCode);

@@ -398,6 +398,26 @@ en vez de darse por hecha:
   cadena de agente de usuario: agrupa, no distingue. No es huella de dispositivo.
 - Sigue siendo **de primera parte, agregada y sin perfilado**, que es el supuesto de exención.
 
+#### Qué añade `MKT-106` y por qué sigue encajando
+
+`MKT-106` añade `entry_referrer`: el cliente manda `document.referrer` tal cual en
+`login_screen_viewed`, para poder atribuir la conversión a la landing pública de origen (`landing_view
+-> login_view -> login_success`). Mismo ejercicio que con `MVP-601`:
+
+- El servidor **nunca conserva el `Referer` en crudo**: lo clasifica en el momento en un cubo cerrado
+  (`landing.{clave}`, `internal`, `external.{dominio}` o `direct`) y solo el cubo llega a sumarse a un
+  contador diario. El dominio externo se sanea y se acota en longitud antes de clasificarse, igual que
+  ya se sanea el código de error del embudo — nunca es texto libre de cliente sin acotar.
+- La clasificación intermedia (qué landing originó un intento, mientras dura) vive en memoria del
+  proceso, indexada por `flow_id` y con el mismo límite de tamaño y de edad que el resto del embudo:
+  no es una tabla, no sobrevive a un reinicio y no identifica a ninguna cuenta.
+- Un dominio externo agregado (`external.google.com`) no es dato de una persona: es de dónde vino una
+  visita anónima, igual que `device_type` no es huella de dispositivo. No hay seguimiento entre
+  sitios: no se planta ninguna cookie ni identificador que sobreviva a la navegación.
+- Sigue siendo **de primera parte, agregada y sin perfilado** (RN-042, `ADR-0011`). Límite conocido y
+  aceptado: algunos navegadores o sitios de origen suprimen el `Referer`, y esa visita se cuenta como
+  `direct` en vez de atribuirse — un suelo de medición, no una fuga de datos.
+
 El límite se mantiene donde estaba: cualquier herramienta de terceros, cualquier identificador que
 sobreviva a la sesión o cualquier medida a nivel de persona dejaría de encajar y `RN-042` exigiría
 consentimiento previo.

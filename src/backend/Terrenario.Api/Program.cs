@@ -467,6 +467,10 @@ app.Use(async (context, next) =>
     await next();
 });
 
+// MKT-102 — Las landings sin barra final (`/funcionalidades/gestion-terrenos`, la forma que declara
+// su propio `canonical`) no las resolvía `UseDefaultFiles`, que solo mira `.../` con barra.
+app.UseMiddleware<PrettyUrlIndexMiddleware>();
+
 app.UseDefaultFiles();
 app.UseStaticFiles();
 

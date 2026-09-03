@@ -117,6 +117,44 @@ Consecuencias prácticas:
 
 ---
 
+## Ver la aplicación completa en local, landings incluidas
+
+`npm run dev` (Vite, `:5173`) sirve la SPA, pero **no** las landings públicas
+(`/funcionalidades/*`, `/para/*`, la home): son HTML estático pre-renderizado por `npm run build`
+(`ADR-0012`) y en producción las sirve el propio backend desde `wwwroot`
+(`deploy.yml` copia `dist/` ahí). En local, `wwwroot` no existe — nadie lo genera salvo el pipeline
+de despliegue —, así que esas rutas dan 404 tanto contra Vite como contra el backend.
+
+Para verlas en local **sin copiar nada a mano**, enlaza `wwwroot` a `dist/` una sola vez por clon
+del repositorio:
+
+```powershell
+# Windows (junction, no requiere permisos de administrador)
+./infra/local/vincular-wwwroot.ps1
+```
+
+```bash
+# macOS / Linux (enlace simbólico)
+./infra/local/vincular-wwwroot.sh
+```
+
+A partir de ahí, el flujo para probar la aplicación completa antes de aprobar un cambio es:
+
+```bash
+cd src/frontend/terrenario-web && npm run build   # genera dist/, incluidas las landings
+cd ../../backend/Terrenario.Api && dotnet run     # sirve exactamente lo que acaba de generar
+```
+
+`wwwroot` es un enlace, no una copia: el backend siempre sirve el contenido más reciente de
+`dist/` sin ningún paso intermedio. La contrapartida es que **no hay hot-reload** de landings —
+cada cambio de contenido exige repetir `npm run build` —, lo que es aceptable porque este flujo es
+para verificar el resultado final, no para iterar sobre el contenido (eso se hace con
+`npm run dev` y los tests de `src/content/landings.test.ts`).
+
+`wwwroot` está en `.gitignore`: es un enlace de desarrollo local, nunca contenido versionado.
+
+---
+
 ## Puertos y URLs locales
 
 | Servicio | URL | Notas |

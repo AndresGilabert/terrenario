@@ -1,0 +1,3 @@
+# Los scripts de shell deben conservar salto de línea LF pase lo que pase con `core.autocrlf`:
+# un CRLF cuela un `\r` en el shebang o en cada línea y rompe el script en macOS/Linux.
+*.sh text eol=lf

@@ -22,6 +22,11 @@ obj/
 .vs/
 TestResults/
 
+### Desarrollo local (PLT-101 bis)
+# `vincular-wwwroot` crea un enlace de directorio hacia `dist/` del frontend, no una carpeta real:
+# nunca debe versionarse ni confundirse con el `wwwroot` que genera el pipeline de despliegue.
+src/backend/Terrenario.Api/wwwroot
+
 ### Salida reproducible de la suite
 # MVP-715 — `artifacts/correos/` lo regenera `ProductEmailPreviewTests` en cada ejecucion para poder
 # revisar cada correo en un cliente real (CA-5). Es salida, no contenido: versionarla obligaria a

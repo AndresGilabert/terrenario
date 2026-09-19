@@ -2,7 +2,7 @@
 id: "MKT-106"
 tipo: feature
 titulo: "Trazabilidad por landing y conversion completa"
-estado: aprobado
+estado: en-testing
 prioridad: alta
 sprint: ""
 hito: "Post-MVP — Crecimiento orgánico"
@@ -58,6 +58,6 @@ Medir por landing el embudo completo de captación:
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: Se registran visitas por landing pública con identificador consistente.
-- [ ] **CA-2**: Se puede calcular conversión por landing a `login_success`.
-- [ ] **CA-3**: La medición respeta el modelo de primera parte y agregación sin PII.
+- [x] **CA-1**: Se registran visitas por landing pública con identificador consistente.
+- [x] **CA-2**: Se puede calcular conversión por landing a `login_success`.
+- [x] **CA-3**: La medición respeta el modelo de primera parte y agregación sin PII.

@@ -62,6 +62,7 @@ Del informe anterior, mirar cinco cosas y anotarlas:
 | Uso del dashboard | `product_usage_7d.dashboard_usage` | >= 0.85 |
 | Cobertura de widgets | `product_usage_7d.widget_coverage` | 1.0 |
 | Negocio minimo | `business_7d.logins`, `.records_created`, `.visible_error_rate` | Sin objetivo: tendencia |
+| Conversion por landing | `landing_conversion_7d[].conversion` | Sin objetivo: tendencia por landing |
 
 Y los dos SLO tecnicos: `slo.error_rate_7d` (< 0.001) y `slo.latency_p95_7d_ms` (< 300).
 

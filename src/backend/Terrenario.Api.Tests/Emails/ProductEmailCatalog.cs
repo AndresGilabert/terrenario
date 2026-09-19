@@ -159,6 +159,10 @@ internal static class ProductEmailCatalog
                         DegradedMinutes30d: 12,
                         InternalRequests7d: 300,
                         InternalErrors7d: 0),
+                    [
+                        new LandingSignals("funcionalidades.gestion-terrenos", 120, 40, 22, 22d / 120),
+                        new LandingSignals("home", 300, 90, 48, 48d / 300)
+                    ],
                     []))
         ];
     }

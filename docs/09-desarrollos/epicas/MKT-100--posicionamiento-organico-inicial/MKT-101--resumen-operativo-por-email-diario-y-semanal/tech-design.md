@@ -90,6 +90,10 @@ Ninguno nuevo. No se expone ningún endpoint: el resumen sale por email, no por 
     (`landing_view`) no existe todavía — la introduce `MKT-106`, que **no** es una dependencia
     declarada de esta historia. Decisión acordada con el PO: no bloquear MKT-101 por esto. El
     resumen se envía sin esa métrica y con una nota explícita (`Notes`) de que llegará con MKT-106.
+
+    > **Actualización (`MKT-106`)**: la telemetría de landing ya existe. El resumen semanal incluye
+    > desde entonces el top de landings por conversión; el diario mantiene la nota (esa serie solo se
+    > calcula sobre 7 días). Detalle en el tech-design de `MKT-106`.
 - **Destinatario**: `Ops:AlertEmail`, el mismo que las alertas de operación. Sin cambios de
   configuración nuevos más allá de `Ops:SummaryEnabled`.
 - **Envío**: mismo transporte (`SmtpMailer`) y misma plantilla (`ProductEmailTemplate`) que el resto

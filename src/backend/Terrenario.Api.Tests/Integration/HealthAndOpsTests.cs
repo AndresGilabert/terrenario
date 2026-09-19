@@ -74,6 +74,7 @@ public sealed class HealthAndOpsTests : IAsyncLifetime
         body.TryGetProperty("login_funnel_7d", out _).Should().BeTrue();
         body.TryGetProperty("product_usage_7d", out _).Should().BeTrue();
         body.TryGetProperty("business_7d", out _).Should().BeTrue();
+        body.TryGetProperty("landing_conversion_7d", out _).Should().BeTrue();
         body.GetProperty("alerts").GetArrayLength().Should().Be(0, "la vigilancia está apagada en el arnés");
     }
 

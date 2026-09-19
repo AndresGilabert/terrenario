@@ -250,11 +250,11 @@ Reglas de contexto:
 | Bandeja de recibidas (MVP-107) | Solo canal `email` dirigido a la cuenta, pendiente y no caducada; se autoriza por titularidad del email, no por token. No exige Workspace activo |
 | Rechazar (MVP-107) | Transita a `rechazada` sin crear membresía; no cierra sesión. Idempotente ante doble rechazo del destinatario |
 
-### 0.c) Telemetría del embudo de login (MVP-105 · MVP-601)
+### 0.c) Telemetría del embudo de login (MVP-105 · MVP-601 · MKT-106)
 
 | Operación | Método y ruta | Request (resumen) | Respuesta 2xx |
 |---|---|---|---|
-| Ingesta de evento de embudo | `POST /api/v1/auth/telemetry/login` | `event*`, `flow_id*`, `session_id`, `device_type` | `202` (sin cuerpo) |
+| Ingesta de evento de embudo | `POST /api/v1/auth/telemetry/login` | `event*`, `flow_id*`, `session_id`, `device_type`, `entry_referrer` | `202` (sin cuerpo) |
 
 `POST /api/v1/auth/google/callback` acepta además `flow_id`, `session_id` y `device_type`
 **opcionales** para correlacionar el éxito/error del intercambio con los eventos de cliente. Si el
@@ -278,6 +278,14 @@ cliente decidir qué se cuenta con solo mandar un valor inválido.
 > El detalle de eventos y campos mínimos del embudo vive en
 > `../07-seguridad/autenticacion-autorizacion.md`; cómo se explotan (contadores agregados y ventanas
 > de los SLO) en `../05-infraestructura/observabilidad.md`.
+
+`entry_referrer` (MKT-106) — `document.referrer` del cliente, tal cual. Solo se evalúa en
+`login_screen_viewed`, el primer evento del intento; en el resto se ignora si llega. Un valor ausente,
+vacío o sin forma de URL absoluta **no rechaza el evento**: se clasifica como `direct`, mismo criterio
+de degradación que `session_id`/`device_type`. El servidor nunca conserva el valor en crudo: lo
+clasifica en `landing.{clave}` (landing propia reconocida), `internal` (ruta propia que no es una
+landing), `external.{dominio}` (otro origen, saneado y acotado) o `direct`, y solo el cubo se suma a
+los contadores agregados.
 
 ### 0.c bis) Errores del intercambio de código con Google (MVP-713)
 
@@ -375,12 +383,18 @@ superficie anónima expuesta a Internet—.
 vez se despliega sin configurarlo, el fallo debe ser que no se puede consultar, no que lo pueda
 consultar cualquiera. La comparación de la llave es en tiempo constante.
 
-El informe agrupa `daily`, `slo`, `login_funnel_7d`, `product_usage_7d`, `business_7d`, `live` (ventana
-de 30 min) y `alerts`. Los cocientes son `null` —no `0`— cuando el divisor es cero: «ninguna sesión
-abrió el panel» y «no hubo sesiones» no son lo mismo.
+El informe agrupa `daily`, `slo`, `login_funnel_7d`, `product_usage_7d`, `business_7d`,
+`landing_conversion_7d`, `live` (ventana de 30 min) y `alerts`. Los cocientes son `null` —no `0`—
+cuando el divisor es cero: «ninguna sesión abrió el panel» y «no hubo sesiones» no son lo mismo.
 
 `daily` (MVP-699) es la **serie por día**, en orden ascendente y sin huecos: los días sin datos vienen
 con recuentos a `0` y cocientes a `null`, porque omitirlos escondería que ese día no se observó nada.
+
+`landing_conversion_7d` (MKT-106) es una **lista abierta**, una entrada por landing con al menos una
+vista en los últimos 7 días: `landing`, `views`, `login_views`, `login_success` y `conversion`
+(`login_success / views`, `null` si `views` es 0). No hay catálogo de landings declarado: sale de lo
+que de verdad se observó esa semana, para no tener que desplegar el backend por cada landing nueva de
+una campaña.
 
 | Parámetro | Efecto |
 |---|---|

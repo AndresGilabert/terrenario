@@ -21,6 +21,7 @@ public sealed class AuthController(
     IRefreshTokenStore refreshTokenStore,
     IUserRepository userRepository,
     ILoginTelemetry telemetry,
+    IWebHostEnvironment env,
     ILogger<AuthController> logger) : ControllerBase
 {
     private const string RefreshTokenCookieName = "refresh_token";
@@ -166,7 +167,11 @@ public sealed class AuthController(
         switch (request.Event)
         {
             case LoginFunnelEvents.ScreenViewed:
-                telemetry.LoginScreenViewed(context);
+                // MKT-106 (CA-2) — Solo se clasifica aquí: es el primer evento del intento, el único
+                // punto en el que «de dónde venía la visita» tiene sentido.
+                var entryClassification = ReferrerClassifier.Classify(
+                    request.EntryReferrer, Request.Host.Value ?? string.Empty, env.WebRootPath ?? string.Empty);
+                telemetry.LoginScreenViewed(context, entryClassification);
                 break;
             case LoginFunnelEvents.GoogleClicked:
                 telemetry.LoginGoogleClicked(context);
@@ -221,9 +226,12 @@ public sealed record GoogleCallbackRequest(
     [property: JsonPropertyName("session_id")] string? SessionId = null,
     [property: JsonPropertyName("device_type")] string? DeviceType = null);
 
-/// <summary>Evento del embudo de login originado en el cliente (MVP-105 · MVP-601).</summary>
+/// <summary>Evento del embudo de login originado en el cliente (MVP-105 · MVP-601 · MKT-106).</summary>
 public sealed record LoginTelemetryRequest(
     [property: JsonPropertyName("event")] string? Event,
     [property: JsonPropertyName("flow_id")] string? FlowId,
     [property: JsonPropertyName("session_id")] string? SessionId = null,
-    [property: JsonPropertyName("device_type")] string? DeviceType = null);
+    [property: JsonPropertyName("device_type")] string? DeviceType = null,
+    // MKT-106 (CA-2) — `document.referrer` del cliente. Solo se usa en `login_screen_viewed`; un
+    // valor ausente o sin forma de URL no rechaza el evento, degrada a `direct`.
+    [property: JsonPropertyName("entry_referrer")] string? EntryReferrer = null);

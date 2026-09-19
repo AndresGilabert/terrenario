@@ -42,7 +42,8 @@ sabría dónde está descrito.
 - Shell del área operativa: cabecera, lateral, navegación, 404 dentro y fuera del shell, y la
   decisión de arranque en `HomeView`.
 - Presencia pública: landing, páginas legales de privacidad y términos, y recursos de rastreo
-  estáticos (`robots.txt` y `sitemap.xml`).
+  estáticos (`robots.txt` y `sitemap.xml`). Cómo añadir o editar una landing:
+  [`estandares-codigo.md`](../../04-ingenieria/estandares-codigo.md#landings-públicas-contenido-de-marketing).
 - Identidad del producto fuera de su propia pantalla (`MVP-710`): iconos de marca, `manifest.webmanifest`,
   `theme-color` y las etiquetas sociales del documento, todo **autoalojado** por `RN-042`.
 - Canal de sugerencias e incidencias (`MVP-711`): entrada en la navegación, pantalla del formulario,

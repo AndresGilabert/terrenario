@@ -152,6 +152,68 @@ el producto) y `subconjunto-iconos.mjs` (el recorte). Los dos están comentados 
 
 ---
 
+## Landings públicas (contenido de marketing)
+
+> `MKT-102`/`103`/`104`/`105`. Detalle de arquitectura en
+> [ADR-0012](../02-arquitectura/decisiones/ADR-0012--prerenderizado-estatico-landings-publicas-mkt-102.md)
+> y en el tech-design de
+> [MKT-102](../09-desarrollos/epicas/MKT-100--posicionamiento-organico-inicial/MKT-102--landings-publicas-p0-de-funcionalidades-y-casos/tech-design.md).
+> Esto es el «cómo, en la práctica»; para verlas renderizadas en local ver
+> [`desarrollo-local.md`](../05-infraestructura/desarrollo-local.md).
+
+**Fuente única**: `src/frontend/terrenario-web/src/content/landings.ts`. El array
+`LANDING_CONTENTS` es de donde salen, sin ningún otro sitio que tocar, las rutas servidas
+(`prerenderizar-landings.mjs`), el `sitemap.xml`, y las exclusiones de `robots.txt` de todo lo que
+no sea público. No hay YAML, CMS ni fichero por landing: es contenido en código, a propósito (sin
+base de datos ni panel de edición para diez páginas fijas).
+
+### Añadir una landing nueva
+
+1. Añade una entrada a `LANDING_CONTENTS` con todos los campos de `LandingContent`: `slug`, `path`
+   (sin barra final — es la forma que declara el propio `canonical`), `cluster`
+   (`'funcionalidad'` → `/funcionalidades/{slug}`, `'perfil'` → `/para/{slug}`), `navLabel`,
+   `title`, `metaDescription`, `eyebrow`, `h1`, `intro`, `bullets` (mínimo los que ya usan las
+   demás), `faqs` y `relatedSlugs`.
+2. `relatedSlugs` tiene que apuntar a slugs que existan y **no puede incluirse a sí misma**
+   (`landings.test.ts` lo comprueba); toda landing necesita al menos una relacionada (CA-2 de
+   `MKT-102`).
+3. Los iconos de `bullets` son nombres de Material Symbols Outlined, con las mismas reglas que
+   [«Iconos del cliente web»](#iconos-del-cliente-web-material-symbols) de más arriba.
+4. **Actualiza `src/content/landings.test.ts`**: el test `publica exactamente las 10 URLs del
+   plan P0` fija la lista cerrada de rutas del plan inicial y **falla a propósito** si añades una
+   landing sin tocarlo — es la barrera contra publicar una página sin que nadie se entere.
+5. `title` y `metaDescription` no pueden repetirse entre landings (ni con la home): otro test lo
+   comprueba.
+6. Construye para verla en su forma final:
+
+   ```bash
+   cd src/frontend/terrenario-web
+   npm run build   # genera dist/, incluida la landing nueva, el sitemap y robots.txt
+   npm test        # valida lo del punto 2, 4 y 5
+   ```
+
+   Con `wwwroot` ya enlazado (`desarrollo-local.md`), `dotnet run` la sirve tal cual en
+   `http://localhost:5127{path}`.
+
+### Editar una landing existente
+
+Cambia el campo que corresponda en su entrada de `LANDING_CONTENTS` (texto, `bullets`, `faqs`,
+`relatedSlugs`…) y repite el paso 6. No hay que tocar `ContentLandingPage.tsx` ni el script de
+pre-renderizado para un cambio de contenido: ese componente y ese script son genéricos y leen
+`LandingContent` tal cual se declare.
+
+### Qué no cambiar sin revisar el ADR
+
+- El **layout** (`ContentLandingPage.tsx` para `/funcionalidades/*` y `/para/*`,
+  `LandingPage.tsx` para la home) no lleva JavaScript de la SPA a propósito
+  (`ADR-0012`): nada de `react-router`, nada de estado. Un enlace con `<Link>` en vez de `<a>` rompe
+  el pre-renderizado.
+- El pre-renderizado (`scripts/prerenderizar-landings.mjs`) no es una plantilla paralela: reescribe
+  `dist/index.html` ya construido. No dupliques la cabecera (iconos, manifest, CSP) a mano en el
+  script.
+
+---
+
 ## Presupuesto de peso de la primera carga
 
 > Introducido en `MVP-810`, a raíz de `P-115`.

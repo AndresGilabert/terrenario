@@ -153,6 +153,21 @@ para verificar el resultado final, no para iterar sobre el contenido (eso se hac
 
 `wwwroot` está en `.gitignore`: es un enlace de desarrollo local, nunca contenido versionado.
 
+> **El login con Google no funciona por este camino sin un paso extra.** Servir la SPA desde el
+> backend cambia el origen de `http://localhost:5173` a `http://localhost:5127`, y `REDIRECT_URI`
+> se calcula como `window.location.origin + '/auth/callback'`
+> ([`LoginPage.tsx`](../../src/frontend/terrenario-web/src/components/auth/LoginPage.tsx)): sin
+> registrar ese origen en Google Cloud Console, el login falla con `redirect_uri_mismatch`. Añade
+> `http://localhost:5127` como origen y `http://localhost:5127/auth/callback` como URI de
+> redirección (ver «Configuración de Google OAuth 2.0» más abajo) **solo si vas a probar el login
+> por este camino**; si no, usa `npm run dev` (`:5173`) para cualquier flujo que pase por Google.
+>
+> **Invitaciones y reactivaciones de Workspace también quedan fijas a `:5173`.**
+> `Invitations:AcceptBaseUrl` y `WorkspaceLifecycle:ReactivationBaseUrl`
+> (`appsettings.Development.json`) no se recalculan por origen: un enlace de invitación generado
+> mientras pruebas por `:5127` sigue apuntando a `http://localhost:5173/...`, así que hace falta
+> tener también `npm run dev` corriendo para poder abrirlo.
+
 ---
 
 ## Puertos y URLs locales
@@ -184,6 +199,12 @@ para verificar el resultado final, no para iterar sobre el contenido (eso se hac
    - Orígenes de JavaScript autorizados: `http://localhost:5173`
    - URIs de redireccionamiento autorizados: `http://localhost:5173/auth/callback`
 6. Guarda y copia el **Client ID** y el **Client Secret**.
+
+> **Solo si además vas a probar «la aplicación completa» sirviendo la SPA desde el backend**
+> (sección anterior, `wwwroot` enlazado a `dist/`), añade también `http://localhost:5127` a los
+> orígenes de JavaScript autorizados y `http://localhost:5127/auth/callback` a los URIs de
+> redireccionamiento — si no, el login falla con `redirect_uri_mismatch` en ese origen. No hace
+> falta para el flujo habitual de desarrollo (`npm run dev`, `:5173`).
 
 ### Consideraciones para pruebas funcionales
 

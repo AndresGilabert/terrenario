@@ -438,6 +438,13 @@ comprueba con `dotnet user-secrets list`.
 La URL de callback no coincide con la registrada. Verifica que `http://localhost:5173/auth/callback`
 está entre los URIs de redireccionamiento autorizados en Google Cloud Console.
 
+Si el error sale probando «la aplicación completa» por `http://localhost:5127` (backend con
+`wwwroot` enlazado a `dist/`, ver
+[`desarrollo-local.md`](./docs/05-infraestructura/desarrollo-local.md)), es porque ese origen no
+está registrado: `REDIRECT_URI` se calcula a partir de `window.location.origin`, así que cambia con
+el puerto. Añade `http://localhost:5127` y `http://localhost:5127/auth/callback` en Google Cloud
+Console, o vuelve a probar el login por `http://localhost:5173`.
+
 ### «Error establishing a database connection»
 
 PostgreSQL no está corriendo o la cadena de conexión es incorrecta. Comprueba con

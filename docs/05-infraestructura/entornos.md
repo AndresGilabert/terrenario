@@ -96,6 +96,8 @@ almacenados.
 | `OIDC_CLIENT_ID` | secreto | secreto | secreto | Cliente OIDC |
 | ~~`SENTRY_DSN`~~ | — | — | — | **Retirada (2026-08-12, `P-129`).** Sentry nunca se implemento: no hay dependencia ni cuenta, y ningun despliegue lee esta variable. La observabilidad del MVP es propia (`MVP-601`/`602`/`603`) |
 | `Invitations__AcceptBaseUrl` | URL del front dev | URL del front staging | `https://app.terrenario.com/invitations` | Base pública del enlace de invitación |
+| `Domains__CanonicalHost` | `` (vacío) | `` (vacío) | `app.terrenario.com` | Host al que redirigen los dominios de `Domains__AlternateHosts` (PLT-101) |
+| `Domains__AlternateHosts` | `[]` | `[]` | `["terrenario.com","www.terrenario.com","terrenario.es","www.terrenario.es"]` | Dominios comprados solo para no perderlos, sin contenido propio: redirigen con 301 al canónico. Vacío = el middleware no hace nada |
 | `WorkspaceLifecycle__ReactivationBaseUrl` | URL del front dev | URL del front staging | `https://app.terrenario.com/reactivations` | Base pública del enlace de reactivación de Workspace (MVP-206) |
 | `WorkspaceLifecycle__ReactivationLifetimeDays` | `7` | `7` | `7` | Vigencia del enlace de reactivación, de un solo uso |
 | `Email__Host` | secreto | secreto | secreto | Servidor SMTP. Vacío = no se envían invitaciones |

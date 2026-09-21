@@ -474,6 +474,11 @@ app.Use(async (context, next) =>
 // respuesta, solo suma un contador.
 app.UseMiddleware<LandingViewMiddleware>();
 
+// v0.9.1 — `UseDefaultFiles` no resolvió las carpetas de landings en App Service: la ruta canónica
+// acababa en el fallback de la SPA aunque el `index.html` físico sí existía. Este middleware sirve
+// ambas formas (`/ruta` y `/ruta/`) antes del fallback; solo actúa si encuentra el fichero real.
+app.UseMiddleware<PrettyUrlIndexMiddleware>();
+
 app.UseDefaultFiles();
 app.UseStaticFiles();
 

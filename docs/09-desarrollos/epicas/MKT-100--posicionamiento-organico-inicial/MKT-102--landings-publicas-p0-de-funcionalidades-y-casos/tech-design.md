@@ -2,7 +2,7 @@
 id: "MKT-102"
 tipo: feature
 titulo: "TDD: Landings publicas P0 de funcionalidades y casos"
-estado: en-progreso
+estado: en-testing
 tickets: []
 epica: "MKT-100--posicionamiento-organico-inicial"
 responsable: "@andres"
@@ -14,7 +14,7 @@ ai_context:
   etiquetas: ["landing", "public-pages", "organic"]
   nivel_riesgo: medio
 creado_en: "2026-08-31"
-actualizado_en: "2026-08-31"
+actualizado_en: "2026-09-20"
 ---
 
 # TDD: MKT-102 — Landings publicas P0 de funcionalidades y casos
@@ -33,6 +33,18 @@ fichero propio (`dist/home.html`, distinto de `dist/index.html`) y un middleware
 `Program.cs` la sirve solo para `GET /`. Es la única pieza que sí toca el backend, y de forma
 acotada: `index.html` sigue siendo el shell vacío que `MapFallback` sirve para el resto de rutas de
 la SPA, sin cambios.
+
+La reapertura de 2026-09-20 amplía `LandingContent` con secciones editoriales opcionales y un CTA
+final contextual. `ContentLandingPage` sigue siendo un único componente genérico: las landings
+existentes mantienen el bloque original de tarjetas y la de control de cosechas declara una
+composición más completa —problema, funcionalidades y beneficios— sin bifurcar el renderizado ni
+duplicar el pipeline SEO incorporado por `MKT-103`/`104`/`105`.
+
+La configuración SEO por landing se amplía sin duplicar la cabecera: `seo.openGraph` y
+`seo.twitter` permiten sobrescribir título, descripción, imagen y texto alternativo;
+`seo.structuredDataDescription` especializa la descripción de `SoftwareApplication`. Si no se
+declaran, el pre-renderizador hereda `title`, `metaDescription` y `og-image.png`. Las URLs,
+Organization, `operatingSystem: Web` y el `FAQPage` siguen derivados centralmente.
 
 ## Diagrama de arquitectura / flujo
 
@@ -60,6 +72,16 @@ flowchart TD
 | `package.json` | modificado | `build` encadena `prerender:landings` tras `vite build` |
 | `Program.cs` | modificado | Middleware propio: sirve `wwwroot/home.html` para `GET /`, antes de `UseDefaultFiles`/`UseStaticFiles`; si no existe, cae al comportamiento anterior |
 | `deploy.yml` | sin cambio | Ya copia `dist/` completo a `wwwroot/`, incluidas las carpetas y ficheros nuevos |
+
+### Reapertura: landing de control de cosecha de olivar
+
+| Componente | Tipo de cambio | Descripción |
+| ---------- | -------------- | ----------- |
+| `src/content/landings.ts` | modificado | Añade `LandingSection` y `LandingCta`; especializa copy, FAQ y metadatos de control de cosechas para olivar |
+| `scripts/prerenderizar-landings.mjs` | modificado | Resuelve overrides sociales y descripción estructurada por landing con defaults y URLs absolutas seguras |
+| `ContentLandingPage.tsx` | modificado | Renderiza navegación interna, secciones con tonos de la marca y CTA contextual cuando el contenido los declara |
+| Tests de contenido y componente | modificado | Comprueban bloques, enlaces internos, CTA y ausencia de promesas no verificadas |
+| `estandares-codigo.md` | modificado | Define los requisitos de construcción y revisión para toda landing pública |
 
 ## Diseño detallado
 
@@ -98,6 +120,18 @@ relaciones entre módulos de `docs/03-modulos/_vision-general.md` (p. ej. `gesti
 `diario-de-campo`, `control-cosechas` y `dashboard-campana`, que son las funcionalidades que
 consumen el terreno como eje). Los tres perfiles (`/para/*`) enlazan a las funcionalidades que mejor
 resuelven su caso de uso concreto.
+
+Las secciones editoriales son opcionales para mantener compatibilidad con las nueve landings que no
+se revisan en esta reapertura. Cuando no existen, el componente convierte `bullets` en una sección
+de funcionalidades con el diseño anterior. Cuando existen, cada sección declara `id`, título,
+introducción, tono e ítems; el `id` crea también la navegación interna. Una sección con `items`
+vacío reutiliza los `bullets` principales, evitando duplicar el mismo copy en la fuente de datos.
+
+La landing de control de cosechas se limita al olivar porque el catálogo real del MVP solo admite
+`aceituna_olivar`. Los destinos visibles reproducen el catálogo cerrado
+(`venta_aceituna`, `aceite_para_venta`, `aceite_personal`, `desconocido`) y el rendimiento se explica
+en la unidad canónica `L/100kg` de `RN-013`. No se incorpora el activo `campo.jpg`: muestra cereal y
+no representa el olivar al que se dirige la página.
 
 ### Manejo de errores
 

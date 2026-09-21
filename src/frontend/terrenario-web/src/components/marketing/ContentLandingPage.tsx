@@ -21,6 +21,9 @@ import { getRelatedLandings, type LandingContent } from '../../content/landings'
  */
 export const ContentLandingPage: React.FC<{ content: LandingContent }> = ({ content }) => {
   const relatedLandings = getRelatedLandings(content);
+  const sections = content.sections ?? [
+    { id: 'funcionalidades', title: '', tone: 'muted' as const, items: content.bullets },
+  ];
 
   return (
     <div className="min-h-screen bg-[#fcf9f4] text-[#1c1c19] flex flex-col">
@@ -34,6 +37,16 @@ export const ContentLandingPage: React.FC<{ content: LandingContent }> = ({ cont
             <p className="text-xs text-[#76786b] font-medium hidden sm:block">Tu tierra, bajo control</p>
           </div>
         </a>
+
+        {content.sections && (
+          <nav aria-label="Contenido de la página" className="hidden md:flex items-center gap-6 text-sm font-semibold text-[#45483c]">
+            {content.sections.map((section) => (
+              <a key={section.id} href={`#${section.id}`} className="hover:text-[#33450d] transition-colors">
+                {section.id === 'problema' ? 'Por qué Terrenario' : section.id === 'funcionalidades' ? 'Funcionalidades' : 'Beneficios'}
+              </a>
+            ))}
+          </nav>
+        )}
 
         <a
           href="/login"
@@ -77,22 +90,53 @@ export const ContentLandingPage: React.FC<{ content: LandingContent }> = ({ cont
           </p>
         </section>
 
-        <section className="bg-[#f0ede8] py-14 px-6 lg:px-12 border-y border-[#e5e2dd]">
-          <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-            {content.bullets.map((bullet) => (
-              <div
-                key={bullet.title}
-                className="bg-[#fcf9f4] p-8 rounded-2xl border border-[#e5e2dd] shadow-xs space-y-4"
-              >
-                <div className="w-12 h-12 rounded-xl text-white flex items-center justify-center bg-[#33450d]">
-                  <span className="material-symbols-outlined text-2xl" aria-hidden="true">{bullet.icon}</span>
+        {sections.map((section) => {
+          const items = section.items.length > 0 ? section.items : content.bullets;
+          const isAccent = section.tone === 'accent';
+          const background = section.tone === 'muted' ? 'bg-[#f0ede8]' : isAccent ? 'bg-[#33450d]' : 'bg-[#fcf9f4]';
+
+          return (
+            <section
+              key={section.id}
+              id={section.id}
+              className={`${background} py-14 px-6 lg:px-12 border-y border-[#e5e2dd]`}
+            >
+              <div className="max-w-5xl mx-auto space-y-10">
+                {section.title && (
+                  <div className="max-w-3xl space-y-3">
+                    <h2 className={`font-headline font-bold text-3xl ${isAccent ? 'text-white' : 'text-[#1c1c19]'}`}>
+                      {section.title}
+                    </h2>
+                    {section.intro && (
+                      <p className={`text-base leading-relaxed ${isAccent ? 'text-[#dce8c2]' : 'text-[#45483c]'}`}>
+                        {section.intro}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className={`grid grid-cols-1 ${items.length === 4 ? 'md:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-3'} gap-6`}>
+                  {items.map((item) => (
+                    <div
+                      key={item.title}
+                      className={`${isAccent ? 'border-[#65783a] bg-[#40551a]' : 'border-[#e5e2dd] bg-[#fcf9f4]'} p-8 rounded-2xl border shadow-xs space-y-4`}
+                    >
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isAccent ? 'bg-[#c9f16f] text-[#33450d]' : 'bg-[#33450d] text-white'}`}>
+                        <span className="material-symbols-outlined text-2xl" aria-hidden="true">{item.icon}</span>
+                      </div>
+                      <h3 className={`font-headline font-bold text-xl ${isAccent ? 'text-white' : 'text-[#1c1c19]'}`}>
+                        {item.title}
+                      </h3>
+                      <p className={`text-sm leading-relaxed ${isAccent ? 'text-[#dce8c2]' : 'text-[#45483c]'}`}>
+                        {item.text}
+                      </p>
+                    </div>
+                  ))}
                 </div>
-                <h3 className="font-headline font-bold text-xl text-[#1c1c19]">{bullet.title}</h3>
-                <p className="text-sm text-[#45483c] leading-relaxed">{bullet.text}</p>
               </div>
-            ))}
-          </div>
-        </section>
+            </section>
+          );
+        })}
 
         <section aria-labelledby="faq-heading" className="py-14 px-6 lg:px-12">
           <div className="max-w-4xl mx-auto space-y-6">
@@ -134,13 +178,16 @@ export const ContentLandingPage: React.FC<{ content: LandingContent }> = ({ cont
         <section className="py-16 px-6 lg:px-12 bg-[#33450d] text-white text-center">
           <div className="max-w-3xl mx-auto space-y-6">
             <h2 className="font-headline font-bold text-3xl sm:text-4xl">
-              Comienza a digitalizar tu finca hoy mismo
+              {content.finalCta?.title ?? 'Comienza a digitalizar tu finca hoy mismo'}
             </h2>
+            {content.finalCta?.text && (
+              <p className="text-base text-[#dce8c2] leading-relaxed">{content.finalCta.text}</p>
+            )}
             <a
               href="/login"
               className="inline-block px-8 py-4 rounded-xl bg-[#c9f16f] text-[#33450d] hover:bg-[#aed456] font-bold text-base shadow-lg transition-all"
             >
-              Acceder a la plataforma
+              {content.finalCta?.label ?? 'Acceder a la plataforma'}
             </a>
           </div>
         </section>

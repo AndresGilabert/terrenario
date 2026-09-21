@@ -43,6 +43,20 @@ describe('ContentLandingPage', () => {
     }
   });
 
+  it('muestra los bloques editoriales de la landing de control de cosecha de olivar', () => {
+    renderLanding('control-cosechas');
+
+    expect(screen.getByRole('heading', { name: /qué terreno rindió mejor/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /toda la cosecha del olivar/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /decide con datos registrados/i })).toBeInTheDocument();
+    expect(screen.getByText(/litros por cada 100 kg de aceituna/i)).toBeInTheDocument();
+    expect(screen.getByText(/venta de aceituna, aceite para venta/i)).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: /contenido de la página/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /por qué terrenario/i })).toHaveAttribute('href', '#problema');
+    expect(screen.getByRole('heading', { name: /empieza a registrar la cosecha de tu olivar/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^acceder a terrenario$/i })).toHaveAttribute('href', '/login');
+  });
+
   it('el CTA principal y el del pie enlazan a /login', () => {
     renderLanding('diario-de-campo');
 

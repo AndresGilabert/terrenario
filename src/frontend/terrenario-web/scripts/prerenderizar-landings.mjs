@@ -49,6 +49,7 @@ const ORIGEN = 'https://app.terrenario.com';
 const TITULO_HOME = 'Terrenario — Tu tierra, bajo control';
 const DESCRIPCION_HOME =
   'La herramienta sencilla para el agricultor: gestiona terrenos, cosechas, compras y el diario de campo de tu explotación en un solo sitio.';
+const IMAGEN_SOCIAL_PREDETERMINADA = `${ORIGEN}/og-image.png`;
 
 const RUTAS_NO_RASTREABLES = [
   '/app/',
@@ -68,6 +69,7 @@ export function construirDatosEstructurados(contenido) {
       applicationCategory: 'Agricultural management application',
       operatingSystem: 'Web',
       url: `${ORIGEN}${contenido.path}`,
+      description: contenido.seo?.structuredDataDescription ?? contenido.metaDescription,
     },
   ];
 
@@ -110,6 +112,16 @@ function serializarDatosEstructurados(contenido) {
   return JSON.stringify(construirDatosEstructurados(contenido)).replace(/</g, '\\u003c');
 }
 
+function urlSocial(image) {
+  if (!image) return IMAGEN_SOCIAL_PREDETERMINADA;
+  return image.startsWith('https://') ? image : `${ORIGEN}${image.startsWith('/') ? image : `/${image}`}`;
+}
+
+function reemplazarMeta(html, atributo, nombre, valor) {
+  const patron = new RegExp(`(<meta\\s+${atributo}="${nombre}"\\s+content=")([^"]*)("\\s*/?>)`, 's');
+  return html.replace(patron, `$1${escaparHtml(valor)}$3`);
+}
+
 /**
  * Construye el documento HTML final de una landing a partir de la plantilla ya construida
  * (`dist/index.html`) y el cuerpo pre-renderizado del componente.
@@ -127,10 +139,18 @@ export function construirDocumentoLanding(plantillaHtml, contenido, cuerpo) {
   html = html.replaceAll(`<title>${TITULO_HOME}</title>`, `<title>${escaparHtml(contenido.title)}</title>`);
   html = html.replaceAll(escaparHtml(DESCRIPCION_HOME), escaparHtml(contenido.metaDescription));
   html = html.replaceAll(escaparHtml(TITULO_HOME), escaparHtml(contenido.title));
-  html = html.replace(
-    `<meta property="og:url" content="${ORIGEN}/" />`,
-    `<meta property="og:url" content="${ORIGEN}${contenido.path}" />`
-  );
+
+  const openGraph = contenido.seo?.openGraph ?? {};
+  const twitter = contenido.seo?.twitter ?? {};
+  html = reemplazarMeta(html, 'property', 'og:url', `${ORIGEN}${contenido.path}`);
+  html = reemplazarMeta(html, 'property', 'og:title', openGraph.title ?? contenido.title);
+  html = reemplazarMeta(html, 'property', 'og:description', openGraph.description ?? contenido.metaDescription);
+  html = reemplazarMeta(html, 'property', 'og:image', urlSocial(openGraph.image));
+  html = reemplazarMeta(html, 'property', 'og:image:alt', openGraph.imageAlt ?? openGraph.title ?? contenido.title);
+  html = reemplazarMeta(html, 'name', 'twitter:title', twitter.title ?? openGraph.title ?? contenido.title);
+  html = reemplazarMeta(html, 'name', 'twitter:description', twitter.description ?? openGraph.description ?? contenido.metaDescription);
+  html = reemplazarMeta(html, 'name', 'twitter:image', urlSocial(twitter.image ?? openGraph.image));
+  html = reemplazarMeta(html, 'name', 'twitter:image:alt', twitter.imageAlt ?? openGraph.imageAlt ?? twitter.title ?? openGraph.title ?? contenido.title);
 
   const canonico = `<link rel="canonical" href="${ORIGEN}${contenido.path}" />`;
   const hreflang = `<link rel="alternate" hreflang="es-ES" href="${ORIGEN}${contenido.path}" />`;

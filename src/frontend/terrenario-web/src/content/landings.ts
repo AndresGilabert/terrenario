@@ -40,6 +40,19 @@ export interface LandingCta {
   label: string;
 }
 
+export interface LandingSocialMeta {
+  title?: string;
+  description?: string;
+  image?: string;
+  imageAlt?: string;
+}
+
+export interface LandingSeo {
+  openGraph?: LandingSocialMeta;
+  twitter?: LandingSocialMeta;
+  structuredDataDescription?: string;
+}
+
 export interface LandingContent {
   slug: string;
   /** Ruta pública, sin barra final, tal y como la fija el `spec.md` de `MKT-102`. */
@@ -48,6 +61,7 @@ export interface LandingContent {
   navLabel: string;
   title: string;
   metaDescription: string;
+  seo?: LandingSeo;
   eyebrow: string;
   h1: string;
   intro: string;
@@ -175,6 +189,20 @@ export const LANDING_CONTENTS: LandingContent[] = [
     title: 'Control de cosecha de olivar y rendimiento de aceite | Terrenario',
     metaDescription:
       'Registra kilos de aceituna, rendimiento de aceite y destino por terreno. Compara campañas y consulta kilos por árbol en Terrenario.',
+    seo: {
+      openGraph: {
+        title: 'Control de cosecha de olivar con Terrenario',
+        description: 'Centraliza kilos de aceituna, rendimiento de aceite y destino por terreno, y compara la evolución de tus campañas.',
+        imageAlt: 'Terrenario, control de cosecha de olivar por terreno',
+      },
+      twitter: {
+        title: 'Control de cosecha de olivar con Terrenario',
+        description: 'Registra kilos, rendimiento de aceite y destino por terreno en un histórico de campaña.',
+        imageAlt: 'Terrenario, control de cosecha de olivar por terreno',
+      },
+      structuredDataDescription:
+        'Aplicación web para registrar cosechas de aceituna, consultar el rendimiento de aceite y comparar la producción por terreno y temporada.',
+    },
     eyebrow: 'Control de cosecha para olivar',
     h1: 'Controla tu cosecha de olivar, terreno a terreno',
     intro:

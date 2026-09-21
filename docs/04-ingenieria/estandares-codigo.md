@@ -175,6 +175,9 @@ base de datos ni panel de edición para diez páginas fijas).
    `title`, `metaDescription`, `eyebrow`, `h1`, `intro`, `bullets`, `faqs` y `relatedSlugs`.
    `sections` y `finalCta` son opcionales, pero obligatorios cuando la intención necesite desarrollar
    problema, solución y beneficios más allá del resumen inicial.
+   `seo` también es opcional: permite personalizar por landing Open Graph, Twitter y la descripción
+   de `SoftwareApplication`; si se omite, esos valores heredan `title`, `metaDescription` y la imagen
+   social global.
 2. `relatedSlugs` tiene que apuntar a slugs que existan y **no puede incluirse a sí misma**
    (`landings.test.ts` lo comprueba); toda landing necesita al menos una relacionada (CA-2 de
    `MKT-102`).
@@ -229,9 +232,14 @@ ser una entrada en `kg/100kg`, pero no debe sugerir que la aplicación realiza u
 - El HTML se pre-renderiza y contiene todo el contenido principal sin ejecutar JavaScript.
 - Cada URL publica `title`, meta description, canonical, `hreflang="es-ES"` y un único `h1`.
 - Open Graph y Twitter reutilizan título, descripción y URL de la misma fuente editorial.
+- Cuando la tarjeta social necesite otro encuadre editorial, `seo.openGraph` y `seo.twitter`
+   permiten sobrescribir `title`, `description`, `image` e `imageAlt` de forma independiente. Las
+   imágenes relativas se convierten al origen canónico; deben existir en `public/` y cumplir 1200 x
+   630 px para conservar la tarjeta grande.
 - Las FAQ visibles y el `FAQPage` estructurado no pueden divergir.
 - `SoftwareApplication` declara únicamente `operatingSystem: Web`; no incluye `Offer` mientras no
-   exista precio documentado.
+   exista precio documentado. Su descripción puede especializarse con
+   `seo.structuredDataDescription`; el resto del schema está gobernado centralmente.
 - No se añade `meta keywords`: los buscadores principales no la usan para ranking.
 - No hace falta `meta robots="index, follow"` en páginas indexables: es el comportamiento por
    defecto. Una futura página `noindex` debe declararlo explícitamente y quedar fuera del sitemap.
@@ -240,6 +248,9 @@ ser una entrada en `kg/100kg`, pero no debe sugerir que la aplicación realiza u
    si no representa el cultivo descrito.
 - `robots.txt`, `sitemap.xml`, canonical, `hreflang` y JSON-LD se generan en
    `scripts/prerenderizar-landings.mjs`; no se duplican a mano en el componente.
+- Canonical, `hreflang`, `og:url`, `SoftwareApplication.url`, Organization y FAQ no son
+   configurables a mano por landing: se derivan de `path`, del producto y del contenido visible para
+   impedir URLs o schemas contradictorios.
 
 ### Lista de revisión de una landing
 

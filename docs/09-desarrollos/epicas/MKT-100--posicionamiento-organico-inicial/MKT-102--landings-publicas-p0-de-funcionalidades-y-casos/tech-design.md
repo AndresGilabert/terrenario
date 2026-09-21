@@ -40,6 +40,12 @@ existentes mantienen el bloque original de tarjetas y la de control de cosechas 
 composición más completa —problema, funcionalidades y beneficios— sin bifurcar el renderizado ni
 duplicar el pipeline SEO incorporado por `MKT-103`/`104`/`105`.
 
+La configuración SEO por landing se amplía sin duplicar la cabecera: `seo.openGraph` y
+`seo.twitter` permiten sobrescribir título, descripción, imagen y texto alternativo;
+`seo.structuredDataDescription` especializa la descripción de `SoftwareApplication`. Si no se
+declaran, el pre-renderizador hereda `title`, `metaDescription` y `og-image.png`. Las URLs,
+Organization, `operatingSystem: Web` y el `FAQPage` siguen derivados centralmente.
+
 ## Diagrama de arquitectura / flujo
 
 ```mermaid
@@ -72,6 +78,7 @@ flowchart TD
 | Componente | Tipo de cambio | Descripción |
 | ---------- | -------------- | ----------- |
 | `src/content/landings.ts` | modificado | Añade `LandingSection` y `LandingCta`; especializa copy, FAQ y metadatos de control de cosechas para olivar |
+| `scripts/prerenderizar-landings.mjs` | modificado | Resuelve overrides sociales y descripción estructurada por landing con defaults y URLs absolutas seguras |
 | `ContentLandingPage.tsx` | modificado | Renderiza navegación interna, secciones con tonos de la marca y CTA contextual cuando el contenido los declara |
 | Tests de contenido y componente | modificado | Comprueban bloques, enlaces internos, CTA y ausencia de promesas no verificadas |
 | `estandares-codigo.md` | modificado | Define los requisitos de construcción y revisión para toda landing pública |

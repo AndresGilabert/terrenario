@@ -25,6 +25,12 @@ const PLANTILLA = `<!doctype html>
       property="og:description"
       content="La herramienta sencilla para el agricultor: gestiona terrenos, cosechas, compras y el diario de campo de tu explotación en un solo sitio."
     />
+    <meta property="og:image" content="https://app.terrenario.com/og-image.png" />
+    <meta property="og:image:alt" content="Terrenario — Tu tierra, bajo control" />
+    <meta name="twitter:title" content="Terrenario — Tu tierra, bajo control" />
+    <meta name="twitter:description" content="La herramienta sencilla para el agricultor: gestiona terrenos, cosechas, compras y el diario de campo de tu explotación en un solo sitio." />
+    <meta name="twitter:image" content="https://app.terrenario.com/og-image.png" />
+    <meta name="twitter:image:alt" content="Terrenario — Tu tierra, bajo control" />
     <link rel="modulepreload" crossorigin href="/assets/react-vendor-abc123.js" />
     <link rel="stylesheet" crossorigin href="/assets/index-abc123.css" />
   </head>
@@ -86,6 +92,29 @@ describe('construirDocumentoLanding', () => {
       },
     ]);
     expect(documento).toContain('<script type="application/ld+json">');
+    expect(datos['@graph'][1].description).toBe(CONTENIDO.metaDescription);
+  });
+
+  it('permite personalizar Open Graph, Twitter y la descripción estructurada por landing', () => {
+    const contenido = {
+      ...CONTENIDO,
+      seo: {
+        openGraph: { title: 'OG propio', description: 'Descripción OG propia', image: '/olivar-social.png', imageAlt: 'Olivar' },
+        twitter: { title: 'Twitter propio', description: 'Descripción Twitter propia', imageAlt: 'Olivar en Twitter' },
+        structuredDataDescription: 'Descripción estructurada propia',
+      },
+    };
+
+    const documento = construirDocumentoLanding(PLANTILLA, contenido, '<main>cuerpo</main>');
+    const datos = construirDatosEstructurados(contenido);
+
+    expect(documento).toContain('property="og:title" content="OG propio"');
+    expect(documento).toMatch(/property="og:description"\s+content="Descripción OG propia"/s);
+    expect(documento).toContain('property="og:image" content="https://app.terrenario.com/olivar-social.png"');
+    expect(documento).toContain('name="twitter:title" content="Twitter propio"');
+    expect(documento).toContain('name="twitter:description" content="Descripción Twitter propia"');
+    expect(documento).toContain('name="twitter:image" content="https://app.terrenario.com/olivar-social.png"');
+    expect(datos['@graph'][1].description).toBe('Descripción estructurada propia');
   });
 
   it('inyecta el cuerpo pre-renderizado dentro de #root', () => {

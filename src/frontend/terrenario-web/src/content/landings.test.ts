@@ -80,4 +80,15 @@ describe('contenido de landings públicas', () => {
       }
     }
   });
+
+  it('control de cosechas se posiciona para olivar sin promesas no verificadas', () => {
+    const content = getLandingBySlug('control-cosechas')!;
+    const searchableCopy = JSON.stringify(content).toLocaleLowerCase('es-ES');
+
+    expect(content.title).toMatch(/olivar/i);
+    expect(content.h1).toMatch(/olivar/i);
+    expect(content.sections).toHaveLength(3);
+    expect(searchableCopy).toContain('litros por cada 100 kg de aceituna');
+    expect(searchableCopy).not.toMatch(/gratis|\bandroid\b|\bios\b|maximiza|aumento de la rentabilidad/);
+  });
 });

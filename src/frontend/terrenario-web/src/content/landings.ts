@@ -26,6 +26,20 @@ export interface LandingFaq {
   answer: string;
 }
 
+export interface LandingSection {
+  id: string;
+  title: string;
+  intro?: string;
+  tone: 'plain' | 'muted' | 'accent';
+  items: LandingBullet[];
+}
+
+export interface LandingCta {
+  title: string;
+  text: string;
+  label: string;
+}
+
 export interface LandingContent {
   slug: string;
   /** Ruta pública, sin barra final, tal y como la fija el `spec.md` de `MKT-102`. */
@@ -38,6 +52,8 @@ export interface LandingContent {
   h1: string;
   intro: string;
   bullets: LandingBullet[];
+  sections?: LandingSection[];
+  finalCta?: LandingCta;
   faqs: LandingFaq[];
   relatedSlugs: string[];
 }
@@ -52,8 +68,9 @@ const LANDING_FAQS: Record<string, LandingFaq[]> = {
     { question: '¿Qué información lleva una actividad?', answer: 'Cada actividad registra terreno, tarea, responsable, horas y coste manual.' },
   ],
   'control-cosechas': [
-    { question: '¿Qué datos son obligatorios al registrar una cosecha?', answer: 'Cada cosecha incluye el terreno, la temporada, el producto, los kilos y el destino.' },
-    { question: '¿Puedo registrar rendimiento y litros a la vez?', answer: 'No. Puedes informar el rendimiento o los litros obtenidos, pero no los dos en la misma cosecha.' },
+    { question: '¿Qué puedo registrar de una cosecha de aceituna?', answer: 'Cada cosecha incluye terreno, temporada, fecha, kilos y destino. También puedes informar el rendimiento de aceite o los litros obtenidos.' },
+    { question: '¿Cómo expresa Terrenario el rendimiento de aceite?', answer: 'Terrenario guarda el rendimiento en litros de aceite por cada 100 kg de aceituna. Puedes introducir ese valor, informar kg de aceite por 100 kg o calcularlo desde los kilos entregados y los litros obtenidos.' },
+    { question: '¿Puedo comparar la cosecha con campañas anteriores?', answer: 'Sí. El dashboard muestra la evolución del rendimiento y el promedio histórico desde el primer año disponible; los promedios de 5 y 10 años aparecen cuando existe histórico suficiente.' },
   ],
   'compras-y-consumos': [
     { question: '¿Puedo registrar un consumo sin haber anotado antes la compra?', answer: 'Sí. El consumo queda registrado con coste 0 y un aviso; una compra posterior no recalcula ese coste histórico.' },
@@ -154,31 +171,96 @@ export const LANDING_CONTENTS: LandingContent[] = [
     slug: 'control-cosechas',
     path: '/funcionalidades/control-cosechas',
     cluster: 'funcionalidad',
-    navLabel: 'Control de cosechas',
-    title: 'Control de cosechas agrícolas | Terrenario',
+    navLabel: 'Control de cosecha de olivar',
+    title: 'Control de cosecha de olivar y rendimiento de aceite | Terrenario',
     metaDescription:
-      'Registra la recolección por terreno y temporada, con kilos, destino y rendimiento, y consulta la evolución de cada campaña.',
-    eyebrow: 'Funcionalidad',
-    h1: 'Control de cosechas: la recolección, terreno a terreno',
+      'Registra kilos de aceituna, rendimiento de aceite y destino por terreno. Compara campañas y consulta kilos por árbol en Terrenario.',
+    eyebrow: 'Control de cosecha para olivar',
+    h1: 'Controla tu cosecha de olivar, terreno a terreno',
     intro:
-      'Registra cada cosecha con su terreno, temporada, producto y kilos. Añade el destino —incluida la opción «desconocido» cuando aún no lo sepas— y el rendimiento o los litros obtenidos, sin bloquear el registro por datos que todavía no tienes.',
+      'Centraliza los kilos de aceituna, el destino y el rendimiento de aceite de cada terreno. Terrenario ordena la recolección por temporada y te permite comparar la evolución de tu olivar sin depender de papeles ni cálculos dispersos.',
     bullets: [
       {
         icon: 'agriculture',
-        title: 'Kilos y destino, siempre',
-        text: 'El peso recolectado y el destino son los datos obligatorios de cada cosecha; el resto se completa cuando lo sepas.',
+        title: 'Registro por cosecha',
+        text: 'Anota fecha, terreno, temporada, kilos de aceituna y destino. Si todavía no conoces el destino, puedes guardar la cosecha como «Sin destino» y completarlo después.',
       },
       {
         icon: 'insights',
-        title: 'Rendimiento o litros, uno de los dos',
-        text: 'Terrenario admite rendimiento o litros de aceite por cosecha, nunca los dos a la vez, para que el dato no se contradiga.',
+        title: 'Rendimiento de aceite comparable',
+        text: 'Consulta el rendimiento en litros por cada 100 kg de aceituna. Puedes introducirlo directamente o calcularlo desde los kilos entregados y los litros obtenidos.',
+      },
+      {
+        icon: 'layers',
+        title: 'Seguimiento por terreno',
+        text: 'El dashboard desglosa los kilos por terreno y por destino, ordena las parcelas por producción y marca los cálculos incompletos en lugar de inventar datos.',
       },
       {
         icon: 'event_note',
-        title: 'Cosecha dentro del diario',
-        text: 'Cada cosecha aparece también en el diario cronológico unificado, junto al resto de la operativa de esa fecha.',
+        title: 'Evolución entre campañas',
+        text: 'Revisa la evolución del rendimiento y el promedio histórico. Las referencias de 5 y 10 años solo aparecen cuando existe histórico suficiente.',
       },
     ],
+    sections: [
+      {
+        id: 'problema',
+        title: '¿Puedes saber qué terreno rindió mejor sin reconstruir la campaña?',
+        intro: 'Cuando la información de la cosecha queda repartida entre cuadernos, notas y memoria, comparar terrenos y temporadas exige rehacer cuentas cada vez.',
+        tone: 'plain',
+        items: [
+          {
+            icon: 'event_note',
+            title: 'Información dispersa',
+            text: 'Los kilos, el destino y el rendimiento terminan en soportes distintos y cuesta recuperar una visión completa de la campaña.',
+          },
+          {
+            icon: 'insights',
+            title: 'Rendimiento difícil de seguir',
+            text: 'Sin una unidad común, comparar entregas o conocer la evolución del rendimiento de aceite obliga a normalizar los datos a mano.',
+          },
+          {
+            icon: 'layers',
+            title: 'Poca perspectiva histórica',
+            text: 'Sin un registro por terreno y temporada, resulta difícil contrastar la campaña actual con los años anteriores.',
+          },
+        ],
+      },
+      {
+        id: 'funcionalidades',
+        title: 'Toda la cosecha del olivar, ordenada y comparable',
+        intro: 'Terrenario reúne los datos necesarios para seguir la producción sin convertir el trabajo diario en una tarea administrativa.',
+        tone: 'muted',
+        items: [],
+      },
+      {
+        id: 'beneficios',
+        title: 'Decide con datos registrados, no con estimaciones de memoria',
+        intro: 'El valor no está en acumular cifras, sino en poder localizar qué ocurrió en cada terreno y comparar campañas con el mismo criterio.',
+        tone: 'accent',
+        items: [
+          {
+            icon: 'checklist',
+            title: 'Menos tiempo reconstruyendo datos',
+            text: 'La cosecha queda vinculada desde el principio a una fecha, un terreno y una temporada.',
+          },
+          {
+            icon: 'map',
+            title: 'Producción visible por terreno',
+            text: 'Consulta los kilos por parcela y, cuando has informado el número de olivos, los kilos por árbol.',
+          },
+          {
+            icon: 'agriculture',
+            title: 'Destino trazable',
+            text: 'Distingue venta de aceituna, aceite para venta, aceite para consumo propio y cosechas todavía sin destino.',
+          },
+        ],
+      },
+    ],
+    finalCta: {
+      title: 'Empieza a registrar la cosecha de tu olivar',
+      text: 'Reúne kilos, rendimiento de aceite y destino por terreno en un único histórico de campaña.',
+      label: 'Acceder a Terrenario',
+    },
     faqs: LANDING_FAQS['control-cosechas'],
     relatedSlugs: ['dashboard-campana', 'gestion-terrenos', 'diario-de-campo'],
   },

@@ -1,7 +1,7 @@
 ﻿---
 bloque: 04-ingenieria
 documento: estandares-codigo
-actualizado_en: "2026-08-11"
+actualizado_en: "2026-09-20"
 ---
 
 # Estándares de Código
@@ -172,8 +172,9 @@ base de datos ni panel de edición para diez páginas fijas).
 1. Añade una entrada a `LANDING_CONTENTS` con todos los campos de `LandingContent`: `slug`, `path`
    (sin barra final — es la forma que declara el propio `canonical`), `cluster`
    (`'funcionalidad'` → `/funcionalidades/{slug}`, `'perfil'` → `/para/{slug}`), `navLabel`,
-   `title`, `metaDescription`, `eyebrow`, `h1`, `intro`, `bullets` (mínimo los que ya usan las
-   demás), `faqs` y `relatedSlugs`.
+   `title`, `metaDescription`, `eyebrow`, `h1`, `intro`, `bullets`, `faqs` y `relatedSlugs`.
+   `sections` y `finalCta` son opcionales, pero obligatorios cuando la intención necesite desarrollar
+   problema, solución y beneficios más allá del resumen inicial.
 2. `relatedSlugs` tiene que apuntar a slugs que existan y **no puede incluirse a sí misma**
    (`landings.test.ts` lo comprueba); toda landing necesita al menos una relacionada (CA-2 de
    `MKT-102`).
@@ -194,6 +195,63 @@ base de datos ni panel de edición para diez páginas fijas).
 
    Con `wwwroot` ya enlazado (`desarrollo-local.md`), `dotnet run` la sirve tal cual en
    `http://localhost:5127{path}`.
+
+### Requisitos de contenido y captación
+
+Antes de redactar se define **una intención de búsqueda principal** y la persona a la que responde.
+`title`, `metaDescription`, `eyebrow`, `h1`, introducción, secciones y FAQ deben sostener esa misma
+intención; repetir palabras clave sin aportar información no cuenta como contenido útil.
+
+Una landing orientada a captación incluye, como mínimo:
+
+1. Hero con un único `h1`, propuesta concreta, introducción y CTA a `/login`.
+2. Explicación del problema con situaciones verificables de la persona objetivo.
+3. Capacidades reales del producto, descritas con el vocabulario y las unidades del dominio.
+4. Beneficios derivados directamente de esas capacidades, sin prometer resultados no medidos.
+5. FAQ visible que responda dudas reales y sea la misma fuente del `FAQPage` JSON-LD.
+6. Enlaces a funcionalidades relacionadas y un CTA final contextual.
+
+Las afirmaciones se contrastan con las reglas de negocio, las fichas de módulo y el código
+entregado. No se publican como hechos:
+
+- precios, gratuidad, periodos de prueba o un `Offer` JSON-LD sin una decisión comercial vigente;
+- plataformas no existentes (por ejemplo, Android/iOS si el producto es una aplicación web);
+- resultados garantizados («aumenta la rentabilidad», «maximiza la producción») sin evidencia;
+- testimonios, cifras de adopción, premios o autoría («diseñado por agricultores») no documentados;
+- capacidades futuras o fuera de alcance presentadas como disponibles.
+
+Cuando marketing use un término próximo pero no idéntico al dominio, el texto debe explicar la
+equivalencia. Ejemplo: Terrenario usa «rendimiento de aceite» en `L/100kg`; «rendimiento graso» puede
+ser una entrada en `kg/100kg`, pero no debe sugerir que la aplicación realiza un análisis químico.
+
+### Requisitos técnicos de SEO
+
+- El HTML se pre-renderiza y contiene todo el contenido principal sin ejecutar JavaScript.
+- Cada URL publica `title`, meta description, canonical, `hreflang="es-ES"` y un único `h1`.
+- Open Graph y Twitter reutilizan título, descripción y URL de la misma fuente editorial.
+- Las FAQ visibles y el `FAQPage` estructurado no pueden divergir.
+- `SoftwareApplication` declara únicamente `operatingSystem: Web`; no incluye `Offer` mientras no
+   exista precio documentado.
+- No se añade `meta keywords`: los buscadores principales no la usan para ranking.
+- No hace falta `meta robots="index, follow"` en páginas indexables: es el comportamiento por
+   defecto. Una futura página `noindex` debe declararlo explícitamente y quedar fuera del sitemap.
+- Los activos deben ser relevantes para la intención, autoalojados y compatibles con la CSP. Una
+   fotografía agrícola genérica no se reutiliza como imagen principal de una landing especializada
+   si no representa el cultivo descrito.
+- `robots.txt`, `sitemap.xml`, canonical, `hreflang` y JSON-LD se generan en
+   `scripts/prerenderizar-landings.mjs`; no se duplican a mano en el componente.
+
+### Lista de revisión de una landing
+
+- [ ] La intención principal y la persona objetivo están escritas antes del copy.
+- [ ] Cada afirmación tiene respaldo en KB/código o está formulada como posibilidad, no garantía.
+- [ ] Hero, problema, capacidades, beneficios, FAQ, relacionados y CTA forman un recorrido coherente.
+- [ ] Hay un solo `h1`; los bloques usan `h2` y sus ítems `h3`.
+- [ ] El CTA apunta a `/login` y no promete precio o prueba no documentados.
+- [ ] Título, description, canonical, `hreflang`, Open Graph, Twitter y JSON-LD se verifican en el HTML generado.
+- [ ] El contenido visible de FAQ coincide con el `FAQPage` estructurado.
+- [ ] Los activos son pertinentes, autoalojados, accesibles y no rompen la CSP ni el presupuesto de peso.
+- [ ] `npm test` y `npm run build` pasan; se inspecciona el HTML de `dist/{path}/index.html`.
 
 ### Editar una landing existente
 

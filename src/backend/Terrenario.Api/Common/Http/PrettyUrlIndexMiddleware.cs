@@ -3,11 +3,9 @@ using System.IO;
 namespace Terrenario.Api.Common.Http;
 
 /// <summary>
-/// MKT-102 (riesgo pendiente, detectado en uso real) — <c>UseDefaultFiles</c> solo resuelve el
-/// <c>index.html</c> de una carpeta cuando la URL **termina en <c>/</c></c>. Las landings públicas se
-/// enlazan y se declaran en su propio <c>canonical</c> (`MKT-103`) **sin** barra final
-/// (<c>/funcionalidades/gestion-terrenos</c>), así que sin este middleware esa URL exacta da 404 y
-/// solo funciona con la barra añadida a mano.
+/// MKT-102 (riesgo pendiente, detectado en producción en <c>v0.9.0</c>) — <c>UseDefaultFiles</c> no
+/// resolvió el <c>index.html</c> de las carpetas de landings en App Service, ni con barra final ni
+/// sin ella. Ambas formas caían en <c>MapFallback</c> y devolvían el shell vacío de la SPA.
 ///
 /// Sirve el fichero directamente (no redirige) para no desalinear la URL servida del
 /// <c>canonical</c> ya declarado en el propio HTML.
@@ -20,7 +18,7 @@ public sealed class PrettyUrlIndexMiddleware(RequestDelegate next)
         var webRoot = env.WebRootPath;
 
         if (!HttpMethods.IsGet(context.Request.Method)
-            || path.EndsWith('/')
+            || path == "/"
             || path.StartsWith("/api", StringComparison.OrdinalIgnoreCase)
             || string.IsNullOrEmpty(webRoot))
         {
@@ -28,7 +26,7 @@ public sealed class PrettyUrlIndexMiddleware(RequestDelegate next)
             return;
         }
 
-        var candidato = Path.Combine(webRoot, path.TrimStart('/'), "index.html");
+        var candidato = Path.Combine(webRoot, path.Trim('/'), "index.html");
         var raizAbsoluta = Path.GetFullPath(webRoot) + Path.DirectorySeparatorChar;
 
         // El path de la petición no puede sacar la resolución fuera de `wwwroot` (p. ej. `..`).

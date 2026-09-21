@@ -1,7 +1,7 @@
 ﻿---
 bloque: 06-integraciones
 documento: correos-del-producto
-actualizado_en: "2026-08-08"
+actualizado_en: "2026-08-31"
 ---
 
 # Correos del producto — inventario y maquetación
@@ -18,7 +18,7 @@ Desde `MVP-715` también lo es **la composición**: todos los correos de este in
 
 ## Inventario
 
-Son **seis**. `MVP-715` encontró cinco donde su spec decía «al menos cuatro» —contaba entre ellos unas
+Son **ocho**. `MVP-715` encontró cinco donde su spec decía «al menos cuatro» —contaba entre ellos unas
 notificaciones de baja de cuenta que **no existen**, porque dar de baja la cuenta no envía ningún
 correo; lo que sí sale por ese camino es el aviso de baja de Workspace, ya que cerrar la cuenta obliga
 antes a resolver los Workspaces de propiedad única (RN-038)— y descubrió dos que nadie había contado:
@@ -29,6 +29,10 @@ El sexto lo añade `MVP-711`: el reporte del **canal de sugerencias e incidencia
 llega después de que exista este inventario, y por eso importa cómo llegó: por la plantilla común y
 por el catálogo ejecutable, que es justo lo que `MVP-715` dejó pedido para cuando apareciera.
 
+El séptimo y el octavo los añade `MKT-101`: el resumen operativo diario y el semanal, al mismo
+destinatario que las alertas de operación (`Ops:AlertEmail`), para seguir tráfico y conversión sin
+abrir `GET /api/v1/ops/signals` a mano.
+
 | Correo | Disparador | Destinatario | Contenido | Emisor |
 |---|---|---|---|---|
 | Invitación a Workspace | `POST /api/v1/workspaces/invitations` y su reenvío (`.../{id}/resend`) | La dirección invitada, que **puede no tener cuenta** | Quién invita y a qué Workspace, enlace de aceptación de un solo uso, caducidad, qué hacer si no la esperaba y que esa misma dirección sirve aunque no sea de Gmail (`MVP-712`) | `SmtpInvitationEmailSender` |
@@ -37,8 +41,10 @@ por el catálogo ejecutable, que es justo lo que `MVP-715` dejó pedido para cua
 | Alerta de operación disparada | `AlertMonitor`, en su barrido de cada minuto | `Ops:AlertEmail` | Nombre y severidad de la alerta, detalle y runbook | `AlertNotifier` |
 | Alerta de operación resuelta | `AlertMonitor`, al detectar la transición | `Ops:AlertEmail` | Nombre de la alerta, cuánto duró y detalle | `AlertNotifier` |
 | Sugerencia o incidencia del usuario (MVP-711) | `POST /api/v1/feedback` desde «Sugerencias e incidencias» | `Feedback:Recipient` | Lo que ha escrito la persona, quién es y el contexto técnico: versión desplegada, pantalla, `X-Request-Id` del último fallo y navegador | `SmtpFeedbackEmailSender` |
+| Resumen operativo diario (MKT-101) | `OperationalSummaryWorker`, a las 05:00 Europe/Madrid | `Ops:AlertEmail` | Sesiones, acceso a login, login exitoso, tasa de conversión y alertas activas del día anterior | `OperationalSummaryWorker` |
+| Resumen operativo semanal (MKT-101) | `OperationalSummaryWorker`, los lunes a las 05:00 Europe/Madrid | `Ops:AlertEmail` | Los mismos agregados sobre 7 días, más la tasa de error frente al objetivo y alertas activas | `OperationalSummaryWorker` |
 
-Los tres primeros van a personas; los tres últimos, a buzones de operación. Se maquetan igual a
+Los tres primeros van a personas; los cinco últimos, a buzones de operación. Se maquetan igual a
 propósito: un correo del producto es un correo del producto, y en los de alerta el motivo del envío y
 el modo de apagarlos son además información operativa útil para quien herede esa bandeja.
 
@@ -115,6 +121,8 @@ Sobre el «cómo dejar de recibirlo», los seis no son iguales y **decirlo impor
 - **Alertas**: se apagan retirando la dirección de `Ops:AlertEmail`.
 - **Sugerencias e incidencias**: se apagan retirando la dirección de `Feedback:Recipient`, con la
   consecuencia dicha: el canal deja de existir para quien lo intente usar.
+- **Resumen operativo diario y semanal**: se apagan retirando la dirección de `Ops:AlertEmail`, o
+  desactivando `Ops:SummaryEnabled` sin tocar el destinatario de las alertas.
 
 ---
 

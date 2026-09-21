@@ -38,8 +38,8 @@ public class ProductEmailInventoryTests
     public void ElInventario_Deberia_TenerTodosLosCorreosDelProducto()
     {
         // Si esto cambia, cambia también `docs/06-integraciones/correos-del-producto.md`. Eran cinco
-        // en `MVP-715` —donde el spec daba «al menos cuatro»— y son seis desde `MVP-711`, que añade
-        // el del canal de sugerencias e incidencias.
+        // en `MVP-715` —donde el spec daba «al menos cuatro»—, seis desde `MVP-711` (canal de
+        // sugerencias e incidencias) y ocho desde `MKT-101` (resumen operativo diario y semanal).
         ProductEmailCatalog.All().Select(email => email.Slug).Should().BeEquivalentTo(
         [
             "invitacion-a-workspace",
@@ -47,7 +47,9 @@ public class ProductEmailInventoryTests
             "solicitud-de-reactivacion",
             "alerta-disparada",
             "alerta-resuelta",
-            "canal-de-feedback"
+            "canal-de-feedback",
+            "resumen-operativo-diario",
+            "resumen-operativo-semanal"
         ]);
     }
 

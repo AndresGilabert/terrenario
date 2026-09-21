@@ -38,5 +38,12 @@ public sealed class OpsOptions
     /// </summary>
     public bool AlertsEnabled { get; set; } = true;
 
+    /// <summary>
+    /// MKT-101 — Permite apagar el resumen operativo periódico. Mismo motivo que
+    /// <see cref="AlertsEnabled"/>: se desactiva en los tests de API y en desarrollo para que una
+    /// máquina de trabajo con cuenta de envío y destinatario configurados no mande resúmenes reales.
+    /// </summary>
+    public bool SummaryEnabled { get; set; } = true;
+
     public bool IsSignalsEndpointEnabled => !string.IsNullOrWhiteSpace(ApiKey);
 }

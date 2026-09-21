@@ -1,7 +1,7 @@
 ﻿---
 bloque: 04-ingenieria
 documento: flujo-git
-actualizado_en: "2026-07-29"
+actualizado_en: "2026-08-21"
 ---
 
 # Flujo de Git
@@ -40,6 +40,32 @@ Ejemplos:
 | `hotfix/` | Fix urgente en producción |
 | `spike/` | Investigación técnica |
 | `chore/` | Tareas de mantenimiento sin impacto en producto |
+
+---
+
+## Siglas de horizontales y naming de tickets (post-MVP)
+
+Tras cerrar la fase MVP, las nuevas épicas e historias dejan de usar `MVP-xxx` como prefijo operativo.
+`MVP-xxx` se conserva como histórico de la fase cerrada.
+
+Se adopta este catálogo de horizontales:
+
+| Horizontal | Sigla |
+|---|---|
+| Marketing / Growth | `MKT` |
+| Producto funcional | `PRD` |
+| Plataforma y arquitectura técnica | `PLT` |
+| Datos y analítica de producto | `DAT` |
+| Seguridad y cumplimiento | `SEG` |
+| Integraciones externas | `INT` |
+| Soporte y operación | `SOP` |
+
+Reglas:
+
+1. El identificador base de épicas/historias sigue `SIGLA-###` (ejemplo: `MKT-001`).
+2. Las ramas usan ese identificador: `feature/MKT-001--...`, `chore/MKT-001--...`, etc.
+3. Cada historia pertenece a una horizontal principal; si es transversal, manda el driver principal.
+4. No se reescriben IDs históricos `MVP-*`: se mantienen para trazabilidad documental y de release.
 
 ---
 

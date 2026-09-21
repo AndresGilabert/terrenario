@@ -78,6 +78,7 @@ public sealed class OperationalSignalsService(
                 Logins: last7.GetValueOrDefault(TelemetryMetrics.LoginSuccess),
                 RecordsCreated: last7.GetValueOrDefault(TelemetryMetrics.ApiCreated),
                 VisibleErrorRate: Ratio(last7, TelemetryMetrics.ApiRequests4xx, TelemetryMetrics.ApiRequests)),
+            LandingConversion7d: BuildLandingConversion(last7),
             Live: new LiveWindow(
                 WindowMinutes: (int)AlertThresholds.Window.TotalMinutes,
                 Requests: live.GetValueOrDefault(TelemetryMetrics.ApiRequests),
@@ -157,6 +158,36 @@ public sealed class OperationalSignalsService(
 
         return total == 0 ? null : (double)rendered / total;
     }
+
+    private static IReadOnlyList<LandingSignals> BuildLandingConversion(IReadOnlyDictionary<string, long> last7)
+    {
+        const string ViewPrefix = "landing.view.";
+        const string LoginEntryPrefix = "login.entry.landing.";
+        const string SuccessEntryPrefix = "login.success.entry.landing.";
+
+        // MKT-106 (CA-2) — El catálogo no se declara: sale de qué claves de landing aparecen de verdad
+        // en los contadores de la semana, para no tener que desplegar el backend por cada landing nueva
+        // de una campaña.
+        var landings = last7.Keys
+            .Where(k => k.StartsWith(ViewPrefix, StringComparison.Ordinal))
+            .Select(k => k[ViewPrefix.Length..])
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(k => k, StringComparer.Ordinal);
+
+        return [.. landings.Select(landing =>
+        {
+            var views = last7.GetValueOrDefault($"{ViewPrefix}{landing}");
+            var loginViews = last7.GetValueOrDefault($"{LoginEntryPrefix}{landing}");
+            var loginSuccess = last7.GetValueOrDefault($"{SuccessEntryPrefix}{landing}");
+
+            return new LandingSignals(
+                Landing: landing,
+                Views: views,
+                LoginViews: loginViews,
+                LoginSuccess: loginSuccess,
+                Conversion: views == 0 ? null : (double)loginSuccess / views);
+        })];
+    }
 }
 
 public sealed record OperationalSignals(
@@ -166,6 +197,7 @@ public sealed record OperationalSignals(
     LoginFunnelSignals LoginFunnel7d,
     ProductUsageSignals ProductUsage7d,
     BusinessSignals Business7d,
+    IReadOnlyList<LandingSignals> LandingConversion7d,
     LiveWindow Live,
     IReadOnlyList<AlertState> Alerts);
 
@@ -209,6 +241,20 @@ public sealed record BusinessSignals(
     long Logins,
     long RecordsCreated,
     double? VisibleErrorRate);
+
+/// <summary>
+/// MKT-106 — Una landing con al menos una vista en la ventana de 7 días. <c>LoginViews</c> es
+/// «pantalla de login vista, atribuida a esta landing por el Referer»: el paso intermedio del embudo
+/// <c>landing_view -&gt; login_view -&gt; login_success</c>. <c>Conversion</c> se calcula sobre
+/// <c>Views</c> (la visita real a la landing), no sobre <c>LoginViews</c>, porque es el embudo
+/// completo lo que pide el spec.
+/// </summary>
+public sealed record LandingSignals(
+    string Landing,
+    long Views,
+    long LoginViews,
+    long LoginSuccess,
+    double? Conversion);
 
 /// <summary>
 /// Un día de la serie. Los recuentos van a cero cuando no hubo nada y los cocientes a <c>null</c>: un

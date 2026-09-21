@@ -1,7 +1,7 @@
 ﻿---
 bloque: 01-producto
 documento: roadmap
-actualizado_en: "2026-08-10"
+actualizado_en: "2026-08-21"
 ---
 
 # Roadmap de Alto Nivel
@@ -17,6 +17,46 @@ actualizado_en: "2026-08-10"
 **Preparada para publicar**: `v0.8.0-hito-h` (épica `MVP-008`, 12/12)
 **Estado de definición**: MVP entregado; hitos A a G cerrados y **Hito H cerrado en desarrollo**
 **Próximo hito**: Hito I — Resiliencia offline
+
+---
+
+## Gobernanza post-MVP para horizontales y crecimiento
+
+Con el cierre funcional del MVP, la planificación y trazabilidad nuevas se organizan por horizontales
+(`MKT`, `PRD`, `PLT`, `DAT`, `SEG`, `INT`, `SOP`) según `../04-ingenieria/flujo-git.md`.
+
+### Decisión activa: Opción A (sin bloque nuevo)
+
+La documentación de marketing/growth se mantiene en los bloques actuales:
+
+- Estrategia y priorización: `../01-producto/`
+- Medición e instrumentación: `../05-infraestructura/`
+- Cadencia y operativa de equipo: `../08-procesos/`
+- Ejecución de cambios: `../09-desarrollos/epicas/`
+
+### Propuesta registrada: Opción B (bloque dedicado de crecimiento)
+
+Se deja definida para fase posterior la creación de un bloque documental específico
+`docs/11-crecimiento/` con estructura de estrategia, medición, experimentación y reporting.
+
+#### Cuándo migrar de A a B
+
+Se activa la migración cuando se cumpla al menos una condición:
+
+1. Más de 15 documentos activos de growth repartidos entre `01/05/08/09`.
+2. Más de 2 ciclos mensuales seguidos de reporting/experimentación de growth.
+3. Necesidad operativa de separar ownership y gobierno del crecimiento en un bloque dedicado.
+
+#### Alcance de migración (obligatorio)
+
+Al crear `docs/11-crecimiento/`, se migrará todo el contenido vigente que corresponda desde
+`01-producto`, `05-infraestructura`, `08-procesos` y `09-desarrollos`, preservando:
+
+- Trazabilidad histórica de decisiones y tickets.
+- Integridad de enlaces internos.
+- Frontmatter y convenciones de naming de la KB.
+
+El bloque antiguo no se borra en bruto: se sustituye por referencias explícitas para evitar enlaces rotos.
 
 ---
 

@@ -96,6 +96,9 @@ public sealed class TerrenarioApiFactory : WebApplicationFactory<Program>, IAsyn
         // por su cuenta. Sus reglas se prueban directamente, que además es la unica forma de controlar
         // la ventana sin esperar treinta minutos.
         builder.UseSetting("Ops:AlertsEnabled", "false");
+        // MKT-101 — Mismo motivo: el resumen operativo enviaría correos por su cuenta cada minuto de
+        // ejecución de la suite. Se prueba directamente en `OperationalSummaryWorkerTests`.
+        builder.UseSetting("Ops:SummaryEnabled", "false");
         builder.UseSetting("Ops:ApiKey", _opsApiKey);
 
         builder.ConfigureServices(services =>

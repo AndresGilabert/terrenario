@@ -4,7 +4,7 @@ owner: "@andres"
 estado: activo
 version: "v0.6.0-hito-f"
 sla: "el del servicio (99.9%) — ver ../../05-infraestructura/observabilidad.md"
-actualizado_en: "2026-08-08"
+actualizado_en: "2026-09-01"
 ---
 
 # Módulo: Plataforma de aplicación
@@ -41,7 +41,9 @@ sabría dónde está descrito.
 - Cliente HTTP único del frontend, con reacción centralizada a los errores de sesión y de ámbito.
 - Shell del área operativa: cabecera, lateral, navegación, 404 dentro y fuera del shell, y la
   decisión de arranque en `HomeView`.
-- Presencia pública: landing y páginas legales de privacidad y términos.
+- Presencia pública: landing, páginas legales de privacidad y términos, y recursos de rastreo
+  estáticos (`robots.txt` y `sitemap.xml`). Cómo añadir o editar una landing:
+  [`estandares-codigo.md`](../../04-ingenieria/estandares-codigo.md#landings-públicas-contenido-de-marketing).
 - Identidad del producto fuera de su propia pantalla (`MVP-710`): iconos de marca, `manifest.webmanifest`,
   `theme-color` y las etiquetas sociales del documento, todo **autoalojado** por `RN-042`.
 - Canal de sugerencias e incidencias (`MVP-711`): entrada en la navegación, pantalla del formulario,
@@ -77,8 +79,8 @@ sabría dónde está descrito.
 
 | Capa | Elementos |
 | ---- | --------- |
-| Backend | `Common/Errors`, `Common/Http` (`RequestId`, `SecurityHeaders`, `RequestMetrics`, `IfMatchHeader`, `PartialUpdateBody`), `Common/DeployedVersion.cs`, `Infrastructure/Data`, `Application/Feedback` e `Infrastructure/Feedback` (MVP-711) |
-| Frontend | `lib/http-client.ts`, `lib/report-context.ts`, `contexts/{ApiContext,DataScopeContext}`, `routes/`, `components/{layout,home,errors,common,marketing,legal,feedback}`, `config/legal-entity.ts`, `index.html`, `public/` (iconos, manifest e imagen social) y `scripts/generar-iconos.mjs` |
+| Backend | `Common/Errors`, `Common/Http` (`RequestId`, `SecurityHeaders`, `RequestMetrics`, `IfMatchHeader`, `PartialUpdateBody`, `AlternateDomainRedirectMiddleware`), `Common/DeployedVersion.cs`, `Infrastructure/Data`, `Application/Feedback` e `Infrastructure/Feedback` (MVP-711) |
+| Frontend | `lib/http-client.ts`, `lib/report-context.ts`, `contexts/{ApiContext,DataScopeContext}`, `routes/`, `components/{layout,home,errors,common,marketing,legal,feedback}`, `content/landings.ts`, `entry-server.tsx`, `config/legal-entity.ts`, `index.html`, `public/` (iconos, manifest e imagen social) y `scripts/{generar-iconos,prerenderizar-landings}.mjs` (genera landings, `robots.txt` y `sitemap.xml`) |
 | Datos | Ninguna tabla propia: gestiona el `DbContext` y las migraciones de todo el esquema. El canal de feedback tampoco crea ninguna: el correo **es** el registro |
 
 ---
@@ -117,6 +119,11 @@ flowchart LR
 | [MVP-703](../../09-desarrollos/epicas/MVP-007--ajustes-mvp-01/MVP-703--arranque-en-el-diario-y-definicion-de-sesion-activa/tech-design.md) | Decisión de arranque en `HomeView` |
 | [MVP-710](../../09-desarrollos/epicas/MVP-007--ajustes-mvp-01/MVP-710--identidad-de-marca-y-presencia-del-producto/tech-design.md) | Iconos de marca, manifest y tarjeta social, todo autoalojado |
 | [MVP-711](../../09-desarrollos/epicas/MVP-007--ajustes-mvp-01/MVP-711--canal-de-feedback-del-usuario/tech-design.md) | Canal de sugerencias e incidencias: contexto técnico, límite anti-abuso y correo |
+| [MKT-102](../../09-desarrollos/epicas/MKT-100--posicionamiento-organico-inicial/MKT-102--landings-publicas-p0-de-funcionalidades-y-casos/tech-design.md) · [ADR-0012](../../02-arquitectura/decisiones/ADR-0012--prerenderizado-estatico-landings-publicas-mkt-102.md) | Landings públicas de funcionalidades y casos de uso, pre-renderizadas a HTML estático en el build |
+| [MKT-103](../../09-desarrollos/epicas/MKT-100--posicionamiento-organico-inicial/MKT-103--seo-on-page-base-para-landings/tech-design.md) | Metadatos SEO por URL pública: `title`, description, canonical, `hreflang` y un único `h1` |
+| [MKT-104](../../09-desarrollos/epicas/MKT-100--posicionamiento-organico-inicial/MKT-104--datos-estructurados-y-faq-por-landing/tech-design.md) | FAQ visibles y JSON-LD `Organization`, `SoftwareApplication` y `FAQPage` por landing |
+| [MKT-105](../../09-desarrollos/epicas/MKT-100--posicionamiento-organico-inicial/MKT-105--robots-sitemap-y-validacion-de-rastreo/tech-design.md) | Recursos estáticos de rastreo: `robots.txt` y `sitemap.xml` construidos desde las rutas públicas |
+| [PLT-101](../../09-desarrollos/epicas/PLT-100--plataforma-y-dominios/PLT-101--redireccion-301-dominios-alternativos-a-app/tech-design.md) | Redirección 301 de dominios alternativos (`terrenario.com`/`.es` y sus `www`) al dominio canónico |
 | [Contratos de API](../../02-arquitectura/contratos-api.md) · [Componentes](../../02-arquitectura/componentes.md) | Convenciones de contrato y despiece C4, mantenidos de forma central |
 | [Estándares de código](../../04-ingenieria/estandares-codigo.md) | Convenciones que este chasis impone al resto |
 

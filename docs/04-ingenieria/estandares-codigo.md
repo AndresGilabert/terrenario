@@ -1,7 +1,7 @@
 ﻿---
 bloque: 04-ingenieria
 documento: estandares-codigo
-actualizado_en: "2026-08-11"
+actualizado_en: "2026-09-20"
 ---
 
 # Estándares de Código
@@ -149,6 +149,137 @@ inventario se lee al arrancar.
 
 El proceso vive en `src/frontend/terrenario-web/scripts/`: `inventario-iconos.mjs` (qué iconos usa
 el producto) y `subconjunto-iconos.mjs` (el recorte). Los dos están comentados con el porqué.
+
+---
+
+## Landings públicas (contenido de marketing)
+
+> `MKT-102`/`103`/`104`/`105`. Detalle de arquitectura en
+> [ADR-0012](../02-arquitectura/decisiones/ADR-0012--prerenderizado-estatico-landings-publicas-mkt-102.md)
+> y en el tech-design de
+> [MKT-102](../09-desarrollos/epicas/MKT-100--posicionamiento-organico-inicial/MKT-102--landings-publicas-p0-de-funcionalidades-y-casos/tech-design.md).
+> Esto es el «cómo, en la práctica»; para verlas renderizadas en local ver
+> [`desarrollo-local.md`](../05-infraestructura/desarrollo-local.md).
+
+**Fuente única**: `src/frontend/terrenario-web/src/content/landings.ts`. El array
+`LANDING_CONTENTS` es de donde salen, sin ningún otro sitio que tocar, las rutas servidas
+(`prerenderizar-landings.mjs`), el `sitemap.xml`, y las exclusiones de `robots.txt` de todo lo que
+no sea público. No hay YAML, CMS ni fichero por landing: es contenido en código, a propósito (sin
+base de datos ni panel de edición para diez páginas fijas).
+
+### Añadir una landing nueva
+
+1. Añade una entrada a `LANDING_CONTENTS` con todos los campos de `LandingContent`: `slug`, `path`
+   (sin barra final — es la forma que declara el propio `canonical`), `cluster`
+   (`'funcionalidad'` → `/funcionalidades/{slug}`, `'perfil'` → `/para/{slug}`), `navLabel`,
+   `title`, `metaDescription`, `eyebrow`, `h1`, `intro`, `bullets`, `faqs` y `relatedSlugs`.
+   `sections` y `finalCta` son opcionales, pero obligatorios cuando la intención necesite desarrollar
+   problema, solución y beneficios más allá del resumen inicial.
+   `seo` también es opcional: permite personalizar por landing Open Graph, Twitter y la descripción
+   de `SoftwareApplication`; si se omite, esos valores heredan `title`, `metaDescription` y la imagen
+   social global.
+2. `relatedSlugs` tiene que apuntar a slugs que existan y **no puede incluirse a sí misma**
+   (`landings.test.ts` lo comprueba); toda landing necesita al menos una relacionada (CA-2 de
+   `MKT-102`).
+3. Los iconos de `bullets` son nombres de Material Symbols Outlined, con las mismas reglas que
+   [«Iconos del cliente web»](#iconos-del-cliente-web-material-symbols) de más arriba.
+4. **Actualiza `src/content/landings.test.ts`**: el test `publica exactamente las 10 URLs del
+   plan P0` fija la lista cerrada de rutas del plan inicial y **falla a propósito** si añades una
+   landing sin tocarlo — es la barrera contra publicar una página sin que nadie se entere.
+5. `title` y `metaDescription` no pueden repetirse entre landings (ni con la home): otro test lo
+   comprueba.
+6. Construye para verla en su forma final:
+
+   ```bash
+   cd src/frontend/terrenario-web
+   npm run build   # genera dist/, incluida la landing nueva, el sitemap y robots.txt
+   npm test        # valida lo del punto 2, 4 y 5
+   ```
+
+   Con `wwwroot` ya enlazado (`desarrollo-local.md`), `dotnet run` la sirve tal cual en
+   `http://localhost:5127{path}`.
+
+### Requisitos de contenido y captación
+
+Antes de redactar se define **una intención de búsqueda principal** y la persona a la que responde.
+`title`, `metaDescription`, `eyebrow`, `h1`, introducción, secciones y FAQ deben sostener esa misma
+intención; repetir palabras clave sin aportar información no cuenta como contenido útil.
+
+Una landing orientada a captación incluye, como mínimo:
+
+1. Hero con un único `h1`, propuesta concreta, introducción y CTA a `/login`.
+2. Explicación del problema con situaciones verificables de la persona objetivo.
+3. Capacidades reales del producto, descritas con el vocabulario y las unidades del dominio.
+4. Beneficios derivados directamente de esas capacidades, sin prometer resultados no medidos.
+5. FAQ visible que responda dudas reales y sea la misma fuente del `FAQPage` JSON-LD.
+6. Enlaces a funcionalidades relacionadas y un CTA final contextual.
+
+Las afirmaciones se contrastan con las reglas de negocio, las fichas de módulo y el código
+entregado. No se publican como hechos:
+
+- precios, gratuidad, periodos de prueba o un `Offer` JSON-LD sin una decisión comercial vigente;
+- plataformas no existentes (por ejemplo, Android/iOS si el producto es una aplicación web);
+- resultados garantizados («aumenta la rentabilidad», «maximiza la producción») sin evidencia;
+- testimonios, cifras de adopción, premios o autoría («diseñado por agricultores») no documentados;
+- capacidades futuras o fuera de alcance presentadas como disponibles.
+
+Cuando marketing use un término próximo pero no idéntico al dominio, el texto debe explicar la
+equivalencia. Ejemplo: Terrenario usa «rendimiento de aceite» en `L/100kg`; «rendimiento graso» puede
+ser una entrada en `kg/100kg`, pero no debe sugerir que la aplicación realiza un análisis químico.
+
+### Requisitos técnicos de SEO
+
+- El HTML se pre-renderiza y contiene todo el contenido principal sin ejecutar JavaScript.
+- Cada URL publica `title`, meta description, canonical, `hreflang="es-ES"` y un único `h1`.
+- Open Graph y Twitter reutilizan título, descripción y URL de la misma fuente editorial.
+- Cuando la tarjeta social necesite otro encuadre editorial, `seo.openGraph` y `seo.twitter`
+   permiten sobrescribir `title`, `description`, `image` e `imageAlt` de forma independiente. Las
+   imágenes relativas se convierten al origen canónico; deben existir en `public/` y cumplir 1200 x
+   630 px para conservar la tarjeta grande.
+- Las FAQ visibles y el `FAQPage` estructurado no pueden divergir.
+- `SoftwareApplication` declara únicamente `operatingSystem: Web`; no incluye `Offer` mientras no
+   exista precio documentado. Su descripción puede especializarse con
+   `seo.structuredDataDescription`; el resto del schema está gobernado centralmente.
+- No se añade `meta keywords`: los buscadores principales no la usan para ranking.
+- No hace falta `meta robots="index, follow"` en páginas indexables: es el comportamiento por
+   defecto. Una futura página `noindex` debe declararlo explícitamente y quedar fuera del sitemap.
+- Los activos deben ser relevantes para la intención, autoalojados y compatibles con la CSP. Una
+   fotografía agrícola genérica no se reutiliza como imagen principal de una landing especializada
+   si no representa el cultivo descrito.
+- `robots.txt`, `sitemap.xml`, canonical, `hreflang` y JSON-LD se generan en
+   `scripts/prerenderizar-landings.mjs`; no se duplican a mano en el componente.
+- Canonical, `hreflang`, `og:url`, `SoftwareApplication.url`, Organization y FAQ no son
+   configurables a mano por landing: se derivan de `path`, del producto y del contenido visible para
+   impedir URLs o schemas contradictorios.
+
+### Lista de revisión de una landing
+
+- [ ] La intención principal y la persona objetivo están escritas antes del copy.
+- [ ] Cada afirmación tiene respaldo en KB/código o está formulada como posibilidad, no garantía.
+- [ ] Hero, problema, capacidades, beneficios, FAQ, relacionados y CTA forman un recorrido coherente.
+- [ ] Hay un solo `h1`; los bloques usan `h2` y sus ítems `h3`.
+- [ ] El CTA apunta a `/login` y no promete precio o prueba no documentados.
+- [ ] Título, description, canonical, `hreflang`, Open Graph, Twitter y JSON-LD se verifican en el HTML generado.
+- [ ] El contenido visible de FAQ coincide con el `FAQPage` estructurado.
+- [ ] Los activos son pertinentes, autoalojados, accesibles y no rompen la CSP ni el presupuesto de peso.
+- [ ] `npm test` y `npm run build` pasan; se inspecciona el HTML de `dist/{path}/index.html`.
+
+### Editar una landing existente
+
+Cambia el campo que corresponda en su entrada de `LANDING_CONTENTS` (texto, `bullets`, `faqs`,
+`relatedSlugs`…) y repite el paso 6. No hay que tocar `ContentLandingPage.tsx` ni el script de
+pre-renderizado para un cambio de contenido: ese componente y ese script son genéricos y leen
+`LandingContent` tal cual se declare.
+
+### Qué no cambiar sin revisar el ADR
+
+- El **layout** (`ContentLandingPage.tsx` para `/funcionalidades/*` y `/para/*`,
+  `LandingPage.tsx` para la home) no lleva JavaScript de la SPA a propósito
+  (`ADR-0012`): nada de `react-router`, nada de estado. Un enlace con `<Link>` en vez de `<a>` rompe
+  el pre-renderizado.
+- El pre-renderizado (`scripts/prerenderizar-landings.mjs`) no es una plantilla paralela: reescribe
+  `dist/index.html` ya construido. No dupliques la cabecera (iconos, manifest, CSP) a mano en el
+  script.
 
 ---
 

@@ -3,7 +3,20 @@ repos:
     hooks:
       - id: validar-pipeline-kb
         name: "KB: Validacion completa (validar + indices + markdownlint)"
-        entry: python docs/00-meta/scripts/validar_pipeline_kb.py --check-indices-clean
+        entry: python docs/00-meta/scripts/validar_pipeline_kb.py
         language: system
         pass_filenames: false
         files: ^(docs/|AGENTS\.md|CONTRIBUTING\.md|README\.md|\.github/copilot-instructions\.md)
+      - id: validar-frontend
+        name: "Frontend: lint, build y tests"
+        entry: npm --prefix src/frontend/terrenario-web run lint && npm --prefix src/frontend/terrenario-web run build && npm --prefix src/frontend/terrenario-web test
+        language: system
+        pass_filenames: false
+        files: ^src/frontend/terrenario-web/
+      - id: validar-backend
+        name: "Backend: build y tests"
+        entry: dotnet test src/backend/Terrenario.sln --configuration Release
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+        files: ^src/backend/

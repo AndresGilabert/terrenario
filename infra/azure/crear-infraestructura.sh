@@ -183,12 +183,37 @@ paso "Datos para los siguientes pasos"
 ASUID=$("$AZ" webapp show --resource-group "$GRUPO" --name "$API" \
   --query customDomainVerificationId -o tsv)
 
+# PLT-101 — El dominio raíz (`terrenario.com`, `terrenario.es`) no admite CNAME: hace falta el registro
+# `A` con la IP de entrada del App Service (o `ALIAS`/`ANAME` si el proveedor DNS lo soporta, que es
+# preferible porque sigue la IP si Azure la cambia). `www` sí es CNAME, igual que `app`.
+IP_ENTRADA=$("$AZ" webapp show --resource-group "$GRUPO" --name "$API" \
+  --query inboundIpAddress -o tsv)
+
+DOMINIOS_REDIRECCION="${DOMINIOS_REDIRECCION:-terrenario.com terrenario.es}"
+
 cat <<FIN
 
   Crea estos registros DNS en el proveedor de $DOMINIO:
 
     app            CNAME   $API.azurewebsites.net
     asuid.app      TXT     $ASUID
+
+  Y estos por cada dominio de redirección (PLT-101 — terrenario.com/.es y sus www, sin contenido
+  propio, redirigen a app.$DOMINIO):
+FIN
+
+for dominio_redir in $DOMINIOS_REDIRECCION; do
+  cat <<FIN
+
+  Para $dominio_redir:
+    @ (raíz)             A       $IP_ENTRADA
+    asuid.$dominio_redir TXT     $ASUID
+    www                  CNAME   $API.azurewebsites.net
+    asuid.www.$dominio_redir TXT $ASUID
+FIN
+done
+
+cat <<FIN
 
   Cuando hayan propagado (compruébalo con: dig +short app.$DOMINIO), ejecuta:
 

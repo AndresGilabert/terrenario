@@ -117,10 +117,31 @@ En el proveedor de `terrenario.com`, con los valores que imprimió el script:
 | `app` | CNAME | `app-terrenario-api.azurewebsites.net` |
 | `asuid.app` | TXT | *(el ID de verificación que imprime el script)* |
 
+**PLT-101** — `terrenario.com`, `www.terrenario.com`, `terrenario.es` y `www.terrenario.es` están
+comprados solo para no perderlos: no tienen contenido propio, y la API los redirige con `301` a
+`app.terrenario.com` (`AlternateDomainRedirectMiddleware`, sección `Domains` de `appsettings.json`).
+El dominio raíz (`@`) no admite `CNAME`, así que lleva un registro `A` (o `ALIAS`/`ANAME` si el
+proveedor lo soporta):
+
+| Registro | Tipo | Valor |
+|----------|------|-------|
+| `@` (raíz de `terrenario.com`) | A | *(IP de entrada del App Service, la imprime el script)* |
+| `asuid.terrenario.com` | TXT | *(el mismo ID de verificación)* |
+| `www` (de `terrenario.com`) | CNAME | `app-terrenario-api.azurewebsites.net` |
+| `asuid.www.terrenario.com` | TXT | *(el mismo ID de verificación)* |
+| `@` (raíz de `terrenario.es`) | A | *(la misma IP de entrada)* |
+| `asuid.terrenario.es` | TXT | *(el mismo ID de verificación)* |
+| `www` (de `terrenario.es`) | CNAME | `app-terrenario-api.azurewebsites.net` |
+| `asuid.www.terrenario.es` | TXT | *(el mismo ID de verificación)* |
+
 Comprueba la propagación antes de seguir:
 
 ```bash
 dig +short app.terrenario.com
+dig +short terrenario.com
+dig +short www.terrenario.com
+dig +short terrenario.es
+dig +short www.terrenario.es
 ```
 
 Después:
@@ -129,7 +150,9 @@ Después:
 ./infra/azure/enlazar-dominios.sh
 ```
 
-Enlaza el dominio y **emite el certificado gestionado**, que es gratuito y se renueva solo. El script comprueba el DNS primero: si no ha propagado, se detiene sin dejar nada a medias.
+Enlaza **los cinco dominios** (el de la aplicación y los cuatro de redirección) y **emite el
+certificado gestionado** de cada uno, gratuito y autorrenovable. El script comprueba el DNS primero:
+si alguno no ha propagado, se detiene sin dejar nada a medias.
 
 ---
 

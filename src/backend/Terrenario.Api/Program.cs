@@ -45,6 +45,7 @@ using Terrenario.Api.Infrastructure.Feedback;
 using Terrenario.Api.Infrastructure.Invitations;
 using Terrenario.Api.Infrastructure.Telemetry;
 using Terrenario.Api.Infrastructure.Telemetry.Alerts;
+using Terrenario.Api.Infrastructure.Telemetry.Summary;
 using Terrenario.Api.Application.Ops;
 using Terrenario.Api.Application.Retention;
 using Terrenario.Api.Infrastructure.Retention;
@@ -92,6 +93,8 @@ builder.Services.Configure<OpsOptions>(
     builder.Configuration.GetSection(OpsOptions.SectionName));
 builder.Services.Configure<FeedbackOptions>(
     builder.Configuration.GetSection(FeedbackOptions.SectionName));
+builder.Services.Configure<DomainRedirectOptions>(
+    builder.Configuration.GetSection(DomainRedirectOptions.SectionName));
 // MVP-715 — La identidad del responsable del tratamiento se puede ajustar por despliegue, pero lo
 // que no se configura sale del fichero versionado que comparte con las páginas legales: un campo en
 // blanco dejaría un hueco en un texto que la normativa obliga a publicar.
@@ -150,6 +153,9 @@ builder.Services.AddSingleton<TelemetryCounterAccumulator>();
 builder.Services.AddSingleton<RollingWindowMetrics>();
 builder.Services.AddSingleton<ITelemetryCounters, CompositeTelemetryCounters>();
 builder.Services.AddSingleton<LoginFlowTimings>();
+// MKT-106 — Mismo motivo que `LoginFlowTimings`: la clasificación de entrada se fija en una petición
+// (pantalla vista) y se recupera en otra (éxito).
+builder.Services.AddSingleton<LoginFlowEntries>();
 builder.Services.AddScoped<ITelemetryCounterStore, TelemetryCounterStore>();
 builder.Services.AddHostedService<TelemetryFlushWorker>();
 // Salud y vigilancia (MVP-603). El estado de las alertas es singleton: la vigilancia lo escribe y la
@@ -159,6 +165,9 @@ builder.Services.AddScoped<IAlertNotifier, AlertNotifier>();
 builder.Services.AddSingleton<AlertStateStore>();
 builder.Services.AddHostedService<AlertMonitor>();
 builder.Services.AddScoped<OperationalSignalsService>();
+// MKT-101 — Resumen operativo periódico. Reutiliza el mismo destinatario que las alertas
+// (`Ops:AlertEmail`) y el mismo transporte/plantilla que el resto de correos del producto.
+builder.Services.AddHostedService<OperationalSummaryWorker>();
 builder.Services.AddScoped<ILoginTelemetry, LoginTelemetryService>();
 // MVP-602 — Señales de uso del producto: comparten acumulador y almacén con el embudo de login.
 builder.Services.AddScoped<IUsageTelemetry, UsageTelemetryService>();
@@ -392,6 +401,13 @@ if (opsConfigurados.AlertsEnabled && string.IsNullOrWhiteSpace(opsConfigurados.A
         "Vigilancia de alertas activa sin destinatario ('Ops:AlertEmail'). "
         + "Las alertas solo quedarán en la traza: nadie recibirá aviso.");
 
+// MKT-101 — Mismo criterio que el aviso de arriba: sin destinatario, el resumen periódico no se puede
+// entregar y conviene saberlo al arrancar, no el día que se eche en falta.
+if (opsConfigurados.SummaryEnabled && string.IsNullOrWhiteSpace(opsConfigurados.AlertEmail))
+    app.Logger.LogWarning(
+        "Resumen operativo activo sin destinatario ('Ops:AlertEmail'). "
+        + "No se enviará ningún resumen diario ni semanal.");
+
 // MVP-711 — Mismo criterio que los dos avisos de arriba: el destinatario del canal de feedback es un
 // secreto de despliegue (el repositorio es público), así que lo normal en una máquina de trabajo es
 // que falte. Lo que no puede pasar es que falte en producción sin que nadie se entere: sin buzón, la
@@ -410,6 +426,10 @@ if (!opsConfigurados.IsSignalsEndpointEnabled)
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 
+// PLT-101 — Antes que nada: un dominio comprado solo para no perderlo (terrenario.com/.es y sus
+// www) no necesita traza, métricas ni CORS propios, solo la redirección permanente al canonico.
+app.UseMiddleware<AlternateDomainRedirectMiddleware>();
+
 // Transversales primero, para que cubran también respuestas de error y redirecciones (MVP-105).
 app.UseMiddleware<RequestIdMiddleware>();       // X-Request-Id + scope de logging (P-006)
 app.UseMiddleware<RequestMetricsMiddleware>();  // Peticiones, 5xx y latencia P95 (MVP-603)
@@ -426,6 +446,34 @@ app.UseCors("FrontendPolicy");
 //
 // De regalo desaparecen dos problemas: no hay CORS que configurar, y la cookie de refresco
 // `SameSite=Strict` deja de estar en riesgo, porque ya no hay nada cross-site.
+
+// MKT-102 — La home pública (`/`) es una landing pre-renderizada propia (`home.html`), no el
+// `index.html` que `MapFallback` sirve para el resto de rutas de la SPA (`/app/diario` incluida).
+// React arranca con `createRoot(...).render(...)` — reemplaza `#root`, no lo hidrata—, así que si la
+// home se sirviera desde `index.html` cada ruta autenticada mostraría un parpadeo de contenido de
+// marketing antes de que React lo sustituyera. Middleware explícito y no un cambio en
+// `UseDefaultFiles`: si `home.html` no existe —build de frontend no ejecutado, típico en
+// desarrollo— cae al comportamiento de siempre sin romper nada (`ADR-0012`).
+app.Use(async (context, next) =>
+{
+    if (HttpMethods.IsGet(context.Request.Method) && context.Request.Path == "/")
+    {
+        var home = Path.Combine(app.Environment.WebRootPath ?? string.Empty, "home.html");
+        if (File.Exists(home))
+        {
+            context.Response.ContentType = "text/html; charset=utf-8";
+            await context.Response.SendFileAsync(home);
+            return;
+        }
+    }
+
+    await next();
+});
+
+// MKT-106 (CA-1) — Cuenta la visita antes de que `UseStaticFiles` sirva la landing; no toca la
+// respuesta, solo suma un contador.
+app.UseMiddleware<LandingViewMiddleware>();
+
 app.UseDefaultFiles();
 app.UseStaticFiles();
 

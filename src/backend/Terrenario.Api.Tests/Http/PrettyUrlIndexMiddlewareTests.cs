@@ -7,9 +7,8 @@ using Terrenario.Api.Common.Http;
 namespace Terrenario.Api.Tests.Http;
 
 /// <summary>
-/// MKT-102 (riesgo pendiente, detectado en uso real) — `/funcionalidades/gestion-terrenos` (sin
-/// barra final, la forma que declara el propio `canonical`) daba 404 porque `UseDefaultFiles` solo
-/// resuelve `index.html` cuando la URL termina en `/`.
+/// MKT-102 / v0.9.1 — App Service no resolvió el `index.html` de las landings mediante
+/// `UseDefaultFiles`: con y sin barra acababan en el fallback de la SPA.
 /// </summary>
 public class PrettyUrlIndexMiddlewareTests : IDisposable
 {
@@ -58,10 +57,19 @@ public class PrettyUrlIndexMiddlewareTests : IDisposable
     }
 
     [Fact]
-    public async Task Deberia_SeguirElPipeline_Cuando_LaRutaYaLlevaBarraFinal()
+    public async Task Deberia_ServirElIndex_Cuando_LaRutaLlevaBarraFinal()
     {
-        // `UseDefaultFiles` ya sabe resolver este caso; no hace falta duplicar el trabajo.
-        var (_, _, siguiente) = await InvokeAsync("/funcionalidades/gestion-terrenos/");
+        var (statusCode, contentType, siguiente) = await InvokeAsync("/funcionalidades/gestion-terrenos/");
+
+        statusCode.Should().Be(StatusCodes.Status200OK);
+        contentType.Should().Be("text/html; charset=utf-8");
+        siguiente.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Deberia_SeguirElPipeline_Cuando_LaRutaEsLaRaiz()
+    {
+        var (_, _, siguiente) = await InvokeAsync("/");
 
         siguiente.Should().BeTrue();
     }

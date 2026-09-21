@@ -234,6 +234,19 @@ jobs:
             | grep -qi "frame-ancestors 'none'"
           echo "Cliente publicado, rutas del SPA resueltas y CSP servida como cabecera."
 
+      - name: Las landings públicas sirven su HTML pre-renderizado
+        env:
+          PUBLIC_WEB_URL: ${{ vars.PUBLIC_WEB_URL }}
+        run: |
+          set -e
+          base="${PUBLIC_WEB_URL%/}"
+          landing=$(curl -sSf --max-time 60 "$base/funcionalidades/control-cosechas")
+          echo "$landing" | grep -q '<h1'
+          echo "$landing" | grep -q 'Controla tu cosecha de olivar'
+          echo "$landing" | grep -q 'rel="canonical" href="https://app.terrenario.com/funcionalidades/control-cosechas"'
+          echo "$landing" | grep -q 'application/ld+json'
+          echo "Landing canónica servida con contenido y metadatos pre-renderizados."
+
       - name: Un endpoint inexistente de la API sigue devolviendo 404
         run: |
           set -e

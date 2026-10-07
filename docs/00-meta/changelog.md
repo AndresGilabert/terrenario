@@ -15,6 +15,8 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/).
 - Migración documentada de plantilla `v1.0.0 -> v1.1.0`
 - Script `sync_template_core.py` para planificar y aplicar sincronización del núcleo de plantilla
 - Plantilla específica para notas de release (`release-notes.md`)
+- Plantilla de brief SEO para landings y seguimiento semanal operativo de indexación/tráfico orgánico (`MKT-107`/`MKT-108`)
+- Inventario, briefs de posicionamiento y calendario replanificado de landings públicas (`MKT-108`)
 - Estructura real de `docs/09-desarrollos/epicas/` con seis épicas MVP alineadas con el roadmap aprobado
 - Historias iniciales de la épica `MVP-001` para dejar definido el Hito A del MVP
 - Historias iniciales de la épica `MVP-002` para dejar definido el Hito B del MVP

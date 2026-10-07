@@ -1,9 +1,4 @@
 import React from 'react';
-import {
-  ANY_EMAIL_WORKS_HINT,
-  GOOGLE_ACCOUNT_SIGNUP_LABEL,
-  GOOGLE_ACCOUNT_SIGNUP_URL,
-} from '../../lib/google-account';
 import { getRelatedLandings, type LandingContent } from '../../content/landings';
 
 /**
@@ -76,22 +71,11 @@ export const ContentLandingPage: React.FC<{ content: LandingContent }> = ({ cont
               Acceder a la plataforma
             </a>
           </div>
-
-          <p className="text-sm text-[#76786b] leading-relaxed max-w-xl">
-            Se entra con una Cuenta de Google. {ANY_EMAIL_WORKS_HINT}{' '}
-            <a
-              href={GOOGLE_ACCOUNT_SIGNUP_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="font-semibold text-[#33450d] hover:underline"
-            >
-              {GOOGLE_ACCOUNT_SIGNUP_LABEL}
-            </a>
-          </p>
         </section>
 
         {sections.map((section) => {
           const items = section.items.length > 0 ? section.items : content.bullets;
+          const isGuide = content.cluster === 'guia';
           const isAccent = section.tone === 'accent';
           const background = section.tone === 'muted' ? 'bg-[#f0ede8]' : isAccent ? 'bg-[#33450d]' : 'bg-[#fcf9f4]';
 
@@ -115,24 +99,75 @@ export const ContentLandingPage: React.FC<{ content: LandingContent }> = ({ cont
                   </div>
                 )}
 
-                <div className={`grid grid-cols-1 ${items.length === 4 ? 'md:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-3'} gap-6`}>
-                  {items.map((item) => (
-                    <div
-                      key={item.title}
-                      className={`${isAccent ? 'border-[#65783a] bg-[#40551a]' : 'border-[#e5e2dd] bg-[#fcf9f4]'} p-8 rounded-2xl border shadow-xs space-y-4`}
-                    >
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isAccent ? 'bg-[#c9f16f] text-[#33450d]' : 'bg-[#33450d] text-white'}`}>
-                        <span className="material-symbols-outlined text-2xl" aria-hidden="true">{item.icon}</span>
+                {isGuide ? (
+                  <ol className="divide-y divide-[#e5e2dd]">
+                    {items.map((item, index) => {
+                      const imageIndex = items.slice(0, index).filter((entry) => entry.image).length;
+                      const imageOnLeft = Boolean(item.image) && imageIndex % 2 === 1;
+
+                      return (
+                        <li key={item.title} className="py-10 first:pt-0 last:pb-0">
+                          <article className={`${item.image ? 'grid grid-cols-1 lg:grid-cols-2 items-center gap-7 lg:gap-14' : ''} ${item.image && imageOnLeft ? 'lg:[&>figure]:order-first' : ''}`}>
+                            <div className="max-w-xl">
+                              <p className="text-xs font-bold uppercase tracking-wide text-[#687b35]">
+                                Paso {index + 1}
+                              </p>
+                              <h3 className="mt-2 font-headline font-bold text-2xl text-[#1c1c19]">
+                                {item.title.replace(/^\d+\.\s*/, '')}
+                              </h3>
+                              <p className="mt-3 text-base leading-relaxed text-[#45483c]">
+                                {item.text}
+                              </p>
+                            </div>
+                            {item.image && (
+                              <figure className={`m-0 ${imageOnLeft ? 'lg:col-start-1 lg:row-start-1' : ''}`}>
+                                <img
+                                  src={item.image.src}
+                                  alt={item.image.alt}
+                                  width={item.image.width}
+                                  height={item.image.height}
+                                  loading="lazy"
+                                  decoding="async"
+                                  className="block w-full h-auto rounded-lg border border-[#e5e2dd] shadow-sm"
+                                />
+                              </figure>
+                            )}
+                          </article>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                ) : (
+                  <div className={`grid grid-cols-1 ${items.length === 4 ? 'md:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-3'} gap-6`}>
+                    {items.map((item) => (
+                      <div
+                        key={item.title}
+                        className={`${isAccent ? 'border-[#65783a] bg-[#40551a]' : 'border-[#e5e2dd] bg-[#fcf9f4]'} p-8 rounded-2xl border shadow-xs space-y-4`}
+                      >
+                        {item.image && (
+                          <img
+                            src={item.image.src}
+                            alt={item.image.alt}
+                            width={item.image.width}
+                            height={item.image.height}
+                            loading="lazy"
+                            decoding="async"
+                            className="w-full h-auto rounded-xl border border-[#e5e2dd]"
+                          />
+                        )}
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isAccent ? 'bg-[#c9f16f] text-[#33450d]' : 'bg-[#33450d] text-white'}`}>
+                          <span className="material-symbols-outlined text-2xl" aria-hidden="true">{item.icon}</span>
+                        </div>
+                        <h3 className={`font-headline font-bold text-xl ${isAccent ? 'text-white' : 'text-[#1c1c19]'}`}>
+                          {item.title}
+                        </h3>
+                        <p className={`text-sm leading-relaxed ${isAccent ? 'text-[#dce8c2]' : 'text-[#45483c]'}`}>
+                          {item.text}
+                        </p>
                       </div>
-                      <h3 className={`font-headline font-bold text-xl ${isAccent ? 'text-white' : 'text-[#1c1c19]'}`}>
-                        {item.title}
-                      </h3>
-                      <p className={`text-sm leading-relaxed ${isAccent ? 'text-[#dce8c2]' : 'text-[#45483c]'}`}>
-                        {item.text}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </section>
           );

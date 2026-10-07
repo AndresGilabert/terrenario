@@ -2,7 +2,6 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { ContentLandingPage } from './ContentLandingPage';
 import { getLandingBySlug, LANDING_CONTENTS } from '../../content/landings';
-import { GOOGLE_ACCOUNT_SIGNUP_URL } from '../../lib/google-account';
 
 /**
  * MKT-102 (CA-1, CA-2) — Se renderiza **sin** `MemoryRouter` a propósito: `ContentLandingPage` no
@@ -43,6 +42,35 @@ describe('ContentLandingPage', () => {
     }
   });
 
+  it('muestra el paso de acceso y las cinco capturas alternadas en la guía de inicio', () => {
+    renderLanding('como-empezar-en-terrenario');
+
+    expect(screen.getByRole('heading', { level: 3, name: 'Inicia sesión' })).toBeInTheDocument();
+    const capturas = screen.getAllByRole('img');
+    expect(capturas).toHaveLength(5);
+    expect(capturas.map((imagen) => imagen.getAttribute('src'))).toEqual([
+      '/landings/como-empezar-en-terrenario/01_crear_workspace_terrenario.png',
+      '/landings/como-empezar-en-terrenario/02_crear_temporada_terrenario.png',
+      '/landings/como-empezar-en-terrenario/03_anadir_terreno_terrenario.png',
+      '/landings/como-empezar-en-terrenario/04_nuevo_terreno_terrenario.png',
+      '/landings/como-empezar-en-terrenario/05_nuevo_terreno_formulario_terrenario.png',
+    ]);
+    expect(capturas[0]).toHaveAttribute('alt', expect.stringContaining('Workspace'));
+    expect(capturas[1]).toHaveAttribute('alt', expect.stringContaining('temporada'));
+    expect(capturas[2]).toHaveAttribute('alt', expect.stringContaining('preparación de la explotación'));
+    expect(capturas[3]).toHaveAttribute('alt', expect.stringContaining('Estado inicial'));
+    expect(capturas[4]).toHaveAttribute('alt', expect.stringContaining('Formulario de terreno'));
+    const pasos = document.querySelectorAll('ol > li');
+    expect(pasos).toHaveLength(7);
+    expect(pasos[0].querySelector('figure')).not.toBeInTheDocument();
+    expect(pasos[1].querySelector('figure')).not.toHaveClass('lg:col-start-1');
+    expect(pasos[2].querySelector('figure')).toHaveClass('lg:col-start-1');
+    expect(pasos[3].querySelector('figure')).not.toHaveClass('lg:col-start-1');
+    expect(pasos[4].querySelector('figure')).toHaveClass('lg:col-start-1');
+    expect(pasos[5].querySelector('figure')).not.toHaveClass('lg:col-start-1');
+    expect(pasos[6].querySelector('figure')).not.toBeInTheDocument();
+  });
+
   it('muestra los bloques editoriales de la landing de control de cosecha de olivar', () => {
     renderLanding('control-cosechas');
 
@@ -65,14 +93,6 @@ describe('ContentLandingPage', () => {
     for (const cta of ctas) {
       expect(cta).toHaveAttribute('href', '/login');
     }
-  });
-
-  it('dice con qué cuenta se entra, igual que la home (RN-036)', () => {
-    renderLanding('control-cosechas');
-
-    expect(screen.getByText(/se entra con una cuenta de google/i)).toBeInTheDocument();
-    const alta = screen.getByRole('link', { name: /dar de alta mi dirección/i });
-    expect(alta).toHaveAttribute('href', GOOGLE_ACCOUNT_SIGNUP_URL);
   });
 
   it('enlaza a cada landing relacionada por su ruta pública (CA-2)', () => {

@@ -2,7 +2,7 @@
 id: "MKT-107"
 tipo: tarea
 titulo: "Alta en webmaster y baseline de indexacion"
-estado: aprobado
+estado: completado
 prioridad: media
 sprint: ""
 hito: "Post-MVP — Crecimiento orgánico"
@@ -52,6 +52,6 @@ Dejar configurada la lectura base de cobertura, clics e impresiones orgánicas s
 
 ## Criterios de aceptación
 
-- [ ] **CA-1**: El sitio queda verificado en ambos paneles.
-- [ ] **CA-2**: El sitemap queda enviado y aceptado.
-- [ ] **CA-3**: Existe baseline documentado para revisión semanal.
+- [x] **CA-1**: El sitio queda verificado en ambos paneles.
+- [x] **CA-2**: El sitemap queda enviado y aceptado.
+- [x] **CA-3**: Existe baseline documentado para revisión semanal.

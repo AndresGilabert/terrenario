@@ -156,7 +156,7 @@ describe('construirRobotsTxt', () => {
 });
 
 describe('construirSitemapXml', () => {
-  it('incluye exactamente la home y las diez landings públicas P0', () => {
+  it('incluye la home y todas las landings públicas', () => {
     const sitemap = construirSitemapXml([HOME_META, ...LANDING_CONTENTS]);
     const urls = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
 
@@ -164,7 +164,7 @@ describe('construirSitemapXml', () => {
       'https://app.terrenario.com/',
       ...LANDING_CONTENTS.map((content) => `https://app.terrenario.com${content.path}`),
     ]);
-    expect(urls).toHaveLength(11);
+    expect(urls).toHaveLength(1 + LANDING_CONTENTS.length);
     expect(sitemap).toContain('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
     expect(sitemap).not.toMatch(/\/(?:app|onboarding|invitations|reactivations|api)(?:\/|<)/);
     expect(sitemap).not.toContain('/auth/callback');

@@ -1,6 +1,6 @@
 ﻿# Índice — MKT-100--posicionamiento-organico-inicial: Posicionamiento organico inicial
 
-> **Progreso**: 2/11 completadas · **Hito**: Post-MVP — Crecimiento orgánico
+> **Progreso**: 3/11 completadas · **Hito**: Post-MVP — Crecimiento orgánico
 > _Generado automáticamente por `validar_kb.py`. No editar manualmente._
 
 | Historia | Título | Estado | Responsable | Prioridad |
@@ -11,8 +11,8 @@
 | [MKT-104](./MKT-104--datos-estructurados-y-faq-por-landing/spec.md) | Datos estructurados y FAQ por landing | ✔️ completado | @andres | media |
 | [MKT-105](./MKT-105--robots-sitemap-y-validacion-de-rastreo/spec.md) | Robots sitemap y validacion de rastreo | 🧪 en-testing | @andres | alta |
 | [MKT-106](./MKT-106--trazabilidad-por-landing-y-conversion-completa/spec.md) | Trazabilidad por landing y conversion completa | 🧪 en-testing | @andres | alta |
-| [MKT-107](./MKT-107--alta-en-webmaster-y-baseline-de-indexacion/spec.md) | Alta en webmaster y baseline de indexacion | [OK] aprobado | @andres | media |
-| [MKT-108](./MKT-108--activos-organicos-y-calendario-editorial-30-dias/spec.md) | Activos organicos y calendario editorial 30 dias | [OK] aprobado | @andres | media |
+| [MKT-107](./MKT-107--alta-en-webmaster-y-baseline-de-indexacion/spec.md) | Alta en webmaster y baseline de indexacion | ✔️ completado | @andres | media |
+| [MKT-108](./MKT-108--activos-organicos-y-calendario-editorial-30-dias/spec.md) | Activos organicos y calendario editorial 30 dias | 🔄 en-progreso | @andres | media |
 | [MKT-109](./MKT-109--distribucion-organica-por-canales/spec.md) | Distribucion organica por canales | [OK] aprobado | @andres | media |
 | [MKT-110](./MKT-110--loop-de-referral-organico/spec.md) | Loop de referral organico | [OK] aprobado | @andres | media |
 | [MKT-199](./MKT-199--revision-epica/spec.md) | Revision epica | [OK] aprobado | @andres | media |

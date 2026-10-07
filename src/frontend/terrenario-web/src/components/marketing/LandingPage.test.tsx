@@ -61,4 +61,46 @@ describe('LandingPage — hub de enlazado a las landings públicas (MKT-102, CA-
       expect(screen.getByRole('link', { name: content.navLabel })).toHaveAttribute('href', content.path);
     }
   });
+
+  it('agrupa las guías en el bloque de ayuda y manuales', () => {
+    renderLanding();
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Ayuda y manuales' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Landings públicas' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Cómo empezar en Terrenario' })
+    ).toHaveAttribute('href', '/guias/como-empezar-en-terrenario');
+  });
+
+  it('alinea las pastillas en tres columnas y no muestra el ancla de Beneficios en la cabecera', () => {
+    renderLanding();
+
+    const clasesPastilla = new Set<string>();
+    const bloque = screen.getByRole('region', { name: 'Landings públicas' });
+    expect(bloque.querySelectorAll('ul')).toHaveLength(3);
+    for (const lista of bloque.querySelectorAll('ul')) {
+      expect(lista).toHaveClass('sm:grid-cols-2', 'lg:grid-cols-3');
+      for (const enlace of lista.querySelectorAll('a')) {
+        clasesPastilla.add(enlace.className);
+      }
+    }
+
+    expect(clasesPastilla.size).toBe(1);
+    expect(screen.queryByRole('link', { name: 'Beneficios' })).not.toBeInTheDocument();
+  });
+
+  it('navega desde la cabecera a los tres grupos de landings', () => {
+    renderLanding();
+
+    const enlaces = [
+      ['Funcionalidades', '#funcionalidades'],
+      ['Para quién es Terrenario', '#para-quien-es-terrenario'],
+      ['Ayuda', '#ayuda'],
+    ] as const;
+
+    for (const [nombre, destino] of enlaces) {
+      expect(screen.getByRole('link', { name: nombre })).toHaveAttribute('href', destino);
+      expect(document.querySelector(destino)).toBeInTheDocument();
+    }
+  });
 });

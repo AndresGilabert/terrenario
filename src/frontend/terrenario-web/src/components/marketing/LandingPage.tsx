@@ -18,6 +18,9 @@ import { LANDING_CONTENTS } from '../../content/landings';
 export const LandingPage: React.FC = () => {
   const funcionalidades = LANDING_CONTENTS.filter((content) => content.cluster === 'funcionalidad');
   const perfiles = LANDING_CONTENTS.filter((content) => content.cluster === 'perfil');
+  const guias = LANDING_CONTENTS.filter((content) => content.cluster === 'guia');
+  const landingGridClass = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4';
+  const landingPillClass = 'flex h-full min-h-16 items-center rounded-xl border border-[#e5e2dd] p-5 hover:border-[#33450d] transition-colors';
 
   const benefits = [
     {
@@ -43,8 +46,8 @@ export const LandingPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#fcf9f4] text-[#1c1c19] flex flex-col">
       {/* Navbar */}
-      <header className="border-b border-[#e5e2dd] bg-[#fcf9f4]/90 backdrop-blur-md sticky top-0 z-40 px-6 lg:px-12 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <header className="border-b border-[#e5e2dd] bg-[#fcf9f4]/90 backdrop-blur-md sticky top-0 z-40 px-6 lg:px-12 py-4 grid grid-cols-[1fr_auto_1fr] items-center">
+        <div className="flex items-center gap-3 justify-self-start">
           <div className="w-10 h-10 rounded-xl bg-[#33450d] text-white flex items-center justify-center shadow-md">
             <span className="material-symbols-outlined fill text-2xl" aria-hidden="true">eco</span>
           </div>
@@ -54,11 +57,13 @@ export const LandingPage: React.FC = () => {
           </div>
         </div>
 
-        <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-[#45483c]">
-          <a href="#beneficios" className="hover:text-[#33450d] transition-colors">Beneficios</a>
+        <nav aria-label="Secciones principales" className="hidden md:flex items-center gap-3 lg:gap-6 text-xs lg:text-sm font-semibold text-[#45483c]">
+          <a href="#funcionalidades" className="whitespace-nowrap hover:text-[#33450d] transition-colors">Funcionalidades</a>
+          <a href="#para-quien-es-terrenario" className="whitespace-nowrap hover:text-[#33450d] transition-colors">Para quién es Terrenario</a>
+          <a href="#ayuda" className="whitespace-nowrap hover:text-[#33450d] transition-colors">Ayuda</a>
         </nav>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 justify-self-end">
           <a
             href="/login"
             className="px-4 py-2 text-sm font-semibold text-white bg-[#33450d] hover:bg-[#4a5d23] rounded-xl shadow-sm transition-colors"
@@ -95,11 +100,9 @@ export const LandingPage: React.FC = () => {
             </a>
           </div>
 
-          {/* MVP-712 (CA-2) — Antes de pedir nada. Esta es la pantalla donde se decide si probar el
-              producto, y hasta ahora no decía con qué se entra: quien no tiene Gmail se enteraba en
-              el login, o no llegaba. El enlace al alta es **enlace**, no recurso: la landing es
-              pública y su CSP no admite terceros (`RN-042`). */}
-          <p className="text-sm text-[#76786b] leading-relaxed max-w-xl">
+          {/* MVP-712 — Solo aquí: es la única página que se lee sin haber entrado. Las landings de
+              contenido lo omiten para no competir con su propia propuesta de valor. */}
+          <p className="text-xs text-[#76786b] leading-relaxed max-w-xl">
             Se entra con una Cuenta de Google. {ANY_EMAIL_WORKS_HINT}{' '}
             <a
               href={GOOGLE_ACCOUNT_SIGNUP_URL}
@@ -162,21 +165,21 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* MKT-102 (CA-3) — Hub de enlazado a las landings públicas de funcionalidades y casos de
+        {/* MKT-102 (CA-3) — Hub de enlazado a las landings públicas de funcionalidades, perfiles y guías.
           uso. Son páginas estáticas pre-renderizadas fuera de la SPA (ver
           `components/marketing/ContentLandingPage.tsx`), así que los enlaces son `<a>` reales y no
           `<Link>`: no están dadas de alta en el router del cliente y una navegación de React Router
           hacia una ruta que no existe ahí caería en el 404 de la SPA en vez de servir la página. */}
-      <section aria-label="Funcionalidades" className="py-16 px-6 lg:px-12 max-w-7xl mx-auto w-full space-y-8">
+        <section aria-label="Landings públicas" className="py-16 px-6 lg:px-12 max-w-7xl mx-auto w-full space-y-8">
         <div className="text-center max-w-2xl mx-auto space-y-3">
-          <h2 className="font-headline font-bold text-3xl sm:text-4xl text-[#1c1c19]">Explora por funcionalidad</h2>
+          <h2 id="funcionalidades" className="font-headline font-bold text-3xl sm:text-4xl text-[#1c1c19]">Explora por funcionalidad</h2>
         </div>
-        <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <ul className={landingGridClass}>
           {funcionalidades.map((content) => (
             <li key={content.slug}>
               <a
                 href={content.path}
-                className="block p-5 rounded-xl border border-[#e5e2dd] hover:border-[#33450d] transition-colors"
+                className={landingPillClass}
               >
                 <span className="font-semibold text-[#33450d]">{content.navLabel}</span>
               </a>
@@ -185,14 +188,30 @@ export const LandingPage: React.FC = () => {
         </ul>
 
         <div className="text-center max-w-2xl mx-auto space-y-3 pt-6">
-          <h2 className="font-headline font-bold text-3xl sm:text-4xl text-[#1c1c19]">¿Para quién es Terrenario?</h2>
+          <h2 id="para-quien-es-terrenario" className="font-headline font-bold text-3xl sm:text-4xl text-[#1c1c19]">¿Para quién es Terrenario?</h2>
         </div>
-        <ul className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <ul className={landingGridClass}>
           {perfiles.map((content) => (
             <li key={content.slug}>
               <a
                 href={content.path}
-                className="block p-5 rounded-xl border border-[#e5e2dd] hover:border-[#33450d] transition-colors"
+                className={landingPillClass}
+              >
+                <span className="font-semibold text-[#33450d]">{content.navLabel}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+
+        <div className="text-center max-w-2xl mx-auto space-y-3 pt-6">
+          <h2 id="ayuda" className="font-headline font-bold text-3xl sm:text-4xl text-[#1c1c19]">Ayuda y manuales</h2>
+        </div>
+        <ul className={landingGridClass}>
+          {guias.map((content) => (
+            <li key={content.slug}>
+              <a
+                href={content.path}
+                className={landingPillClass}
               >
                 <span className="font-semibold text-[#33450d]">{content.navLabel}</span>
               </a>

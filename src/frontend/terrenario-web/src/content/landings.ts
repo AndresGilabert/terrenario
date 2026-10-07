@@ -12,13 +12,19 @@
  * nada para quien lo sigue.
  */
 
-export type LandingCluster = 'funcionalidad' | 'perfil';
+export type LandingCluster = 'funcionalidad' | 'perfil' | 'guia';
 
 export interface LandingBullet {
   /** Nombre de glifo de Material Symbols Outlined, literal (ver `estandares-codigo.md`). */
   icon: string;
   title: string;
   text: string;
+  image?: {
+    src: string;
+    alt: string;
+    width: number;
+    height: number;
+  };
 }
 
 export interface LandingFaq {
@@ -73,6 +79,11 @@ export interface LandingContent {
 }
 
 const LANDING_FAQS: Record<string, LandingFaq[]> = {
+  'software-gestion-agricola': [
+    { question: '¿Qué necesito para empezar a utilizar Terrenario?', answer: 'Nada, accede a la aplicación con tu cuenta de Google y el asistente te guiará en la creación del grupo de trabajo (Workspace), la primera temporada y los primeros terrenos. En menos de 5 minutos podrás empezar a registrar tus trabajos y cosechas.' },
+    { question: '¿La gestión agrícola puede ser colaborativa?', answer: 'Sí, con Terrenario, podrás agregar usuarios al grupo de trabajo y que la gestión sea compartida.' },
+	{ question: '¿Puedo usar Terrenario para explotaciones distintas al olivar?', answer: 'Actualmente Terrenario está centrado en la gestión agrícola del olivar, por ser el cultivo más extendido y conocido por el equipo de Terrenario, aunque la base de la aplicación está pensada para crecer con otros cultivos. Si estás interesado en otros cultivos, puedes ponerte en contacto con nosotros escribiendo a hola@andresgilabert.dev ' },
+  ],
   'gestion-terrenos': [
     { question: '¿Qué datos necesito para crear un terreno?', answer: 'Puedes empezar con el nombre y el tipo de propiedad. La ubicación, el propietario y el número de olivos se pueden completar después.' },
     { question: '¿Por qué cada registro se asocia a un terreno?', answer: 'El terreno es la base para relacionar actividades, cosechas y compras, y para consultar después costes y rendimiento por parcela.' },
@@ -117,6 +128,117 @@ const LANDING_FAQS: Record<string, LandingFaq[]> = {
 };
 
 export const LANDING_CONTENTS: LandingContent[] = [
+  {
+    slug: 'software-gestion-agricola',
+    path: '/funcionalidades/software-gestion-agricola',
+    cluster: 'funcionalidad',
+    navLabel: 'Software de gestión agrícola',
+    title: 'Software de gestión agrícola | Terrenario',
+    metaDescription:
+      'Gestiona tus bancales con el software de gestión agrícola de Terrenario.',
+    seo: {
+      openGraph: {
+        title: 'Software de gestión agrícola Terrenario',
+        description: 'Centraliza la gestión de tus terrenos, las cosechas y las tareas que realizas día a día.',
+        imageAlt: 'Terrenario, Software de gestión agrícola',
+      },
+      twitter: {
+        title: 'Software de gestión agrícola Terrenario',
+        description: 'Centraliza la gestión de tus terrenos, las cosechas y las tareas que realizas día a día.',
+        imageAlt: 'Terrenario, Software de gestión agrícola',
+      },
+      structuredDataDescription:
+        'Software de gestión agrícola para centralizar la información de tus terrenos, cosechas y tareas agrícolas.',
+    },
+    eyebrow: 'Software de gestión agrícola',
+    h1: 'Software de gestión agrícola',
+    intro:
+      'Con el software de gestión agrícola de Terrenario, podrás centralizar la información de tus terrenos de manera fácil y sencilla. Con una sencilla configuración, podrás centralizar la gestión agrícola con un control de la cosecha, las actividades y los gastos de los productos que compras. Todos los registros quedan vinculados a la campaña o temporada a la que corresponden, permitiendo un control agrícola temporada a temporada, con comparación de resultados entre las distintas campañas.',
+    bullets: [
+      {
+        icon: 'agriculture',
+        title: 'Registro por cosecha',
+        text: 'Anota fecha, terreno, temporada, kilos de aceituna y destino para llevar el control agrícola de tus cosechas a un nivel que no esperabas.',
+      },
+      {
+        icon: 'layers',
+        title: 'Seguimiento por terreno',
+        text: 'Con el dashboard de nuestro software agrícola, controlaras las cosechas por terreno y por destino, ordenaras los bancales por producción y controlaras los cálculos incompletos en lugar de inventar datos.',
+      },
+      {
+        icon: 'event_note',
+        title: 'Evolución entre campañas',
+        text: 'Revisa la evolución de la producción y el promedio histórico. Con el tiempo, generarás un histórico que te permitira comparativas de 5 y 10 años.',
+      },
+      {
+        icon: 'event_note',
+        title: 'No empieces desde cero',
+        text: 'Crea campañas pasadas e introduce de una manera rápida los datos históricos de tus cosechas para empezar con un historial completo.',
+      },
+    ],
+    sections: [
+      {
+        id: 'problema',
+        title: '¿Necesitas un programa de gestión agrícola donde centralizar tus apuntes?',
+        intro: 'Cuando el control agrícola queda repartido entre cuadernos, notas y memoria, comparar cosechas y gastos entre temporadas exige recalcular todo una y otra vez.',
+        tone: 'plain',
+        items: [
+          {
+            icon: 'event_note',
+            title: 'Información dispersa',
+            text: 'La producción, los trabajos y los gastos terminan en cajones y libretas dispersas y cuesta recuperar una visión completa de la campaña.',
+          },
+          {
+            icon: 'insights',
+            title: 'Control agrícola imposible',
+            text: 'Sin un software de agricultura donde centralizar tus apuntes, el control de las campañas se vuelve caótico y poco fiable.',
+          },
+          {
+            icon: 'layers',
+            title: 'Poca visión histórica',
+            text: 'Sin registros de campañas anteriores y datos que se van perdiendo, las comparativas entre temporadas se basan solamente en suposiciones.',
+          },
+        ],
+      },
+      {
+        id: 'funcionalidades',
+        title: 'Toda la gestión agrícola, ordenada y comparable',
+        intro: 'El software agrícola de Terrenario centraliza los datos necesarios para conseguir un control de cosecha sin convertir el trabajo diario en una tarea administrativa.',
+        tone: 'muted',
+        items: [],
+      },
+      {
+        id: 'beneficios',
+        title: 'Centraliza la gestión agrícola en un único software',
+        intro: 'Con Terrenario dispondrás de una aplicación donde centralizar el control de tus bancales y empezar a desligarte de recibos y libretas físicas.',
+        tone: 'accent',
+        items: [
+          {
+            icon: 'checklist',
+            title: 'Ahorra tiempo registrando todo en un único lugar.',
+            text: 'Dispondrás de todos los datos de tus terrenos en un solo lugar, accesible desde tu movíl estés donde estés.',
+          },
+          {
+            icon: 'map',
+            title: 'Información agrupada por terreno.',
+            text: 'Toda la información está disponble como totales, o como datos disgregados por terreno. Con sulta los totales o lo de un bancal concreto según necesites.',
+          },
+          {
+            icon: 'agriculture',
+            title: 'Controla el destino de cada cosecha.',
+            text: '¿Recuerdas la parte de la cosecha que destinaste a aceite para consumo propio? ¿Y para aceite para venta? ¿venta de aceituna? Con Terrenario puedes controlar y revisar la distribución de tu cosecha según el destino que le des.',
+          },
+        ],
+      },
+    ],
+    finalCta: {
+      title: 'Centraliza y controla la gestión de tu olivar',
+      text: 'No pierdas datos con distintos fuentes de datos. Centraliza la gestión agrícola de tu olivar en un solo lugar.',
+      label: 'Acceder a Terrenario',
+    },
+    faqs: LANDING_FAQS['software-gestion-agricola'],
+    relatedSlugs: ['dashboard-campana', 'gestion-terrenos', 'diario-de-campo'],
+  },
   {
     slug: 'gestion-terrenos',
     path: '/funcionalidades/gestion-terrenos',
@@ -515,6 +637,101 @@ export const LANDING_CONTENTS: LandingContent[] = [
     ],
     faqs: LANDING_FAQS['gestion-multiterreno'],
     relatedSlugs: ['gestion-terrenos', 'dashboard-campana', 'control-cosechas'],
+  },
+  {
+    slug: 'como-empezar-en-terrenario',
+    path: '/guias/como-empezar-en-terrenario',
+    cluster: 'guia',
+    navLabel: 'Cómo empezar en Terrenario',
+    title: 'Cómo empezar en Terrenario: primeros pasos',
+    metaDescription:
+      'Manual de primeros pasos en Terrenario. Descubre lo sencillo que resulta comenzar a usar nuestro software agricola. Con unos pocos pasos tendrás todo listo para empezar con el control de tu cosecha.',
+    eyebrow: 'Ayuda y manuales',
+    h1: 'Cómo empezar en Terrenario',
+    intro:
+      'Queremos que tu experiencia en Terrenario sea lo más sencilla posible, no queremos complicarte con datos que necesites recordar. Entra con tu Cuenta de Google (se incorporarán más opciones de login próximamente), crea el Workspace (grupo de trabajo) de tu explotación y prepara los datos básicos. Esta guía recorre el primer acceso y explica qué ocurre después, sin necesidad de rellenar más información de la necesaria y con formularios lo más simplificados posibles.',
+    bullets: [
+      {
+        icon: 'login',
+        title: '1. Inicia sesión',
+        text: 'Pulsa «Acceder a la plataforma» e inicia sesión con tu Cuenta de Google. No necesitas una dirección de Gmail: puedes dar de alta en Google la dirección que ya utilizas.',
+      },
+      {
+        icon: 'login',
+        title: '2. Crea tu Workspace',
+        text: 'Después de iniciar sesión, lo primero que necesitarás será crear tu Workspace (grupo de trabajo), donde se aglutinarán todos los terrenos y usuarios de la explotación, escribe el nombre de tu finca o explotación y pulsa «Crear Workspace». Así de sencillo, solamente necesitas el nombre.',
+        image: {
+          src: '/landings/como-empezar-en-terrenario/01_crear_workspace_terrenario.png',
+          alt: 'Formulario para crear un Workspace, con el campo para escribir su nombre.',
+          width: 400,
+          height: 400,
+        },
+      },
+      {
+        icon: 'event',
+        title: '3. Decide si quieres crear una temporada',
+        text: 'Como el Workspace aún no tiene temporada, Terrenario ofrece crearla con un nombre y una fecha de inicio. Recomendamos incluir también la fecha de final de temporada, de modo que defina claramente a partír de que fecha, los registros corresponderán a otras temporadas o campañas. Por supuesto, las fechas no son limitantes para nada, podrás añadir o modificar registros y cosechas a temporadas pasadas o futuras. Puedes crearla ahora o elegir «Ahora no» y continuar.',
+        image: {
+          src: '/landings/como-empezar-en-terrenario/02_crear_temporada_terrenario.png',
+          alt: 'Formulario de creación de temporada con nombre, fecha de inicio, fecha final opcional y opción para dejarlo para más tarde.',
+          width: 400,
+          height: 400,
+        },
+      },
+      {
+        icon: 'checklist',
+        title: '4. Abre la preparación de terrenos',
+        text: 'Con el Workspace y la temporada creada, es el momento de definir tu primer terreno. Mientras no tengas definido ninguno, al acceder a la plataforma, se mostrará la pantalla «Prepara tu explotación», localiza el apartado Terrenos y selecciona «Añadir terrenos» para crear tu primera parcela.',
+        image: {
+          src: '/landings/como-empezar-en-terrenario/03_anadir_terreno_terrenario.png',
+          alt: 'Panel de preparación de la explotación con el apartado Terrenos y el botón Añadir terrenos señalado.',
+          width: 400,
+          height: 400,
+        },
+      },
+      {
+        icon: 'landscape',
+        title: '5. Añade tu primer terreno',
+        text: 'Como aún no tendrás definido ningún terreno, el sistema te informará de esto y te resaltará la opción de «Añadir mi primer terreno». Al pulsar sobre este botón, se abrirá el formulario para dar de alta tu primer terreno.',
+        image: {
+          src: '/landings/como-empezar-en-terrenario/04_nuevo_terreno_terrenario.png',
+          alt: 'Estado inicial del apartado Terrenos con el botón Añadir mi primer terreno.',
+          width: 400,
+          height: 400,
+        },
+      },
+      {
+        icon: 'edit_note',
+        title: '6. Completa la ficha del terreno',
+        text: 'Indica el nombre y el tipo de propiedad, son los únicos datos obligatorios que necesitas rellenar. Alias, número de árboles, propietario, referencia catastral y ubicación son opcionales y puedes completarlos más adelante.',
+        image: {
+          src: '/landings/como-empezar-en-terrenario/05_nuevo_terreno_formulario_terrenario.png',
+          alt: 'Formulario de terreno con nombre y tipo de propiedad obligatorios, y campos opcionales para alias, árboles, propietario, referencia catastral y ubicación.',
+          width: 400,
+          height: 400,
+        },
+      },
+      {
+        icon: 'edit_note',
+        title: '7. Felicidades! Ya lo tienes listo',
+        text: 'Con estos sencillos pasos, ya tendrás la configuración básica para empezar a trabajar con Terrenario. Esperamos que tu gestión agrícola sea más eficiente y productiva con la ayuda de Terrenario.',
+      },
+    ],
+    faqs: [
+      {
+        question: '¿Necesito una dirección de Gmail para entrar?',
+        answer: 'No. El acceso usa una Cuenta de Google, que puedes crear con la dirección de correo que ya tienes.',
+      },
+      {
+        question: '¿Tengo que crear una temporada durante el primer acceso?',
+        answer: 'No. Si todavía no hay temporada, Terrenario ofrece crear una, pero puedes cancelar esa oferta y continuar.',
+      },
+      {
+        question: '¿Qué datos necesito para crear mi primer terreno?',
+        answer: 'Puedes empezar con el nombre y el tipo de propiedad. La ubicación, el propietario y el número de olivos se pueden completar después.',
+      },
+    ],
+    relatedSlugs: ['software-gestion-agricola', 'gestion-terrenos', 'dashboard-campana'],
   },
 ];
 

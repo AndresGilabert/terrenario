@@ -106,6 +106,7 @@ flowchart LR
 | [MVP-703](../../09-desarrollos/epicas/MVP-007--ajustes-mvp-01/MVP-703--arranque-en-el-diario-y-definicion-de-sesion-activa/tech-design.md) | Definición de sesión activa y ruptura de serie del KPI |
 | [MKT-101](../../09-desarrollos/epicas/MKT-100--posicionamiento-organico-inicial/MKT-101--resumen-operativo-por-email-diario-y-semanal/tech-design.md) | Resumen operativo por email diario y semanal |
 | [MKT-106](../../09-desarrollos/epicas/MKT-100--posicionamiento-organico-inicial/MKT-106--trazabilidad-por-landing-y-conversion-completa/tech-design.md) | Trazabilidad por landing y conversión completa |
+| [Seguimiento semanal de SEO](./seguimiento-semanal-seo.md) | Línea base y evolución semanal de indexación, impresiones, clics y CTR |
 | [Observabilidad](../../05-infraestructura/observabilidad.md) · [KPIs](../../01-producto/kpis.md) | SLO, señales y métricas de producto, mantenidos de forma central |
 | [Revisión operativa](../../05-infraestructura/runbooks/revision-operativa.md) | Runbook de la revisión periódica de señales |
 

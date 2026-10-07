@@ -8,7 +8,7 @@ import { HOME_META, LANDING_CONTENTS, getLandingBySlug, getRelatedLandings } fro
  * navegar.
  */
 describe('contenido de landings públicas', () => {
-  it('publica exactamente las 10 URLs del plan P0', () => {
+  it('publica las URLs de funcionalidades, perfiles y guías', () => {
     const paths = LANDING_CONTENTS.map((content) => content.path).sort();
 
     expect(paths).toEqual(
@@ -20,9 +20,11 @@ describe('contenido de landings públicas', () => {
         '/funcionalidades/dashboard-campana',
         '/funcionalidades/workspaces-colaboracion',
         '/funcionalidades/trabajadores-y-tareas',
+        '/funcionalidades/software-gestion-agricola',
         '/para/agricultor-particular',
         '/para/explotacion-familiar',
         '/para/gestion-multiterreno',
+        '/guias/como-empezar-en-terrenario',
       ].sort()
     );
   });

@@ -84,6 +84,11 @@ Mostrar la distribución de kilos por terreno y la evolución temporal del rendi
 
 ## Notas y decisiones
 
+> **Sustituido en parte por [PRD-101](../../PRD-100--dashboard-listo-para-la-promocion/PRD-101--evolucion-diaria-del-rendimiento/spec.md)**:
+> el widget de evolución de rendimiento pasa de la agrupación por mes/semana y la media histórica fija a
+> una serie diaria con rectas de regresión. Lo que sigue describe la entrega original de MVP-404; el
+> comportamiento vigente está en PRD-101, RN-015 y `contratos-api.md`.
+
 - Esta historia completa los cuatro widgets mínimos del dashboard MVP.
 - **La comparativa histórica es una ventana de calendario, no campañas agrupadas** (decisión del PO,
   2026-07-30). El histórico son «los mismos días de años anteriores» a los de las cosechas de la campaña

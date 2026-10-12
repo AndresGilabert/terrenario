@@ -1,4 +1,3 @@
-using System.Globalization;
 using Terrenario.Api.Domain.Harvests;
 using Terrenario.Api.Domain.Seasons;
 
@@ -50,50 +49,32 @@ public sealed record SeasonProduction(Guid SeasonId, string SeasonName, decimal 
 /// <summary>Kilos de un terreno (MVP-404, CA-1). El orden de la lista lo fija RN-011.</summary>
 public sealed record PlotTotal(Guid PlotId, string PlotName, decimal Kg);
 
-/// <summary>Granularidad temporal de la evolución de rendimiento (MVP-404).</summary>
-public enum YieldGranularity { Month, Week }
-
 /// <summary>
-/// Un punto de la serie de evolución de rendimiento (MVP-404, CA-2). <see cref="Yield"/> es el
-/// rendimiento medio del periodo en la unidad canónica L/100kg (RN-013), ponderado por kilos.
+/// Un punto de la serie de evolución de rendimiento (PRD-101): un día cosechado. <see cref="Yield"/> es
+/// el rendimiento del día en L/100kg (RN-013), ponderado por kilos si hubo varias cosechas.
 /// </summary>
-public sealed record YieldPoint(string Period, decimal Yield, decimal Kg);
+public sealed record YieldPoint(DateOnly Date, decimal Yield, decimal Kg);
 
 /// <summary>
-/// Ventana estacional del histórico (MVP-404): el tramo del calendario —mes y día— sobre el que se
-/// compara la campaña actual con años anteriores. <see cref="From"/> puede ser posterior a
-/// <see cref="To"/> en el número cuando la ventana cruza el fin de año (una recolección de invierno va
-/// de diciembre a enero).
-/// </summary>
-public sealed record YieldWindow(string From, string To);
-
-/// <summary>
-/// Comparativa histórica básica (MVP-404, RN-015).
-///
-/// No se agrupa por temporada: el histórico son <b>los mismos días de años anteriores</b> a los de las
-/// cosechas de la campaña actual, dentro de <see cref="Window"/>. Así una parcela se compara con lo que
-/// ella misma rindió en esas mismas fechas otros años, no con toda su producción ni con campañas
-/// completas.
-///
-/// Cada media es <c>null</c> mientras no haya «histórico suficiente»: <see cref="Average"/> aparece con
-/// un año previo con dato en la ventana; <see cref="Average5Years"/> y <see cref="Average10Years"/>,
+/// Referencia histórica (PRD-101, RN-015): rectas de regresión de los mismos días de años anteriores,
+/// sobre las mismas parcelas. Cada recta es <c>null</c> mientras no haya «histórico suficiente»:
+/// <see cref="General"/> con un año previo con dato; <see cref="Last5Years"/> y <see cref="Last10Years"/>,
 /// solo cuando el histórico llega al menos 5 y 10 años atrás.
 /// </summary>
 public sealed record YieldHistory(
-    decimal? Average,
-    decimal? Average5Years,
-    decimal? Average10Years,
-    int PriorYearsWithData,
-    YieldWindow? Window)
+    TrendLine? General,
+    TrendLine? Last5Years,
+    TrendLine? Last10Years,
+    int PriorYearsWithData)
 {
-    public static readonly YieldHistory Empty = new(null, null, null, 0, null);
+    public static readonly YieldHistory Empty = new(null, null, null, 0);
 }
 
-/// <summary>Evolución de rendimiento del ámbito y su comparativa histórica (MVP-404).</summary>
+/// <summary>Evolución de rendimiento del ámbito, su tendencia y su referencia histórica (PRD-101).</summary>
 public sealed record YieldEvolution(
     DashboardScope Scope,
-    YieldGranularity Granularity,
     IReadOnlyList<YieldPoint> Series,
+    TrendLine? Trend,
     YieldHistory History);
 
 /// <summary>
@@ -300,34 +281,28 @@ public sealed class DashboardQueryService(
         return (scope, totals, decimal.Round(rows.Sum(row => row.Kgs), 2, MidpointRounding.AwayFromZero));
     }
 
-    /// <summary>Días que se ensancha la ventana estacional por cada lado, para capturar más histórico.</summary>
-    private const int HistoryWindowPaddingDays = 7;
-
     /// <summary>
-    /// MVP-404 (CA-2) — Evolución de rendimiento del ámbito, con su comparativa histórica básica.
+    /// PRD-101 — Evolución de rendimiento del ámbito: serie diaria de la temporada, su recta de tendencia
+    /// y la referencia histórica de RN-015.
     ///
-    /// La <b>serie</b> es el rendimiento medio ponderado de la temporada del ámbito, agrupado por mes o
-    /// semana (RN-013). Solo aparecen los periodos con dato de aceite: un mes con cosechas pero sin
-    /// rendimiento no tiene punto que dibujar, y forzar un cero fingiría una caída que no ocurrió.
+    /// La <b>serie</b> tiene un punto por día cosechado: el rendimiento ponderado por kilos de las
+    /// cosechas de ese día (RN-013). Un día sin dato de aceite no es un punto, porque forzar un cero
+    /// fingiría una caída que no ocurrió. La <b>tendencia</b> exige dos fechas distintas.
     ///
-    /// El <b>histórico</b> (RN-015) compara la campaña actual con <b>los mismos días de años
-    /// anteriores</b>: la ventana la fijan las fechas de las cosechas de la temporada activa (ver
-    /// <see cref="BuildHistory"/>), no las temporadas. Así una parcela se compara con lo que ella misma
-    /// rindió en esas fechas otros años, y el histórico aparece <b>aunque la campaña actual aún no tenga
-    /// cosechas</b> —solo la referencia, sin línea— porque la ventana cae entonces sobre el calendario de
-    /// la propia campaña.
+    /// El <b>histórico</b> son rectas de regresión de los mismos días de años anteriores sobre las mismas
+    /// parcelas (ver <see cref="BuildHistory"/>) y aparece <b>aunque la campaña actual aún no tenga
+    /// cosechas</b>: es la referencia con la que decidir cuándo empezar.
     /// </summary>
     public async Task<YieldEvolution> GetYieldEvolutionAsync(
         Guid userId,
         Guid workspaceId,
         DashboardRequest request,
-        YieldGranularity granularity,
         CancellationToken ct = default)
     {
         var scope = await scopeResolver.ResolveAsync(userId, workspaceId, request, ct);
 
         if (!scope.IsResolvable || scope.Plots.Count == 0)
-            return new YieldEvolution(scope, granularity, [], YieldHistory.Empty);
+            return new YieldEvolution(scope, [], null, YieldHistory.Empty);
 
         // Una sola lectura: los mismos terrenos en **todas** las temporadas. La serie mira la temporada
         // activa; el histórico, las fechas de años anteriores. Ambos sobre el mismo conjunto de filas.
@@ -335,90 +310,74 @@ public sealed class DashboardQueryService(
         var allRows = await harvestRepository.ListAggregateRowsAsync(
             workspaceId, new HarvestAggregateFilter(null, plotIds), ct);
 
-        var currentRows = allRows.Where(row => row.SeasonId == scope.Season!.Id).ToList();
-
-        var series = currentRows
-            .GroupBy(row => PeriodKey(row.Date, granularity))
-            .Select(group => new { Period = group.Key, Yield = WeightedYield(group), Kg = group.Sum(r => r.Kgs) })
-            // Un periodo sin dato de aceite no es un punto de la serie de rendimiento.
+        var series = allRows
+            .Where(row => row.SeasonId == scope.Season!.Id)
+            .GroupBy(row => row.Date)
+            .Select(group => new { Date = group.Key, Yield = WeightedYield(group), Kg = group.Sum(r => r.Kgs) })
             .Where(point => point.Yield is not null)
-            .OrderBy(point => point.Period, StringComparer.Ordinal)
+            .OrderBy(point => point.Date)
             .Select(point => new YieldPoint(
-                point.Period, point.Yield!.Value, decimal.Round(point.Kg, 2, MidpointRounding.AwayFromZero)))
+                point.Date, point.Yield!.Value, decimal.Round(point.Kg, 2, MidpointRounding.AwayFromZero)))
             .ToList();
 
-        return new YieldEvolution(scope, granularity, series, BuildHistory(allRows, currentRows, scope.Season!));
+        var trend = YieldRegression.Fit(series.Select(point => (point.Date, point.Yield)).ToList());
+
+        return new YieldEvolution(scope, series, trend, BuildHistory(allRows, scope.Season!));
     }
 
     /// <summary>
-    /// RN-015 — Comparativa histórica sobre una <b>ventana estacional</b>, no sobre temporadas agrupadas.
+    /// RN-015 — Referencia histórica: rectas de regresión de los <b>mismos días de años anteriores</b>.
     ///
-    /// La ventana es el tramo de calendario en el que se recolecta la campaña actual: el rango de fechas
-    /// de sus cosechas —ensanchado una semana por lado (<see cref="HistoryWindowPaddingDays"/>) para
-    /// capturar más histórico—, o, si la campaña aún no tiene cosechas, el propio calendario de la
-    /// temporada. Cada cosecha anterior a la ventana se ancla al mismo tramo en su año: se le suman los
-    /// años que la llevan a caer dentro de la ventana. Una cosecha que no cae en ninguno —de otra época
-    /// del año— no es comparable y se descarta. Así el histórico son «los mismos días, en años
-    /// anteriores», y no toda la producción ni campañas completas.
+    /// La ventana es el calendario de la temporada actual (o un año desde su inicio si no tiene fin), no
+    /// el rango de sus cosechas: así el histórico cubre también las semanas aún sin cosechar, que es la
+    /// evolución esperada con la que decidir si adelantar o retrasar la recolección. Cada día cosechado
+    /// de una campaña anterior se traslada al año actual sumando los años que lo llevan a caer dentro de
+    /// la ventana; un día que no cae en ninguna —de otra época del año— no es comparable y se descarta.
+    /// Cada día de cada año es un punto (rendimiento ponderado por kilos si hubo varias cosechas) y
+    /// todos pesan igual en la recta.
     ///
-    /// «Histórico suficiente» (CA-2) se mide por hasta cuántos años atrás llega el dato: la media general
-    /// con un año previo con dato; la de 5 años solo si el histórico alcanza 5 años atrás, y la de 10 si
-    /// alcanza 10. Cada una promedia los años dentro de su ventana; si en ese tramo no hubo dato, queda
-    /// en <c>null</c> de forma natural.
+    /// «Histórico suficiente» (RN-015) se mide por hasta cuántos años atrás llega el dato: la recta
+    /// general con un año previo con dato; la de 5 años solo si el histórico alcanza 5 años atrás, y la
+    /// de 10 si alcanza 10. Cada una usa los años dentro de su tramo.
     /// </summary>
-    private static YieldHistory BuildHistory(
-        IReadOnlyList<HarvestAggregateRow> allRows,
-        IReadOnlyList<HarvestAggregateRow> currentRows,
-        Season current)
+    private static YieldHistory BuildHistory(IReadOnlyList<HarvestAggregateRow> allRows, Season current)
     {
-        DateOnly windowStart, windowEnd;
-        if (currentRows.Count > 0)
-        {
-            windowStart = currentRows.Min(row => row.Date).AddDays(-HistoryWindowPaddingDays);
-            windowEnd = currentRows.Max(row => row.Date).AddDays(HistoryWindowPaddingDays);
-        }
-        else
-        {
-            // Sin cosechas todavía, la ventana es el calendario de la campaña: es lo único que dice
-            // cuándo se recolecta. Si la temporada no tiene fin, se aproxima a un año desde el inicio.
-            windowStart = current.StartDate;
-            windowEnd = current.EndDate ?? current.StartDate.AddYears(1).AddDays(-1);
-        }
+        var windowStart = current.StartDate;
+        var windowEnd = current.EndDate ?? current.StartDate.AddYears(1).AddDays(-1);
 
-        var byYearsBack = new Dictionary<int, List<HarvestAggregateRow>>();
-        foreach (var row in allRows.Where(r => r.HasOilData && r.Date < windowStart))
+        var pointsByYearsBack = new Dictionary<int, List<(DateOnly Date, decimal Value)>>();
+        var comparable = allRows.Where(row =>
+            row.HasOilData && row.SeasonId != current.Id && row.Date < windowStart);
+
+        foreach (var day in comparable.GroupBy(row => row.Date))
         {
-            if (YearsBack(row.Date, windowStart, windowEnd) is { } years)
-            {
-                if (!byYearsBack.TryGetValue(years, out var list)) byYearsBack[years] = list = [];
-                list.Add(row);
-            }
+            if (YearsBack(day.Key, windowStart, windowEnd) is not { } years) continue;
+            if (WeightedYield(day) is not { } value) continue;
+
+            if (!pointsByYearsBack.TryGetValue(years, out var list)) pointsByYearsBack[years] = list = [];
+            list.Add((day.Key.AddYears(years), value));
         }
 
-        var window = new YieldWindow(windowStart.ToString("MM-dd"), windowEnd.ToString("MM-dd"));
+        if (pointsByYearsBack.Count == 0) return YieldHistory.Empty;
 
-        if (byYearsBack.Count == 0)
-            return new YieldHistory(null, null, null, 0, window);
-
-        var oldest = byYearsBack.Keys.Max();
-        IEnumerable<HarvestAggregateRow> WithinYears(int maxYears)
-            => byYearsBack.Where(entry => entry.Key <= maxYears).SelectMany(entry => entry.Value);
+        var oldest = pointsByYearsBack.Keys.Max();
+        TrendLine? FitWithin(int maxYears) => YieldRegression.Fit(
+            pointsByYearsBack.Where(entry => entry.Key <= maxYears).SelectMany(entry => entry.Value).ToList());
 
         return new YieldHistory(
-            WeightedYield(byYearsBack.SelectMany(entry => entry.Value)),
+            FitWithin(int.MaxValue),
             // «5 años» solo si el histórico alcanza al menos 5 años atrás: si no, sería un «5 años» que
-            // en realidad son 2, y engaña. Dentro de ese tramo, si no hubo dato, WeightedYield da null.
-            oldest >= 5 ? WeightedYield(WithinYears(5)) : null,
-            oldest >= 10 ? WeightedYield(WithinYears(10)) : null,
-            byYearsBack.Count,
-            window);
+            // en realidad son 2, y engaña.
+            oldest >= 5 ? FitWithin(5) : null,
+            oldest >= 10 ? FitWithin(10) : null,
+            pointsByYearsBack.Count);
     }
 
     /// <summary>
     /// Años que hay que sumar a <paramref name="date"/> para que caiga dentro de la ventana
     /// [<paramref name="windowStart"/>, <paramref name="windowEnd"/>], o <c>null</c> si no cae en
-    /// ninguno (una cosecha de otra época del año que no es comparable con la ventana actual). Como las
-    /// ventanas de años consecutivos no se solapan —duran a lo sumo unas semanas—, hay como mucho un año
+    /// ninguno (una cosecha de otra época del año que no es comparable con la ventana actual). Mientras
+    /// la ventana dure menos de un año, las de años consecutivos no se solapan y hay como mucho un año
     /// que la encaja.
     /// </summary>
     private static int? YearsBack(DateOnly date, DateOnly windowStart, DateOnly windowEnd)
@@ -432,15 +391,6 @@ public sealed class DashboardQueryService(
 
         return null;
     }
-
-    /// <summary>
-    /// Clave ordenable del periodo: <c>YYYY-MM</c> por mes, <c>YYYY-Www</c> por semana ISO. El formato
-    /// ordena cronológicamente como texto, así que la serie no necesita ordenar por fecha aparte.
-    /// </summary>
-    private static string PeriodKey(DateOnly date, YieldGranularity granularity)
-        => granularity == YieldGranularity.Week
-            ? $"{ISOWeek.GetYear(date.ToDateTime(TimeOnly.MinValue)):D4}-W{ISOWeek.GetWeekOfYear(date.ToDateTime(TimeOnly.MinValue)):D2}"
-            : $"{date.Year:D4}-{date.Month:D2}";
 
     /// <summary>
     /// Sin temporada resoluble no se consulta nada: un Workspace sin campaña no tiene resumen vacío,

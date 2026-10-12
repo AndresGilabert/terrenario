@@ -67,29 +67,39 @@ export interface DashboardKgByPlot {
   meta: { total_kg: number };
 }
 
+/** PRD-101 — Extremo de una recta de tendencia: fecha `YYYY-MM-DD` y rendimiento en L/100kg. */
+export interface TrendPoint {
+  date: string;
+  value: number;
+}
+
+/** PRD-101 — Recta de regresión entregada como sus dos extremos: el cliente solo la dibuja. */
+export interface TrendLine {
+  from: TrendPoint;
+  to: TrendPoint;
+}
+
 /**
- * Evolución de rendimiento (MVP-404, CA-2). La serie es el rendimiento del ámbito por periodo en la
- * unidad canónica L/100kg (RN-013); `history` es la comparativa histórica básica (RN-015).
+ * Evolución de rendimiento (PRD-101). `data` tiene un punto por día cosechado en la unidad canónica
+ * L/100kg (RN-013); `trend` es la recta de la temporada, `null` con menos de dos fechas distintas.
  *
- * El histórico son **los mismos días de años anteriores** a los de las cosechas de la campaña activa
- * (`window`), no campañas agrupadas: así la parcela se compara con lo que ella misma rindió en esas
- * fechas otros años. Aparece incluso sin cosechas todavía en la campaña actual (solo la referencia,
- * `data` vacío). Cada media es `null` mientras no haya histórico suficiente.
+ * `history` son las rectas de regresión de los mismos días de años anteriores (RN-015) y cubren todo
+ * el periodo histórico de cosecha, también las semanas aún sin cosechar. Aparecen incluso sin
+ * cosechas todavía en la campaña actual (`data` vacío). Cada recta es `null` mientras no haya
+ * histórico suficiente.
  */
 export interface DashboardYieldEvolution {
   scope: DashboardScope;
-  granularity: 'month' | 'week';
-  data: { period: string; yield_l_per_100kg: number; kg: number }[];
+  data: { date: string; yield_l_per_100kg: number; kg: number }[];
+  trend: TrendLine | null;
   history: {
-    /** Promedio histórico de la ventana desde el primer año previo con dato. `null` si no hay ninguno. */
-    average: number | null;
-    /** Media de los últimos 5 años en la ventana; `null` si el histórico no llega 5 años atrás. */
-    average_5_years: number | null;
-    /** Media de los últimos 10 años en la ventana; `null` si el histórico no llega 10 años atrás. */
-    average_10_years: number | null;
+    /** Recta de todo el histórico disponible, desde un año previo con dato. */
+    general: TrendLine | null;
+    /** Recta de los últimos 5 años; `null` si el histórico no llega 5 años atrás. */
+    last_5_years: TrendLine | null;
+    /** Recta de los últimos 10 años; `null` si el histórico no llega 10 años atrás. */
+    last_10_years: TrendLine | null;
     prior_years_with_data: number;
-    /** Tramo de calendario (`MM-DD`) sobre el que se compara. `null` si no hay ámbito resoluble. */
-    window: { from: string; to: string } | null;
   };
 }
 

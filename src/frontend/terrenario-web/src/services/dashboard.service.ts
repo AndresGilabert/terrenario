@@ -39,13 +39,10 @@ export function createDashboardService(http: HttpClient) {
       });
     },
 
-    /** Evolución de rendimiento en L/100kg por periodo, con la comparativa histórica básica (RN-015). */
-    async getYieldEvolution(
-      filters?: DashboardFilters,
-      granularity: 'month' | 'week' = 'month'
-    ): Promise<DashboardYieldEvolution> {
+    /** Evolución diaria de rendimiento en L/100kg con su tendencia y las rectas históricas (RN-015). */
+    async getYieldEvolution(filters?: DashboardFilters): Promise<DashboardYieldEvolution> {
       return http.request<DashboardYieldEvolution>('/api/v1/dashboard/yield-evolution', {
-        query: { season_id: filters?.seasonId, plot_ids: filters?.plotIds, granularity },
+        query: { season_id: filters?.seasonId, plot_ids: filters?.plotIds },
       });
     },
 

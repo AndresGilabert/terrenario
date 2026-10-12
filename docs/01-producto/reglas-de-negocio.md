@@ -1,7 +1,7 @@
 ﻿---
 bloque: 01-producto
 documento: reglas-de-negocio
-actualizado_en: "2026-08-10"
+actualizado_en: "2026-10-12"
 ---
 
 # Reglas de Negocio Globales
@@ -275,7 +275,7 @@ El sistema acepta para rendimiento:
 **Fuente**: producto
 **Módulos afectados**: dashboard
 
-Se muestra promedio historico desde el primer anio disponible. Promedios 5 anios y 10 anios solo se muestran cuando exista historico suficiente.
+Se muestra una recta de regresión del historico disponible desde el primer anio con dato. Las rectas de los ultimos 5 y 10 anios solo se muestran cuando exista historico suficiente. Las rectas se calculan sobre los mismos dias de anios anteriores y las mismas parcelas, y cubren todo el periodo historico de cosecha para mostrar la evolucion esperada (PRD-101).
 
 ---
 

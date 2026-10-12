@@ -1,7 +1,7 @@
 ﻿---
 bloque: 01-producto
 documento: user-journeys
-actualizado_en: "2026-06-30"
+actualizado_en: "2026-10-12"
 ---
 
 # User Journeys
@@ -25,7 +25,7 @@ actualizado_en: "2026-06-30"
 | 2 | Revisa resumen de temporada | Produccion total, litros de aceite, rendimiento medio, kg/arbol | 😊 | Puede aparecer aviso de dato incompleto |
 | 3 | Revisa kg por destino | Distribucion por venta de aceituna, aceite para venta, autoconsumo y desconocido (alias visual: Sin destino) | 😐 | Categoria desconocido requiere accion posterior de calidad de dato |
 | 4 | Revisa kg por terreno | Barras verticales ordenadas por kg descendente | 😊 | Scroll horizontal si hay muchos terrenos |
-| 5 | Revisa evolucion de rendimiento | Serie de temporada y promedio historico disponible | 😐 | Si no hay historico previo, mensaje contextual |
+| 5 | Revisa evolucion de rendimiento | Rendimiento diario de la temporada, su tendencia y las rectas historicas disponibles | 😐 | Si no hay historico previo, mensaje contextual |
 | 6 | Pulsa recarga manual si lo necesita | Datos actualizados manteniendo filtros activos | 😊 | Dependencia de calidad de conectividad |
 
 ### Oportunidades de mejora

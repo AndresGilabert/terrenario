@@ -95,7 +95,7 @@ const LANDING_FAQS: Record<string, LandingFaq[]> = {
   'control-cosechas': [
     { question: '¿Qué puedo registrar de una cosecha de aceituna?', answer: 'Cada cosecha incluye terreno, temporada, fecha, kilos y destino. También puedes informar el rendimiento de aceite o los litros obtenidos.' },
     { question: '¿Cómo expresa Terrenario el rendimiento de aceite?', answer: 'Terrenario guarda el rendimiento en litros de aceite por cada 100 kg de aceituna. Puedes introducir ese valor, informar kg de aceite por 100 kg o calcularlo desde los kilos entregados y los litros obtenidos.' },
-    { question: '¿Puedo comparar la cosecha con campañas anteriores?', answer: 'Sí. El dashboard muestra la evolución del rendimiento y el promedio histórico desde el primer año disponible; los promedios de 5 y 10 años aparecen cuando existe histórico suficiente.' },
+    { question: '¿Puedo comparar la cosecha con campañas anteriores?', answer: 'Sí. El dashboard muestra el rendimiento de cada día cosechado y lo compara con la tendencia de años anteriores desde el primer año disponible; las tendencias de 5 y 10 años aparecen cuando existe histórico suficiente.' },
   ],
   'compras-y-consumos': [
     { question: '¿Puedo registrar un consumo sin haber anotado antes la compra?', answer: 'Sí. El consumo queda registrado con coste 0 y un aviso; una compra posterior no recalcula ese coste histórico.' },
@@ -168,7 +168,7 @@ export const LANDING_CONTENTS: LandingContent[] = [
       {
         icon: 'event_note',
         title: 'Evolución entre campañas',
-        text: 'Revisa la evolución de la producción y el promedio histórico. Con el tiempo, generarás un histórico que te permitira comparativas de 5 y 10 años.',
+        text: 'Revisa la evolución de la producción y la tendencia histórica. Con el tiempo, generarás un histórico que te permitira comparativas de 5 y 10 años.',
       },
       {
         icon: 'event_note',
@@ -348,7 +348,7 @@ export const LANDING_CONTENTS: LandingContent[] = [
       {
         icon: 'event_note',
         title: 'Evolución entre campañas',
-        text: 'Revisa la evolución del rendimiento y el promedio histórico. Las referencias de 5 y 10 años solo aparecen cuando existe histórico suficiente.',
+        text: 'Revisa la evolución diaria del rendimiento y su tendencia histórica. Las referencias de 5 y 10 años solo aparecen cuando existe histórico suficiente.',
       },
     ],
     sections: [

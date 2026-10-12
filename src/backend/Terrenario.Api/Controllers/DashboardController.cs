@@ -128,49 +128,47 @@ public sealed class DashboardController(
     }
 
     /// <summary>
-    /// Evolución de rendimiento en L/100kg (RN-013) por mes o semana, con la comparativa histórica
-    /// básica de RN-015 —presente solo cuando hay histórico suficiente— (CA-2).
+    /// PRD-101 — Evolución diaria de rendimiento en L/100kg (RN-013) con su recta de tendencia y las
+    /// rectas históricas de RN-015, presentes solo cuando hay histórico suficiente.
     /// </summary>
     [HttpGet("yield-evolution")]
     public async Task<IActionResult> YieldEvolution(
         [FromQuery(Name = "season_id")] Guid? seasonId,
         [FromQuery(Name = "plot_ids")] Guid[]? plotIds,
-        [FromQuery] string? granularity,
         CancellationToken ct)
     {
-        // Solo `week` cambia el defecto: cualquier otro valor —o su ausencia— es el mes del prototipo.
-        var resolved = string.Equals(granularity, "week", StringComparison.OrdinalIgnoreCase)
-            ? YieldGranularity.Week
-            : YieldGranularity.Month;
-
         var evolution = await dashboardQueryService.GetYieldEvolutionAsync(
-            User.GetUserId()!.Value, workspaceContext.WorkspaceId, new DashboardRequest(seasonId, plotIds), resolved, ct);
+            User.GetUserId()!.Value, workspaceContext.WorkspaceId, new DashboardRequest(seasonId, plotIds), ct);
 
         return Ok(new
         {
             scope = ToScope(evolution.Scope),
-            granularity = evolution.Granularity == YieldGranularity.Week ? "week" : "month",
             data = evolution.Series.Select(point => new
             {
-                period = point.Period,
+                date = point.Date.ToString("yyyy-MM-dd"),
                 yield_l_per_100kg = point.Yield,
                 kg = point.Kg
             }),
-            // RN-015 — la comparativa histórica de la **ventana estacional**: `null` mientras no haya
-            // histórico suficiente, para que la UI no dibuje una referencia inventada. `window` es el
-            // tramo de calendario (MM-DD) sobre el que se compara, para que la pantalla lo explique.
+            trend = ToLine(evolution.Trend),
+            // RN-015 — cada recta es `null` mientras no haya histórico suficiente, para que la UI no
+            // dibuje una referencia inventada.
             history = new
             {
-                average = evolution.History.Average,
-                average_5_years = evolution.History.Average5Years,
-                average_10_years = evolution.History.Average10Years,
-                prior_years_with_data = evolution.History.PriorYearsWithData,
-                window = evolution.History.Window is null
-                    ? null
-                    : new { from = evolution.History.Window.From, to = evolution.History.Window.To }
+                general = ToLine(evolution.History.General),
+                last_5_years = ToLine(evolution.History.Last5Years),
+                last_10_years = ToLine(evolution.History.Last10Years),
+                prior_years_with_data = evolution.History.PriorYearsWithData
             }
         });
     }
+
+    private static object? ToLine(TrendLine? line) => line is null
+        ? null
+        : new
+        {
+            from = new { date = line.From.Date.ToString("yyyy-MM-dd"), value = line.From.Value },
+            to = new { date = line.To.Date.ToString("yyyy-MM-dd"), value = line.To.Value }
+        };
 
     /// <summary>
     /// P-021 — Producción agregada por temporada. La consume el maestro de temporadas (MVP-203), que

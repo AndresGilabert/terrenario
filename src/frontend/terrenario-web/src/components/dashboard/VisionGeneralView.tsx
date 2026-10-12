@@ -17,6 +17,8 @@ import type { Plot } from '../../types/plot.types';
 import { harvestDestinationLabel } from '../../types/harvest.types';
 import { useUsageTelemetry } from '../../lib/use-usage-telemetry';
 import { SEASON_SCOPE_DEFAULT, useSeasonScope } from '../../lib/season-scope';
+import { YieldEvolutionWidget } from './YieldEvolutionWidget';
+import { hasYieldHistory } from '../../lib/yield-evolution';
 import {
   DashboardWidget,
   UsageEvent,
@@ -30,16 +32,6 @@ const number = (value: number, decimals = 0) =>
 
 /** MVP-707 — Importes con los dos decimales del euro, como en la cabecera del diario. */
 const euros = (value: number) => number(value, 2);
-
-/** Etiqueta legible de un periodo `YYYY-MM` o `YYYY-Www` para el eje del gráfico de evolución. */
-function periodLabel(period: string): string {
-  const week = period.match(/^(\d{4})-W(\d{2})$/);
-  if (week) return `Sem. ${Number(week[2])}`;
-  const month = period.match(/^(\d{4})-(\d{2})$/);
-  if (!month) return period;
-  const date = new Date(Number(month[1]), Number(month[2]) - 1, 1);
-  return date.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' });
-}
 
 /**
  * MVP-706 — Resultado de **un** widget: sus datos o su error, nunca los dos.
@@ -93,7 +85,7 @@ function widgetOutcomes(data: DashboardData): DashboardWidgetOutcome[] {
     { widget: DashboardWidget.KgByPlot, status: state(data.plots, (p) => p.data.length > 0) },
     {
       widget: DashboardWidget.YieldEvolution,
-      status: state(data.evolution, (e) => e.data.length > 0 || e.history.average !== null),
+      status: state(data.evolution, (e) => e.data.length > 0 || hasYieldHistory(e.history)),
     },
     {
       // MVP-707 — Hay algo que enseñar en cuanto haya gasto o ingreso. Una campaña sin ninguno de los
@@ -102,16 +94,6 @@ function widgetOutcomes(data: DashboardData): DashboardWidgetOutcome[] {
       status: state(data.economics, (e) => e.expense > 0 || e.income !== null),
     },
   ];
-}
-
-/** Etiqueta legible de un extremo de la ventana estacional (`MM-DD`) → «13 dic». */
-function windowLabel(monthDay: string): string {
-  const parts = monthDay.match(/^(\d{2})-(\d{2})$/);
-  if (!parts) return monthDay;
-  return new Date(2000, Number(parts[1]) - 1, Number(parts[2])).toLocaleDateString('es-ES', {
-    day: 'numeric',
-    month: 'short',
-  });
 }
 
 /**
@@ -382,7 +364,7 @@ export const VisionGeneralView: React.FC = () => {
   // La evolución puede tener histórico de estas mismas fechas aunque la campaña actual aún no tenga
   // cosechas: en ese caso el resto de widgets están vacíos, pero el histórico sí interesa (petición
   // del PO), así que la pantalla no se queda del todo en blanco.
-  const hasHistoryOnly = !hasProduction && (evolution?.data?.history.average ?? null) !== null;
+  const hasHistoryOnly = !hasProduction && evolution?.data != null && hasYieldHistory(evolution.data.history);
 
   return (
     <div className="space-y-6 pb-12">
@@ -769,127 +751,6 @@ const KgByPlotWidget: React.FC<{ data: DashboardKgByPlot['data']; totalKg: numbe
           );
         })}
       </ul>
-    </div>
-  );
-};
-
-/**
- * Evolución de rendimiento (MVP-404, CA-2). Serie de la campaña activa en la unidad canónica L/100kg
- * (RN-013) y, cuando hay histórico suficiente, la comparativa de RN-015.
- *
- * El histórico son **los mismos días de años anteriores** a los de las cosechas de la campaña, no
- * campañas agrupadas: la media general se dibuja como línea de referencia y las de 5 y 10 años, como
- * chips. Como la comparativa no depende de que la campaña actual tenga ya cosechas, el widget también
- * muestra **solo el histórico** cuando aún no ha empezado la recolección (sin barras, sin línea
- * inventada): eso es información útil de cara a la campaña que empieza.
- */
-const YieldEvolutionWidget: React.FC<{ evolution: DashboardYieldEvolution }> = ({ evolution }) => {
-  const { data, history } = evolution;
-  const reference = history.average;
-  const hasSeries = data.length > 0;
-  const hasHistory = reference !== null;
-
-  const windowText =
-    history.window !== null
-      ? `${windowLabel(history.window.from)} – ${windowLabel(history.window.to)}`
-      : null;
-
-  // Ni serie ni histórico: no hay nada que enseñar todavía.
-  if (!hasSeries && !hasHistory) {
-    return (
-      <div className="bg-white p-6 rounded-2xl border border-[#e5e2dd] ambient-shadow space-y-2">
-        <h3 className="font-headline font-bold text-base text-[#1c1c19]">Evolución del rendimiento</h3>
-        <p className="text-sm text-[#76786b] italic">
-          Aún no hay rendimiento registrado, ni en esta temporada ni en años anteriores. Aparecerá aquí
-          cuando declares el aceite de alguna partida.
-        </p>
-      </div>
-    );
-  }
-
-  // Chips con las medias históricas disponibles (RN-015): general, últimos 5 y últimos 10 años.
-  const historyChips = [
-    { label: 'Media histórica', value: reference },
-    { label: 'Últimos 5 años', value: history.average_5_years },
-    { label: 'Últimos 10 años', value: history.average_10_years },
-  ].filter((chip): chip is { label: string; value: number } => chip.value !== null);
-
-  // Escala común para barras y línea de referencia, con margen para que la más alta no toque el techo.
-  const peak = Math.max(...data.map((p) => p.yield_l_per_100kg), reference ?? 0);
-  const ceiling = peak > 0 ? peak * 1.1 : 1;
-
-  return (
-    <div className="bg-white p-6 rounded-2xl border border-[#e5e2dd] ambient-shadow space-y-5">
-      <div>
-        <h3 className="font-headline font-bold text-base text-[#1c1c19]">Evolución del rendimiento</h3>
-        <p className="text-xs text-[#76786b]">
-          {hasSeries
-            ? 'Rendimiento medio por periodo, en litros por 100 kg.'
-            : 'Todavía no hay cosechas esta temporada: se muestra el histórico de estas mismas fechas.'}
-        </p>
-      </div>
-
-      {/* Gráfico de barras con la referencia histórica superpuesta (solo si hay serie que dibujar) */}
-      {hasSeries && (
-        <div className="relative h-44 flex items-end justify-between gap-3 pt-6 border-b border-[#e5e2dd] px-1">
-          {reference !== null && (
-            <div
-              className="absolute left-0 right-0 border-t-2 border-dashed border-[#4a5d23]/60 z-10"
-              style={{ bottom: `${(reference / ceiling) * 100}%` }}
-              title={`Media histórica: ${number(reference, 1)} L/100kg`}
-            />
-          )}
-          {data.map((point) => {
-            const height = ceiling > 0 ? (point.yield_l_per_100kg / ceiling) * 100 : 0;
-            return (
-              <div
-                key={point.period}
-                className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group min-w-0"
-              >
-                <span className="text-[10px] font-bold text-[#33450d]">
-                  {number(point.yield_l_per_100kg, 1)}
-                </span>
-                <div className="w-full max-w-[40px] flex items-end h-full">
-                  <div
-                    className="w-full bg-[#33450d] rounded-t-lg transition-all group-hover:bg-[#4a5d23]"
-                    style={{ height: `${height}%` }}
-                    title={`${periodLabel(point.period)}: ${number(point.yield_l_per_100kg, 1)} L/100kg sobre ${number(point.kg)} kg`}
-                  />
-                </div>
-                <span className="text-[10px] font-semibold text-[#76786b] truncate w-full text-center">
-                  {periodLabel(point.period)}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Medias históricas disponibles (RN-015) */}
-      {historyChips.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {historyChips.map((chip) => (
-            <span
-              key={chip.label}
-              className="text-[11px] font-semibold text-[#4a5d23] bg-[#eef2e0] border border-[#c9dba0] px-2.5 py-1 rounded-full"
-            >
-              {chip.label}: {number(chip.value, 1)} L/100kg
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* CA-2 — se explica sobre qué ventana y con cuánto histórico se compara */}
-      <p className="text-[11px] text-[#76786b] flex items-start gap-1.5">
-        <span className="material-symbols-outlined text-sm shrink-0" aria-hidden="true">info</span>
-        {hasHistory
-          ? `El histórico compara los mismos días de años anteriores${
-              windowText ? ` (${windowText})` : ''
-            }: ${history.prior_years_with_data} ${
-              history.prior_years_with_data === 1 ? 'año anterior' : 'años anteriores'
-            } con dato de rendimiento.`
-          : 'La comparativa histórica aparecerá cuando haya cosechas de estas mismas fechas en años anteriores.'}
-      </p>
     </div>
   );
 };

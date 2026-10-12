@@ -76,14 +76,19 @@ const economics = (income: number | null = 800, expense = 400): DashboardEconomi
 
 const evolution = (empty: boolean, history: number | null = null): DashboardYieldEvolution => ({
   scope,
-  granularity: 'month',
-  data: empty ? [] : [{ period: '2026-01', yield_l_per_100kg: 18, kg: 1200 }],
+  data: empty ? [] : [{ date: '2026-01-10', yield_l_per_100kg: 18, kg: 1200 }],
+  trend: null,
   history: {
-    average: history,
-    average_5_years: null,
-    average_10_years: null,
+    general:
+      history === null
+        ? null
+        : {
+            from: { date: '2026-01-01', value: history },
+            to: { date: '2026-02-01', value: history },
+          },
+    last_5_years: null,
+    last_10_years: null,
     prior_years_with_data: history === null ? 0 : 3,
-    window: null,
   },
 });
 

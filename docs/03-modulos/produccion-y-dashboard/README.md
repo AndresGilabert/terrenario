@@ -4,7 +4,7 @@ owner: "@andres"
 estado: activo
 version: "v0.6.0-hito-f"
 sla: "el del servicio (99.9%) — ver ../../05-infraestructura/observabilidad.md"
-actualizado_en: "2026-08-08"
+actualizado_en: "2026-10-12"
 ---
 
 # Módulo: Producción y dashboard
@@ -105,6 +105,7 @@ flowchart LR
 | [MVP-403](../../09-desarrollos/epicas/MVP-004--produccion-y-dashboard-mvp/MVP-403--dashboard-resumen-y-kg-por-destino/tech-design.md) · [MVP-404](../../09-desarrollos/epicas/MVP-004--produccion-y-dashboard-mvp/MVP-404--dashboard-kg-por-terreno-y-evolucion/tech-design.md) | Los cuatro widgets del panel |
 | [MVP-405](../../09-desarrollos/epicas/MVP-004--produccion-y-dashboard-mvp/MVP-405--filtros-persistencia-y-datos-incompletos/tech-design.md) | Filtros, persistencia y datos incompletos |
 | [MVP-706](../../09-desarrollos/epicas/MVP-007--ajustes-mvp-01/MVP-706--comportamiento-de-la-vision-general/tech-design.md) | Comportamiento de la Visión General |
+| [PRD-101](../../09-desarrollos/epicas/PRD-100--dashboard-listo-para-la-promocion/PRD-101--evolucion-diaria-del-rendimiento/tech-design.md) | Evolución diaria del rendimiento con regresiones; sustituye al widget de MVP-404 |
 | [MVP-707](../../09-desarrollos/epicas/MVP-007--ajustes-mvp-01/MVP-707--valor-economico-de-la-campana/tech-design.md) | Valor económico de la campaña |
 | [ADR-0006](../../02-arquitectura/decisiones/ADR-0006--contratos-rest-v1-y-reglas-cosecha-mvp.md) | Contratos REST v1 y reglas de cosecha |
 | [Reglas de cálculo de KPIs](../../02-arquitectura/vision-general.md) · [KPIs de producto](../../01-producto/kpis.md) | Fórmulas y métricas, mantenidas de forma central |

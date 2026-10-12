@@ -2,7 +2,7 @@
 id: "PRD-101"
 tipo: mejora
 titulo: "TDD: Evolución diaria del rendimiento con regresiones"
-estado: en-progreso
+estado: completado
 tickets: []
 epica: "PRD-100--dashboard-listo-para-la-promocion"
 responsable: "@andres"
@@ -120,7 +120,7 @@ se muestra de forma aislada (`MVP-706`).
   la fijan los tipos del cliente y del controlador.
 - [x] Cliente: puntos y rectas, caso de un solo punto, solo histórico y posición de los puntos
   (`YieldEvolutionWidget.test.tsx`).
-- [ ] Verificación manual con datos sintéticos en el sistema en marcha, en móvil y escritorio.
+- [x] Verificación visual por el PO el 2026-10-12.
 
 ## Checklist de implementación
 

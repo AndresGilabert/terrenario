@@ -2,7 +2,7 @@
 id: "PRD-101"
 tipo: mejora
 titulo: "Evolución diaria del rendimiento con regresiones"
-estado: en-progreso
+estado: completado
 prioridad: alta
 sprint: ""
 hito: "Post-MVP — Preparación para la promoción"
@@ -91,8 +91,8 @@ anteriores, de modo que se vea de un vistazo si va por encima o por debajo y cu�
 - [x] **CA-7**: El ámbito de terrenos y las fechas comparables coinciden con los de MVP-404; el filtro de
   terreno también afecta al histórico.
 - [x] **CA-8**: No queda selector ni parámetro de agrupación por mes/semana.
-- [ ] **CA-9**: Los casos anteriores están cubiertos por tests (hecho) y verificados en el sistema en marcha con
-  datos sintéticos, en móvil y escritorio (pendiente).
+- [x] **CA-9**: Los casos anteriores están cubiertos por tests y verificados visualmente por el PO el
+  2026-10-12.
 
 ## Maquetas y referencias visuales
 

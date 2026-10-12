@@ -13,12 +13,19 @@ const dayLabel = (timestamp: number) =>
 const DAY_MS = 86_400_000;
 
 const SEASON_COLOR = '#33450d';
-const HISTORY_COLORS = { general: '#4a5d23', last_5_years: '#c2791c', last_10_years: '#7a4fa3' } as const;
+// Colores de la paleta de la aplicación (el lima es el de «aceite personal» en kg por destino). Las
+// rectas históricas van más finas y claras que la temporada en curso, que es lo importante.
+const HISTORY_STYLES = {
+  general: { color: '#c9f16f', width: 3 },
+  last_5_years: { color: '#8a5a00', width: 1.5 },
+  last_10_years: { color: '#76786b', width: 1.5 },
+} as const;
 
 interface Reference {
-  key: keyof typeof HISTORY_COLORS;
+  key: keyof typeof HISTORY_STYLES;
   label: string;
   color: string;
+  width: number;
   line: TrendLine;
 }
 
@@ -43,7 +50,7 @@ export const YieldEvolutionWidget: React.FC<{ evolution: DashboardYieldEvolution
     ] as const
   )
     .filter((reference): reference is typeof reference & { line: TrendLine } => reference.line !== null)
-    .map((reference) => ({ ...reference, color: HISTORY_COLORS[reference.key] }));
+    .map((reference) => ({ ...reference, ...HISTORY_STYLES[reference.key] }));
 
   // Ni serie ni rectas: no hay nada que enseñar todavía.
   if (!hasSeries && references.length === 0) {
@@ -126,7 +133,7 @@ export const YieldEvolutionWidget: React.FC<{ evolution: DashboardYieldEvolution
                   key={reference.key}
                   {...segment(reference.line)}
                   stroke={reference.color}
-                  strokeWidth={2}
+                  strokeWidth={reference.width}
                   strokeDasharray="6 4"
                   data-testid={`line-${reference.key}`}
                   {...lineProps}
@@ -189,7 +196,11 @@ export const YieldEvolutionWidget: React.FC<{ evolution: DashboardYieldEvolution
         )}
         {references.map((reference) => (
           <li key={reference.key} className="flex items-center gap-1.5">
-            <span className="w-4 border-t-2 border-dashed" style={{ borderColor: reference.color }} aria-hidden="true" />
+            <span
+              className="w-4 border-t-2 border-dashed"
+              style={{ borderColor: reference.color, borderTopWidth: reference.width }}
+              aria-hidden="true"
+            />
             {reference.label}
           </li>
         ))}
